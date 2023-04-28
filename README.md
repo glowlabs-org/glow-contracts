@@ -24,7 +24,7 @@ When user retires GCC they will earn Karma.
 
 
 
-We fork openzeppelin's ```ERC20``` into ```src/GCCERC20`` and add a few mappings and custom functions.
+We fork openzeppelin's ```ERC20``` into ```src/GCCERC20``` and add a few mappings and custom functions.
 
 Our main token lies in ```src/Token.sol```
 
