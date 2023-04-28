@@ -1,42 +1,14 @@
-# <h1 align="center"> Hardhat x Foundry Template </h1>
+## Glow Contracts
 
-**Template repository for getting started quickly with Hardhat and Foundry in one project**
+We started on the implementation of a simple ERC20
+which mocked GCC.
 
-![Github Actions](https://github.com/devanonon/hardhat-foundry-template/workflows/test/badge.svg)
+We fork ERC20 and add a few mappings and custom functions.
 
-### Getting Started
+The first is, we track people's nominations. 
 
- * Use Foundry: 
-```bash
-forge install
-forge test
-```
+The second is we track Karma.
 
- * Use Hardhat:
-```bash
-npm install
-npx hardhat test
-```
+A user's transferrable balacne should be  ```(TOTAL BALANCE - KARMA)```
 
-### Features
-
- * Write / run tests with either Hardhat or Foundry:
-```bash
-forge test
-# or
-npx hardhat test
-```
-
- * Use Hardhat's task framework
-```bash
-npx hardhat example
-```
-
- * Install libraries with Foundry which work with Hardhat.
-```bash
-forge install rari-capital/solmate # Already in this repo, just an example
-```
-
-### Notes
-
-Whenever you install new libraries using Foundry, make sure to update your `remappings.txt` file by running `forge remappings > remappings.txt`. This is required because we use `hardhat-preprocessor` and the `remappings.txt` file to allow Hardhat to resolve libraries you install with Foundry.
+Note: When a user retires GCC, it may be better to burn it to deduct balance, karma can then just represent number burned.
