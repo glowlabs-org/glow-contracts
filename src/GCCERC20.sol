@@ -411,17 +411,29 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         _nominations[from] = availableNominations - numToSpend;
     }
 
-    function _grantNominations(address from, uint256 amount) internal {
+
+    function _grantNominations(address from, uint256 amount) private {
         uint256 currentNominations = _getNominations(from);
         _nominations[from] = currentNominations + amount;
         _lastUpdatedNominationDecayTimestamp[from] = block.timestamp;
     }
 
-    function _incrementKarmaBalance(address to, uint256 amount) internal virtual {
+    function _incrementKarmaBalance(address to, uint256 amount) private  {
         uint256 karmaBalance = _karmaBalance[to];
         uint256 balance = _balances[to];
         uint256 transferrableBalance = balance - karmaBalance;
         if (amount > transferrableBalance) revert NotEnoughTransferrableBalance();
         _karmaBalance[to] = karmaBalance + amount;
     }
+
+    
+
+    //Shouldn't be able to retire more than transferrable balance
+    //since incrementKarmaBalanace has a transferrable balance check.
+    function _retireToken(uint amountToRetire) internal {
+        _grantNominations(msg.sender, amountToRetire);
+        _incrementKarmaBalance(msg.sender, amountToRetire);
+    }
+
+
 }
