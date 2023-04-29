@@ -404,7 +404,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
     }
 
     function _useNomination(address from, uint256 numToSpend) internal virtual {
-        // if(!_approvedNominationSpenders[msg.sender]) revert NotApprovedNominationSpender();
+        //This is where we factor in time decay
         uint256 availableNominations = _getNominations(from);
         if (numToSpend > availableNominations) revert NotEnoughNominations();
         //SSTORE

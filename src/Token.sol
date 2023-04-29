@@ -6,6 +6,7 @@ import {ERC20} from "./GCCERC20.sol";
 error NotApprovedNominationSpender();
 
 contract Token is ERC20("GCC", "GCC") {
+    //If there's only one spender than we can make it constant or immutable rather than reading from the mapping
     mapping(address => bool) private _approvedNominationSpenders;
     mapping(address => uint256) public nominatedBalance;
 
