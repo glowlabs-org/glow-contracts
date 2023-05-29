@@ -51,6 +51,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
     mapping(address => uint256) private _nominations;
     mapping(address => uint256) private _lastUpdatedNominationDecayTimestamp;
     mapping(address => uint256) private _karmaBalance;
+    mapping(address => uint256) private _lockedBalances;
 
     uint256 private _totalSupply;
 
@@ -239,8 +240,8 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
 
         //! MOST IMPORTANT LINE IN THE WHOLE CONTRACT
         uint256 fromBalance = _balances[from];
-        uint karma = _karmaBalance[from];
-        uint totalTransferrableAmount = fromBalance - karma;
+        uint256 lockedBalance = _lockedBalances[from];
+        uint256 totalTransferrableAmount = fromBalance - lockedBalance;
         require(totalTransferrableAmount >= amount, "ERC20: transfer amount exceeds balance");
         unchecked {
             _balances[from] = fromBalance - amount;
@@ -411,29 +412,37 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         _nominations[from] = availableNominations - numToSpend;
     }
 
-
     function _grantNominations(address from, uint256 amount) private {
         uint256 currentNominations = _getNominations(from);
         _nominations[from] = currentNominations + amount;
         _lastUpdatedNominationDecayTimestamp[from] = block.timestamp;
     }
 
-    function _incrementKarmaBalance(address to, uint256 amount) private  {
+    function _incrementKarmaBalance(address to, uint256 amount) private {
         uint256 karmaBalance = _karmaBalance[to];
-        uint256 balance = _balances[to];
-        uint256 transferrableBalance = balance - karmaBalance;
-        if (amount > transferrableBalance) revert NotEnoughTransferrableBalance();
         _karmaBalance[to] = karmaBalance + amount;
     }
 
-    
-
-    //Shouldn't be able to retire more than transferrable balance
-    //since incrementKarmaBalanace has a transferrable balance check.
-    function _retireToken(uint amountToRetire) internal {
+    /// @dev Shouldn't be able to retire more than transferrable balance
+    /// @dev since incrementKarmaBalanace has a transferrable balance check.
+    /// @dev will also grant nominations to the GLW nomination pool
+    function _retireToken(uint256 amountToRetire) internal {
+        _lock(msg.sender, amountToRetire);
         _grantNominations(msg.sender, amountToRetire);
         _incrementKarmaBalance(msg.sender, amountToRetire);
     }
 
+    function _lock(address account, uint256 amount) internal {
+        uint256 balance = _balances[account];
+        uint256 lockedBalance = _lockedBalances[account];
+        uint256 transferrableBalance = balance - lockedBalance;
+        if (amount > transferrableBalance) revert NotEnoughTransferrableBalance();
+        _lockedBalances[account] = amount + lockedBalance;
+    }
+    /// @dev Shouldn't be able to peg out more than transferrable balance
 
+    function _sendToPegOutContract(uint256 amount) internal {
+        _grantNominations(msg.sender, amount);
+        _lock(msg.sender, amount);
+    }
 }
