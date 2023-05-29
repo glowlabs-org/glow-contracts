@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-
 contract GlowGovernance {
     mapping(address => uint256) private _nominationBalances;
 
@@ -108,7 +107,7 @@ contract GlowGovernance {
     function selectProposalForReview() external {}
 
     /// @notice the entry point for veto council members to vote on a proposal
-    /// @dev this function must only be called by veto council members
+    /// @dev this function must only be called by veto council members, this is fetched from veto council contract
     /// @dev the default is abstain and council members will automatically abstain if they don't take on-chain action
     /// @dev Exception: veto council members can't vote on veto slashing
     /// @param proposalId - the id of the proposal the council member is voting on.
@@ -131,5 +130,5 @@ contract GlowGovernance {
     /// @dev only callable by GCC contract to grant an account nominations when they retire GCC
     /// @param account - the account to grant nominations to
     /// @param amount - the amount of nominations to grant
-    function grantNominations(address account,uint amount) external {}
+    function grantNominations(address account, uint256 amount) external {}
 }

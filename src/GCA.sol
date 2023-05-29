@@ -78,12 +78,12 @@ contract GCA {
         emit ReportIssued(msg.sender, farmId, amount);
     }
 
-    function getReport(uint256 timestamp)
+    function getReport(uint256 reportId)
         external
         view
         returns (address agent, bytes32 farmId, uint256 amount, uint256 timestamp_)
     {
-        Report memory report = reports[timestamp];
+        Report memory report = reports[reportId];
         return (report.agent, report.farmId, report.amount, report.timestamp);
     }
 
