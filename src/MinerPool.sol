@@ -40,14 +40,15 @@ contract MinerPool {
     function _claimGLWFromInflation() internal {}
 
     /// @dev only callable by the GCA contract
-    function updateMinerAmountMined(uint256 amountMined) external {}
+    function incrementMinerAmountMined(uint256 amountMinedSinceLastUpdate) external {}
 
     /// @dev only callable by the Governance contract.
     /// @dev it will create a fair auction between the old and new GCA tokens
+    /// @dev TODO: What should happen while the auction is running?
     function createGRCAuction(address oldGCAToken, address newGCAToken) external {}
 
     /// @dev should return the total amount of GRC in the GLW GRC Pool
-    function _totalGRCInGLWPool() public view returns (uint256) {
+    function totalGRCInGLWPool() public view returns (uint256) {
         return 0;
     }
     /// @dev should return the total amount of GRC in the GRC GRC Pool

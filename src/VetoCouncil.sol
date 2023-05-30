@@ -2,12 +2,6 @@
 pragma solidity ^0.8.13;
 
 contract VetoCouncil {
-    /*
-    – Replace existing seat(s) with new council member(s).
-    – Remove a veto council member(s).
-    – An occupied seat can’t be replaced with an empty seat if the total number of seats is
-    3 or fewer.
-    – Veto council elections bypass t*/
     /// @dev should only be called by the governance contract
     /// @dev must always maintain at least 3 council members
     /// @dev at max 7 council members
@@ -19,5 +13,16 @@ contract VetoCouncil {
     /// @return true if the account is a council member
     function isCouncilMember(address account) public view returns (bool) {
         return true;
+    }
+
+    /// @notice will payout the council member their respective amount
+    /// @param account the address of the council member
+    function payoutCouncilMember(address account) external {}
+
+    /// @notice should return the next reward for the council member
+    /// @param account the address of the council member
+    /// @return the next reward for the council member
+    function nextReward(address account) public view returns (uint256) {
+        return 0;
     }
 }

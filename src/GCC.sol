@@ -11,11 +11,13 @@ contract GCC is ERC20("GCC", "GCC") {
     mapping(address => uint256) public nominatedBalance;
 
     constructor(address[] memory approvedSpenders) {
-        _mint(msg.sender, 5000 * 1e18);
-        for (uint256 i; i < approvedSpenders.length;) {
-            _approvedNominationSpenders[approvedSpenders[i]] = true;
-            unchecked {
-                ++i;
+        if (block.chainid != 1) {
+            _mint(msg.sender, 5000 * 1e18);
+            for (uint256 i; i < approvedSpenders.length;) {
+                _approvedNominationSpenders[approvedSpenders[i]] = true;
+                unchecked {
+                    ++i;
+                }
             }
         }
     }

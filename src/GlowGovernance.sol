@@ -13,8 +13,12 @@ contract GlowGovernance {
 
     enum VetoCouncilDecision {
         ABSTAIN,
-        VETO,
-        APPROVE
+        VETO
+    }
+
+    enum RatifyOrRejectVote {
+        REJECT,
+        RATIFY
     }
 
     struct Proposal {
@@ -27,7 +31,7 @@ contract GlowGovernance {
     /// @param proposer the address of the proposer
     /// @param oldCouncilMembers the old council members that are to be slashed
     /// @param newCouncilMembers the new council members that are to be elected
-    event VetoCouncilElectionOrSlash(
+    event VetoCouncilElectionOrSlashCreation(
         uint256 indexed proposalId, address indexed proposer, address[] oldCouncilMembers, address[] newCouncilMembers
     );
 
@@ -36,7 +40,7 @@ contract GlowGovernance {
     /// @param proposer the address of the proposer
     /// @param oldCouncilMembers the old council members that are to be slashed
     /// @param newCouncilMembers the new council members that are to be elected
-    event GCACouncilElectionOrSlash(
+    event GCACouncilElectionOrSlashCreation(
         uint256 indexed proposalId, address indexed proposer, address[] oldCouncilMembers, address[] newCouncilMembers
     );
 
@@ -44,7 +48,7 @@ contract GlowGovernance {
     /// @param proposalId the id of the proposal
     /// @param proposer the address of the proposer
     /// @param oldReserveCurrency the old reserve currency
-    event SelectNewReserveCurrency(
+    event SelectNewReserveCurrencyCreation(
         uint256 indexed proposalId, address indexed proposer, address oldReserveCurrency, address newReserveCurrency
     );
 
@@ -52,7 +56,9 @@ contract GlowGovernance {
     /// @param proposalId the id of the proposal
     /// @param proposer the address of the proposer
     /// @param recipients the addresses of the recipients
-    event GrantsProposal(uint256 indexed proposalId, address indexed proposer, address[] recipients, uint256[] amounts);
+    event GrantsProposalCreation(
+        uint256 indexed proposalId, address indexed proposer, address[] recipients, uint256[] amounts
+    );
 
     /// @param account the account to check
     /// @return the number of nominations for an account
@@ -60,8 +66,8 @@ contract GlowGovernance {
         return _nominationBalances[account];
     }
 
-    /// @dev should return the total number of active nominations
-    function numActiveNominations() public view returns (uint256) {
+    /// @dev should return the total number of active proposals
+    function numActiveProposals() public view returns (uint256) {
         return 0;
     }
 
@@ -94,6 +100,9 @@ contract GlowGovernance {
     /// @dev should return the current active proposal with the most nominations
     function mostPopularProposal() external view returns (ProposalType, bytes memory) {}
 
+    /// @dev should return the most popular proposal in a given epoch
+    function mostPopularProposal(uint256 epoch) external view returns (ProposalType, bytes memory) {}
+
     /// @dev should return the proposalId of the last valid proposal
     /// @dev proposals have a 4 month TTL
     function lastValidProposalId() external view returns (uint256) {}
@@ -101,10 +110,10 @@ contract GlowGovernance {
     /// @dev should return block.timestamp - 4 months
     function _lastValidProposalStartTimestamp() internal pure returns (uint256) {}
 
-    /// @dev should select a proposal for review
-    /// @dev can only be called maximum once every 2 weeks.
-    /// @dev anyone can call this function
-    function selectProposalForReview() external {}
+    // /// @dev should select a proposal for review
+    // /// @dev can only be called maximum once every 2 weeks.
+    // /// @dev anyone can call this function
+    // function selectProposalForReview() external {}
 
     /// @notice the entry point for veto council members to vote on a proposal
     /// @dev this function must only be called by veto council members, this is fetched from veto council contract
@@ -116,11 +125,11 @@ contract GlowGovernance {
 
     /// @notice long staked GLW holders will be able to cast ratify or reject votes on proposals
     /// @param proposalId the id of the proposal to vote on.
-    /// @param ratifyOrReject - select true if user wishes to ratify and false if reject
+    /// @param decision - select true if user wishes to ratify and false if reject
     /// @param numVotes - the number of ratify or reject votes.
     /// @dev Exception: Long Staked GLW Holders can't vote on Grants Proposals
     /// TODO: What happens when a holder unstakes
-    function ratifyOrReject(uint256 proposalId, bool ratifyOrReject, uint256 numVotes) external {}
+    function ratifyOrReject(uint256 proposalId, RatifyOrRejectVote decision, uint256 numVotes) external {}
 
     /// @notice execute's a proposal on-chain
     /// @dev should correctly check against all rules and make proper cross-chain calls
@@ -131,4 +140,8 @@ contract GlowGovernance {
     /// @param account - the account to grant nominations to
     /// @param amount - the amount of nominations to grant
     function grantNominations(address account, uint256 amount) external {}
+
+    /// @dev returns how many nominations a user has
+    /// @dev nominations decay with a half life of 12 months and have 18 decimals
+    function nominationsOf(address account) public view returns (uint256) {}
 }

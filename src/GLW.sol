@@ -63,11 +63,19 @@ contract GLW is ERC20 {
         return 0;
     }
 
-    /// @dev this function will return the total nominations of an account
-    /// @dev it decays with a half life of 12 months
-    function nominationsOf(address account) public view returns (uint256) {
+    /// @dev this function will return the total amount of GLW staked
+    /// @dev it's used to calculate the total amount of nominations to disperse to stakers
+    function totalLongStakedGlow() public view returns (uint256) {
         return 0;
     }
+
+    /// @dev this function will claim the nominations for the user based on their long staked GLW
+    function claimNominations() external {}
+    // /// @dev this function will return the total nominations of an account
+    // /// @dev it decays with a half life of 12 months
+    // function nominationsOf(address account) public view returns (uint256) {
+    //     return 0;
+    // }
 
     /// @dev helper that will adjust the amount of nominations on the half life of 12 months
     function _adjustWithHalfLife(uint256 amount, uint256 lastUpdatedTimestamp) internal pure returns (uint256) {
