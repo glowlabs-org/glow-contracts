@@ -36,8 +36,7 @@ contract GlowCarbonCreditAuction {
 
     function placeBid(uint256 bidAmount, uint256 position, uint256 maxPrice) public {
         require(bidAmount > linkedList.minBid, "Bid is too low");
-        require(GLW.balanceOf(msg.sender) >= bidAmount, "Insufficient GLW balance");
-        require(GLW.allowance(msg.sender, address(this)) >= bidAmount, "Not enough GLW allowance");
+
 
         // Transfer GLW from bidder to the contract
         GLW.transferFrom(msg.sender, address(this), bidAmount);
