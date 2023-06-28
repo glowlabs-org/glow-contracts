@@ -84,6 +84,8 @@ contract MatrixPayout {
             _p2 = _p2 | (newShare << (16*i));
         }
         uint dust = sharesSupposedToHave -  totalSharesFromP1andP2(_p1, _p2);
+
+        //TODO: Give the dust to someone who will actually be able to use it.
         uint valAtP00 = (_p1) & (UINT16_MASK);
         valAtP00 = valAtP00 + dust;
         _p1 = _p1 & ~(UINT16_MASK);
