@@ -3,6 +3,12 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import "forge-std/console.sol";
 
+struct GcaRewardTracker {
+    uint64 lastUpdateTimestamp;
+    // uint64 maxClaimTimestamp;
+    uint192 slasheableBalance;
+}
+
 contract MatrixPayout {
     
     //5x5 matrix array
@@ -10,7 +16,6 @@ contract MatrixPayout {
     
     uint256 private _packedUint1;
     uint256 private _packedUint2;
-    uint public lastRewardTimestamp;
     uint256 private constant UINT16_MASK = (1<<16)-1;
     uint256 private constant GCA_ZERO_MASK_ONE = ~((1<< 6*16) -1 | ((UINT16_MASK) << 5*16) | ((UINT16_MASK) << 10*16));
     uint256 private constant GCA_ZERO_MASK_TWO = ~((UINT16_MASK | ((UINT16_MASK) << 5*16)));
@@ -18,10 +23,15 @@ contract MatrixPayout {
     uint256 private constant GCA_ONE_MASK_ONE = ~((((1<<5*16) -1) << 5) | (UINT16_MASK << 1) | ((UINT16_MASK) << 10));
     uint256 private constant GCA_ONE_MASK_TWO = ~((UINT16_MASK) << 1 | ((UINT16_MASK) << 5));
 
+    //TODO: Add the rest of the masks, this is only a POC.
     uint256 private constant rewardsPerSecond = 1 ether;
-    mapping(address => uint) public balance;//mock GLW
+    uint256 private constant WEEKLY_PAYOUT_PERCENT_NUMERATOR = 100; //base 10,000
+    uint256 private constant VESTING_PERIOD_LENGTH = 365 days;
+    mapping(address => uint) public realizedPayout;//mock GLW
+    mapping(address => GcaRewardTracker) private gcaRewardTracker;
 
-    uint256 private constant SHARE_PER_GCA = 50_000;
+
+    uint256 private constant SHARE_ENTRY_PER_PLAN = 50_000;
 
     constructor() {
         gcas[0] = address(0x1);
@@ -29,23 +39,45 @@ contract MatrixPayout {
         gcas[2] = address(0x3);
         gcas[3] = address(0x4);
         gcas[4] = address(0x5);
+        gcaRewardTracker[address(0x1)] = GcaRewardTracker(uint64(block.timestamp),0);
+        gcaRewardTracker[address(0x2)] = GcaRewardTracker(uint64(block.timestamp),0);
+        gcaRewardTracker[address(0x3)] = GcaRewardTracker(uint64(block.timestamp),0);
+        gcaRewardTracker[address(0x4)] = GcaRewardTracker(uint64(block.timestamp),0);
+        gcaRewardTracker[address(0x5)] = GcaRewardTracker(uint64(block.timestamp),0);
         testSetToEqual();
-        lastRewardTimestamp = block.timestamp;
+       
     }
 
+    function _max(uint64 a, uint64 b) internal pure returns(uint) {
+        if(a>b) return a;
+        return b;
+    }
+    function _min(uint64 a, uint64 b) internal pure returns(uint) {
+        if(a<b) return a;
+        return b;
+    }
     function claimForAll() public {
-        uint totalRewardToGiveout = rewardsPerSecond * (block.timestamp - lastRewardTimestamp);
         uint256[5][5] memory matrix = getPayoutMatrix();
         uint _totalShares = totalShares();
+        uint _rwp = rewardsPerSecond;
         for(uint i; i<5;++i) {
+            GcaRewardTracker memory tracker = gcaRewardTracker[gcas[i]];
+            uint timeElapsed = block.timestamp - tracker.lastUpdateTimestamp;
+            uint totalRewardToGiveout = _rwp * timeElapsed;
             address _gca = gcas[i];
             if(_gca == address(0)) continue;
             uint shares = _findTotalSharesOfGCA(i, matrix);
-            uint reward = totalRewardToGiveout * shares / _totalShares;
-            balance[_gca] += reward;
+            uint totalRewardForGCA = totalRewardToGiveout * shares / _totalShares;
+            uint rewardToGive = totalRewardForGCA * timeElapsed / VESTING_PERIOD_LENGTH;
+            uint slashableAmount = totalRewardForGCA - rewardToGive; 
+            realizedPayout[_gca] += rewardToGive;
+            tracker.lastUpdateTimestamp = uint64(block.timestamp);
+            tracker.slasheableBalance += uint192(slashableAmount);
+            gcaRewardTracker[_gca] = tracker;
         }
 
-        lastRewardTimestamp = block.timestamp;
+
+
 
     }
     
@@ -62,7 +94,7 @@ contract MatrixPayout {
         uint sharesBefore = totalSharesFromP1andP2(_p1,_p2);
         _p1 = _p1 & GCA_ZERO_MASK_ONE;
         _p2 = _p2 & GCA_ZERO_MASK_TWO;
-        uint sharesSupposedToHave = (numActiveGCAs() - 1) * SHARE_PER_GCA;
+        uint sharesSupposedToHave = (numActiveGCAs() - 1) * SHARE_ENTRY_PER_PLAN;
         gcas[0] = address(0);
         console.log("sumOfZeroShares = %s", sumOfZeroShares);
         uint sharesAfter = sharesBefore - sumOfZeroShares;
@@ -102,7 +134,7 @@ contract MatrixPayout {
 
         uint _packedOne;
         for(uint i; i<totalSlotsInUint1;++i) {
-            _packedOne |= (SHARE_PER_GCA/5 << (sizeOfSlot*i));
+            _packedOne |= (SHARE_ENTRY_PER_PLAN/5 << (sizeOfSlot*i));
 
         /*
             [2000,2000,2000,2000,2000]
@@ -114,7 +146,7 @@ contract MatrixPayout {
         uint _packedTwo;
         for(uint i; i<totalSlotsInsideUint2;++i) {
             if(i == 4 || i ==9) continue;
-            _packedTwo |= (SHARE_PER_GCA/4 << (sizeOfSlot*i));
+            _packedTwo |= (SHARE_ENTRY_PER_PLAN/4 << (sizeOfSlot*i));
             /*
             [2500,2500,2500,2500,0]
             [2500,2500,2500,2500,0]
@@ -248,10 +280,27 @@ contract MatrixPayout {
         return address(_uint);
     }
 
-    function getAllCurrentBalances() public view returns(uint[5] memory balances) {
+    function getAllRealizedPayouts() public view returns(uint[5] memory balances) {
         for(uint i; i<5;++i) {
-            balances[i] = balance[gcas[i]];
+            balances[i] = realizedPayout[gcas[i]];
         }
+    }
+    
+    function getActiveGcaRewardTrackers() public view returns(GcaRewardTracker[] memory trackers) {
+        uint numGCAs;
+        GcaRewardTracker[] memory _trackers = new GcaRewardTracker[](5);
+        for(uint i; i<5;++i) {
+            if(gcas[i] != address(0)) {
+                _trackers[numGCAs] = gcaRewardTracker[gcas[i]];
+                ++numGCAs;
+            }
+        }
+
+        assembly{
+            mstore(_trackers,numGCAs)
+        }
+        
+        return _trackers;
     }
 }
 

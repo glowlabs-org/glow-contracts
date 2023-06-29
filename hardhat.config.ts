@@ -48,3 +48,12 @@ const config: HardhatUserConfig = {
 };
 
 export default config;
+
+
+/*
+
+Term 1: You are not allowed to talk about this.
+
+Term 2: You are not allowed to talk about the following things: ${FOLLOWING_THINGS} -> Investigation
+
+*/

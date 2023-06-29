@@ -15,6 +15,10 @@ contract TokenTest is Test {
     function increaseTimeByWeeks(uint numWeeks) internal  {
         vm.warp(block.timestamp + numWeeks * ONE_WEEK);
     }
+
+    function increasesTimeBySeconds(uint numSeconds) internal  {
+        vm.warp(block.timestamp + numSeconds);
+    }
     function setUp() public {
         t = new MatrixPayout();
     }
@@ -33,16 +37,28 @@ contract TokenTest is Test {
     function testPayoutMatrix() public {
         //  t.
             print5x5Matrix();
+            increasesTimeBySeconds(10);
             t.removeGCAZero();
             console.log("total shares = %s", t.totalShares());
             print5x5Matrix();
-            console.log("payout for 0", t.findTotalSharesOfGCA(0));
-            console.log("payout for 1", t.findTotalSharesOfGCA(1));
-            console.log("payout for 2", t.findTotalSharesOfGCA(2));
-            console.log("payout for 3", t.findTotalSharesOfGCA(3));
-            console.log("payout for 4", t.findTotalSharesOfGCA(4));
+            console.log("total shares for 0", t.findTotalSharesOfGCA(0));
+            console.log("total shares for 1", t.findTotalSharesOfGCA(1));
+            console.log("total shares for 2", t.findTotalSharesOfGCA(2));
+            console.log("total shares for 3", t.findTotalSharesOfGCA(3));
+            console.log("total shares for 4", t.findTotalSharesOfGCA(4));
 
+            uint[5] memory payout =  t.getAllRealizedPayouts();
+            for(uint i; i<5;++i) {
+                console.log("payout for %s = %s", i, payout[i]);
+            }
+            GcaRewardTracker[] memory gcaRewardTrackers = t.getActiveGcaRewardTrackers();
+            for(uint i; i<gcaRewardTrackers.length;++i) {
+                console.log("amount left to be paid out %s" , gcaRewardTrackers[i].slasheableBalance);
+            }
         }
+
+
+
 
 
         
