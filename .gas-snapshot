@@ -1,0 +1,8 @@
+MatrixPayout:testSetToEqual() (gas: 11747)
+TokenTest:testFindMostPopularProposalCalldata() (gas: 70729)
+TokenTest:testFindMostPopularProposalMapping() (gas: 233288)
+TokenTest:testHashProposals() (gas: 62570)
+TokenTest:testShouldNotWork() (gas: 92999)
+TokenTest:testStateTransitionVotes() (gas: 90117)
+TokenTest:testVoteToMapping() (gas: 10684)
+TokenTest:test_SLOAD_from_Mapping():(uint256) (gas: 231165)
