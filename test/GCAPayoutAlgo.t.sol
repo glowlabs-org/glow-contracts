@@ -13,7 +13,7 @@
 //     address gca4 = address(4);
 //     address gca5 = address(5);
 //     GCAPayoutAlgo algo;
-    
+
 //     function increaseTimeByWeeks(uint numWeeks) internal  {
 //         vm.warp(block.timestamp + numWeeks * ONE_WEEK);
 //     }
@@ -46,7 +46,7 @@
 //             algo.addGCA(gca3);
 //             algo.addGCA(gca4);
 //             algo.addGCA(gca5);
-            
+
 //             vm.startPrank(gca1);
 //             CompensationI[] memory compensationPlans = new CompensationI[](5);
 //             compensationPlans[0] = createCompensationPlan(1000,gca1);
@@ -54,46 +54,42 @@
 //         compensationPlans[2] = createCompensationPlan(3000,gca3);
 //         compensationPlans[3] = createCompensationPlan(3500,gca4);
 //         compensationPlans[4] = createCompensationPlan(500,gca5);
-        
+
 //         algo.submitCompensationPlan(compensationPlans);
-  
+
 //         increaseTimeBySeconds(10);
-        
+
 //         uint reward1 = algo.nextReward(gca1);
 //         totalShares = algo.totalShares();
 //         Helper memory h1 = algo.helpers(gca1);
 //         assertEq(1000,h1.shares);
-//         assertEq(10_000,totalShares); 
+//         assertEq(10_000,totalShares);
 //         timeDiff = block.timestamp - startTimestamp;
 //         uint u1TimeDiff = block.timestamp - h1.lastRewardTimestamp;
-//         assertEq(reward1,rewardsPerSecond * timeDiff  * h1.shares / totalShares);       
-//         assertEq(reward1,rewardsPerSecond * u1TimeDiff  * h1.shares / totalShares);       
-        
-        
+//         assertEq(reward1,rewardsPerSecond * timeDiff  * h1.shares / totalShares);
+//         assertEq(reward1,rewardsPerSecond * u1TimeDiff  * h1.shares / totalShares);
+
 //         // add another compesnation plan.. from gca1 to see if values correctly update
 //         compensationPlans[0] = createCompensationPlan(5000,gca1);
 //         compensationPlans[1] = createCompensationPlan(1000,gca2);
 //         compensationPlans[2] = createCompensationPlan(1000,gca3);
 //         compensationPlans[3] = createCompensationPlan(2000,gca4);
 //         compensationPlans[4] = createCompensationPlan(1000,gca5);
-        
+
 //         algo.submitCompensationPlan(compensationPlans);
 //         uint balance1 = algo.balance(gca1);
 //         console.log("balance 1 %s", balance1);
-        
-        
-        
-        
+
 //         reward1 = algo.nextReward(gca1);
 //         totalShares = algo.totalShares();
 //         h1 = algo.helpers(gca1);
 //         assertEq(5000,h1.shares);
-//         assertEq(10_000,totalShares); 
+//         assertEq(10_000,totalShares);
 //         timeDiff = block.timestamp - startTimestamp;
 //         u1TimeDiff = block.timestamp - h1.lastRewardTimestamp;
-//         assertEq(reward1,rewardsPerSecond * u1TimeDiff  * h1.shares / totalShares);       
+//         assertEq(reward1,rewardsPerSecond * u1TimeDiff  * h1.shares / totalShares);
 //         vm.stopPrank();
-        
+
 //         increaseTimeBySeconds(10);
 //         vm.startPrank(gca1);
 //         reward1 = algo.nextReward(gca1);
@@ -120,7 +116,7 @@
 //     assertEq(reward3,rewardsPerSecond * diffForOthers  * h3.shares / totalShares);
 //     assertEq(reward4,rewardsPerSecond * diffForOthers  * h4.shares / totalShares);
 //     assertEq(reward5,rewardsPerSecond * diffForOthers  * h5.shares / totalShares);
-    
+
 // }
 //     algo.claimRewards();
 //     vm.stopPrank();
@@ -153,15 +149,9 @@
 //         console.log("balance 4 %s ", balance4);
 //         console.log("balance 5 %s ", balance5);
 
-
 //     }
 
-
 //     // algo.claimRewards();
-        
 
-    
-
-        
 //     }
 // }
