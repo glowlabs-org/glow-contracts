@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.20;
+pragma solidity 0.8.21;
 
 import "forge-std/Test.sol";
-import "../src/testing/TestGLOW.sol";
+import "../../src/testing/TestGLOW.sol";
 import "forge-std/console.sol";
-import {IGlow} from "../src/interfaces/IGlow.sol";
+import {IGlow} from "../../src/interfaces/IGlow.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
@@ -12,12 +12,23 @@ contract TokenTest is Test {
     TestGLOW public glw;
     address public constant SIMON = address(0x11241998);
     uint256 public constant FIVE_YEARS = 365 days * 5;
+    address public constant GCA = address(0x1);
+    address public constant VETO_COUNCIL = address(0x2);
+    address public constant GRANTS_TREASURY = address(0x3);
+    address public constant EARLY_LIQUIDITY = address(0x4);
 
-    // function fastForwardInSeconds(uint secondsToFastForward) internal {
-    //     vm.warp(block.timestamp + secondsToFastForward);
-    // }
+    //Manually inlining IGlow events until  0.8.22 release...
+    event Stake(address indexed user, uint256 amount);
+    event Unstake(address indexed user, uint256 amount);
+    event ClaimUnstakedGLW(address indexed user, uint256 amount);
+
+    function _fallsWithinBounds(uint256 actual, uint256 lowerBound, uint256 upperBound) internal pure returns (bool) {
+        return actual >= lowerBound && actual <= upperBound;
+    }
+
     function setUp() public {
-        glw = new TestGLOW();
+        glw = new TestGLOW(EARLY_LIQUIDITY);
+        assertEq(glw.balanceOf(EARLY_LIQUIDITY), 12_000_000 ether);
     }
 
     function testMint() public {
@@ -181,6 +192,23 @@ contract TokenTest is Test {
         assertEq(unstakedPositions.length, 0);
     }
 
+    function testUnstakeOver100ShouldForceCooldown() public {
+        vm.startPrank(SIMON);
+        uint256 amountToMint = 1e9 ether;
+        glw.mint(SIMON, amountToMint);
+        glw.stake(amountToMint);
+        for(uint i; i<glw.MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN(); ++i) {
+            glw.unstake(1 ether);
+        }
+        vm.expectRevert(IGlow.UnstakingOnEmergencyCooldown.selector);
+        glw.unstake(1 ether);
+        
+        //After the emergency cooldown period, we should be able to unstake again
+        vm.warp(block.timestamp + glw.EMERGENCY_COOLDOWN_PERIOD());
+        glw.unstake(1 ether);
+
+    }
+
     function testClaim() public {
         vm.startPrank(SIMON);
         glw.mint(SIMON, 1e9 ether);
@@ -243,5 +271,100 @@ contract TokenTest is Test {
 
         //Sanity check: num staked should be zero
         assertEq(glw.numStaked(SIMON), 0);
+    }
+
+    //TODO: Debug why this test fails
+    // function testEmits() public {
+    //     vm.startPrank(SIMON);
+    //     glw.mint(SIMON, 1e9 ether);
+        
+    //     vm.expectEmit(address(glw));
+    //     emit Stake(SIMON, 1 ether);
+    //     glw.stake(1 ether);
+
+    // }
+
+    modifier setInflationContracts() {
+        vm.startPrank(SIMON);
+        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
+        vm.stopPrank();
+        _;
+    }
+
+    function testClaimInflationFromGCA() public setInflationContracts {
+        vm.startPrank(SIMON);
+
+        vm.expectRevert(IGlow.CallerNotGCA.selector);
+        glw.claimGLWFromGCAAndMinerPool();
+        //Sanity Check to make sure GCA has 0 balance
+        vm.stopPrank();
+
+        vm.startPrank(GCA);
+        vm.warp(glw.GENESIS_TIMESTAMP());
+        glw.claimGLWFromGCAAndMinerPool();
+        assertEq(glw.balanceOf(GCA), 0);
+
+        //Should be able to pull 185,000 * 1e18 tokens in 1 week
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        glw.claimGLWFromGCAAndMinerPool();
+        uint256 balanceAfterFirstClaim = glw.balanceOf(GCA);
+        //.00000005% rounding error caught 
+        assertEq(_fallsWithinBounds(balanceAfterFirstClaim, 184_999.999 ether, 185_000.001 ether), true);
+
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        //balanceAfterSecond claim should be exactly the same as the first claim since no time has passed
+        glw.claimGLWFromGCAAndMinerPool();
+        uint256 balanceAfterSecondClaim = glw.balanceOf(GCA);
+        assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
+    }
+
+    function testClaimFromVetoCouncil() public setInflationContracts {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGlow.CallerNotVetoCouncil.selector);
+        glw.claimGLWFromVetoCouncil();
+        vm.stopPrank();
+
+        vm.startPrank(VETO_COUNCIL);
+        vm.warp(glw.GENESIS_TIMESTAMP());
+        glw.claimGLWFromVetoCouncil();
+        assertEq(glw.balanceOf(VETO_COUNCIL), 0);
+
+        //Should be able to pull 5,000 * 1e18 tokens in 1 week
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        glw.claimGLWFromVetoCouncil();
+        uint256 balanceAfterFirstClaim = glw.balanceOf(VETO_COUNCIL);
+        //.0.00000002% rounding error caught 
+        assertEq(_fallsWithinBounds(balanceAfterFirstClaim, 4_999.9999 ether, 5_000.0001 ether), true);
+
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        //balanceAfterSecond claim should be exactly the same as the first claim since no time has passed
+        glw.claimGLWFromVetoCouncil();
+        uint256 balanceAfterSecondClaim = glw.balanceOf(VETO_COUNCIL);
+        assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
+    }
+
+    function testClaimFromGrantsTreasury() public setInflationContracts {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGlow.CallerNotGrantsTreasury.selector);
+        glw.claimGLWFromGrantsTreasury();
+        vm.stopPrank();
+
+        vm.startPrank(GRANTS_TREASURY);
+        vm.warp(glw.GENESIS_TIMESTAMP());
+        glw.claimGLWFromGrantsTreasury();
+        assertEq(glw.balanceOf(GRANTS_TREASURY), 0);
+
+        //Should be able to pull 40,000 * 1e18 tokens in 1 week
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        glw.claimGLWFromGrantsTreasury();
+        uint256 balanceAfterFirstClaim = glw.balanceOf(GRANTS_TREASURY);
+        //.00000025% rounding error caught 
+        assertEq(_fallsWithinBounds(balanceAfterFirstClaim, 39_999.999 ether, 40_000.0001 ether), true);
+
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        //balanceAfterSecond claim should be exactly the same as the first claim since no time has passed
+        glw.claimGLWFromGrantsTreasury();
+        uint256 balanceAfterSecondClaim = glw.balanceOf(GRANTS_TREASURY);
+        assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
     }
 }

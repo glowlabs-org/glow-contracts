@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.21;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
@@ -13,7 +13,7 @@ contract Glow is ERC20, IGlow {
     /// @notice The amount of GLW that is minted per second for the GCA and Miner Pool
     /// @notice 185,000 GLW per week
     uint256 public constant GCA_AND_MINER_POOL_INFLATION_PER_SECOND = 185_000 * 1 ether / uint256(7 days);
-    
+
     /// @notice The amount of GLW that is minted per second for the Veto Council
     /// @notice 5,000 GLW per week
     uint256 public constant VETO_COUNCIL_INFLATION_PER_SECOND = 5_000 * 1 ether / uint256(7 days);
@@ -22,11 +22,22 @@ contract Glow is ERC20, IGlow {
     /// @notice 40,000 GLW per week
     uint256 public constant GRANTS_TREASURY_INFLATION_PER_SECOND = 40_000 * 1 ether / uint256(7 days);
 
+    /// @notice the maximum number of times a user can unstake without clearing their unstaked positions 
+    /// @notice before they are forced to wait 1 day before staking again
+    uint256 public constant MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN = 100;
+
+    /// @notice the cooldown period once users stake over 100 times
+    uint256 public constant EMERGENCY_COOLDOWN_PERIOD = 1 days;
+
     //----------------------- IMMUTABLES -----------------------//
 
     /// @notice The timestamp of the genesis block
     // solhint-disable-next-line var-name-mixedcase
     uint256 public immutable GENESIS_TIMESTAMP;
+
+    /// @notice The address of the Early Liquidity Contract
+    //  solhint-disable-next-line var-name-mixedcase
+    address public immutable EARLY_LIQUIDITY_ADDRESS;
 
     //----------------------- STATE VARIABLES -----------------------//
 
@@ -63,8 +74,15 @@ contract Glow is ERC20, IGlow {
     /// TODO: Implement this logic
     mapping(address => uint256) public emergencyLastStakeTime;
 
-    constructor() ERC20("Glow", "GLOW") {
+    //----------------------- CONSTRUCTOR -----------------------//
+
+    /// @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
+    /// @notice sends 12 million GLW to the Early Liquidity Contract
+    /// @param _earlyLiquidityAddress The address of the Early Liquidity Contract
+    constructor(address _earlyLiquidityAddress) ERC20("Glow", "GLOW") {
         GENESIS_TIMESTAMP = block.timestamp;
+        EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
+        _mint(EARLY_LIQUIDITY_ADDRESS,12_000_000 ether);
     }
 
     /**
@@ -119,6 +137,18 @@ contract Glow is ERC20, IGlow {
      */
     function unstake(uint256 amount) external {
         uint256 numAccountStaked = numStaked[msg.sender];
+        uint lenBefore = _unstakedPositions[msg.sender].length;
+        uint tail = _unstakedPositionTail[msg.sender];
+        uint adjustedLenBefore = lenBefore - tail;
+        
+        //TODO: I don't think we actually need this. check with @david
+        if(adjustedLenBefore + 1 > MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN) {
+            uint lastStakedTimestamp = emergencyLastStakeTime[msg.sender];
+            if(block.timestamp - lastStakedTimestamp < EMERGENCY_COOLDOWN_PERIOD) {
+                _revert(IGlow.UnstakingOnEmergencyCooldown.selector);
+            }
+            emergencyLastStakeTime[msg.sender] = block.timestamp;
+            }
         if (amount > numAccountStaked) {
             _revert(IGlow.UnstakeAmountExceedsStakedBalance.selector);
         }
@@ -126,6 +156,7 @@ contract Glow is ERC20, IGlow {
         _unstakedPositions[msg.sender].push(
             UnstakedPosition({amount: uint192(amount), cooldownEnd: uint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)})
         );
+  
         emit IGlow.Unstake(msg.sender, amount);
     }
 
@@ -215,115 +246,114 @@ contract Glow is ERC20, IGlow {
     //----------------------- TOKEN INFLATION ----------------------//
 
     /**
-        @inheritdoc IGlow
-    */
+     * @inheritdoc IGlow
+     */
     function claimGLWFromGCAAndMinerPool() external {
-        if(gcaAndMinerPoolAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
-        if(msg.sender != gcaAndMinerPoolAddress) _revert(IGlow.CallerNotGCA.selector);
-        uint timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
-        uint timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
-        uint secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
-        uint amountToClaim = secondsSinceLastClaim * GCA_AND_MINER_POOL_INFLATION_PER_SECOND;
+        if (gcaAndMinerPoolAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        if (msg.sender != gcaAndMinerPoolAddress) _revert(IGlow.CallerNotGCA.selector);
+        uint256 timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
+        uint256 amountToClaim = secondsSinceLastClaim * GCA_AND_MINER_POOL_INFLATION_PER_SECOND;
+        if (amountToClaim == 0) return;
         gcaAndMinerPoolLastClaimedTimestamp = block.timestamp;
         _mint(gcaAndMinerPoolAddress, amountToClaim);
     }
 
     /**
-        @inheritdoc IGlow
-    */
+     * @inheritdoc IGlow
+     */
     function claimGLWFromVetoCouncil() external {
-        if(vetoCouncilAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
-        if(msg.sender != vetoCouncilAddress) _revert(IGlow.CallerNotVetoCouncil.selector);
-        uint timestampInStorage = vetoCouncilLastClaimedTimestamp;
-        uint timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
-        uint secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
-        uint amountToClaim = secondsSinceLastClaim * VETO_COUNCIL_INFLATION_PER_SECOND;
+        if (vetoCouncilAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        if (msg.sender != vetoCouncilAddress) _revert(IGlow.CallerNotVetoCouncil.selector);
+        uint256 timestampInStorage = vetoCouncilLastClaimedTimestamp;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
+        uint256 amountToClaim = secondsSinceLastClaim * VETO_COUNCIL_INFLATION_PER_SECOND;
+        if (amountToClaim == 0) return;
         vetoCouncilLastClaimedTimestamp = block.timestamp;
         _mint(vetoCouncilAddress, amountToClaim);
     }
 
     /**
-        @inheritdoc IGlow
-    */
+     * @inheritdoc IGlow
+     */
     function claimGLWFromGrantsTreasury() external {
-        if(grantsTreasuryAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
-        if(msg.sender != grantsTreasuryAddress) _revert(IGlow.CallerNotGrantsTreasury.selector);
-        uint timestampInStorage = grantsTreasuryLastClaimedTimestamp;
-        uint timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
-        uint secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
-        uint amountToClaim = secondsSinceLastClaim * GRANTS_TREASURY_INFLATION_PER_SECOND;
+        if (grantsTreasuryAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        if (msg.sender != grantsTreasuryAddress) _revert(IGlow.CallerNotGrantsTreasury.selector);
+        uint256 timestampInStorage = grantsTreasuryLastClaimedTimestamp;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
+        uint256 amountToClaim = secondsSinceLastClaim * GRANTS_TREASURY_INFLATION_PER_SECOND;
+        if (amountToClaim == 0) return;
         grantsTreasuryLastClaimedTimestamp = block.timestamp;
         _mint(grantsTreasuryAddress, amountToClaim);
     }
 
     /**
-        @inheritdoc IGlow
-    */
-    function gcaInflationData() external view returns(
-        uint256 ,
-        uint256 totalAlreadyClaimed,
-        uint256 totalToClaim) {
-        if(gcaAndMinerPoolAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
-        uint timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
-        uint timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
-        uint secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
+     * @inheritdoc IGlow
+     */
+    function gcaInflationData() external view returns (uint256, uint256 totalAlreadyClaimed, uint256 totalToClaim) {
+        if (gcaAndMinerPoolAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        uint256 timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         totalToClaim = secondsSinceLastClaim * GCA_AND_MINER_POOL_INFLATION_PER_SECOND;
         totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP;
-        return (timestampInStorage,totalAlreadyClaimed,totalToClaim);
+        return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
     /**
-        @inheritdoc IGlow
-    */
-    function vetoCouncilInflationData() external view returns (
-        uint256,
-        uint256 totalAlreadyClaimed,
-        uint256 totalToClaim) {
-        if(vetoCouncilAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
-        uint timestampInStorage = vetoCouncilLastClaimedTimestamp;
-        uint timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
-        uint secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
+     * @inheritdoc IGlow
+     */
+    function vetoCouncilInflationData()
+        external
+        view
+        returns (uint256, uint256 totalAlreadyClaimed, uint256 totalToClaim)
+    {
+        if (vetoCouncilAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        uint256 timestampInStorage = vetoCouncilLastClaimedTimestamp;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         totalToClaim = secondsSinceLastClaim * VETO_COUNCIL_INFLATION_PER_SECOND;
         totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP;
-        return (timestampInStorage,totalAlreadyClaimed,totalToClaim);
-
+        return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
     /**
-        @inheritdoc IGlow
-    */
-    function grantsTreasuryInflationData() external view returns (
-        uint256,
-        uint256 totalAlreadyClaimed,
-        uint256 totalToClaim) {
-        if(grantsTreasuryAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
-        uint timestampInStorage = grantsTreasuryLastClaimedTimestamp;
-        uint timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
-        uint secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
+     * @inheritdoc IGlow
+     */
+    function grantsTreasuryInflationData()
+        external
+        view
+        returns (uint256, uint256 totalAlreadyClaimed, uint256 totalToClaim)
+    {
+        if (grantsTreasuryAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        uint256 timestampInStorage = grantsTreasuryLastClaimedTimestamp;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         totalToClaim = secondsSinceLastClaim * GRANTS_TREASURY_INFLATION_PER_SECOND;
         totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP;
-        return (timestampInStorage,totalAlreadyClaimed,totalToClaim);
+        return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
     //----------------------- ONE-TIME SETTERS -----------------------//
 
     /**
-        * @notice Sets the addresses of the GCA and Miner Pool, Veto Council, and Grants Treasury
-        * @dev this function can only be called once
-    */
+     * @notice Sets the addresses of the GCA and Miner Pool, Veto Council, and Grants Treasury
+     * @dev this function can only be called once
+     */
     function setContractAddresses(
         address _gcaAndMinerPoolAddress,
         address _vetoCouncilAddress,
         address _grantsTreasuryAddress
     ) external {
         //Only need one check since all three addresses are set at the same time atomically
-        if(gcaAndMinerPoolAddress != address(0)) _revert(IGlow.AddressAlreadySet.selector);
+        if (gcaAndMinerPoolAddress != address(0)) _revert(IGlow.AddressAlreadySet.selector);
         gcaAndMinerPoolAddress = _gcaAndMinerPoolAddress;
         vetoCouncilAddress = _vetoCouncilAddress;
         grantsTreasuryAddress = _grantsTreasuryAddress;
     }
-    
-
 
     //----------------------- PRIVATE FUNCTIONS ----------------------//
 
