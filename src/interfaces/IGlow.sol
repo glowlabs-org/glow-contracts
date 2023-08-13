@@ -11,6 +11,9 @@ interface IGlow {
     error CallerNotVetoCouncil();
     error CallerNotGrantsTreasury();
     error UnstakingOnEmergencyCooldown();
+    error ZeroAddressNotAllowed();
+    error DuplicateAddressNotAllowed();
+    error CannotClaimZeroTokens();
 
     /**
      * @notice Emitted when a user stakes GLOW

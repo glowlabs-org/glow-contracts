@@ -22,7 +22,7 @@ contract Glow is ERC20, IGlow {
     /// @notice 40,000 GLW per week
     uint256 public constant GRANTS_TREASURY_INFLATION_PER_SECOND = 40_000 * 1 ether / uint256(7 days);
 
-    /// @notice the maximum number of times a user can unstake without clearing their unstaked positions 
+    /// @notice the maximum number of times a user can unstake without clearing their unstaked positions
     /// @notice before they are forced to wait 1 day before staking again
     uint256 public constant MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN = 100;
 
@@ -82,7 +82,7 @@ contract Glow is ERC20, IGlow {
     constructor(address _earlyLiquidityAddress) ERC20("Glow", "GLOW") {
         GENESIS_TIMESTAMP = block.timestamp;
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
-        _mint(EARLY_LIQUIDITY_ADDRESS,12_000_000 ether);
+        _mint(EARLY_LIQUIDITY_ADDRESS, 12_000_000 ether);
     }
 
     /**
@@ -137,18 +137,18 @@ contract Glow is ERC20, IGlow {
      */
     function unstake(uint256 amount) external {
         uint256 numAccountStaked = numStaked[msg.sender];
-        uint lenBefore = _unstakedPositions[msg.sender].length;
-        uint tail = _unstakedPositionTail[msg.sender];
-        uint adjustedLenBefore = lenBefore - tail;
-        
+        uint256 lenBefore = _unstakedPositions[msg.sender].length;
+        uint256 tail = _unstakedPositionTail[msg.sender];
+        uint256 adjustedLenBefore = lenBefore - tail;
+
         //TODO: I don't think we actually need this. check with @david
-        if(adjustedLenBefore + 1 > MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN) {
-            uint lastStakedTimestamp = emergencyLastStakeTime[msg.sender];
-            if(block.timestamp - lastStakedTimestamp < EMERGENCY_COOLDOWN_PERIOD) {
+        if (adjustedLenBefore + 1 > MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN) {
+            uint256 lastStakedTimestamp = emergencyLastStakeTime[msg.sender];
+            if (block.timestamp - lastStakedTimestamp < EMERGENCY_COOLDOWN_PERIOD) {
                 _revert(IGlow.UnstakingOnEmergencyCooldown.selector);
             }
             emergencyLastStakeTime[msg.sender] = block.timestamp;
-            }
+        }
         if (amount > numAccountStaked) {
             _revert(IGlow.UnstakeAmountExceedsStakedBalance.selector);
         }
@@ -156,7 +156,7 @@ contract Glow is ERC20, IGlow {
         _unstakedPositions[msg.sender].push(
             UnstakedPosition({amount: uint192(amount), cooldownEnd: uint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)})
         );
-  
+
         emit IGlow.Unstake(msg.sender, amount);
     }
 
@@ -184,27 +184,30 @@ contract Glow is ERC20, IGlow {
         returns (UnstakedPosition[] memory)
     {
         uint256 length = _unstakedPositions[account].length;
+        uint256 tail = _unstakedPositionTail[account];
+        end = end + tail;
         if (start >= length) {
             return new UnstakedPosition[](0);
         }
         if (end > length) {
             end = length;
         }
-        uint256 actualStart = _unstakedPositionTail[account] + start;
-        unchecked {
-            UnstakedPosition[] memory positions = new UnstakedPosition[](end - start);
-            for (uint256 i = actualStart; i < end; ++i) {
-                positions[i - start] = _unstakedPositions[account][i];
-            }
-            return positions;
+
+        start = tail + start;
+        uint256 len = end - start;
+        UnstakedPosition[] memory positions = new UnstakedPosition[](len);
+        for (uint256 i = start; i < end; ++i) {
+            positions[i - start] = _unstakedPositions[account][i];
         }
+
+        return positions;
     }
 
     /**
      * @inheritdoc IGlow
      */
     function claimUnstakedTokens(uint256 amount) external {
-        if (amount == 0) _revert(IGlow.CannotStakeZeroTokens.selector);
+        if (amount == 0) _revert(IGlow.CannotClaimZeroTokens.selector);
         uint256 tail = _unstakedPositionTail[msg.sender];
         uint256 claimableTotal;
         uint256 newTail = tail;
@@ -249,7 +252,7 @@ contract Glow is ERC20, IGlow {
      * @inheritdoc IGlow
      */
     function claimGLWFromGCAAndMinerPool() external {
-        if (gcaAndMinerPoolAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressNotSet.selector);
         if (msg.sender != gcaAndMinerPoolAddress) _revert(IGlow.CallerNotGCA.selector);
         uint256 timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
         uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
@@ -264,7 +267,7 @@ contract Glow is ERC20, IGlow {
      * @inheritdoc IGlow
      */
     function claimGLWFromVetoCouncil() external {
-        if (vetoCouncilAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(vetoCouncilAddress)) _revert(IGlow.AddressNotSet.selector);
         if (msg.sender != vetoCouncilAddress) _revert(IGlow.CallerNotVetoCouncil.selector);
         uint256 timestampInStorage = vetoCouncilLastClaimedTimestamp;
         uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
@@ -279,7 +282,7 @@ contract Glow is ERC20, IGlow {
      * @inheritdoc IGlow
      */
     function claimGLWFromGrantsTreasury() external {
-        if (grantsTreasuryAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(grantsTreasuryAddress)) _revert(IGlow.AddressNotSet.selector);
         if (msg.sender != grantsTreasuryAddress) _revert(IGlow.CallerNotGrantsTreasury.selector);
         uint256 timestampInStorage = grantsTreasuryLastClaimedTimestamp;
         uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
@@ -294,7 +297,7 @@ contract Glow is ERC20, IGlow {
      * @inheritdoc IGlow
      */
     function gcaInflationData() external view returns (uint256, uint256 totalAlreadyClaimed, uint256 totalToClaim) {
-        if (gcaAndMinerPoolAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressNotSet.selector);
         uint256 timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
         uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
@@ -311,7 +314,7 @@ contract Glow is ERC20, IGlow {
         view
         returns (uint256, uint256 totalAlreadyClaimed, uint256 totalToClaim)
     {
-        if (vetoCouncilAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(vetoCouncilAddress)) _revert(IGlow.AddressNotSet.selector);
         uint256 timestampInStorage = vetoCouncilLastClaimedTimestamp;
         uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
@@ -328,7 +331,7 @@ contract Glow is ERC20, IGlow {
         view
         returns (uint256, uint256 totalAlreadyClaimed, uint256 totalToClaim)
     {
-        if (grantsTreasuryAddress == address(0)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(grantsTreasuryAddress)) _revert(IGlow.AddressNotSet.selector);
         uint256 timestampInStorage = grantsTreasuryLastClaimedTimestamp;
         uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
@@ -348,8 +351,17 @@ contract Glow is ERC20, IGlow {
         address _vetoCouncilAddress,
         address _grantsTreasuryAddress
     ) external {
+        // Zero address checks
         //Only need one check since all three addresses are set at the same time atomically
-        if (gcaAndMinerPoolAddress != address(0)) _revert(IGlow.AddressAlreadySet.selector);
+        if (!_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressAlreadySet.selector);
+        if (_isZeroAddress(_gcaAndMinerPoolAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
+        if (_isZeroAddress(_vetoCouncilAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
+        if (_isZeroAddress(_grantsTreasuryAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
+
+        // Duplicate checks
+        if (_gcaAndMinerPoolAddress == _vetoCouncilAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
+        if (_gcaAndMinerPoolAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
+        if (_vetoCouncilAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
         gcaAndMinerPoolAddress = _gcaAndMinerPoolAddress;
         vetoCouncilAddress = _vetoCouncilAddress;
         grantsTreasuryAddress = _grantsTreasuryAddress;
@@ -374,6 +386,15 @@ contract Glow is ERC20, IGlow {
         assembly {
             mstore(0x0, selector)
             revert(0x0, 0x04)
+        }
+    }
+
+    /**
+     * @notice More efficient address(0) check
+     */
+    function _isZeroAddress(address _address) private pure returns (bool isZero) {
+        assembly {
+            isZero := iszero(_address)
         }
     }
 }
