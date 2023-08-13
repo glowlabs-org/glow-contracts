@@ -5,11 +5,13 @@ import "forge-std/Test.sol";
 import "../../src/testing/TestGLOW.sol";
 import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
+import {Handler} from "./Handler.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 contract TokenTest is Test {
     TestGLOW public glw;
+    Handler public handler;
     address public constant SIMON = address(0x11241998);
     uint256 public constant FIVE_YEARS = 365 days * 5;
     address public constant GCA = address(0x1);
@@ -28,7 +30,25 @@ contract TokenTest is Test {
 
     function setUp() public {
         glw = new TestGLOW(EARLY_LIQUIDITY);
+        handler = new Handler(address(glw));
         assertEq(glw.balanceOf(EARLY_LIQUIDITY), 12_000_000 ether);
+        
+
+        bytes4[] memory selectors = new bytes4[](3);
+        selectors[0] = Handler.stake.selector;
+        selectors[1] = Handler.unstake.selector;
+        selectors[2] = Handler.claimUnstakedTokens.selector;
+        FuzzSelector memory fs = FuzzSelector({
+            addr: address(handler),
+            selectors: selectors
+        });
+        
+        glw.mint(address(handler),1e20 ether);
+        targetSender(address(SIMON));
+        targetSelector(fs);
+        targetContract(address(handler));
+
+
     }
 
     function testMint() public {

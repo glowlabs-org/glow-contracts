@@ -136,7 +136,11 @@ contract Glow is ERC20, IGlow {
      * @inheritdoc IGlow
      */
     function unstake(uint256 amount) external {
+        if(amount == 0) _revert(IGlow.CannotUnstakeZeroTokens.selector);
         uint256 numAccountStaked = numStaked[msg.sender];
+        if (amount > numAccountStaked) {
+            _revert(IGlow.UnstakeAmountExceedsStakedBalance.selector);
+        }
         uint256 lenBefore = _unstakedPositions[msg.sender].length;
         uint256 tail = _unstakedPositionTail[msg.sender];
         uint256 adjustedLenBefore = lenBefore - tail;
@@ -148,9 +152,6 @@ contract Glow is ERC20, IGlow {
                 _revert(IGlow.UnstakingOnEmergencyCooldown.selector);
             }
             emergencyLastStakeTime[msg.sender] = block.timestamp;
-        }
-        if (amount > numAccountStaked) {
-            _revert(IGlow.UnstakeAmountExceedsStakedBalance.selector);
         }
         numStaked[msg.sender] = numAccountStaked - amount;
         _unstakedPositions[msg.sender].push(
@@ -175,6 +176,9 @@ contract Glow is ERC20, IGlow {
         }
     }
 
+    function tail(address account) external view returns (uint256) {
+        return _unstakedPositionTail[account];
+    }
     /**
      * @inheritdoc IGlow
      */

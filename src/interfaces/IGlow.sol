@@ -5,6 +5,7 @@ interface IGlow {
     error UnstakeAmountExceedsStakedBalance();
     error InsufficientClaimableBalance();
     error CannotStakeZeroTokens();
+    error CannotUnstakeZeroTokens();
     error AddressAlreadySet();
     error AddressNotSet();
     error CallerNotGCA();
