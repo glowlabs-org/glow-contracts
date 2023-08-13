@@ -11,3 +11,5 @@ artifacts/
 
 #Hardhat plugin files
 typechain-types/
+
+report/
