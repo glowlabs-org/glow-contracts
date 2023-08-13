@@ -18,6 +18,7 @@ contract TokenTest is Test {
     address public constant VETO_COUNCIL = address(0x2);
     address public constant GRANTS_TREASURY = address(0x3);
     address public constant EARLY_LIQUIDITY = address(0x4);
+    address public constant VESTING_CONTRACT = address(0x5);
 
     //Manually inlining IGlow events until  0.8.22 release...
     event Stake(address indexed user, uint256 amount);
@@ -29,26 +30,20 @@ contract TokenTest is Test {
     }
 
     function setUp() public {
-        glw = new TestGLOW(EARLY_LIQUIDITY);
+        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
         handler = new Handler(address(glw));
         assertEq(glw.balanceOf(EARLY_LIQUIDITY), 12_000_000 ether);
-        
 
         bytes4[] memory selectors = new bytes4[](3);
         selectors[0] = Handler.stake.selector;
         selectors[1] = Handler.unstake.selector;
         selectors[2] = Handler.claimUnstakedTokens.selector;
-        FuzzSelector memory fs = FuzzSelector({
-            addr: address(handler),
-            selectors: selectors
-        });
-        
-        glw.mint(address(handler),1e20 ether);
+        FuzzSelector memory fs = FuzzSelector({addr: address(handler), selectors: selectors});
+        assertEq(glw.totalSupply(), 72_000_000 ether);
+        glw.mint(address(handler), 1e20 ether);
         targetSender(address(SIMON));
         targetSelector(fs);
         targetContract(address(handler));
-
-
     }
 
     function testMint() public {

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.21;
 
-interface IGlow {
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+interface IGlow is IERC20 {
     error UnstakeAmountExceedsStakedBalance();
     error InsufficientClaimableBalance();
     error CannotStakeZeroTokens();
@@ -88,19 +90,19 @@ interface IGlow {
      * @notice Allows the GCA and Miner Pool Contract to claim GLW from inflation
      * @notice The GCA and Miner Pool Contract receives 185,00 * 1e18 tokens per week
      */
-    function claimGLWFromGCAAndMinerPool() external;
+    function claimGLWFromGCAAndMinerPool() external returns (uint256);
 
     /**
      * @notice Allows the Veto Council to claim GLW from inflation
      * @notice The veto council receives 5,000 * 1e18 tokens per week
      */
-    function claimGLWFromVetoCouncil() external;
+    function claimGLWFromVetoCouncil() external returns (uint256);
 
     /**
      * @notice Allows the Grants Treasury to claim GLW from inflation
      * @notice The grants treasury receives 40,000 * 1e18 tokens per week
      */
-    function claimGLWFromGrantsTreasury() external;
+    function claimGLWFromGrantsTreasury() external returns (uint256);
 
     /**
      * @return lastClaimTimestamp The last time the GCA and Miner Pool Contract claimed GLW
@@ -131,4 +133,9 @@ interface IGlow {
         external
         view
         returns (uint256 lastClaimTimestamp, uint256 totalAlreadyClaimed, uint256 totalToClaim);
+
+    /**
+     * @return the genesis timestamp
+     */
+    function GENESIS_TIMESTAMP() external view returns (uint256);
 }
