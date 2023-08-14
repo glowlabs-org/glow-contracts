@@ -31,49 +31,49 @@ contract GCA_TEST is Test {
         glow.setContractAddresses(address(gca), vetoCouncilAddress, grantsTreasuryAddress);
     }
 
-    // function test_Constructor_shouldSetGenesisTimestampForGCAs() public {
-    //     address[] memory gcaAddresses = _getAddressArray(5, 25);
-    //     gca = new MockGCA(gcaAddresses,address(glow),governance);
-    //     uint256 glwGenesisTimestamp = glow.GENESIS_TIMESTAMP();
-    //     uint256 gcaGenesisTimestamp = gca.GENESIS_TIMESTAMP();
-    //     assertTrue(glwGenesisTimestamp == gcaGenesisTimestamp);
-    //     for (uint256 i; i < gcaAddresses.length; i++) {
-    //         IGCA.GCAPayout memory payout = gca.gcaPayoutData(gcaAddresses[i]);
-    //         assertEq(payout.lastClaimedTimestamp, gcaGenesisTimestamp);
-    //     }
-    // }
+    function test_Constructor_shouldSetGenesisTimestampForGCAs() public {
+        address[] memory gcaAddresses = _getAddressArray(5, 25);
+        gca = new MockGCA(gcaAddresses,address(glow),governance);
+        uint256 glwGenesisTimestamp = glow.GENESIS_TIMESTAMP();
+        uint256 gcaGenesisTimestamp = gca.GENESIS_TIMESTAMP();
+        assertTrue(glwGenesisTimestamp == gcaGenesisTimestamp);
+        for (uint256 i; i < gcaAddresses.length; i++) {
+            IGCA.GCAPayout memory payout = gca.gcaPayoutData(gcaAddresses[i]);
+            assertEq(payout.lastClaimedTimestamp, gcaGenesisTimestamp);
+        }
+    }
 
-    // function test_setGCAs() public {
-    //     //Create addresses in memory so we can set
-    //     address[] memory gcaAddresses = _getAddressArray(5, 25);
-    //     //Check addresses are not there yet
-    //     for (uint256 i; i < gcaAddresses.length; i++) {
-    //         assertFalse(gca.isGCA(gcaAddresses[i]));
-    //         assertFalse(_containsElement(gca.allGcas(), gcaAddresses[i]));
-    //     }
-    //     //Set addresses
-    //     gca.setGCAs(gcaAddresses);
-    //     //Loop through and make sure
-    //     /**
-    //      * 1. Addresses are now GCAs
-    //      *         2. Addresses are in allGcas
-    //      *         3. Addresses have the correct compensation plan
-    //      *             -   All shares for themselves in their plans
-    //      *             -   No shares for others in their plans
-    //      */
-    //     for (uint256 i; i < gcaAddresses.length; i++) {
-    //         assertTrue(gca.isGCA(gcaAddresses[i]));
-    //         assertTrue(_containsElement(gca.allGcas(), gcaAddresses[i]));
-    //         IGCA.ICompensation[] memory plans = gca.compensationPlan(gcaAddresses[i]);
-    //         for (uint256 j; j < plans.length; j++) {
-    //             if (plans[j].agent == gcaAddresses[i]) {
-    //                 assertTrue(plans[j].shares == gca.SHARES_REQUIRED_PER_AGENT() * gcaAddresses.length);
-    //             } else {
-    //                 assertTrue(plans[j].shares == 0);
-    //             }
-    //         }
-    //     }
-    // }
+    function test_setGCAs() public {
+        //Create addresses in memory so we can set
+        address[] memory gcaAddresses = _getAddressArray(5, 25);
+        //Check addresses are not there yet
+        for (uint256 i; i < gcaAddresses.length; i++) {
+            assertFalse(gca.isGCA(gcaAddresses[i]));
+            assertFalse(_containsElement(gca.allGcas(), gcaAddresses[i]));
+        }
+        //Set addresses
+        gca.setGCAs(gcaAddresses);
+        //Loop through and make sure
+        /**
+         * 1. Addresses are now GCAs
+         *         2. Addresses are in allGcas
+         *         3. Addresses have the correct compensation plan
+         *             -   All shares for themselves in their plans
+         *             -   No shares for others in their plans
+         */
+        for (uint256 i; i < gcaAddresses.length; i++) {
+            assertTrue(gca.isGCA(gcaAddresses[i]));
+            assertTrue(_containsElement(gca.allGcas(), gcaAddresses[i]));
+            IGCA.ICompensation[] memory plans = gca.compensationPlan(gcaAddresses[i]);
+            for (uint256 j; j < plans.length; j++) {
+                if (plans[j].agent == gcaAddresses[i]) {
+                    assertTrue(plans[j].shares == gca.SHARES_REQUIRED_PER_AGENT() * gcaAddresses.length);
+                } else {
+                    assertTrue(plans[j].shares == 0);
+                }
+            }
+        }
+    }
 
     function testFuzz_amountNowAndSb(uint secondsSinceLastPayout) public {
         vm.assume(secondsSinceLastPayout < 14 days);
