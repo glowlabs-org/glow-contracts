@@ -1,0 +1,223 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.21;
+
+import {IGCA} from "@/interfaces/IGCA.sol";
+import {IGlow} from "@/interfaces/IGlow.sol";
+import "forge-std/console.sol";
+
+contract GCA is IGCA {
+    /**
+     * @notice the amount of shares required per agent when submitting a compensation plan
+     * @dev this is not strictly enforced, but rather the
+     *         the total shares in a comp plan but equal the SHARES_REQUIRED_PER_AGENT * gcaAgents.length
+     */
+    uint256 public constant SHARES_REQUIRED_PER_AGENT = 100_000;
+
+    /// @notice the address of the glow token
+    IGlow public immutable GLOW_TOKEN;
+
+    /// @notice the address of the governance contract
+    address public immutable GOVERNANCE;
+
+    /// @notice the timestamp of the genesis block
+    uint256 public immutable GENESIS_TIMESTAMP;
+
+    /// @notice the index of the last proposal that was updated
+    uint256 public lastUpdatedProposalIndex;
+
+    /// @notice the hashes of the proposals that have been submitted from {GOVERNANCE}
+    bytes32[] public proposalHashes;
+
+    /// @notice the addresses of the gca agents
+    address[] public gcaAgents;
+
+    /// @notice the shift to apply to the bitpacked compensation plans
+    uint256 private constant _UINT24_SHIFT = 24;
+
+    /// @notice the mask to apply to the bitpacked compensation plans
+    uint256 private constant _UINT24_MASK = 0xFFFFFF;
+
+    /// @dev 10_000 GLW Per Week available as rewards to all GCAs
+    uint256 public constant REWARDS_PER_SECOND_FOR_ALL = 10_000 ether / uint256(7 days);
+
+    /// @dev 1% of the rewards vest per week
+    uint256 public constant VESTING_REWARDS_PER_SECOND_FOR_ALL = REWARDS_PER_SECOND_FOR_ALL / (100 * 86400 * 7);
+
+    /// @dev the maximum amount of seconds a second can vest for
+    /// @dev this is to prevent a second from over-vesting in payout
+    /// @dev since rewards vest at 1% per week, this is 100 weeks
+    uint256 public constant MAX_VESTING_SECONDS = uint256(7 days) * 100;
+
+    /// @notice the bitpacked compensation plans
+    mapping(address => uint256) public _compensationPlans;
+
+    /// @notice the gca payouts
+    mapping(address => IGCA.GCAPayout) private _gcaPayouts;
+
+    /**
+     * @notice constructs a new GCA contract
+     * @param _gcaAgents the addresses of the gca agents the contract starts with
+     * @param _glowToken the address of the glow token
+     * @param _governance the address of the governance contract
+     */
+    constructor(address[] memory _gcaAgents, address _glowToken, address _governance) {
+        GLOW_TOKEN = IGlow(_glowToken);
+        GOVERNANCE = _governance;
+        _setGCAs(_gcaAgents);
+        GENESIS_TIMESTAMP = GLOW_TOKEN.GENESIS_TIMESTAMP();
+        for (uint256 i; i < _gcaAgents.length; ++i) {
+            _gcaPayouts[_gcaAgents[i]].lastClaimedTimestamp = uint64(GENESIS_TIMESTAMP);
+        }
+    }
+
+    /// @inheritdoc IGCA
+    function isGCA(address account) public view returns (bool) {
+        return _compensationPlans[account] > 0;
+    }
+
+    /**
+     * TODO: Make sure this pays out all active gcas as well
+     */
+    /// @inheritdoc IGCA
+    function submitCompensationPlan(IGCA.ICompensation[] calldata plans) external {
+        uint256 bitpackedPlans;
+        if (plans.length == 0) {
+            _revert(CompensationPlanLengthMustBeGreaterThanZero.selector);
+        }
+        uint256 gcaLength = gcaAgents.length;
+        uint256 requiredShares = gcaLength * SHARES_REQUIRED_PER_AGENT;
+        uint256 sumOfShares;
+        if (!isGCA(msg.sender)) {
+            _revert(NotGCA.selector);
+        }
+
+        for (uint256 i; i < gcaLength; ++i) {
+            address agentInGca = gcaAgents[i];
+            bool found;
+            for (uint256 j; j < plans.length; ++j) {
+                if (agentInGca == plans[j].agent) {
+                    sumOfShares += plans[i].shares;
+                    bitpackedPlans |= plans[j].shares << _calculateShift(i);
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                _revert(NotGCA.selector);
+            }
+            _compensationPlans[agentInGca] = bitpackedPlans;
+        }
+
+        if (sumOfShares < requiredShares) {
+            _revert(InsufficientShares.selector);
+        }
+        emit IGCA.CompensationPlanSubmitted(msg.sender, plans);
+    }
+
+    /// @inheritdoc IGCA
+    function compensationPlan(address gca) public view returns (IGCA.ICompensation[] memory) {
+        if (!isGCA(gca)) {
+            _revert(NotGCA.selector);
+        }
+        address[] memory gcaAddresses = gcaAgents;
+        uint256 bitpackedPlans = _compensationPlans[gca];
+        uint256 gcaLength = gcaAddresses.length;
+        IGCA.ICompensation[] memory plans = new IGCA.ICompensation[](gcaLength);
+        for (uint256 i; i < gcaLength; ++i) {
+            plans[i].shares = uint80((bitpackedPlans >> _calculateShift(i)) & _UINT24_MASK);
+            plans[i].agent = gcaAddresses[i];
+        }
+
+        return plans;
+    }
+
+    function claimGlowFromInflation() public virtual {
+        GLOW_TOKEN.claimGLWFromGCAAndMinerPool();
+    }
+
+    /// @inheritdoc IGCA
+    function allGcas() public view returns (address[] memory) {
+        return gcaAgents;
+    }
+
+    /// @inheritdoc IGCA
+    function gcaPayoutData(address gca) public view returns (IGCA.GCAPayout memory) {
+        return _gcaPayouts[gca];
+    }
+
+    //---------------------------- HELPERS ----------------------------------
+
+    /**
+     * @notice More efficiently reverts with a bytes4 selector
+     * @param selector The selector to revert with
+     */
+
+    function _revert(bytes4 selector) private pure {
+        assembly {
+            mstore(0x0, selector)
+            revert(0x0, 0x04)
+        }
+    }
+
+    /**
+     * @dev sets the gca agents and their compensation plans
+     *         -  removes all previous gca agents
+     *         -  remove all previous compensation plans
+     *         -  sets the new gca agents
+     *         -  sets the new compensation plans
+     *     TODO: Make sure this pays out all GCA's and handles slashes
+     */
+    function _setGCAs(address[] memory gcaAddresses) internal {
+        address[] memory oldGCAs = gcaAgents;
+        for (uint256 i; i < oldGCAs.length; ++i) {
+            _compensationPlans[oldGCAs[i]] = 0;
+        }
+        gcaAgents = gcaAddresses;
+        for (uint256 i; i < gcaAddresses.length; ++i) {
+            _compensationPlans[gcaAddresses[i]] =
+                (SHARES_REQUIRED_PER_AGENT * gcaAddresses.length) << _calculateShift(i);
+        }
+    }
+
+    /**
+     * @dev calculates the shift to apply to the bitpacked compensation plans
+     *     @param index - the index of the gca agent
+     *     @return the shift to apply to the bitpacked compensation plans
+     */
+    function _calculateShift(uint256 index) private pure returns (uint256) {
+        return index * _UINT24_SHIFT;
+    }
+
+    /**
+     * @dev Find total owed now and slashable balance using the summation of an arithmetic series
+     * @dev formula = n/2 * (2a + (n-1)d) or n/2 * (a + l)
+     * @dev read more about this  https://github.com/glowlabs-org/glow-docs/issues/4
+     * @dev SB stands for slashable balance
+     * @param secondsSinceLastPayout - the  amount of seconds since the last payout
+     * @param shares - the amount of shares the gca has
+     * @param totalShares - the total amount of shares
+     * @return amountNow - the amount of glow owed now
+     * @return slashableBalance - the amount of glow that is added to the slashable balance
+     */
+    function getAmountNowAndSB(uint256 secondsSinceLastPayout, uint256 shares, uint256 totalShares)
+        public
+        pure
+        returns (uint256 amountNow, uint256 slashableBalance)
+    {   
+        //Add 1 second to ensure last second is counted
+        //TODO: double check with {test_amountNowAndSb} in tests
+        // secondsSinceLastPayout += 1;
+        uint256 totalRewards = secondsSinceLastPayout * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
+
+        uint256 fullyVestedSeconds;
+        if (secondsSinceLastPayout > MAX_VESTING_SECONDS) {
+            fullyVestedSeconds = secondsSinceLastPayout - MAX_VESTING_SECONDS;
+            amountNow += fullyVestedSeconds * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
+            secondsSinceLastPayout -= fullyVestedSeconds;
+        }
+        amountNow += secondsSinceLastPayout 
+            * (secondsSinceLastPayout * VESTING_REWARDS_PER_SECOND_FOR_ALL * shares / totalShares) / 2;
+        slashableBalance = totalRewards - amountNow;
+    }
+}

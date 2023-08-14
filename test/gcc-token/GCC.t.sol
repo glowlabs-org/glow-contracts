@@ -85,6 +85,7 @@ contract GCC_Test is Test {
         gcc.mintToCarbonCreditAuction(1, 1e20 ether);
         vm.stopPrank();
     }
+
     function test_sendToCarbonCreditAuctionSameBucketShouldRevert() public {
         test_sendToCarbonCreditAuction();
         vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
