@@ -66,11 +66,14 @@ contract GCA_TEST is Test {
             assertTrue(_containsElement(gca.allGcas(), gcaAddresses[i]));
             IGCA.ICompensation[] memory plans = gca.compensationPlan(gcaAddresses[i]);
             for (uint256 j; j < plans.length; j++) {
+                (uint shares, uint totalShares) = gca.getShares(gcaAddresses[i]);
                 if (plans[j].agent == gcaAddresses[i]) {
-                    assertTrue(plans[j].shares == gca.SHARES_REQUIRED_PER_AGENT() * gcaAddresses.length);
+                    assertTrue(plans[j].shares == gca.SHARES_REQUIRED_PER_COMP_PLAN());
                 } else {
                     assertTrue(plans[j].shares == 0);
                 }
+                assertEq(totalShares, gca.SHARES_REQUIRED_PER_COMP_PLAN() * gcaAddresses.length);
+                assertEq(shares, gca.SHARES_REQUIRED_PER_COMP_PLAN());
             }
         }
     }
@@ -90,7 +93,7 @@ contract GCA_TEST is Test {
             vestedSum += vestedFromSecond;
         }
         //Account for division errors
-        uint maxAcceptableDifference = 10 ** 14; //.00001
+        uint maxAcceptableDifference = 10 ** 10; //.00000001 tokens
         // console.log("amountNow", amountNow);
         // console.log("Sum from loop", vestedSum);
         int256 diff = int256(amountNow) - int256(vestedSum);

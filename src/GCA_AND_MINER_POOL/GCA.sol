@@ -5,13 +5,14 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import "forge-std/console.sol";
 
+/// TODO: note to self -- im brain fried rn, go back to the slashable vesting in your notebook @self @simonbindefeld
 contract GCA is IGCA {
     /**
      * @notice the amount of shares required per agent when submitting a compensation plan
      * @dev this is not strictly enforced, but rather the
-     *         the total shares in a comp plan but equal the SHARES_REQUIRED_PER_AGENT * gcaAgents.length
+     *         the total shares in a comp plan but equal the SHARES_REQUIRED_PER_COMP_PLAN * gcaAgents.length
      */
-    uint256 public constant SHARES_REQUIRED_PER_AGENT = 100_000;
+    uint256 public constant SHARES_REQUIRED_PER_COMP_PLAN = 100_000;
 
     /// @notice the address of the glow token
     IGlow public immutable GLOW_TOKEN;
@@ -85,7 +86,7 @@ contract GCA is IGCA {
             _revert(CompensationPlanLengthMustBeGreaterThanZero.selector);
         }
         uint256 gcaLength = gcaAgents.length;
-        uint256 requiredShares = gcaLength * SHARES_REQUIRED_PER_AGENT;
+        uint256 requiredShares = SHARES_REQUIRED_PER_COMP_PLAN;
         uint256 sumOfShares;
         if (!isGCA(msg.sender)) {
             _revert(NotGCA.selector);
@@ -117,10 +118,13 @@ contract GCA is IGCA {
 
     /// @inheritdoc IGCA
     function compensationPlan(address gca) public view returns (IGCA.ICompensation[] memory) {
+        return _compensationPlan(gca, gcaAgents);
+    }
+
+    function _compensationPlan(address gca, address[] memory gcaAddresses) public view returns (IGCA.ICompensation[] memory) {
         if (!isGCA(gca)) {
             _revert(NotGCA.selector);
         }
-        address[] memory gcaAddresses = gcaAgents;
         uint256 bitpackedPlans = _compensationPlans[gca];
         uint256 gcaLength = gcaAddresses.length;
         IGCA.ICompensation[] memory plans = new IGCA.ICompensation[](gcaLength);
@@ -144,6 +148,81 @@ contract GCA is IGCA {
     /// @inheritdoc IGCA
     function gcaPayoutData(address gca) public view returns (IGCA.GCAPayout memory) {
         return _gcaPayouts[gca];
+    }
+
+
+    /**
+     * @dev Find total owed now and slashable balance using the summation of an arithmetic series
+     * @dev formula = n/2 * (2a + (n-1)d) or n/2 * (a + l)
+     * @dev read more about this  https://github.com/glowlabs-org/glow-docs/issues/4
+     * @dev SB stands for slashable balance
+     * @param secondsSinceLastPayout - the  amount of seconds since the last payout
+     * @param shares - the amount of shares the gca has
+     * @param totalShares - the total amount of shares
+     * @return amountNow - the amount of glow owed now
+     * @return slashableBalance - the amount of glow that is added to the slashable balance
+     */
+     function getAmountNowAndSB(uint256 secondsSinceLastPayout, uint256 shares, uint256 totalShares)
+     public
+     pure
+     returns (uint256 amountNow, uint256 slashableBalance)
+ {   
+     //Add 1 second to ensure last second is counted
+     //TODO: double check with {test_amountNowAndSb} in tests
+     // secondsSinceLastPayout += 1;
+     uint256 totalRewards = secondsSinceLastPayout * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
+
+     uint256 fullyVestedSeconds;
+     if (secondsSinceLastPayout > MAX_VESTING_SECONDS) {
+         fullyVestedSeconds = secondsSinceLastPayout - MAX_VESTING_SECONDS;
+         amountNow += fullyVestedSeconds * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
+         secondsSinceLastPayout -= fullyVestedSeconds;
+     }
+     amountNow += secondsSinceLastPayout 
+         * (secondsSinceLastPayout * VESTING_REWARDS_PER_SECOND_FOR_ALL * shares / totalShares) / 2;
+     slashableBalance = totalRewards - amountNow;
+ }
+
+    /**
+        * @param agent - the address of the agent to payout
+        * @param gcas - should always be allGcas in storage, but passed through memory for gas savings
+    */
+    function _payoutAgent(address agent,address[] memory gcas) internal {
+        uint totalToPayNow;
+        uint amountToAddToSlashable;
+        uint totalShares = SHARES_REQUIRED_PER_COMP_PLAN * gcas.length;
+        //If the agent is a gca, we need to pay everyone out?
+        uint lastClaimTimestamp = _gcaPayouts[agent].lastClaimedTimestamp;
+        uint timeElapsed = block.timestamp - lastClaimTimestamp;
+        if(isGCA(agent)) {
+            //Check how much they've worked
+            //TODO: make sure that lastClaimTimestamp can never be zero
+            (uint shares,) = _getShares(agent, gcas);
+            (totalToPayNow, amountToAddToSlashable) = getAmountNowAndSB(timeElapsed, shares, totalShares);
+        }
+
+        //Now we need to calculate how uch
+        
+        
+    }
+
+    function getShares(address agent) external view returns(uint256 shares,uint totalShares) {
+        return _getShares(agent, gcaAgents);
+    }
+
+    function _getShares(address agent, address[] memory gcas) internal view returns(uint256 shares,uint totalShares) {
+        uint indexOfAgent;
+        for(uint i; i < gcas.length; i++) {
+            if(gcas[i] == agent) {
+                indexOfAgent = i;
+                break;
+            }
+        }
+        for(uint i; i< gcas.length; i++) {
+            uint bitpackedPlans = _compensationPlans[gcas[i]];
+            shares += (bitpackedPlans >> _calculateShift(indexOfAgent)) & _UINT24_MASK;
+        }
+        totalShares = SHARES_REQUIRED_PER_COMP_PLAN * gcas.length;
     }
 
     //---------------------------- HELPERS ----------------------------------
@@ -176,7 +255,8 @@ contract GCA is IGCA {
         gcaAgents = gcaAddresses;
         for (uint256 i; i < gcaAddresses.length; ++i) {
             _compensationPlans[gcaAddresses[i]] =
-                (SHARES_REQUIRED_PER_AGENT * gcaAddresses.length) << _calculateShift(i);
+                (SHARES_REQUIRED_PER_COMP_PLAN) << _calculateShift(i);
+            //If they have any slashable balance that's unclaimed, we should clean that up here...
         }
     }
 
@@ -189,35 +269,5 @@ contract GCA is IGCA {
         return index * _UINT24_SHIFT;
     }
 
-    /**
-     * @dev Find total owed now and slashable balance using the summation of an arithmetic series
-     * @dev formula = n/2 * (2a + (n-1)d) or n/2 * (a + l)
-     * @dev read more about this  https://github.com/glowlabs-org/glow-docs/issues/4
-     * @dev SB stands for slashable balance
-     * @param secondsSinceLastPayout - the  amount of seconds since the last payout
-     * @param shares - the amount of shares the gca has
-     * @param totalShares - the total amount of shares
-     * @return amountNow - the amount of glow owed now
-     * @return slashableBalance - the amount of glow that is added to the slashable balance
-     */
-    function getAmountNowAndSB(uint256 secondsSinceLastPayout, uint256 shares, uint256 totalShares)
-        public
-        pure
-        returns (uint256 amountNow, uint256 slashableBalance)
-    {   
-        //Add 1 second to ensure last second is counted
-        //TODO: double check with {test_amountNowAndSb} in tests
-        // secondsSinceLastPayout += 1;
-        uint256 totalRewards = secondsSinceLastPayout * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
 
-        uint256 fullyVestedSeconds;
-        if (secondsSinceLastPayout > MAX_VESTING_SECONDS) {
-            fullyVestedSeconds = secondsSinceLastPayout - MAX_VESTING_SECONDS;
-            amountNow += fullyVestedSeconds * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
-            secondsSinceLastPayout -= fullyVestedSeconds;
-        }
-        amountNow += secondsSinceLastPayout 
-            * (secondsSinceLastPayout * VESTING_REWARDS_PER_SECOND_FOR_ALL * shares / totalShares) / 2;
-        slashableBalance = totalRewards - amountNow;
-    }
 }

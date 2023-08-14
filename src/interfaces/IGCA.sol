@@ -29,13 +29,19 @@ interface IGCA {
      * @return - returns the {GCAPayout} struct data for a gca
      */
     function gcaPayoutData(address gca) external view returns (GCAPayout memory);
+
+    // /**
+    //     * @return shares - the amount of shares the gca has
+    //     * @return totalShares - the total amount of shares across all GCAs
+    // */
+    // function getShares(address gca) external view returns (uint256 shares, uint256 totalShares);
+
     /**
      * @dev a struct to represent a compensation plan
      * @dev packed into a single uint256
      * @param shares - the amount of shares to be distributed
      * @param agent - the address of the gca agent to receive the shares
      */
-
     struct ICompensation {
         uint80 shares;
         address agent;
@@ -48,7 +54,8 @@ interface IGCA {
      */
     struct GCAPayout {
         uint64 lastClaimedTimestamp;
-        uint192 totalSlashableBalance;
+        uint64 maxClaimTimestamp;
+        uint128 totalSlashableBalance;
     }
 
     /**
