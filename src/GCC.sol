@@ -2,89 +2,235 @@
 pragma solidity 0.8.21;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IGCC} from "./interfaces/IGCC.sol";
-import {ICarbonCredit} from "./interfaces/ICarbonCredit.sol";
-
-contract GCC is ERC20, IGCC {
-
+import {IGCC} from "@/interfaces/IGCC.sol";
+import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {ABDKMath64x64} from "./libraries/ABDKMath64x64.sol";
+import {IGovernance} from "@/interfaces/IGovernance.sol";
+contract GCC is ERC20, IGCC, EIP712 {
     /// @notice The address of the CarbonCreditAuction contract
-    ICarbonCredit public immutable CARBON_CREDIT_AUCTION;
+    ICarbonCreditAuction public immutable CARBON_CREDIT_AUCTION;
 
     /// @notice The address of the GCAAndMinerPool contract
     address public immutable GCA_AND_MINER_POOL_CONTRACT;
 
+    /// @notice the address of the governance contract
+    IGovernance public immutable GOVERNANCE;
+
+    /// @notice The maximum shift for a bucketId
     uint256 private constant _MAX_SHIFT = 255;
 
-    mapping(uint => uint) private _mintedBucketsBitmap;
+    bytes32 private constant _RETIRING_PERMIT_TYPEHASH =
+        keccak256("RetiringPermit(address owner,address spender,uint256 amount,uint256 nonce,uint256 deadline)");
+
+    /**
+     * @notice The bitmap of minted buckets
+     * @dev key 0 contains the first 256 buckets, key 1 contains the next 256 buckets, etc.
+     */
+    mapping(uint256 => uint256) private _mintedBucketsBitmap;
+
+    /**
+     * @notice The total credits retired by a user
+     */
+    mapping(address => uint256) public totalCreditsRetired;
+
+    /**
+     * @notice The total nominations held by a user in storage
+     * @dev nominations have a half life of 52 weeks
+     * @dev this is not safe to query directly, use the `nominationsOf` function
+     */
+    mapping(address => IGCC.Nominations) private _nominations;
+
+    /**
+     * @notice The allowances for retiring GCC
+     * @dev similar to ERC20
+     */
+    mapping(address => mapping(address => uint256)) private _retireGCCAllowances;
+
+    /**
+     * @notice The next retiring nonce for a user
+     * @dev similar to ERC20
+     */
+    mapping(address => uint256) public nextRetiringNonce;
 
     //-------------  CONSTRUCTOR --------------------//
     /**
      * @notice GCC constructor
      * @param _carbonCreditAuction The address of the CarbonCreditAuction contract
      * @param _gcaAndMinerPoolContract The address of the GCAAndMinerPool contract
+     * @param _governance The address of the governance contract
      */
-    constructor(
-        address _carbonCreditAuction,
-        address _gcaAndMinerPoolContract
-        )
-         ERC20("Glow Carbon Credit", "GCC") {
-        CARBON_CREDIT_AUCTION = ICarbonCredit(_carbonCreditAuction);
+    constructor(address _carbonCreditAuction, address _gcaAndMinerPoolContract,address _governance)
+        ERC20("Glow Carbon Credit", "GCC")
+        EIP712("Glow Carbon Credit", "1")
+    {
+        CARBON_CREDIT_AUCTION = ICarbonCreditAuction(_carbonCreditAuction);
         GCA_AND_MINER_POOL_CONTRACT = _gcaAndMinerPoolContract;
+        GOVERNANCE = IGovernance(_governance);
     }
 
     /**
-        * @inheritdoc IGCC
-    */
-    function mintToCarbonCreditAuction(uint bucketId,uint amount) external {
-        if(msg.sender != GCA_AND_MINER_POOL_CONTRACT) _revert(IGCC.CallerNotGCAContract.selector);
+     * @inheritdoc IGCC
+     */
+    function mintToCarbonCreditAuction(uint256 bucketId, uint256 amount) external {
+        if (msg.sender != GCA_AND_MINER_POOL_CONTRACT) _revert(IGCC.CallerNotGCAContract.selector);
         _setBucketMinted(bucketId);
         CARBON_CREDIT_AUCTION.receiveGCC(amount);
         _mint(address(CARBON_CREDIT_AUCTION), amount);
     }
 
-
     /**
-        * @inheritdoc IGCC
-    */
-    function isBucketMinted(uint bucketId) external view returns (bool) {
-        (uint key, uint shift) = _getKeyAndShiftFromBucketId(bucketId);
+     * @inheritdoc IGCC
+     */
+    function isBucketMinted(uint256 bucketId) external view returns (bool) {
+        (uint256 key, uint256 shift) = _getKeyAndShiftFromBucketId(bucketId);
         return _mintedBucketsBitmap[key] & (1 << shift) != 0;
     }
 
     /**
-        * @notice sets the bucket as minted
-        * @param bucketId the id of the bucket to set as minted
-        * @dev reverts if the bucket has already been minted
-    */
-    function _setBucketMinted(uint bucketId) private {
-        (uint key, uint shift) = _getKeyAndShiftFromBucketId(bucketId);
-        uint bitmap = _mintedBucketsBitmap[key];
-        if(bitmap & (1 << shift) != 0) _revert(IGCC.BucketAlreadyMinted.selector);
+     * @notice sets the bucket as minted
+     * @param bucketId the id of the bucket to set as minted
+     * @dev reverts if the bucket has already been minted
+     */
+    function _setBucketMinted(uint256 bucketId) private {
+        (uint256 key, uint256 shift) = _getKeyAndShiftFromBucketId(bucketId);
+        uint256 bitmap = _mintedBucketsBitmap[key];
+        if (bitmap & (1 << shift) != 0) _revert(IGCC.BucketAlreadyMinted.selector);
         _mintedBucketsBitmap[key] = bitmap | (1 << shift);
     }
 
+    //-----------------  RETIRING AND NOMINATIONS -----------------//
+    
+    /**
+     * @inheritdoc IGCC
+     */
+    function retireGCC(uint256 amount, address rewardAddress) external {
+        _transfer(msg.sender, address(this), amount);
+        _handleRetirement(msg.sender, rewardAddress, amount);
+    }
+
+    function retireGCCFor(address from, address rewardAddress, uint256 amount) public {
+        transferFrom(from, address(this), amount);
+        _handleRetirement(from, rewardAddress, amount);
+
+    }
+
+    /// @inheritdoc IGCC
+    function retireGCCForAuthorized(
+        address from,
+        address rewardAddress,
+        uint256 amount,
+        uint256 deadline,
+        bytes calldata signature
+    ) external {
+        if (block.timestamp > deadline) {
+            _revert(IGCC.RetiringPermitSignatureExpired.selector);
+        }
+        bytes32 message = _constructRetiringPermitDigest(from, msg.sender, amount, nextRetiringNonce[from]++, deadline);
+        if (!_checkRetiringPermitSignature(from, message, signature)) {
+            _revert(IGCC.RetiringSignatureInvalid.selector);
+        }
+        retireGCCFor(from, rewardAddress, amount);
+    }
+
+    //-----------------  RETIRING ALLOWANCES -----------------//
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function increaseRetiringAllowance(address spender, uint256 amount) external override {
+        _increaseRetiringAllowance(msg.sender, spender, amount);
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function decreaseRetiringAllowance(address spender, uint256 amount) external override {
+        _decreaseRetiringAllowance(msg.sender, spender, amount);
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function retiringAllowance(address account, address spender) public view override returns (uint256) {
+        return _retireGCCAllowances[account][spender];
+    }
+
+
+    /// @notice handles the storage writes and event emissions relating to retiring carbon credits.
+    /// @dev should only be used internally and by function that require a transfer of {amount} to address(this)
+    function _handleRetirement(address from, address rewardAddress, uint256 amount) private {
+        totalCreditsRetired[rewardAddress] += amount;
+        GOVERNANCE.grantNominations(rewardAddress, amount);
+        emit IGCC.GCCRetired(from, rewardAddress, amount);
+    }
+
+
+    /**
+     * @dev internal function to increase the retiring allowance
+     * @param from the address of the account to increase the allowance from
+     * @param spender the address of the spender to increase the allowance for
+     * @param amount the amount to increase the allowance by
+     */
+    function _increaseRetiringAllowance(address from, address spender, uint256 amount) private {
+        uint256 currentAllowance = _retireGCCAllowances[from][spender];
+        uint256 newAllowance = currentAllowance + amount;
+        _retireGCCAllowances[from][spender] = newAllowance;
+        emit IGCC.RetireGCCAllowance(from, spender, newAllowance);
+    }
+
+    /**
+     * @dev internal function to decrease the retiring allowance
+     * @param from the address of the account to decrease the allowance from
+     * @param spender the address of the spender to decrease the allowance for
+     * @param amount the amount to decrease the allowance by
+     */
+    function _decreaseRetiringAllowance(address from, address spender, uint256 amount) private {
+        uint256 currentAllowance = _retireGCCAllowances[from][spender];
+        uint256 newAllowance = currentAllowance - amount;
+        _retireGCCAllowances[from][spender] = newAllowance;
+        emit IGCC.RetireGCCAllowance(from, spender, newAllowance);
+    }
 
     //-------------  PRIVATE UTILS  --------------------//
     /**
-        * @notice Returns the key and shift for a bucketId
-        * @return key The key for the bucketId
-        * @return shift The shift for the bucketId
-    */
-    function _getKeyAndShiftFromBucketId(uint bucketId) private pure returns (uint key, uint shift) {
+     * @notice Returns the key and shift for a bucketId
+     * @return key The key for the bucketId
+     * @return shift The shift for the bucketId
+     */
+    function _getKeyAndShiftFromBucketId(uint256 bucketId) private pure returns (uint256 key, uint256 shift) {
         key = bucketId / _MAX_SHIFT;
         shift = bucketId % _MAX_SHIFT;
     }
 
+    function _constructRetiringPermitDigest(
+        address owner,
+        address spender,
+        uint256 amount,
+        uint256 nonce,
+        uint256 deadline
+    ) private view returns (bytes32) {
+        return
+            _hashTypedDataV4(keccak256(abi.encode(_RETIRING_PERMIT_TYPEHASH, owner, spender, amount, nonce, deadline)));
+    }
+
+    function _checkRetiringPermitSignature(address signer, bytes32 message, bytes memory signature)
+        private
+        view
+        returns (bool)
+    {
+        return SignatureChecker.isValidSignatureNow(signer, message, signature);
+    }
     /**
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
      */
-     function _revert(bytes4 selector) private pure {
+
+    function _revert(bytes4 selector) private pure {
         assembly {
             mstore(0x0, selector)
             revert(0x0, 0x04)
         }
     }
-
-
 }
