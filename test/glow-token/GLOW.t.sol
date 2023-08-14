@@ -9,7 +9,7 @@ import {Handler} from "./Handler.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
-contract TokenTest is Test {
+contract GlowTest is Test {
     TestGLOW public glw;
     Handler public handler;
     address public constant SIMON = address(0x11241998);

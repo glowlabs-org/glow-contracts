@@ -13,6 +13,7 @@ runs = 1000
 
 [profile.default.invariant]
 fail_on_revert = false
+# depth = 100
 # runs = 1
 # depth = 100_000
 
