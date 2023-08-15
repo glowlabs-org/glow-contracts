@@ -37,16 +37,23 @@ contract EarlyLiquidityTest is Test {
         usdc = new MockUSDC();
         earlyLiquidity = new EarlyLiquidity(address(usdc));
         glw = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
+
+    }
+
+    function test_setGlowAndMint() public {
         earlyLiquidity.setGlowToken(address(glw));
         assertEq(glw.balanceOf(address(earlyLiquidity)), 12_000_000 ether);
         usdc.mint(SIMON, 1_000_000_000 ether);
     }
-
     function test_ShouldHave12MillionTokens() public {
+        test_setGlowAndMint();
+
         assertEq(glw.balanceOf(address(earlyLiquidity)), 12_000_000 ether);
     }
 
     function test_getPrice() public {
+        test_setGlowAndMint();
+
         //starting price should be 60 cents
         // assertEq(earlyLiquidity.getPrice(0), POINT_6_USDC);
         uint256 price = earlyLiquidity.getPrice(0);
@@ -65,6 +72,8 @@ contract EarlyLiquidityTest is Test {
     }
 
     function test_Buy() public {
+        test_setGlowAndMint();
+
         vm.startPrank(SIMON);
         //buy 1 million token
         uint256 totalCost = earlyLiquidity.getPrice(1_000_000);
@@ -88,7 +97,45 @@ contract EarlyLiquidityTest is Test {
         assertTrue(totalCost2 > totalCost);
     }
 
+    function test_Buy_priceTooHigh_shouldFail() public {
+        test_setGlowAndMint();
+
+        vm.startPrank(SIMON);
+        //buy 1 million token
+        uint256 totalCost = earlyLiquidity.getPrice(1_000_000);
+        uint totalCost2 = earlyLiquidity.getPrice(1_000_000 +1);
+        assertTrue(totalCost2 > totalCost);
+        usdc.approve(address(earlyLiquidity), totalCost);
+        vm.expectRevert(IEarlyLiquidity.PriceTooHigh.selector);
+        earlyLiquidity.buy(1_000_000 * 1e18, totalCost-1);
+
+    }
+
+    function test_Buy_modNotZeroShouldFail() public {
+        test_setGlowAndMint();
+
+        vm.startPrank(SIMON);
+        //buy 1 million token
+        uint256 totalCost = earlyLiquidity.getPrice(1_000_000);
+        usdc.approve(address(earlyLiquidity), totalCost);
+        vm.expectRevert(IEarlyLiquidity.ModNotZero.selector);
+        earlyLiquidity.buy(1_000_000 * 1e18 - 1, totalCost+1);
+    }
+
+    function test_setGlowTokenTwice_shouldFail() public {
+        test_setGlowAndMint();
+
+        
+        vm.expectRevert("Glow token already set");
+        earlyLiquidity.setGlowToken(address(glw));
+    }
+
+    
+
     function test_getCurrentPrice() public {
+        test_setGlowAndMint();
+
+        
         //starting price should be 60 cents
         assertEq(earlyLiquidity.getCurrentPrice(), POINT_6_USDC);
     }

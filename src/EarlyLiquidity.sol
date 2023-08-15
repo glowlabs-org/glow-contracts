@@ -67,17 +67,16 @@ contract EarlyLiquidity {
     /**
      * @notice Buys tokens with USDC
      * @param amount The amount of tokens to buy (including decimals)
-     * @param maxPrice The maximum price to pay for the tokens
+     * @param maxCost The maximum cost to pay for the tokens
      */
-    function buy(uint256 amount, uint256 maxPrice) external {
+    function buy(uint256 amount, uint256 maxCost) external {
         //TODO: decide if we want fulfillPartialOrder
         if (amount % MIN_TOKEN_INCREMENT != 0) {
             _revert(IEarlyLiquidity.ModNotZero.selector);
         }
         amount = amount / MIN_TOKEN_INCREMENT;
         uint256 totalCost = getPrice(amount);
-        uint256 price = totalCost / amount;
-        if (price > maxPrice) {
+        if (totalCost > maxCost) {
             // if (!fulfillPartialOrder) {
             _revert(IEarlyLiquidity.PriceTooHigh.selector);
             // }
