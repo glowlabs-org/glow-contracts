@@ -74,7 +74,7 @@ contract EarlyLiquidityTest is Test {
         assertEq(usdcBalanceBefore, 1_000_000_000 ether);
         assertEq(glwBalanceBefore, 0);
         uint256 allowance = usdc.allowance(address(this), address(earlyLiquidity));
-        earlyLiquidity.buy(1_000_000 * 1e18, totalCost, false);
+        earlyLiquidity.buy(1_000_000 * 1e18, totalCost);
 
         uint256 glwBalanceAfter = glw.balanceOf(SIMON);
         uint256 usdcBalanceAfter = usdc.balanceOf(SIMON);

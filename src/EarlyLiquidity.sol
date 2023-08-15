@@ -13,6 +13,19 @@ interface IDecimals {
     function decimals() external view returns (uint8);
 }
 
+//TODO: Add tests, add integral to docs, finish fulfill partial order and talk through that with david
+// add deposit functions so we can deposit to GRC and Miner Pool once those contracts are up and running
+
+/**
+    * @title EarlyLiquidity
+    * @author @0xSimon
+    * @author @DavidVorick
+    * @notice This contract allows users to buy Glow tokens with USDC
+    * @dev the cost of glow rises exponentially with the amount of glow sold
+        -  The price at token t = 0.6 * 2^((total_sold + t)/ 1_000_000)
+    * @dev to calculate the price for x tokens in real time, we use integral calculus 
+*/
+
 contract EarlyLiquidity {
     using ABDKMath64x64 for int256;
 
@@ -55,9 +68,9 @@ contract EarlyLiquidity {
      * @notice Buys tokens with USDC
      * @param amount The amount of tokens to buy (including decimals)
      * @param maxPrice The maximum price to pay for the tokens
-     * @param fulfillPartialOrder Whether or not to fulfill the order partially if the price is too high
      */
-    function buy(uint256 amount, uint256 maxPrice, bool fulfillPartialOrder) external {
+    function buy(uint256 amount, uint256 maxPrice) external {
+        //TODO: decide if we want fulfillPartialOrder
         if (amount % MIN_TOKEN_INCREMENT != 0) {
             _revert(IEarlyLiquidity.ModNotZero.selector);
         }
@@ -65,11 +78,11 @@ contract EarlyLiquidity {
         uint256 totalCost = getPrice(amount);
         uint256 price = totalCost / amount;
         if (price > maxPrice) {
-            if (!fulfillPartialOrder) {
-                _revert(IEarlyLiquidity.PriceTooHigh.selector);
-            }
-            price = maxPrice;
-            amount = getAmountFromDesiredPrice(_totalSoldDiv1e18, maxPrice);
+            // if (!fulfillPartialOrder) {
+            _revert(IEarlyLiquidity.PriceTooHigh.selector);
+            // }
+            // price = maxPrice;
+            // amount = getAmountFromDesiredPrice(_totalSoldDiv1e18, maxPrice);
         }
         SafeERC20.safeTransferFrom(USDC_TOKEN, msg.sender, address(this), totalCost);
         SafeERC20.safeTransfer(glowToken, msg.sender, amount * 1e18);
@@ -163,21 +176,21 @@ contract EarlyLiquidity {
         return ABDKMath64x64.toUInt(totalPriceFP) * (10 ** (USDC_DECIMALS - 2));
     }
 
-    /// @dev helper function to get the amount of tokens that would be sold at a given price
-    function getAmountFromDesiredPrice(uint256 totalSold, uint256 desiredPrice) public view returns (uint256) {
-        return _getAmountFromDesiredPrice(totalSold, desiredPrice, USDC_DECIMALS);
-    }
+    // /// @dev helper function to get the amount of tokens that would be sold at a given price
+    // function getAmountFromDesiredPrice(uint256 totalSold, uint256 desiredPrice) public view returns (uint256) {
+    //     return _getAmountFromDesiredPrice(totalSold, desiredPrice, USDC_DECIMALS);
+    // }
 
-    //TODO: decide if we want to stash this.....or just leave it here
-    function _getAmountFromDesiredPrice(uint256 totalSold, uint256 desiredPrice, uint256 decimals)
-        public
-        view
-        returns (uint256)
-    {
-        //    return  2 * (1_000_000 * (price -.6))/(1.2) - total_sold
-        // return  2 * (totalSold + (desiredPrice - _POINT6)) * (10**(decimals+1)) /12 - totalSold;
-        return 2 * (desiredPrice - _POINT6) * 1_000_000 * (10 ** decimals) / _POINT6 - totalSold;
-    }
+    // //TODO: decide if we want to stash this.....or just leave it here
+    // function _getAmountFromDesiredPrice(uint256 totalSold, uint256 desiredPrice, uint256 decimals)
+    //     public
+    //     view
+    //     returns (uint256)
+    // {
+    //     //    return  2 * (1_000_000 * (price -.6))/(1.2) - total_sold
+    //     // return  2 * (totalSold + (desiredPrice - _POINT6)) * (10**(decimals+1)) /12 - totalSold;
+    //     return 2 * (desiredPrice - _POINT6) * 1_000_000 * (10 ** decimals) / _POINT6 - totalSold;
+    // }
 
     //-----------------UTILS-----------------
     /**
