@@ -4,8 +4,8 @@ pragma solidity 0.8.21;
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import "forge-std/console.sol";
+// TODO: note to self -- im brain fried rn, go back to the slashable vesting in your notebook
 
-/// TODO: note to self -- im brain fried rn, go back to the slashable vesting in your notebook @self @simonbindefeld
 contract GCA is IGCA {
     /**
      * @notice the amount of shares required per agent when submitting a compensation plan
@@ -121,7 +121,11 @@ contract GCA is IGCA {
         return _compensationPlan(gca, gcaAgents);
     }
 
-    function _compensationPlan(address gca, address[] memory gcaAddresses) public view returns (IGCA.ICompensation[] memory) {
+    function _compensationPlan(address gca, address[] memory gcaAddresses)
+        public
+        view
+        returns (IGCA.ICompensation[] memory)
+    {
         if (!isGCA(gca)) {
             _revert(NotGCA.selector);
         }
@@ -150,7 +154,6 @@ contract GCA is IGCA {
         return _gcaPayouts[gca];
     }
 
-
     /**
      * @dev Find total owed now and slashable balance using the summation of an arithmetic series
      * @dev formula = n/2 * (2a + (n-1)d) or n/2 * (a + l)
@@ -162,64 +165,66 @@ contract GCA is IGCA {
      * @return amountNow - the amount of glow owed now
      * @return slashableBalance - the amount of glow that is added to the slashable balance
      */
-     function getAmountNowAndSB(uint256 secondsSinceLastPayout, uint256 shares, uint256 totalShares)
-     public
-     pure
-     returns (uint256 amountNow, uint256 slashableBalance)
- {   
-     //Add 1 second to ensure last second is counted
-     //TODO: double check with {test_amountNowAndSb} in tests
-     // secondsSinceLastPayout += 1;
-     uint256 totalRewards = secondsSinceLastPayout * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
+    function getAmountNowAndSB(uint256 secondsSinceLastPayout, uint256 shares, uint256 totalShares)
+        public
+        pure
+        returns (uint256 amountNow, uint256 slashableBalance)
+    {
+        //Add 1 second to ensure last second is counted
+        //TODO: double check with {test_amountNowAndSb} in tests
+        // secondsSinceLastPayout += 1;
+        uint256 totalRewards = secondsSinceLastPayout * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
 
-     uint256 fullyVestedSeconds;
-     if (secondsSinceLastPayout > MAX_VESTING_SECONDS) {
-         fullyVestedSeconds = secondsSinceLastPayout - MAX_VESTING_SECONDS;
-         amountNow += fullyVestedSeconds * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
-         secondsSinceLastPayout -= fullyVestedSeconds;
-     }
-     amountNow += secondsSinceLastPayout 
-         * (secondsSinceLastPayout * VESTING_REWARDS_PER_SECOND_FOR_ALL * shares / totalShares) / 2;
-     slashableBalance = totalRewards - amountNow;
- }
+        uint256 fullyVestedSeconds;
+        if (secondsSinceLastPayout > MAX_VESTING_SECONDS) {
+            fullyVestedSeconds = secondsSinceLastPayout - MAX_VESTING_SECONDS;
+            amountNow += fullyVestedSeconds * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
+            secondsSinceLastPayout -= fullyVestedSeconds;
+        }
+        amountNow += secondsSinceLastPayout
+            * (secondsSinceLastPayout * VESTING_REWARDS_PER_SECOND_FOR_ALL * shares / totalShares) / 2;
+        slashableBalance = totalRewards - amountNow;
+    }
 
     /**
-        * @param agent - the address of the agent to payout
-        * @param gcas - should always be allGcas in storage, but passed through memory for gas savings
-    */
-    function _payoutAgent(address agent,address[] memory gcas) internal {
-        uint totalToPayNow;
-        uint amountToAddToSlashable;
-        uint totalShares = SHARES_REQUIRED_PER_COMP_PLAN * gcas.length;
+     * @param agent - the address of the agent to payout
+     * @param gcas - should always be allGcas in storage, but passed through memory for gas savings
+     */
+    function _payoutAgent(address agent, address[] memory gcas) internal {
+        uint256 totalToPayNow;
+        uint256 amountToAddToSlashable;
+        uint256 totalShares = SHARES_REQUIRED_PER_COMP_PLAN * gcas.length;
         //If the agent is a gca, we need to pay everyone out?
-        uint lastClaimTimestamp = _gcaPayouts[agent].lastClaimedTimestamp;
-        uint timeElapsed = block.timestamp - lastClaimTimestamp;
-        if(isGCA(agent)) {
+        uint256 lastClaimTimestamp = _gcaPayouts[agent].lastClaimedTimestamp;
+        uint256 timeElapsed = block.timestamp - lastClaimTimestamp;
+        if (isGCA(agent)) {
             //Check how much they've worked
             //TODO: make sure that lastClaimTimestamp can never be zero
-            (uint shares,) = _getShares(agent, gcas);
+            (uint256 shares,) = _getShares(agent, gcas);
             (totalToPayNow, amountToAddToSlashable) = getAmountNowAndSB(timeElapsed, shares, totalShares);
         }
 
         //Now we need to calculate how uch
-        
-        
     }
 
-    function getShares(address agent) external view returns(uint256 shares,uint totalShares) {
+    function getShares(address agent) external view returns (uint256 shares, uint256 totalShares) {
         return _getShares(agent, gcaAgents);
     }
 
-    function _getShares(address agent, address[] memory gcas) internal view returns(uint256 shares,uint totalShares) {
-        uint indexOfAgent;
-        for(uint i; i < gcas.length; i++) {
-            if(gcas[i] == agent) {
+    function _getShares(address agent, address[] memory gcas)
+        internal
+        view
+        returns (uint256 shares, uint256 totalShares)
+    {
+        uint256 indexOfAgent;
+        for (uint256 i; i < gcas.length; i++) {
+            if (gcas[i] == agent) {
                 indexOfAgent = i;
                 break;
             }
         }
-        for(uint i; i< gcas.length; i++) {
-            uint bitpackedPlans = _compensationPlans[gcas[i]];
+        for (uint256 i; i < gcas.length; i++) {
+            uint256 bitpackedPlans = _compensationPlans[gcas[i]];
             shares += (bitpackedPlans >> _calculateShift(indexOfAgent)) & _UINT24_MASK;
         }
         totalShares = SHARES_REQUIRED_PER_COMP_PLAN * gcas.length;
@@ -254,8 +259,7 @@ contract GCA is IGCA {
         }
         gcaAgents = gcaAddresses;
         for (uint256 i; i < gcaAddresses.length; ++i) {
-            _compensationPlans[gcaAddresses[i]] =
-                (SHARES_REQUIRED_PER_COMP_PLAN) << _calculateShift(i);
+            _compensationPlans[gcaAddresses[i]] = (SHARES_REQUIRED_PER_COMP_PLAN) << _calculateShift(i);
             //If they have any slashable balance that's unclaimed, we should clean that up here...
         }
     }
@@ -268,6 +272,4 @@ contract GCA is IGCA {
     function _calculateShift(uint256 index) private pure returns (uint256) {
         return index * _UINT24_SHIFT;
     }
-
-
 }

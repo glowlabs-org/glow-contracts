@@ -14,7 +14,6 @@ import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
 
-
 contract GCA_TEST is Test {
     MockGCA gca;
     TestGLOW glow;
@@ -66,7 +65,7 @@ contract GCA_TEST is Test {
             assertTrue(_containsElement(gca.allGcas(), gcaAddresses[i]));
             IGCA.ICompensation[] memory plans = gca.compensationPlan(gcaAddresses[i]);
             for (uint256 j; j < plans.length; j++) {
-                (uint shares, uint totalShares) = gca.getShares(gcaAddresses[i]);
+                (uint256 shares, uint256 totalShares) = gca.getShares(gcaAddresses[i]);
                 if (plans[j].agent == gcaAddresses[i]) {
                     assertTrue(plans[j].shares == gca.SHARES_REQUIRED_PER_COMP_PLAN());
                 } else {
@@ -78,22 +77,22 @@ contract GCA_TEST is Test {
         }
     }
 
-    function testFuzz_amountNowAndSb(uint secondsSinceLastPayout) public {
+    function testFuzz_amountNowAndSb(uint256 secondsSinceLastPayout) public {
         vm.assume(secondsSinceLastPayout < 14 days);
         uint256 shares = 1;
         uint256 totalShares = 1;
         (uint256 amountNow, uint256 slashableBalance) =
             gca.getAmountNowAndSB(secondsSinceLastPayout, shares, totalShares);
-        uint rewardPerSecond = gca.REWARDS_PER_SECOND_FOR_ALL();
+        uint256 rewardPerSecond = gca.REWARDS_PER_SECOND_FOR_ALL();
         uint256 vestingRate = gca.VESTING_REWARDS_PER_SECOND_FOR_ALL();
-        uint vestedSum;
-        for(uint i; i < secondsSinceLastPayout; i++){
-            uint timeElapsed = secondsSinceLastPayout - i;
-            uint vestedFromSecond = _min(timeElapsed * vestingRate, rewardPerSecond);
+        uint256 vestedSum;
+        for (uint256 i; i < secondsSinceLastPayout; i++) {
+            uint256 timeElapsed = secondsSinceLastPayout - i;
+            uint256 vestedFromSecond = _min(timeElapsed * vestingRate, rewardPerSecond);
             vestedSum += vestedFromSecond;
         }
         //Account for division errors
-        uint maxAcceptableDifference = 10 ** 10; //.00000001 tokens
+        uint256 maxAcceptableDifference = 10 ** 10; //.00000001 tokens
         // console.log("amountNow", amountNow);
         // console.log("Sum from loop", vestedSum);
         int256 diff = int256(amountNow) - int256(vestedSum);

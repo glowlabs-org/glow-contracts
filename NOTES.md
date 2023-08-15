@@ -7,6 +7,7 @@ Maybe?
 2. Remove public domain seperator into private and make it public in test files.
 3. decide if 712 signatures for retiring allowance should also work on transfer amounts....
 
+
 ---- GOVERNANCE AND HALF LIFE ------
 Thought about two ways we could handle the math.
 1. We require retiring of credits in .1 increments so that we can demagnify in the Nominations struct.
@@ -24,4 +25,7 @@ Thought about two ways we could handle the math.
         1. More complex
         2. more gas
 
+
+---- EARLY LIQUIDITY --------
+1. Add calculus integration to early liquidity section
 According to some tests I ran, cost about 15K gas for a half life calculation

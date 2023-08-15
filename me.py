@@ -1,14 +1,27 @@
-import numpy as np
-# val = 0,0,0,0,0,0,2000,2000,2000,2000,2000,2000,2000,2000,2000,2500,2500,2500,2500,0,2500,2500,2500,2500,0
-# #make a 5x5
-# val = np.array(val)
-# val = val.reshape(5,5)
+#natural log
+import math
 
-#make a 5x5 with 2000  everywher
-val = np.full((5,5), 2000)
-#transofmt it by multiplying by a 5x5  identity matrix
-linear_transofmration = np.identity(5)
-print(linear_transofmration)
-linear_transofmration[0][0] = 0
-val = np.matmul(val, linear_transofmration)
-print(val)
+#ln(2)
+
+
+
+def find_total_price(total_sold,tokens_to_buy):
+    total_price = (.06 * 2** ((total_sold + tokens_to_buy)/1_000_000))/ 0.6931471805599453 - (.06 * 2** (total_sold/1_000_000))/ 0.6931471805599453
+    return total_price
+
+
+def manual_way(total_sold,tokens_to_buy):
+    total_price = 0
+    for i in range(total_sold,total_sold + tokens_to_buy):
+        total_price += .06 * 2** (i/1_000_000)
+    return total_price
+
+
+print(find_total_price(0,12_000_000))
+print(find_total_price(0,20))
+
+
+
+print(manual_way(0,20))
+
+print(manual_way(0,12_000_000))
