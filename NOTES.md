@@ -7,6 +7,9 @@ Maybe?
 2. Remove public domain seperator into private and make it public in test files.
 3. decide if 712 signatures for retiring allowance should also work on transfer amounts....
 
+---GCA---
+1. Finish pending payout
+2. add max gcas
 
 ---- GOVERNANCE AND HALF LIFE ------
 Thought about two ways we could handle the math.
@@ -28,4 +31,12 @@ Thought about two ways we could handle the math.
 
 ---- EARLY LIQUIDITY --------
 1. Add calculus integration to early liquidity section
+2. Figure out with david if we need fulfill partial order
+3. Finish Interface
+
+---- VETO COUNCIL ----
+1. Finish payout algo
+2. Make sure there's a check to reestablish the total shares after add or remove event where newLength != oldLength
+
+Extra:
 According to some tests I ran, cost about 15K gas for a half life calculation

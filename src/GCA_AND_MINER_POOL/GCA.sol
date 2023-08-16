@@ -4,6 +4,7 @@ pragma solidity 0.8.21;
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import "forge-std/console.sol";
+import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 // TODO: note to self -- im brain fried rn, go back to the slashable vesting in your notebook
 
 contract GCA is IGCA {
@@ -43,11 +44,6 @@ contract GCA is IGCA {
 
     /// @dev 1% of the rewards vest per week
     uint256 public constant VESTING_REWARDS_PER_SECOND_FOR_ALL = REWARDS_PER_SECOND_FOR_ALL / (100 * 86400 * 7);
-
-    /// @dev the maximum amount of seconds a second can vest for
-    /// @dev this is to prevent a second from over-vesting in payout
-    /// @dev since rewards vest at 1% per week, this is 100 weeks
-    uint256 public constant MAX_VESTING_SECONDS = uint256(7 days) * 100;
 
     /// @notice the bitpacked compensation plans
     mapping(address => uint256) public _compensationPlans;
@@ -170,20 +166,9 @@ contract GCA is IGCA {
         pure
         returns (uint256 amountNow, uint256 slashableBalance)
     {
-        //Add 1 second to ensure last second is counted
-        //TODO: double check with {test_amountNowAndSb} in tests
-        // secondsSinceLastPayout += 1;
-        uint256 totalRewards = secondsSinceLastPayout * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
-
-        uint256 fullyVestedSeconds;
-        if (secondsSinceLastPayout > MAX_VESTING_SECONDS) {
-            fullyVestedSeconds = secondsSinceLastPayout - MAX_VESTING_SECONDS;
-            amountNow += fullyVestedSeconds * REWARDS_PER_SECOND_FOR_ALL * shares / totalShares;
-            secondsSinceLastPayout -= fullyVestedSeconds;
-        }
-        amountNow += secondsSinceLastPayout
-            * (secondsSinceLastPayout * VESTING_REWARDS_PER_SECOND_FOR_ALL * shares / totalShares) / 2;
-        slashableBalance = totalRewards - amountNow;
+        (amountNow, slashableBalance) = VestingMathLib.getAmountNowAndSB(
+            secondsSinceLastPayout, shares, totalShares, REWARDS_PER_SECOND_FOR_ALL, VESTING_REWARDS_PER_SECOND_FOR_ALL
+        );
     }
 
     /**

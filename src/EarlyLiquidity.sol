@@ -17,14 +17,14 @@ interface IDecimals {
 // add deposit functions so we can deposit to GRC and Miner Pool once those contracts are up and running
 
 /**
-    * @title EarlyLiquidity
-    * @author @0xSimon
-    * @author @DavidVorick
-    * @notice This contract allows users to buy Glow tokens with USDC
-    * @dev the cost of glow rises exponentially with the amount of glow sold
-        -  The price at token t = 0.6 * 2^((total_sold + t)/ 1_000_000)
-    * @dev to calculate the price for x tokens in real time, we use integral calculus 
-*/
+ * @title EarlyLiquidity
+ * @author @0xSimon
+ * @author @DavidVorick
+ * @notice This contract allows users to buy Glow tokens with USDC
+ * @dev the cost of glow rises exponentially with the amount of glow sold
+ *         -  The price at token t = 0.6 * 2^((total_sold + t)/ 1_000_000)
+ * @dev to calculate the price for x tokens in real time, we use integral calculus
+ */
 
 contract EarlyLiquidity {
     using ABDKMath64x64 for int256;
