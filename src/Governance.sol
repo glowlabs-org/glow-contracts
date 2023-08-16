@@ -13,4 +13,11 @@ contract Governance is IGovernance {
     function grantNominations(address to, uint256 amount) external override {
         return;
     }
+
+    /// @inheritdoc IGovernance
+    function getProposalWithStatus(uint256 proposalId)
+        public
+        view
+        returns (Proposal memory proposal, IGovernance.ProposalStatus)
+    {}
 }

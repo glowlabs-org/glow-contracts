@@ -44,7 +44,10 @@ interface IGovernance {
      * @return proposal the proposal
      * @return status the status of the proposal
      */
-    function getProposalWithStatus(uint256 proposalId) public view returns (Proposal memory proposal, ProposalStatus);
+    function getProposalWithStatus(uint256 proposalId)
+        external
+        view
+        returns (Proposal memory proposal, ProposalStatus);
 
     /**
      * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC
