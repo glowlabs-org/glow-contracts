@@ -99,6 +99,16 @@ contract GCA_TEST is Test {
         assertTrue(diff < int256(maxAcceptableDifference));
     }
 
+    function test_setRequirements_callerNotGovernance_shouldFail() public {
+        vm.expectRevert(IGCA.CallerNotGovernance.selector);
+        gca.setRequirementsHash(bytes32("new hash"));
+    }
+
+    function test_setRequirements_callerNotGovernance_shouldWork() public {
+        vm.startPrank(governance);
+        gca.setRequirementsHash(bytes32("new hash"));
+    }
+
     //------------------------ HELPERS -----------------------------
     function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
         address[] memory addresses = new address[](numAddresses);

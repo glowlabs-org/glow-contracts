@@ -6,6 +6,7 @@ interface IGCA {
     error CompensationPlanLengthMustBeGreaterThanZero();
     error InsufficientShares();
     error NoBalanceToPayout();
+    error CallerNotGovernance();
 
     /**
      * @return = true if the account is a gca , false otherwise

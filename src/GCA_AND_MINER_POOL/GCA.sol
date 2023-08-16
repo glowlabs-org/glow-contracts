@@ -24,6 +24,19 @@ contract GCA is IGCA {
     /// @notice the timestamp of the genesis block
     uint256 public immutable GENESIS_TIMESTAMP;
 
+    
+    /// @notice the shift to apply to the bitpacked compensation plans
+    uint256 private constant _UINT24_SHIFT = 24;
+    
+    /// @notice the mask to apply to the bitpacked compensation plans
+    uint256 private constant _UINT24_MASK = 0xFFFFFF;
+    
+    /// @dev 10_000 GLW Per Week available as rewards to all GCAs
+    uint256 public constant REWARDS_PER_SECOND_FOR_ALL = 10_000 ether / uint256(7 days);
+    
+    /// @dev 1% of the rewards vest per week
+    uint256 public constant VESTING_REWARDS_PER_SECOND_FOR_ALL = REWARDS_PER_SECOND_FOR_ALL / (100 * 86400 * 7);
+    
     /// @notice the index of the last proposal that was updated
     uint256 public lastUpdatedProposalIndex;
 
@@ -33,17 +46,8 @@ contract GCA is IGCA {
     /// @notice the addresses of the gca agents
     address[] public gcaAgents;
 
-    /// @notice the shift to apply to the bitpacked compensation plans
-    uint256 private constant _UINT24_SHIFT = 24;
-
-    /// @notice the mask to apply to the bitpacked compensation plans
-    uint256 private constant _UINT24_MASK = 0xFFFFFF;
-
-    /// @dev 10_000 GLW Per Week available as rewards to all GCAs
-    uint256 public constant REWARDS_PER_SECOND_FOR_ALL = 10_000 ether / uint256(7 days);
-
-    /// @dev 1% of the rewards vest per week
-    uint256 public constant VESTING_REWARDS_PER_SECOND_FOR_ALL = REWARDS_PER_SECOND_FOR_ALL / (100 * 86400 * 7);
+    /// @notice the requirements hash of GCA Agents
+    bytes32 public requirementsHash;
 
     /// @notice the bitpacked compensation plans
     mapping(address => uint256) public _compensationPlans;
@@ -56,8 +60,9 @@ contract GCA is IGCA {
      * @param _gcaAgents the addresses of the gca agents the contract starts with
      * @param _glowToken the address of the glow token
      * @param _governance the address of the governance contract
+        * @param _requirementsHash the requirements hash of GCA Agents
      */
-    constructor(address[] memory _gcaAgents, address _glowToken, address _governance) {
+    constructor(address[] memory _gcaAgents, address _glowToken, address _governance,bytes32 _requirementsHash) {
         GLOW_TOKEN = IGlow(_glowToken);
         GOVERNANCE = _governance;
         _setGCAs(_gcaAgents);
@@ -65,6 +70,7 @@ contract GCA is IGCA {
         for (uint256 i; i < _gcaAgents.length; ++i) {
             _gcaPayouts[_gcaAgents[i]].lastClaimedTimestamp = uint64(GENESIS_TIMESTAMP);
         }
+        requirementsHash = _requirementsHash;
     }
 
     /// @inheritdoc IGCA
@@ -110,6 +116,11 @@ contract GCA is IGCA {
             _revert(InsufficientShares.selector);
         }
         emit IGCA.CompensationPlanSubmitted(msg.sender, plans);
+    }
+
+    function setRequirementsHash(bytes32 _requirementsHash) external {
+        if(msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
+        requirementsHash = _requirementsHash;
     }
 
     /// @inheritdoc IGCA
