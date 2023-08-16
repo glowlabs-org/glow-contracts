@@ -107,6 +107,7 @@ contract GCA_TEST is Test {
     function test_setRequirements_callerNotGovernance_shouldWork() public {
         vm.startPrank(governance);
         gca.setRequirementsHash(bytes32("new hash"));
+        assertEq(gca.requirementsHash(), bytes32("new hash"));
     }
 
     //------------------------ HELPERS -----------------------------
