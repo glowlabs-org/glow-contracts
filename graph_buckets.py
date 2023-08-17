@@ -22,9 +22,9 @@ with open('z_buckets.json') as f:
         for i in range(len(ids)):
             writer.writerow({'id': ids[i], 'amountInBucket': amounts[i], 'inheritedFromLastWeek': inheritedFromLastWeeks[i], 'amountToDeduct': amountToDeduct[i]})
 
-    # #plot the data
-    # plt.bar(ids,amounts)
-    # plt.xlabel('Bucket ID')
-    # plt.ylabel('Amount in Bucket')
-    # plt.title('Amount in each Bucket')
-    # plt.show()
+    #plot the data
+    plt.bar(ids,amounts)
+    plt.xlabel('Bucket ID')
+    plt.ylabel('Amount in Bucket')
+    plt.title('Amount in each Bucket')
+    plt.show()

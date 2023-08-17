@@ -12,6 +12,7 @@ import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
     //----------------- CONSTANTS -----------------//
 
@@ -25,21 +26,21 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
     uint256 public constant MAX_AUTHORIZATION_LENGTH = uint256(7 days) * 16;
 
     /// @dev each bucket is 1 week long
-    uint256 public constant BUCKET_LENGTH = uint(1 days) * 7;
+    uint256 public constant BUCKET_LENGTH = uint256(1 days) * 7;
 
     /**
-        * @notice the start offset to the current bucket for the grc deposit
-        * @dev when depositing grc, the grc is evenly distributed across 192 weeks 
-            -   The first bucket to receive grc is the current bucket + 16
-            -   The last bucket to receive grc is the current bucket + 208
-    */
+     * @notice the start offset to the current bucket for the grc deposit
+     * @dev when depositing grc, the grc is evenly distributed across 192 weeks
+     *         -   The first bucket to receive grc is the current bucket + 16
+     *         -   The last bucket to receive grc is the current bucket + 208
+     */
     uint256 public constant GRC_DEPOSIT_BUCKET_OFFSET_START = 16;
 
-    /** 
-        * @notice the end offset to the current bucket for the grc deposit
-        * @dev the amount to offset b(x) by to get the final bucket number where the grc will have finished vesting
-            - where b(x) is the current bucket
-    */
+    /**
+     * @notice the end offset to the current bucket for the grc deposit
+     * @dev the amount to offset b(x) by to get the final bucket number where the grc will have finished vesting
+     *         - where b(x) is the current bucket
+     */
     uint256 public constant GRC_DEPOSIT_BUCKET_OFFSET_END = 208;
 
     //----------------- STATE VARIABLES -----------------//
@@ -115,9 +116,13 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
         ++electricityFutureAuctionCount;
     }
 
-    function bidOnFuturesAuction(uint256 auctionId, uint256 amount, uint256 expiration, address gca, bytes calldata signature)
-        external
-    {
+    function bidOnFuturesAuction(
+        uint256 auctionId,
+        uint256 amount,
+        uint256 expiration,
+        address gca,
+        bytes calldata signature
+    ) external {
         ElectricityFutureAuction memory auction = electricityFutureAuctions[auctionId];
         if (block.timestamp > auction.endTime) {
             _revert(IMinerPool.ElectricityFuturesAuctionEnded.selector);
@@ -132,9 +137,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
         if (expiration - block.timestamp > MAX_AUTHORIZATION_LENGTH) {
             _revert(IMinerPool.ElectricityFuturesAuctionAuthorizationTooLong.selector);
         }
-        if(!isGCA(gca)) _revert(IGCA.CallerNotGCA.selector);
+        if (!isGCA(gca)) _revert(IGCA.CallerNotGCA.selector);
         bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(ELECTRICITY_FUTURES_TYPEHASH, msg.sender, expiration)));
-        if(!SignatureChecker.isValidSignatureNow(gca, digest, signature)) {
+        if (!SignatureChecker.isValidSignatureNow(gca, digest, signature)) {
             _revert(IMinerPool.ElectricityFuturesAuctionInvalidSignature.selector);
         }
 
@@ -142,15 +147,14 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
 
         //TODO: add the grc to the reward pools.
         SafeERC20.safeTransferFrom(grcToken, msg.sender, address(this), amount);
-
     }
 
     //----------------- VIEW FUNCTIONS -----------------//
 
     /**
-        * @notice returns the id of the current bucket
-    */
-    function currentBucket() public view returns(uint256) {
+     * @notice returns the id of the current bucket
+     */
+    function currentBucket() public view returns (uint256) {
         return (block.timestamp - _genesisTimestamp()) / BUCKET_LENGTH;
     }
 
@@ -160,6 +164,4 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
     function _genesisTimestamp() private view returns (uint256) {
         return GENESIS_TIMESTAMP;
     }
-
-
 }
