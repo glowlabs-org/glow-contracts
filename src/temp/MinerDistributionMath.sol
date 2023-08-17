@@ -80,11 +80,8 @@ contract MinerDistributionMath {
         return _rewards;
     }
 
-
-
     function reward(uint256 id) public view returns (WeeklyReward memory) {
         WeeklyReward memory bucket = rewards[id];
         return bucket;
     }
- 
 }

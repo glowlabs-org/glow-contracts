@@ -1,9 +1,17 @@
 import matplotlib.pyplot as plt
 import json 
 import csv
-with open('z_buckets.json') as f:
+import sys
+from constants import BUCKETS_FILE_NAME
+
+bucket_path = f"./py-utils/miner-pool/data/{BUCKETS_FILE_NAME}"
+#revert and exit
+def revert(message:str):
+    raise Exception(message)
+# revert("Error In Buckets")
+with open(bucket_path) as f:
     data = json.load(f)
-    #{id:number,amountInBucket:number}
+    
     ids = []
     amounts = []
     inheritedFromLastWeeks = []
@@ -15,7 +23,7 @@ with open('z_buckets.json') as f:
         amountToDeduct.append(i['amountToDeduct'])
 
     #write it to a csv 
-    with open('buckets.csv', 'w', newline='') as csvfile:
+    with open('./py-utils/miner-pool/data/buckets.csv', 'w', newline='') as csvfile:
         fieldnames = ['id', 'amountInBucket', 'inheritedFromLastWeek', 'amountToDeduct']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()

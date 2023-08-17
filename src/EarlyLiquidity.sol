@@ -18,15 +18,15 @@ interface IDecimals {
 
 /**
  * @title EarlyLiquidity
- * @author @0xSimon
  * @author @DavidVorick
+ * @author @0xSimon
  * @notice This contract allows users to buy Glow tokens with USDC
  * @dev the cost of glow rises exponentially with the amount of glow sold
  *         -  The price at token t = 0.6 * 2^((total_sold + t)/ 1_000_000)
  * @dev to calculate the price for x tokens in real time, we use integral calculus
  */
 
-contract EarlyLiquidity {
+contract EarlyLiquidity is IEarlyLiquidity {
     using ABDKMath64x64 for int256;
 
     /// @dev The Glow token
@@ -65,54 +65,46 @@ contract EarlyLiquidity {
     }
 
     /**
-     * @notice Buys tokens with USDC
-     * @param amount The amount of tokens to buy (including decimals)
-     * @param maxCost The maximum cost to pay for the tokens
+     * @inheritdoc IEarlyLiquidity
      */
     function buy(uint256 amount, uint256 maxCost) external {
-        //TODO: decide if we want fulfillPartialOrder
         if (amount % MIN_TOKEN_INCREMENT != 0) {
             _revert(IEarlyLiquidity.ModNotZero.selector);
         }
         amount = amount / MIN_TOKEN_INCREMENT;
         uint256 totalCost = getPrice(amount);
         if (totalCost > maxCost) {
-            // if (!fulfillPartialOrder) {
             _revert(IEarlyLiquidity.PriceTooHigh.selector);
-            // }
-            // price = maxPrice;
-            // amount = getAmountFromDesiredPrice(_totalSoldDiv1e18, maxPrice);
         }
+        uint256 glowToSend = amount * 1e18;
         SafeERC20.safeTransferFrom(USDC_TOKEN, msg.sender, address(this), totalCost);
-        SafeERC20.safeTransfer(glowToken, msg.sender, amount * 1e18);
+        //TODO: Send to GRC and Miner Pool
+        SafeERC20.safeTransfer(glowToken, msg.sender, glowToSend);
         _totalSoldDiv1e18 += amount;
+        emit IEarlyLiquidity.Purchase(msg.sender, glowToSend, totalCost);
         return;
     }
 
+    //************************************************************* */
+    //*******************     GETTERS    ******************** */
+    //************************************************************* */
+
     /**
-     * @notice Calculates the price of a given amount of tokens
-     * @param amount The amount of tokens to buy
-     * @return The price of the tokens in microdollars
-     * @dev uses the integral of 2 * .6^((total_sold + tokens_to_buy)/ 1_000_000)
-     *             - to approximate the price of the tokens using calculus
+     * @inheritdoc IEarlyLiquidity
      */
     function getPrice(uint256 amount) public view returns (uint256) {
         return _getPrice(_totalSoldDiv1e18, amount);
     }
 
     /**
-     * @notice Returns the total amount of tokens sold so far
-     * @return The total amount of tokens sold so far including decimals
+     * @inheritdoc IEarlyLiquidity
      */
-
-    //-----------------GETTERS-----------------
     function totalSold() public view returns (uint256) {
         return _totalSoldDiv1e18 * 1e18;
     }
 
     /**
-     * @notice Returns the current price of the tokens
-     * @return The current price of the tokens in microdollars
+     * @inheritdoc IEarlyLiquidity
      */
     function getCurrentPrice() external view returns (uint256) {
         return _getPrice(_totalSoldDiv1e18, 1);
@@ -129,7 +121,9 @@ contract EarlyLiquidity {
         glowToken = IERC20(_glowToken);
     }
 
-    //-----------------TOKEN MATH-----------------
+    //************************************************************* */
+    //*******************     TOKEN MATH    ******************** */
+    //************************************************************* */
 
     /**
      * @notice Calculates the price of a given amount of tokens
@@ -175,23 +169,10 @@ contract EarlyLiquidity {
         return ABDKMath64x64.toUInt(totalPriceFP) * (10 ** (USDC_DECIMALS - 2));
     }
 
-    // /// @dev helper function to get the amount of tokens that would be sold at a given price
-    // function getAmountFromDesiredPrice(uint256 totalSold, uint256 desiredPrice) public view returns (uint256) {
-    //     return _getAmountFromDesiredPrice(totalSold, desiredPrice, USDC_DECIMALS);
-    // }
+    //************************************************************* */
+    //*******************     UTILS    ******************** */
+    //************************************************************* */
 
-    // //TODO: decide if we want to stash this.....or just leave it here
-    // function _getAmountFromDesiredPrice(uint256 totalSold, uint256 desiredPrice, uint256 decimals)
-    //     public
-    //     view
-    //     returns (uint256)
-    // {
-    //     //    return  2 * (1_000_000 * (price -.6))/(1.2) - total_sold
-    //     // return  2 * (totalSold + (desiredPrice - _POINT6)) * (10**(decimals+1)) /12 - totalSold;
-    //     return 2 * (desiredPrice - _POINT6) * 1_000_000 * (10 ** decimals) / _POINT6 - totalSold;
-    // }
-
-    //-----------------UTILS-----------------
     /**
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with

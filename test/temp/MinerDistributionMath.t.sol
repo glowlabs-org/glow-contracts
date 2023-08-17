@@ -29,7 +29,7 @@ contract TokenTest is Test {
     }
 
     function saveBucketsToFile(uint256 start, uint256 end, string memory fileName) public {
-        // deleteFile(fileName);
+        deleteFile();
         vm.writeLine(fileName, "[");
 
         for (uint256 i = start; i <= end; i++) {
@@ -53,21 +53,21 @@ contract TokenTest is Test {
         showGraph();
     }
 
-    function deleteFile(string memory fileName) public {
+    function deleteFile() public {
         string[] memory deleteFileCommands = new string[](2);
-        deleteFileCommands[0] = "rm";
-        deleteFileCommands[1] = fileName;
+        deleteFileCommands[0] = "py";
+        deleteFileCommands[1] = "./py-utils/miner-pool/delete_file_if_exists.py";
         vm.ffi(deleteFileCommands);
     }
 
     function showGraph() public {
         string[] memory graphCommands = new string[](2);
         graphCommands[0] = "py";
-        graphCommands[1] = "graph_buckets.py";
+        graphCommands[1] = "./py-utils/miner-pool/graph_buckets.py";
         vm.ffi(graphCommands);
     }
 
-    function test_Do() public {
+    function test_MinerPoolFFI() public {
         uint256 amountToAdd = 192_000;
         // minerMath.addToCurrentBucket(amountToAdd);
         uint256 oneWeek = uint256(7 days);
@@ -85,7 +85,6 @@ contract TokenTest is Test {
             vm.warp(block.timestamp + oneWeek);
         }
 
-
-        saveBucketsToFile(0, 340, "z_buckets.json");
+        saveBucketsToFile(0, 340, "py-utils/miner-pool/data/buckets.json");
     }
 }

@@ -45,7 +45,7 @@ contract EarlyLiquidityTest is Test {
         usdc.mint(SIMON, 1_000_000_000 ether);
     }
 
-    function test_ShouldHave12MillionTokens() public {
+    function test_ShouldHave12MillionTokensOnConstruction() public {
         test_setGlowAndMint();
 
         assertEq(glw.balanceOf(address(earlyLiquidity)), 12_000_000 ether);
