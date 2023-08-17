@@ -11,7 +11,7 @@ contract MockGCA is GCA {
      * @param _governance the address of the governance contract
      */
     constructor(address[] memory _gcaAgents, address _glowToken, address _governance)
-        GCA(_gcaAgents, _glowToken, _governance,keccak256("FAKE DATA"))
+        GCA(_gcaAgents, _glowToken, _governance, keccak256("FAKE DATA"))
     {}
 
     function setGCAs(address[] calldata newGcas) external {

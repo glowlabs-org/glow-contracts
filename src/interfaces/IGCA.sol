@@ -3,6 +3,7 @@ pragma solidity 0.8.21;
 
 interface IGCA {
     error NotGCA();
+    error CallerNotGCA();
     error CompensationPlanLengthMustBeGreaterThanZero();
     error InsufficientShares();
     error NoBalanceToPayout();
