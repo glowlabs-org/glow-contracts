@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+pragma solidity 0.8.21;
+
 import {GCC} from "../../src/GCC.sol";
 import "forge-std/Test.sol";
 import "forge-std/StdUtils.sol";
