@@ -29,9 +29,6 @@ interface IDecimals {
 contract EarlyLiquidity is IEarlyLiquidity {
     using ABDKMath64x64 for int256;
 
-    /// @dev The Glow token
-    IERC20 public glowToken;
-
     /// @dev The USDC token
     IERC20 public immutable USDC_TOKEN;
 
@@ -39,7 +36,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
     uint256 public constant USDC_DECIMALS = 6;
 
     /// @dev The number 0.6 in microdollars with respect to USDC_DECIMALS
-    uint256 _POINT6 = 6 * (10 ** (USDC_DECIMALS - 1));
+    uint256 private constant _POINT6 = 6 * (10 ** (USDC_DECIMALS - 1));
+
+    uint256 private constant _TOTAL_TOKENS_TO_SELL_DIV_1E18 = 12_000_000;
 
     /// @dev The minimum increment that tokens can be bought in
     /// @dev this is essential so our floating point math doesn't break
@@ -48,6 +47,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /// @dev tokens are demagnified by 1e18 to make floating point math easier
     /// @dev the {totalSold} function returns the total sold in 1e18 (GLW DECIMALS)
     uint256 private _totalSoldDiv1e18;
+
+    /// @dev The Glow token
+    IERC20 public glowToken;
 
     //-----------------CONSTRUCTOR-----------------
 
@@ -127,13 +129,19 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
     /**
      * @notice Calculates the price of a given amount of tokens
-     * @param totalSold The total amount of tokens sold so far
-     * @param tokensToBuy The amount of tokens to buy
+     * @param totalSold The total amount of tokens sold so far (divided by 1e18)
+     * @param tokensToBuy The amount of tokens to buy (divided by 1e18)
      * @return The price of the tokens in microdollars
      * @dev uses the integral of 2 * .6^((total_sold + tokens_to_buy)/ 1_000_000)
      *             - to approximate the price of the tokens using calculus
      */
     function _getPrice(uint256 totalSold, uint256 tokensToBuy) private view returns (uint256) {
+        // If we have sold all the tokens, revert.
+        // This is useful for people who rely on the {getPrice} function to perform calculations
+        if (totalSold + tokensToBuy > _TOTAL_TOKENS_TO_SELL_DIV_1E18) {
+            _revert(IEarlyLiquidity.AllSold.selector);
+        }
+
         /**
          * We use integral calculus to find the approximation
          */
