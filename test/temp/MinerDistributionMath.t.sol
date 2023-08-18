@@ -5,14 +5,66 @@ import "forge-std/Test.sol";
 import {MinerDistributionMath} from "@/temp/MinerDistributionMath.sol";
 import "forge-std/console.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {MinerDistributionHandler} from "./Handlers/MinerDistributionHandler.t.sol";
 
-contract TokenTest is Test {
+contract MinerDistributionMathTest is Test {
     MinerDistributionMath minerMath;
+    MinerDistributionHandler handler;
 
+    //------------- SETUP -------------
+    /**
+     * @dev we create all the contracts
+     *         -   and assign fuzzing and invariant targets
+     *         -   we only test the addRewardsToBucket function inside the handler
+     */
     function setUp() public {
         minerMath = new MinerDistributionMath();
+        handler = new MinerDistributionHandler(address(minerMath));
+        bytes4[] memory selectors = new bytes4[](2);
+        selectors[0] = MinerDistributionHandler.addRewardsToBucket.selector;
+        selectors[1] = MinerDistributionHandler.addRewardsToBucketNoWarp.selector;
+        FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
+        targetContract(address(handler));
     }
 
+    //-----------------INVARIANTS-----------------
+
+    /**
+     * @dev we test that all ghost buckets match the manual array
+     */
+    function invariant_bucketMath_shouldMatchManualArray() public {
+        uint256[] memory allGhostBucketIds = handler.allGhostBucketIds();
+        for (uint256 i; i < allGhostBucketIds.length; ++i) {
+            uint256 rewardInGhostMapping = handler.ghost_amountInBucket(allGhostBucketIds[i]);
+            MinerDistributionMath.WeeklyReward memory reward = minerMath.reward(allGhostBucketIds[i]);
+            assertTrue(reward.amountInBucket == rewardInGhostMapping);
+        }
+    }
+
+    //----------------- TESTS  -----------------
+    function test_MinerPoolFFI() public {
+        uint256 amountToAdd = 192_000;
+        uint256 oneWeek = uint256(7 days);
+
+        string memory jsonString;
+        uint256 weeksToLoop = 300;
+        for (uint256 i = 0; i < weeksToLoop; i++) {
+            if (i >= 20) {
+                if (i >= 200) {
+                    minerMath.addToCurrentBucket(0);
+                }
+            } else {
+                minerMath.addToCurrentBucket(amountToAdd);
+            }
+            vm.warp(block.timestamp + oneWeek);
+        }
+
+        saveBucketsToFile(0, 340, "py-utils/miner-pool/data/buckets.json");
+    }
+
+    //-----------------UTILS-----------------
+
+    /// @dev - helper function to log a reward for debug purposes
     function logWeeklyReward(uint256 id, MinerDistributionMath.WeeklyReward memory reward) public {
         console.logString("---------------------------------");
         console.log("id %s", id);
@@ -22,12 +74,16 @@ contract TokenTest is Test {
         console.logString("---------------------------------");
     }
 
+    /// @dev - helper function to log a group of rewards for debug purposes
     function logBuckets(uint256 start, uint256 finish) public {
         for (uint256 i = start; i <= finish; i++) {
             logWeeklyReward(i, minerMath.reward(i));
         }
     }
 
+    /// @dev used to save the results of the bucket outputs to a file
+    ///     -   we used this during testing to generate the graph
+    ///     -   and to sanity check the results
     function saveBucketsToFile(uint256 start, uint256 end, string memory fileName) public {
         deleteFile();
         vm.writeLine(fileName, "[");
@@ -50,9 +106,10 @@ contract TokenTest is Test {
         }
         vm.writeLine(fileName, "]");
 
-        showGraph();
+        // showGraph();
     }
 
+    /// @dev - helper function to delete the csv file that contains the bucket outputs
     function deleteFile() public {
         string[] memory deleteFileCommands = new string[](2);
         deleteFileCommands[0] = "py";
@@ -60,31 +117,11 @@ contract TokenTest is Test {
         vm.ffi(deleteFileCommands);
     }
 
+    /// @dev - helper function that generates the csv and then shows the distribution of the buckets
     function showGraph() public {
         string[] memory graphCommands = new string[](2);
         graphCommands[0] = "py";
         graphCommands[1] = "./py-utils/miner-pool/graph_buckets.py";
         vm.ffi(graphCommands);
-    }
-
-    function test_MinerPoolFFI() public {
-        uint256 amountToAdd = 192_000;
-        // minerMath.addToCurrentBucket(amountToAdd);
-        uint256 oneWeek = uint256(7 days);
-
-        string memory jsonString;
-        uint256 weeksToLoop = 300;
-        for (uint256 i = 0; i < weeksToLoop; i++) {
-            if (i >= 20) {
-                if (i >= 200) {
-                    minerMath.addToCurrentBucket(0);
-                }
-            } else {
-                minerMath.addToCurrentBucket(amountToAdd);
-            }
-            vm.warp(block.timestamp + oneWeek);
-        }
-
-        saveBucketsToFile(0, 340, "py-utils/miner-pool/data/buckets.json");
     }
 }

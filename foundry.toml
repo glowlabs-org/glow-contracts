@@ -13,8 +13,8 @@ fs_permissions = [{ access = "read-write", path = "./"}]
 runs = 1000
 
 [profile.default.invariant]
-fail_on_revert = false
-# depth = 100
+# fail_on_revert = false
+# depth = 100_000
 # runs = 1
 # depth = 100_000
 
