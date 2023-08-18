@@ -42,6 +42,20 @@ contract MinerDistributionMathTest is Test {
     }
 
     //----------------- TESTS  -----------------
+
+    /**
+        * @dev function to test the addRewardsToBucket function
+            -   we loop over 300 weeks,
+            -   and add 192,000 to the current bucket
+                - the 192,000 should be equally divided between 192 weeks
+                    -   the first week being {currentBucket + 16}, and the last week
+                    -   being {currentBucket + 208}
+            -   we then save the bucket data to a file
+            -   and then show the graph
+        * @dev we only add rewards to the first 20 buckets, and then
+                -   we add 0 to the other buckets to see if they correctly inherit from the previous week
+                -   this is all inspected in the py-utils/miner-pool/data/buckets.json file
+    */
     function test_MinerPoolFFI() public {
         uint256 amountToAdd = 192_000;
         uint256 oneWeek = uint256(7 days);
@@ -109,7 +123,7 @@ contract MinerDistributionMathTest is Test {
         // showGraph();
     }
 
-    /// @dev - helper function to delete the csv file that contains the bucket outputs
+    /// @dev - helper function to delete the json file that contains the bucket outputs
     function deleteFile() public {
         string[] memory deleteFileCommands = new string[](2);
         deleteFileCommands[0] = "py";
@@ -117,7 +131,7 @@ contract MinerDistributionMathTest is Test {
         vm.ffi(deleteFileCommands);
     }
 
-    /// @dev - helper function that generates the csv and then shows the distribution of the buckets
+    /// @dev - helper function that generates the json and then shows the distribution of the buckets
     function showGraph() public {
         string[] memory graphCommands = new string[](2);
         graphCommands[0] = "py";
