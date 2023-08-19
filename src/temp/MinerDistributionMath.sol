@@ -4,10 +4,10 @@ pragma solidity 0.8.21;
 import "forge-std/console.sol";
 
 contract MinerDistributionMath {
-    uint256 constant OFFSET_LEFT = 16;
-    uint256 constant OFFSET_RIGHT = 208;
-    uint256 constant BUCKET_DURATION = uint256(7 days);
-    uint256 constant TOTAL_VESTING_PERIODS = OFFSET_RIGHT - OFFSET_LEFT;
+    uint256 public constant OFFSET_LEFT = 16;
+    uint256 public constant OFFSET_RIGHT = 208;
+    uint256 public constant BUCKET_DURATION = uint256(7 days);
+    uint256 public constant TOTAL_VESTING_PERIODS = OFFSET_RIGHT - OFFSET_LEFT;
     mapping(uint256 => WeeklyReward) public rewards;
     uint256 public immutable GENESIS_TIMESTAMP;
     uint256 public lastUpdatedBucket;
@@ -75,13 +75,27 @@ contract MinerDistributionMath {
     function getRewards(uint256 start, uint256 end) public view returns (WeeklyReward[] memory) {
         WeeklyReward[] memory _rewards = new WeeklyReward[](end - start);
         for (uint256 i = start; i < end; i++) {
-            _rewards[i] = rewards[i];
+            _rewards[i] = this.reward(i);
         }
         return _rewards;
     }
 
-    function reward(uint256 id) public view returns (WeeklyReward memory) {
+    function reward(uint256 id) external view returns (WeeklyReward memory) {
         WeeklyReward memory bucket = rewards[id];
+        if (bucket.inheritedFromLastWeek || id < 16) {
+            return bucket;
+        }
+
+        uint256 amountToSubtract = bucket.amountInBucket;
+        uint256 lastBucketId = id - 1;
+        while (true) {
+            WeeklyReward memory lastBucket = rewards[lastBucketId--];
+            amountToSubtract += lastBucket.amountToDeduct;
+            if (lastBucket.inheritedFromLastWeek) {
+                bucket.amountInBucket = lastBucket.amountInBucket - amountToSubtract;
+                break;
+            }
+        }
         return bucket;
     }
 }

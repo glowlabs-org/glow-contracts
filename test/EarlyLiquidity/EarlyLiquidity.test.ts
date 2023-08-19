@@ -29,6 +29,7 @@ const csvHeaders = [
   'totalCostLocal',
   'diverges',
   'divergenceAmount',
+  'divergencePercent',
 ];
 
 /***
@@ -62,7 +63,7 @@ async function stage() {
 
 //--- TESTS ----
 describe('Test: Early Liquidity', function () {
-  it('Integral calculus should not diverge past .01%', async function () {
+  it('Geometric series should not diverge past .01%', async function () {
     //Setup the number of fuzz runs counter
     let numRunsCounter: number = 0;
 
@@ -130,8 +131,9 @@ describe('Test: Early Liquidity', function () {
               .toString()} USDC`,
           );
         }
+        const message = `Diverged by ${totalCostFromContract}`;
         //We should never diverge more than the max divergence percent
-        expect(diverges).to.equal(false);
+        expect(diverges).to.equal(false, message);
 
         const signerGlowBalanceBefore = await mockGlow.balanceOf(
           signer.address,
@@ -145,6 +147,28 @@ describe('Test: Early Liquidity', function () {
         //This should be sent to the miner pool
         // const earlyLiquidityUSDCBalanceBefore = await mockUSDC.balanceOf(earlyLiquidity.address);
 
+        const divergenceValue = totalCostFromContract
+          .sub(totalCostLocal)
+          .abs()
+          .toNumber();
+        let expectedValue = totalCostLocal.toNumber();
+        if (expectedValue === 0) {
+          expectedValue = 1;
+        }
+        const divergencePercent = divergenceValue / expectedValue;
+        if (SAVE_EARLY_LIQUIDITY_RUNS) {
+          //Save the data to the csv
+          csvData.push([
+            totalTokensSold,
+            tokensToBuy.toString(),
+            totalCostFromContract.toString(),
+            totalCostLocal.toString(),
+            diverges,
+            totalCostFromContract.sub(totalCostLocal).abs().toString(),
+            //divergence percent
+            `${divergencePercent}%`,
+          ]);
+        }
         //Purchase the tokens
         await earlyLiquidity.buy(
           ethers.utils.parseEther(`${tokensToBuy}`),
@@ -167,25 +191,13 @@ describe('Test: Early Liquidity', function () {
         expect(
           earlyLiquidityGlowBalanceBefore.sub(earlyLiquidityGlowBalanceAfter),
         ).to.equal(tokensToBuy.mul(BigNumber.from(10).pow(18)));
-
-        if (SAVE_EARLY_LIQUIDITY_RUNS) {
-          //Save the data to the csv
-          csvData.push([
-            totalTokensSold,
-            tokensToBuy.toString(),
-            totalCostFromContract.toString(),
-            totalCostLocal.toString(),
-            diverges,
-            totalCostFromContract.sub(totalCostLocal).abs().toString(),
-          ]);
-        }
       }
       if (SAVE_EARLY_LIQUIDITY_RUNS) {
         //Generate a random id to save the data to
         const RANDOM_ID = Math.floor(Math.random() * 1000000);
         //Save the data from the run to a csv
         fs.writeFileSync(
-          `./test/early-liquidity/data/${RANDOM_ID}.csv`,
+          `./test/EarlyLiquidity/data/${RANDOM_ID}.csv`,
           csvHeaders.join(',') +
             '\n' +
             csvData.map((row) => row.join(',')).join('\n'),
@@ -205,7 +217,7 @@ function getPriceOfToken(totalTokensSold: number): number {
 }
 /**
  * @notice grabs the actual price of all the tokens by looping through each token and adding the price
-            - this is not possible on-chain due to gas fees, so we use integral calculus in the contacts to get the price
+            - this is not possible on-chain due to gas fees, so we use the sum of a geometric series in the contacts to get the price
  * @param totalTokensSold - the total number of tokens sold so far
  * @param totalToBuy - the total number of tokens to buy
  * @returns - the actual price of the tokens by looping through each token and adding the price
@@ -243,7 +255,7 @@ function getRandomBigNumberWithUpperBound(upperBound: BigNumber) {
 
 /***
  * @notice returns true if the actual value diverges more than the max divergence percent
- * @param actual - the actual value frrom the integral calculus that the contract returned as the price
+ * @param actual - the actual value frrom the geometric series that the contract returned as the price
  * @param expected - the expected value returned from looping manually
  * @return true if the actual value diverges more than the max divergence percent
  */

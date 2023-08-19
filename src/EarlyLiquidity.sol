@@ -23,11 +23,11 @@ interface IDecimals {
  * @notice This contract allows users to buy Glow tokens with USDC
  * @dev the cost of glow rises exponentially with the amount of glow sold
  *         -  The price at token t = 0.6 * 2^((total_sold + t)/ 1_000_000)
- * @dev to calculate the price for x tokens in real time, we use integral calculus
+ * @dev to calculate the price for x tokens in real time, we use the sum of a geometric series
  */
 
 contract EarlyLiquidity is IEarlyLiquidity {
-    using ABDKMath64x64 for int256;
+    using ABDKMath64x64 for int128;
 
     /// @dev The USDC token
     IERC20 public immutable USDC_TOKEN;
@@ -43,6 +43,26 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /// @dev The minimum increment that tokens can be bought in
     /// @dev this is essential so our floating point math doesn't break
     uint256 public constant MIN_TOKEN_INCREMENT = 1e18;
+
+    //--FLOATING POINT CONSTANTS (IN FIXED POINT FORMAT)--
+
+    /// @dev Represents 1.000000693 in 64x64 format, or `r` in the geometric series
+    int128 private constant _RATIO = 18446756860022628215;
+
+    /// @dev Represents 0.6 USDC in 64x64 format
+    int128 private constant _POINT_6 = 11068046444225730969600000;
+
+    /// @dev Represents 1 in 64x64 format
+    int128 private constant _ONE = 18446744073709551616;
+
+    /// @dev Represents ln(r) in 64x64 format
+    int128 private constant _LN_RATIO = 12786308645200;
+
+    /// @dev Represents  (1-r) in 64x64 format
+    int128 private constant _DIVISOR = 18446744073709551616000000;
+
+    /// @dev Represents ln(2) in 64x64 format
+    int128 private constant _LN_2 = 12786308645202655659;
 
     /// @dev tokens are demagnified by 1e18 to make floating point math easier
     /// @dev the {totalSold} function returns the total sold in 1e18 (GLW DECIMALS)
@@ -132,49 +152,44 @@ contract EarlyLiquidity is IEarlyLiquidity {
      * @param totalSold The total amount of tokens sold so far (divided by 1e18)
      * @param tokensToBuy The amount of tokens to buy (divided by 1e18)
      * @return The price of the tokens in microdollars
-     * @dev uses the integral of 2 * .6^((total_sold + tokens_to_buy)/ 1_000_000)
-     *             - to approximate the price of the tokens using calculus
+     * @dev uses the geometric series of 2 * .6^((total_sold + tokens_to_buy)/ 1_000_000)
+     *             - to get the price using the sum of a geometric series
+                   - rounding errors do occur due to floating point math, but divergence is sub 1e-7%
      */
-    function _getPrice(uint256 totalSold, uint256 tokensToBuy) private view returns (uint256) {
-        // If we have sold all the tokens, revert.
-        // This is useful for people who rely on the {getPrice} function to perform calculations
+  
+    function _getPrice(uint256 totalSold, uint256 tokensToBuy) private pure returns (uint256) {
         if (totalSold + tokensToBuy > _TOTAL_TOKENS_TO_SELL_DIV_1E18) {
             _revert(IEarlyLiquidity.AllSold.selector);
         }
+        int128 n = ABDKMath64x64.fromUInt(tokensToBuy);
+        int128 rToTheN = ABDKMath64x64.exp(ABDKMath64x64.mul(n, _LN_RATIO));
+        int128 numerator = _ONE.sub(rToTheN);
+        int128 denominator = _ONE.sub(_RATIO);
 
-        /**
-         * We use integral calculus to find the approximation
-         */
-        int128 totalSoldFP = ABDKMath64x64.fromUInt(totalSold);
-        int128 tokensToBuyFP = ABDKMath64x64.fromUInt(tokensToBuy);
+        // Do the division first
+        int128 divisionResult = numerator.div(denominator);
 
-        // Representing $0.60 in microdollars: 60,000,000
-        int128 sixtyMillionMicrodollarsFP = ABDKMath64x64.fromUInt(60_000_000);
+        int128 firstTermInSeries = _getFirstTermInSeries(totalSold);
+        int128 geometricSeries = (firstTermInSeries.mul(divisionResult));
 
-        // The natural logarithm of 2
-        int128 ln2 = ABDKMath64x64.ln(ABDKMath64x64.fromUInt(2));
+        int256 result = geometricSeries.toInt();
 
-        // Constants for one million and two, in fixed-point format
-        int128 oneMillion = ABDKMath64x64.fromUInt(1_000_000);
-        int128 two = ABDKMath64x64.fromUInt(2);
+        require(result >= 0, "Negative value returned");
+        return uint256(result);
+    }
 
-        // Calculating the two power terms for the exponential function
-        int128 powerTerm1 = ABDKMath64x64.div(totalSoldFP, oneMillion);
-        int128 powerTerm2 = ABDKMath64x64.div(ABDKMath64x64.add(totalSoldFP, tokensToBuyFP), oneMillion);
+    function _getFirstTermInSeries(uint256 totalSold) private pure returns (int128) {
+        int128 scaledTotalSold = ABDKMath64x64.fromUInt(totalSold);
+        // Calculate the exponent: (ln(2) * totalSold) / 1,000,000
+        int128 exponent = _LN_2.mul(scaledTotalSold).div(_DIVISOR);
 
-        // Calculating 2 to the power of the terms
-        int128 twoPowerTerm1 = ABDKMath64x64.exp(ABDKMath64x64.mul(powerTerm1, ABDKMath64x64.ln(two)));
-        int128 twoPowerTerm2 = ABDKMath64x64.exp(ABDKMath64x64.mul(powerTerm2, ABDKMath64x64.ln(two)));
+        // Now, compute 2^(exponent)
+        int128 baseResult = ABDKMath64x64.exp(exponent);
 
-        // Calculating the final terms for the price
-        int128 priceTerm1 = ABDKMath64x64.div(ABDKMath64x64.mul(sixtyMillionMicrodollarsFP, twoPowerTerm1), ln2);
-        int128 priceTerm2 = ABDKMath64x64.div(ABDKMath64x64.mul(sixtyMillionMicrodollarsFP, twoPowerTerm2), ln2);
+        // Finally, multiply by 0.6
+        int128 result = _POINT_6.mul(baseResult);
 
-        // Subtracting the two terms to get the total price in fixed-point format
-        int128 totalPriceFP = ABDKMath64x64.sub(priceTerm2, priceTerm1);
-
-        // Convert the fixed-point value back to an integer, representing the price in microdollars
-        return ABDKMath64x64.toUInt(totalPriceFP) * (10 ** (USDC_DECIMALS - 2));
+        return result;
     }
 
     //************************************************************* */
