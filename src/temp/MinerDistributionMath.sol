@@ -75,15 +75,10 @@ contract MinerDistributionMath {
     function getRewards(uint256 start, uint256 end) public view returns (WeeklyReward[] memory) {
         WeeklyReward[] memory _rewards = new WeeklyReward[](end - start);
         for (uint256 i = start; i < end; i++) {
-            _rewards[i] = rewards[i];
+            _rewards[i] = this.reward(i);
         }
         return _rewards;
     }
-
-    // function reward(uint256 id) public view returns (WeeklyReward memory) {
-    //     WeeklyReward memory bucket = rewards[id];
-    //     return bucket;
-    // }
 
     function reward(uint256 id) external view returns (WeeklyReward memory) {
         WeeklyReward memory bucket = rewards[id];
