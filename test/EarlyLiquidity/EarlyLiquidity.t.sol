@@ -10,6 +10,9 @@ import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
 import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {Handler} from "./handlers/Handler.t.sol";
+import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
+import {EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
+import {TestGLOW} from "@/testing/TestGLOW.sol";
 
 contract EarlyLiquidityTest is Test {
     //-----------------CONSTANTS-----------------
@@ -28,11 +31,16 @@ contract EarlyLiquidityTest is Test {
     EarlyLiquidity public earlyLiquidity;
     MockUSDC usdc;
     Handler handler;
+    EarlyLiquidityMockMinerPool minerPool;
+    TestGLOW glow;
 
     //-----------------SETUP-----------------
     function setUp() public {
         usdc = new MockUSDC();
         earlyLiquidity = new EarlyLiquidity(address(usdc));
+        glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
+        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow));
+        earlyLiquidity.setMinerPool(address(minerPool));
         glw = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
         handler = new Handler(address(earlyLiquidity), address(usdc));
         bytes4[] memory selectors = new bytes4[](1);
@@ -103,6 +111,83 @@ contract EarlyLiquidityTest is Test {
 
         uint256 totalCost2 = earlyLiquidity.getPrice(1_000_000);
 
+        assertTrue(totalCost2 > totalCost);
+    }
+
+    /**
+     * @dev we test to make sure that usdc used to buy goes to the
+     *             - miner pool contract
+     */
+    function test_Buy_checkUSDCGoesToMinerPool() public {
+        test_setGlowAndMint();
+
+        vm.startPrank(SIMON);
+        //buy 1 million token
+        uint256 totalCost = earlyLiquidity.getPrice(1_000_000);
+        usdc.approve(address(earlyLiquidity), totalCost);
+        uint256 glwBalanceBefore = glw.balanceOf(SIMON);
+
+        uint256 minerPoolUsdcBalanceBefore = usdc.balanceOf(address(minerPool));
+        uint256 usdcBalanceBefore = usdc.balanceOf(SIMON);
+        assertEq(usdcBalanceBefore, 1_000_000_000 ether);
+        assertEq(glwBalanceBefore, 0);
+        uint256 allowance = usdc.allowance(address(this), address(earlyLiquidity));
+        earlyLiquidity.buy(1_000_000 * 1e18, totalCost);
+
+        uint256 glwBalanceAfter = glw.balanceOf(SIMON);
+        uint256 usdcBalanceAfter = usdc.balanceOf(SIMON);
+        uint256 minerPoolUsdcBalanceAfter = usdc.balanceOf(address(minerPool));
+
+        assertEq(earlyLiquidity.totalSold(), 1_000_000 ether);
+
+        uint256 totalCost2 = earlyLiquidity.getPrice(1_000_000);
+
+        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity(address(usdc));
+        assertEq(amountReceivedFromELInMP, minerPoolUsdcBalanceAfter - minerPoolUsdcBalanceBefore);
+
+        assertTrue(totalCost2 > totalCost);
+        assertTrue(minerPoolUsdcBalanceAfter - totalCost == minerPoolUsdcBalanceBefore);
+    }
+
+    /**
+     * @dev we replicate the logic above but assuming USDC has
+     *         - implemented a tax
+     * @dev - the amount sent to the miner pool contract through {donateToGRCMinerRewardsPoolEarlyLiquidity}
+     *        - should be equal to the total amount that got sent even with an unforseen tax
+     */
+    function test_Buy_checkUSDCGoesToMinerPool_taxToken() public {
+        vm.startPrank(SIMON);
+        MockUSDCTax taxUsdc = new MockUSDCTax();
+        taxUsdc.mint(SIMON, 1_000_000_000 ether);
+        earlyLiquidity = new EarlyLiquidity(address(taxUsdc));
+        glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
+        earlyLiquidity.setGlowToken(address(glow));
+        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow));
+        earlyLiquidity.setMinerPool(address(minerPool));
+
+        //buy 1 million token
+        uint256 totalCost = earlyLiquidity.getPrice(1_000_000);
+        taxUsdc.approve(address(earlyLiquidity), totalCost);
+        uint256 glwBalanceBefore = glw.balanceOf(SIMON);
+
+        uint256 minerPoolUsdcBalanceBefore = taxUsdc.balanceOf(address(minerPool));
+        uint256 usdcBalanceBefore = taxUsdc.balanceOf(SIMON);
+        assertEq(usdcBalanceBefore, 1_000_000_000 ether);
+        assertEq(glwBalanceBefore, 0);
+        uint256 allowance = taxUsdc.allowance(address(this), address(earlyLiquidity));
+        earlyLiquidity.buy(1_000_000 * 1e18, totalCost);
+
+        uint256 glwBalanceAfter = glw.balanceOf(SIMON);
+        uint256 usdcBalanceAfter = taxUsdc.balanceOf(SIMON);
+        uint256 minerPoolUsdcBalanceAfter = taxUsdc.balanceOf(address(minerPool));
+
+        assertEq(earlyLiquidity.totalSold(), 1_000_000 ether);
+
+        uint256 totalCost2 = earlyLiquidity.getPrice(1_000_000);
+
+        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity(address(taxUsdc));
+        assertEq(amountReceivedFromELInMP, minerPoolUsdcBalanceAfter - minerPoolUsdcBalanceBefore);
+        assertTrue(amountReceivedFromELInMP != totalCost);
         assertTrue(totalCost2 > totalCost);
     }
 

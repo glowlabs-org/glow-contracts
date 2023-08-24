@@ -36,6 +36,7 @@ const csvHeaders = [
  * @dev staging function to deploy contracts and mint USDC to the signer.
  * @dev useful when running fuzzing tests to reset the state of the contracts on each run.
  */
+
 async function stage() {
   const [signer, other] = await ethers.getSigners();
 
@@ -51,12 +52,18 @@ async function stage() {
   await earlyLiquidity.deployed();
   const MockGlow = await ethers.getContractFactory('TestGLOW');
   const vestingContractPlaceholderAddress =
-    '0x591749484BFb1737473bf1E7Bb453257BdA452A9';
+  '0x591749484BFb1737473bf1E7Bb453257BdA452A9';
   const mockGlow = await MockGlow.deploy(
     earlyLiquidity.address,
     vestingContractPlaceholderAddress,
-  );
-  await mockGlow.deployed();
+    );
+    await mockGlow.deployed();
+
+    //----------------- DEPLOY MINER POOL -----------------
+    const MinerPool = await ethers.getContractFactory('EarlyLiquidityMockMinerPool');
+    const minerPool = await MinerPool.deploy(earlyLiquidity.address,mockGlow.address);
+    await minerPool.deployed();
+    await earlyLiquidity.setMinerPool(minerPool.address);
   await earlyLiquidity.setGlowToken(mockGlow.address);
   return { earlyLiquidity, mockUSDC, mockGlow, signer, other };
 }
@@ -192,6 +199,10 @@ describe('Test: Early Liquidity', function () {
           earlyLiquidityGlowBalanceBefore.sub(earlyLiquidityGlowBalanceAfter),
         ).to.equal(tokensToBuy.mul(BigNumber.from(10).pow(18)));
       }
+
+      const allEvents  = await earlyLiquidity.queryFilter(earlyLiquidity.filters['Purchase(address,uint256,uint256)']());
+      // console.log(allEvents);
+      fs.writeFileSync("events.json", JSON.stringify(allEvents, null, 4));
       if (SAVE_EARLY_LIQUIDITY_RUNS) {
         //Generate a random id to save the data to
         const RANDOM_ID = Math.floor(Math.random() * 1000000);

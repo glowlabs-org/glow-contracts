@@ -6,6 +6,7 @@ import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
 import "forge-std/console.sol";
+import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 
 interface IDecimals {
     error IncorrectDecimals();
@@ -42,11 +43,13 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
     /// @dev The minimum increment that tokens can be bought in
     /// @dev this is essential so our floating point math doesn't break
+    //TODO: see how low we can get min_token_inc without everything breaking.
     uint256 public constant MIN_TOKEN_INCREMENT = 1e18;
 
     //--FLOATING POINT CONSTANTS (IN FIXED POINT FORMAT)--
 
     /// @dev Represents 1.000000693 in 64x64 format, or `r` in the geometric series
+    //TODO: make sure the _RATIO = 1.0000006931474208.... add precision
     int128 private constant _RATIO = 18446756860022628215;
 
     /// @dev Represents 0.6 USDC in 64x64 format
@@ -71,6 +74,8 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /// @dev The Glow token
     IERC20 public glowToken;
 
+    IMinerPool public minerPool;
+
     //-----------------CONSTRUCTOR-----------------
 
     /**
@@ -90,6 +95,13 @@ contract EarlyLiquidity is IEarlyLiquidity {
      * @inheritdoc IEarlyLiquidity
      */
     function buy(uint256 amount, uint256 maxCost) external {
+        //cache in mem
+        IMinerPool pool = minerPool;
+        address poolAddress = address(pool);
+        if (_isZeroAddress(poolAddress)) {
+            _revert(IEarlyLiquidity.ZeroAddress.selector);
+        }
+
         if (amount % MIN_TOKEN_INCREMENT != 0) {
             _revert(IEarlyLiquidity.ModNotZero.selector);
         }
@@ -99,13 +111,46 @@ contract EarlyLiquidity is IEarlyLiquidity {
             _revert(IEarlyLiquidity.PriceTooHigh.selector);
         }
         uint256 glowToSend = amount * 1e18;
-        SafeERC20.safeTransferFrom(USDC_TOKEN, msg.sender, address(this), totalCost);
-        //TODO: Send to GRC and Miner Pool
+        uint256 balBefore = USDC_TOKEN.balanceOf(poolAddress);
+        SafeERC20.safeTransferFrom(USDC_TOKEN, msg.sender, poolAddress, totalCost);
+        uint256 balAfter = USDC_TOKEN.balanceOf(poolAddress);
+        uint256 diff = balAfter - balBefore;
+        //Take into account a possible tax.
+        pool.donateToGRCMinerRewardsPoolEarlyLiquidity(address(USDC_TOKEN), diff);
+
         SafeERC20.safeTransfer(glowToken, msg.sender, glowToSend);
         _totalSoldDiv1e18 += amount;
         emit IEarlyLiquidity.Purchase(msg.sender, glowToSend, totalCost);
         return;
     }
+
+    //************************************************************* */
+    //*******************  ONE TIME USE SETTERS    **************** */
+    //************************************************************* */
+
+    /**
+     * @notice Sets the glow token address
+     * @param _glowToken The address of the glow token
+     * @dev Can only be called once
+     */
+     function setGlowToken(address _glowToken) external {
+        require(address(glowToken) == address(0), "Glow token already set");
+        glowToken = IERC20(_glowToken);
+    }
+
+
+
+    /**
+        * @notice - one time use function to set the miner pool address
+        * @param _minerPoolAddress - the address of the miner pool contract
+        * @dev should only be able to be set once
+    */
+    function setMinerPool(address _minerPoolAddress) external {
+        if (_isZeroAddress(_minerPoolAddress)) _revert(IEarlyLiquidity.ZeroAddress.selector);
+        if (!_isZeroAddress(address(minerPool))) _revert(IEarlyLiquidity.MinerPoolAlreadySet.selector);
+        minerPool = IMinerPool(_minerPoolAddress);
+    }
+
 
     //************************************************************* */
     //*******************     GETTERS    ******************** */
@@ -132,17 +177,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
         return _getPrice(_totalSoldDiv1e18, 1);
     }
 
-    //-----------------SETTERS-----------------
-    /**
-     * @notice Sets the glow token address
-     * @param _glowToken The address of the glow token
-     * @dev Can only be called once
-     */
-    function setGlowToken(address _glowToken) external {
-        require(address(glowToken) == address(0), "Glow token already set");
-        glowToken = IERC20(_glowToken);
-    }
-
+   
     //************************************************************* */
     //*******************     TOKEN MATH    ******************** */
     //************************************************************* */
@@ -154,9 +189,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
      * @return The price of the tokens in microdollars
      * @dev uses the geometric series of 2 * .6^((total_sold + tokens_to_buy)/ 1_000_000)
      *             - to get the price using the sum of a geometric series
-                   - rounding errors do occur due to floating point math, but divergence is sub 1e-7%
+     *                - rounding errors do occur due to floating point math, but divergence is sub 1e-7%
      */
-  
+
     function _getPrice(uint256 totalSold, uint256 tokensToBuy) private pure returns (uint256) {
         if (totalSold + tokensToBuy > _TOTAL_TOKENS_TO_SELL_DIV_1E18) {
             _revert(IEarlyLiquidity.AllSold.selector);
@@ -206,4 +241,15 @@ contract EarlyLiquidity is IEarlyLiquidity {
             revert(0x0, 0x04)
         }
     }
+
+    /**
+        * @dev for more efficient zero address checks
+    */
+    function _isZeroAddress(address a) private pure returns (bool isZero) {
+        assembly {
+            isZero := iszero(a)
+        }
+    }
+   
+
 }
