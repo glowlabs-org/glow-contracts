@@ -43,6 +43,12 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
      */
     uint256 public constant GRC_DEPOSIT_BUCKET_OFFSET_END = 208;
 
+    /**
+     * @notice the address of the early liquidity contract
+     * @dev used for authorization in {donateToGRCMinerRewardsPoolEarlyLiquidity}
+     */
+    address private immutable _EARLY_LIQUIDITY;
+
     //----------------- STATE VARIABLES -----------------//
     uint256 public electricityFutureAuctionCount;
 
@@ -98,10 +104,15 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
      * @param _governance the address of the governance contract
      * @param _requirementsHash the requirements hash of GCA Agents
      */
-    constructor(address[] memory _gcaAgents, address _glowToken, address _governance, bytes32 _requirementsHash)
-        GCA(_gcaAgents, _glowToken, _governance, _requirementsHash)
-        EIP712("GCA and MinerPool", "1")
-    {}
+    constructor(
+        address[] memory _gcaAgents,
+        address _glowToken,
+        address _governance,
+        bytes32 _requirementsHash,
+        address _earlyLiquidity
+    ) GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
+        _EARLY_LIQUIDITY = _earlyLiquidity;
+    }
 
     function createElectricityFutureAuction(ElectricityFutureAuction memory auctionData) external {
         if (!isGCA(msg.sender)) _revert(IGCA.CallerNotGCA.selector);
@@ -163,5 +174,23 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
     ///@dev gets {GENESIS_TIMESTAMP} from the GCA contract
     function _genesisTimestamp() private view returns (uint256) {
         return GENESIS_TIMESTAMP;
+    }
+
+    /**
+     * @inheritdoc IMinerPool
+     */
+    function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
+        return;
+    }
+
+    /**
+     * @inheritdoc IMinerPool
+     */
+    function donateToGRCMinerRewardsPoolEarlyLiquidity(address grcToken, uint256 amount) external virtual {
+        return;
+    }
+
+    function earlyLiquidity() public view returns (address) {
+        return _EARLY_LIQUIDITY;
     }
 }

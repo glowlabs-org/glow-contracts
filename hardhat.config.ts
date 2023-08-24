@@ -3,6 +3,8 @@ import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "hardhat-preprocessor";
 import { HardhatUserConfig, task } from "hardhat/config";
+import "hardhat-gas-reporter"
+
 
 import example from "./tasks/example";
 
@@ -25,6 +27,10 @@ const config: HardhatUserConfig = {
         runs: 200,
       },
     },
+  },
+  //@ts-ignore
+  gasReporter: {
+    enabled:true,
   },
   paths: {
     sources: "./src", // Use ./src rather than ./contracts as Hardhat expects

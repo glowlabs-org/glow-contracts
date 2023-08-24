@@ -5,6 +5,8 @@ interface IEarlyLiquidity {
     error PriceTooHigh();
     error ModNotZero();
     error AllSold();
+    error MinerPoolAlreadySet();
+    error ZeroAddress();
 
     /**
      * @notice Buys tokens with USDC

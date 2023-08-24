@@ -41,3 +41,6 @@ Thought about two ways we could handle the math.
 
 Extra:
 According to some tests I ran, cost about 15K gas for a half life calculation
+
+---NOTES:
+1. list max and min gas prices for each major function
