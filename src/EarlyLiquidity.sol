@@ -133,24 +133,21 @@ contract EarlyLiquidity is IEarlyLiquidity {
      * @param _glowToken The address of the glow token
      * @dev Can only be called once
      */
-     function setGlowToken(address _glowToken) external {
+    function setGlowToken(address _glowToken) external {
         require(address(glowToken) == address(0), "Glow token already set");
         glowToken = IERC20(_glowToken);
     }
 
-
-
     /**
-        * @notice - one time use function to set the miner pool address
-        * @param _minerPoolAddress - the address of the miner pool contract
-        * @dev should only be able to be set once
-    */
+     * @notice - one time use function to set the miner pool address
+     * @param _minerPoolAddress - the address of the miner pool contract
+     * @dev should only be able to be set once
+     */
     function setMinerPool(address _minerPoolAddress) external {
         if (_isZeroAddress(_minerPoolAddress)) _revert(IEarlyLiquidity.ZeroAddress.selector);
         if (!_isZeroAddress(address(minerPool))) _revert(IEarlyLiquidity.MinerPoolAlreadySet.selector);
         minerPool = IMinerPool(_minerPoolAddress);
     }
-
 
     //************************************************************* */
     //*******************     GETTERS    ******************** */
@@ -177,7 +174,6 @@ contract EarlyLiquidity is IEarlyLiquidity {
         return _getPrice(_totalSoldDiv1e18, 1);
     }
 
-   
     //************************************************************* */
     //*******************     TOKEN MATH    ******************** */
     //************************************************************* */
@@ -243,13 +239,11 @@ contract EarlyLiquidity is IEarlyLiquidity {
     }
 
     /**
-        * @dev for more efficient zero address checks
-    */
+     * @dev for more efficient zero address checks
+     */
     function _isZeroAddress(address a) private pure returns (bool isZero) {
         assembly {
             isZero := iszero(a)
         }
     }
-   
-
 }

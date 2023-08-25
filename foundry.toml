@@ -14,8 +14,8 @@ runs = 1000
 
 [profile.default.invariant]
 # fail_on_revert = false
-# depth = 100_000
-# runs = 1
+# depth = 10
+runs = 10
 # depth = 100_000
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import {MinerPoolAndGCA} from "@/GCA_AND_MINER_POOL/MinerPoolAndGCA.sol";
+import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 
 contract EarlyLiquidityMockMinerPool is MinerPoolAndGCA {

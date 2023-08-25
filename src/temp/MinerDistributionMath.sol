@@ -86,7 +86,7 @@ contract MinerDistributionMath {
             return bucket;
         }
 
-        uint256 amountToSubtract = bucket.amountInBucket;
+        uint256 amountToSubtract = bucket.amountToDeduct;
         uint256 lastBucketId = id - 1;
         while (true) {
             WeeklyReward memory lastBucket = rewards[lastBucketId--];
