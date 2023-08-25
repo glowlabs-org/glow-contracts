@@ -14,7 +14,6 @@ interface IDecimals {
     function decimals() external view returns (uint8);
 }
 
-//TODO: Add tests, add integral to docs, finish fulfill partial order and talk through that with david
 // add deposit functions so we can deposit to GRC and Miner Pool once those contracts are up and running
 
 /**
@@ -43,14 +42,14 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
     /// @dev The minimum increment that tokens can be bought in
     /// @dev this is essential so our floating point math doesn't break
-    //TODO: see how low we can get min_token_inc without everything breaking.
     uint256 public constant MIN_TOKEN_INCREMENT = 1e18;
 
     //--FLOATING POINT CONSTANTS (IN FIXED POINT FORMAT)--
 
     /// @dev Represents 1.000000693 in 64x64 format, or `r` in the geometric series
     //TODO: make sure the _RATIO = 1.0000006931474208.... add precision
-    int128 private constant _RATIO = 18446756860022628215;
+    int128 private constant _RATIO = 18_446_756_860_022_628_215;
+
 
     /// @dev Represents 0.6 USDC in 64x64 format
     int128 private constant _POINT_6 = 11068046444225730969600000;
@@ -164,7 +163,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
      * @inheritdoc IEarlyLiquidity
      */
     function totalSold() public view returns (uint256) {
-        return _totalSoldDiv1e18 * 1e18;
+        return _totalSoldDiv1e18 * MIN_TOKEN_INCREMENT;
     }
 
     /**
