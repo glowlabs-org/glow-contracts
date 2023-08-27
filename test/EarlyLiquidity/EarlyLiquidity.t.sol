@@ -108,6 +108,8 @@ contract EarlyLiquidityTest is Test {
         uint256 usdcBalanceAfter = usdc.balanceOf(SIMON);
 
         assertEq(earlyLiquidity.totalSold(), 1_000_000 ether);
+        assertEq(glwBalanceAfter, 1_000_000 ether);
+        assertEq(usdcBalanceAfter, usdcBalanceBefore - totalCost);
 
         uint256 totalCost2 = earlyLiquidity.getPrice(1_000_000);
 
@@ -236,7 +238,8 @@ contract EarlyLiquidityTest is Test {
     function test_getCurrentPrice() public {
         test_setGlowAndMint();
         //starting price should be 60 cents
-        // assertEq(earlyLiquidity.getCurrentPrice(), POINT_6_USDC);
+        bool withinRange = fallsWithinRange(earlyLiquidity.getCurrentPrice(), POINT_6_USDC, 1);
+        assertTrue(withinRange);
     }
 
     /**
@@ -246,5 +249,12 @@ contract EarlyLiquidityTest is Test {
         test_setGlowAndMint();
         vm.expectRevert(IEarlyLiquidity.AllSold.selector);
         earlyLiquidity.getPrice(12_000_000 + 1);
+    }
+
+
+
+    //-----------------UTILS-----------------
+    function fallsWithinRange(uint256 a, uint256 b, uint256 range) public pure returns (bool) {
+        return a >= b - range && a <= b + range;
     }
 }

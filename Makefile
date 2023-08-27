@@ -19,4 +19,4 @@ test.ffi :; forge test --ffi
 
 # --- [ Specific Tests ] -----------------------------------------------------------------------------------
 test.minerpool.math :; forge test --match-path test/temp/MinerDistributionMath.t.sol -vvv --ffi
-test.earlyLiquidity :; forge test --match-path test/early-liquidity/EarlyLiquidity.t.sol -vvv && npx hardhat test
+test.earlyLiquidity :; forge test --match-contract EarlyLiquidityTest -vvv && npx hardhat test
