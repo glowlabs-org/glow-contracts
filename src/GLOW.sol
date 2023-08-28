@@ -7,6 +7,7 @@ import "forge-std/console.sol";
 
 contract Glow is ERC20, IGlow {
     //----------------------- CONSTANTS -----------------------//
+
     /// @notice The cooldown period after unstaking before a user can claim their tokens
     uint256 private constant _STAKE_COOLDOWN_PERIOD = 365 days * 5;
 
@@ -88,28 +89,37 @@ contract Glow is ERC20, IGlow {
 
     /**
      * @inheritdoc IGlow
+     * @dev if the user has unstaked positions that have already expired,
+     *         -   the function will auto claim those tokens for the user
      */
-
     function stake(uint256 stakeAmount) external {
+        //Cannot stake zero tokens
         if (stakeAmount == 0) _revert(IGlow.CannotStakeZeroTokens.selector);
-        uint256 tail = _unstakedPositionTail[msg.sender];
-        uint256 unstakedTotal;
-        uint256 newTail = tail;
-        uint len = _unstakedPositions[msg.sender].length;
 
-        //TODO: Figure out what to do when the unstaked positions are yet to be claimed.
-        /**
-            There's multiple ways to handle it
-            1. Re-Use the unstaked positions that are on cooldown
-            2. Only use them if they are not on cooldown
-            3. Force users to claim it before restaking?
-               - maybe we can have a bool that says use unstaked positions that are free to claim
-               - if they put false, we make them claim the unstaked positions first
-               - if they put true, we use the unstaked positions that are free to claim
-            
-        */
-        for (uint256 i = tail; i < len; ++i) {
+        //Find the tail in the mapping
+        uint256 tail = _unstakedPositionTail[msg.sender];
+
+        //Init the unstakedTotal
+        uint256 unstakedTotal;
+
+        //Init the newTail
+        uint256 newTail = tail;
+
+        //Cache len that we are traversing
+        uint256 len = _unstakedPositions[msg.sender].length;
+
+        //Init the amountClaimable -
+        //  -   this is the amount of tokens that are claimable from unstaked positions
+        uint256 amountClaimable;
+
+        for (uint256 i = tail; i < len;) {
             UnstakedPosition storage position = _unstakedPositions[msg.sender][i];
+
+            if (block.timestamp > position.cooldownEnd) {
+                amountClaimable += position.amount;
+                newTail = i + 1;
+                continue;
+            }
             uint256 positionAmount = position.amount;
             unstakedTotal += positionAmount;
             if (unstakedTotal == stakeAmount) {
@@ -131,18 +141,46 @@ contract Glow is ERC20, IGlow {
             //In the less than case,
             newTail = i + 1;
             delete _unstakedPositions[msg.sender][i];
+
+            //Unchecked since we are iterating over a bounded array
+            unchecked {
+                ++i;
+            }
         }
 
+        //Check if the newTail is different from the old tail
+        //If it is, we need to update the tail
         if (newTail != tail) {
             _unstakedPositionTail[msg.sender] = newTail;
-        }
+        }   
+
+        //set the unstakedTotal to the minimum of the stakeAmount and the unstakedTotal
+        //  -   so that amountToTransferFromUser is never negative and we don't revert for underflow
         unstakedTotal = _min(unstakedTotal, stakeAmount);
-        uint256 amountToTransfer = stakeAmount - unstakedTotal;
+
+        //Calculate the amountToTransferFromUser
+        uint256 amountToTransferFromUser = stakeAmount - unstakedTotal;
+
+        //Impossible to overflow since supply is 72 million ether
+        //  -   with 12 million ether inflation / year
+        // The amount the user owes is equal to the amount we need them to transfer - the amount they have claimable
+        int256 amountUserOwes = int256(amountToTransferFromUser) - int256(amountClaimable);
         numStaked[msg.sender] += stakeAmount;
-        if (amountToTransfer > 0) {
-            _transfer(msg.sender, address(this), amountToTransfer);
+
+        //If the user owes us tokens, we need to transfer it from them
+        if (amountUserOwes > 0) {
+            _transfer(msg.sender, address(this), uint256(amountUserOwes));
         }
+
+        //If the user has claimable tokens, we need to transfer it to them
+        if (amountUserOwes < 0) {
+            _transfer(address(this), msg.sender, uint256(-amountUserOwes));
+        }
+        //Note: We don't handle the zero case since that would be a redundant transfer
+
+        //Emit the Stake event
         emit IGlow.Stake(msg.sender, stakeAmount);
+
     }
 
     /**
@@ -192,6 +230,7 @@ contract Glow is ERC20, IGlow {
     function tail(address account) external view returns (uint256) {
         return _unstakedPositionTail[account];
     }
+
     /**
      * @inheritdoc IGlow
      */
@@ -232,7 +271,8 @@ contract Glow is ERC20, IGlow {
 
         for (uint256 i = tail; i < _unstakedPositions[msg.sender].length; ++i) {
             UnstakedPosition storage position = _unstakedPositions[msg.sender][i];
-            if (position.cooldownEnd > block.timestamp) {
+            //another way of saying this is block.timestamp >= position.cooldownEnd
+            if (!(position.cooldownEnd < block.timestamp)) {
                 _revert(IGlow.InsufficientClaimableBalance.selector);
             }
             uint256 positionAmount = position.amount;

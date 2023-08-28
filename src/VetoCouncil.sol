@@ -43,6 +43,12 @@ contract VetoCouncil is IVetoCouncil {
     address[] public vetoAgents;
 
     //-------------- CONSTRUCTOR -----------------
+
+    /**
+     * @param governance the address of the governance contract
+     * @param _glowToken the address of the GLOW token
+     * @param _startingAgents the addresses of the starting council members
+     */
     constructor(address governance, address _glowToken, address[] memory _startingAgents) {
         if (_isZeroAddress(governance)) {
             _revert(IVetoCouncil.ZeroAddressInConstructor.selector);
@@ -50,12 +56,24 @@ contract VetoCouncil is IVetoCouncil {
         if (_isZeroAddress(_glowToken)) {
             _revert(IVetoCouncil.ZeroAddressInConstructor.selector);
         }
+
+        //Impossible to have more than 7 council members
+        //No risk of large array allocation
         if (_startingAgents.length > MAX_COUNCIL_MEMBERS) {
             _revert(IVetoCouncil.MaxCouncilMembersExceeded.selector);
         }
+
+        //Set governance
         GOVERNANCE = governance;
+
+        //Set GLOW token
         GLOW_TOKEN = IERC20(_glowToken);
+
+        //Pull the Genesis timestamp from the GLOW token
         GENESIS_TIMESTAMP = IGlow(_glowToken).GENESIS_TIMESTAMP();
+
+        //Unchecked block for gas efficiency
+        // It's impossible to overflow
         unchecked {
             for (uint256 i; i < _startingAgents.length; ++i) {
                 if (_isZeroAddress(_startingAgents[i])) {

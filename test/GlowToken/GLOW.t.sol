@@ -53,16 +53,16 @@ contract GlowTest is Test {
 
     ///--------------------- MODIFIERS ---------------------
 
-
-    modifier mintTokens(address user,uint amount) {
+    modifier mintTokens(address user, uint256 amount) {
         vm.startPrank(user);
         glw.mint(user, amount);
         vm.stopPrank();
         _;
     }
+
     modifier stakeBalance(address user) {
         vm.startPrank(user);
-        uint balance = glw.balanceOf(user);
+        uint256 balance = glw.balanceOf(user);
         glw.stake(balance);
         vm.stopPrank();
         _;
@@ -70,18 +70,14 @@ contract GlowTest is Test {
 
     modifier stakeMoreThanBalanceShouldRevert(address user) {
         vm.startPrank(user);
-        uint balance = glw.balanceOf(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientBalance.selector, SIMON, 0, balance+1
-            )
-        );
+        uint256 balance = glw.balanceOf(user);
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, SIMON, 0, balance + 1));
         glw.stake(balance + 1);
         vm.stopPrank();
         _;
     }
 
-    modifier checkNumStaked(address user, uint amount) {
+    modifier checkNumStaked(address user, uint256 amount) {
         vm.startPrank(user);
         assertEq(glw.numStaked(user), amount);
         vm.stopPrank();
@@ -96,14 +92,14 @@ contract GlowTest is Test {
         _;
     }
 
-    modifier stakeTokens(address user, uint amount) {
+    modifier stakeTokens(address user, uint256 amount) {
         vm.startPrank(user);
         glw.stake(amount);
         vm.stopPrank();
         _;
     }
 
-    modifier unstakeTokens(address user, uint amount) {
+    modifier unstakeTokens(address user, uint256 amount) {
         vm.startPrank(user);
         glw.unstake(amount);
         vm.stopPrank();
@@ -112,9 +108,9 @@ contract GlowTest is Test {
 
     modifier unstakeMoreThanNumStakedShouldFail(address user) {
         vm.startPrank(user);
-        uint numStaked = glw.numStaked(user);
+        uint256 numStaked = glw.numStaked(user);
         vm.expectRevert(IGlow.UnstakeAmountExceedsStakedBalance.selector);
-        glw.unstake(numStaked+1);
+        glw.unstake(numStaked + 1);
         vm.stopPrank();
         _;
     }
@@ -126,46 +122,43 @@ contract GlowTest is Test {
         assertEq(glw.balanceOf(SIMON), amountToMint);
     }
 
-
     //-------------------- SINGLE POSITION TESTING --------------------
 
     /**
-        * @dev Tests that we can stake
-    */
-    function test_Stake() public 
-        mintTokens(SIMON,1e9 ether)
+     * @dev Tests that we can stake
+     */
+    function test_Stake()
+        public
+        mintTokens(SIMON, 1e9 ether)
         stakeBalance(SIMON)
-        checkNumStaked(SIMON,1e9 ether)
+        checkNumStaked(SIMON, 1e9 ether)
         stakeZeroShouldRevert(SIMON)
         stakeMoreThanBalanceShouldRevert(SIMON)
-        mintTokens(SIMON,1e9 ether)
+        mintTokens(SIMON, 1e9 ether)
         stakeBalance(SIMON)
         checkNumStaked(SIMON, 1e9 ether * 2)
-        
-
     {}
 
-    function test_stakeAndUnstake() public 
-         mintTokens(SIMON, 1e9 ether)
-         stakeTokens(SIMON,1 ether)
-         checkNumStaked(SIMON,1 ether)
-         unstakeMoreThanNumStakedShouldFail(SIMON)
-         unstakeTokens(SIMON,1 ether)
-         checkNumStaked(SIMON,0)
+    function test_stakeAndUnstake()
+        public
+        mintTokens(SIMON, 1e9 ether)
+        stakeTokens(SIMON, 1 ether)
+        checkNumStaked(SIMON, 1 ether)
+        unstakeMoreThanNumStakedShouldFail(SIMON)
+        unstakeTokens(SIMON, 1 ether)
+        checkNumStaked(SIMON, 0)
+    {}
 
-    { }
-
-    function test_StakeAndUnstake_SinglePosition() public
-        mintTokens(SIMON,1e9 ether) 
-        stakeTokens(SIMON,1 ether)
-        checkNumStaked(SIMON,1 ether)
+    function test_StakeAndUnstake_SinglePosition()
+        public
+        mintTokens(SIMON, 1e9 ether)
+        stakeTokens(SIMON, 1 ether)
+        checkNumStaked(SIMON, 1 ether)
     {
-
         vm.startPrank(SIMON);
         //Record timestamp to compare later
         uint256 unstakeBlockTimestamp = block.timestamp;
         glw.unstake(1 ether);
-
 
         //Get Allow Positions
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
@@ -177,52 +170,50 @@ contract GlowTest is Test {
             assertEq(pos.amount, 1 ether);
         }
         vm.stopPrank();
-
-
     }
 
-    function test_StakeAndUnstake_SinglePosition_stakingShouldClaimGLOW() public
-
-    {
+    function test_StakeAndUnstake_SinglePosition_stakingShouldClaimGLOW() public {
         test_StakeAndUnstake_SinglePosition();
         vm.startPrank(SIMON);
-        uint amountStakedThatIsReadyToClaim;
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
-        for(uint i; i < unstakedPositions.length; i++) {
-            amountStakedThatIsReadyToClaim += unstakedPositions[i].amount;
+
+        {
+            uint256 amountStakedThatIsReadyToClaim;
+            for (uint256 i; i < unstakedPositions.length; i++) {
+                amountStakedThatIsReadyToClaim += unstakedPositions[i].amount;
+            }
+
+            assertEq(amountStakedThatIsReadyToClaim, 1 ether);
+            vm.warp(unstakedPositions[0].cooldownEnd + 1);
         }
-        console.log("amount staked = %s", amountStakedThatIsReadyToClaim);
-        
-        assertEq(amountStakedThatIsReadyToClaim,1 ether);
 
-        vm.warp(unstakedPositions[0].cooldownEnd + 1);
+        uint256 numStakedBefore = (glw.numStaked(SIMON));
+        assertEq(numStakedBefore, 0);
 
-        uint glowBalanceBefore = glw.balanceOf(SIMON);
-        console.log("balance before = %s",glowBalanceBefore);
+        uint256 glowBalanceBefore = glw.balanceOf(SIMON);
         glw.stake(0.5 ether);
-        
-        uint glowBalanceAfter = glw.balanceOf(SIMON);
 
-        console.log("balance after = %s",glowBalanceAfter);
-        //We should have received 1 ether, and lost .5 ether
-        //So glowBalanceAfter should be glowBalanceBefore - .5 ether + amountStaked
-        // assertEq(glowBalanceAfter,glowBalanceBefore - .5 ether + amountStakedThatIsReadyToClaim);
-        uint numStakedAfter = glw.numStaked(SIMON);
+        uint256 glowBalanceAfter = glw.balanceOf(SIMON);
+        //The balanace after staking should actually be .5 greater
+        //since the first position had to be claimed
+        assertEq(glowBalanceAfter, glowBalanceBefore + 0.5 ether);
+
+        uint256 numStakedAfter = glw.numStaked(SIMON);
         console.log("num staked after  = %s ", numStakedAfter);
         assertEq(glw.numStaked(SIMON), 0.5 ether);
 
         unstakedPositions = glw.unstakedPositionsOf(SIMON);
-        for (uint256 i; i < unstakedPositions.length; ++i) {
-            IGlow.UnstakedPosition memory pos = unstakedPositions[i];
-            assertEq(pos.amount, 0.5 ether);
-        }
+        //The unstakked positions length should be 0 since our
+        //Unstaked position's cooldown ended
+        assertEq(unstakedPositions.length, 0);
 
         vm.stopPrank();
     }
 
-
-
     //-------------------- MULTIPLE POSITIONS TESTING --------------------
+
+    /// @dev stakes a total of 55 ether and then unstakes across 10  unstaked positions
+    /// @dev each position has 1,2,3,4 ether,.....10 ether.
     modifier stageStakeAndUnstakeMultiplePositions() {
         vm.startPrank(SIMON);
         uint256 amountToMint = 1e9 ether;
@@ -234,82 +225,144 @@ contract GlowTest is Test {
         }
 
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
-        for (uint256 i; i < unstakedPositions.length; ++i) {
-            IGlow.UnstakedPosition memory pos = unstakedPositions[i];
-            // console.log("timestamp expiration", pos.cooldownEnd);
-            // console.log("amount in unstake pool", pos.amount);
-            // assertEq(pos.cooldownEnd, unstakeBlockTimestamp + FIVE_YEARS);
-            // assertEq(pos.amount, 1 ether);
-            // console.logString("-------------------------------");
-        }
-        //Warp to the end
-        vm.warp(unstakedPositions[9].cooldownEnd + 1);
+        assertEq(unstakedPositions.length, 10);
         _;
     }
 
-    function test_StakeAndUnstakeMultiplePositions() public stageStakeAndUnstakeMultiplePositions {
-        glw.stake(3 ether);
-        // assertEq(glw.numStaked(SIMON),.5 ether);
+    function test_StakeAndUnstakeMultiplePositions_allExpired() public stageStakeAndUnstakeMultiplePositions {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
-        for (uint256 i; i < unstakedPositions.length; ++i) {
-            IGlow.UnstakedPosition memory pos = unstakedPositions[i];
-            assertEq(pos.amount, _calculateAmountToStakeForIndex(i + 2));
-        }
-        //First 2 should be sliced since we re-staked (1 + 2) ether
-        assertEq(unstakedPositions.length, 8);
+        vm.warp(unstakedPositions[9].cooldownEnd + 1);
+
+        //We staked 55 ether and unstaked 55 ether
+        uint256 numStaked = glw.numStaked(SIMON);
+        assertEq(numStaked, 0);
+
+        //We also fast forwarded to the end of the last position
+        //which means that those unstaked positions
+        //Will be claimed in the next stake event
+
+        uint256 balBefore = glw.balanceOf(SIMON);
+        glw.stake(3 ether);
+        uint256 balanceAfter = glw.balanceOf(SIMON);
+
+        //balAfter should be balBefore + 55 ether - 3 ether
+        assertEq(balanceAfter, balBefore + 55 ether - 3 ether);
+
+        //Unstaked positions should also be zero since we cleared it
+
+        unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        assertEq(unstakedPositions.length, 0);
     }
 
-    function test_StakeAndUnstakeMultiplePositions2() public stageStakeAndUnstakeMultiplePositions {
-        glw.stake(2.5 ether);
-        // assertEq(glw.numStaked(SIMON),.5 ether);
+    function test_StakeAndUnstakeMultiplePositions_noneExpired() public stageStakeAndUnstakeMultiplePositions {
+
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        //unstakedPositions should be length 10 before starting a new stake
+        assertEq(unstakedPositions.length, 10);
+        //The first pos should have 1 ether
+        assertEq(unstakedPositions[0].amount,1 ether);
+        //The second post should have 2 ether
+        assertEq(unstakedPositions[1].amount,2 ether);
+
+        glw.stake(2.5 ether);
+        //verify that numStaked is 2.5 ether
+        assertEq(glw.numStaked(SIMON),2.5 ether);
+
+
+        //Get unstaked positions after the stake
+        unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        /*
+         -  The length should be 9 now since staking draws from the unstaked positions if they have yet to expire.
+                - The first position had 1 ether and the second had 2 ether
+                - Position 0 (first position) should be completely gone
+                - and our position 1 (second position) should have .5 ether left in it
+                - (1 ether + 2 ether - 2.5 ether) = .5 ether
+        */
+        assertEq(unstakedPositions.length, 9);
         for (uint256 i; i < unstakedPositions.length; ++i) {
             IGlow.UnstakedPosition memory pos = unstakedPositions[i];
+            //We make sure the first position now has .5 ether
             if (i == 0) {
                 assertEq(pos.amount, 0.5 ether);
                 continue;
             }
+            //We also make sure the remaining positions were untuched
             assertEq(pos.amount, _calculateAmountToStakeForIndex(i + 1));
         }
 
-        //The new position 0 should have .5 ether and the rest should have stayed the same
-        //First 2 should be sliced since we re-staked (1 + 2) ether
-        assertEq(unstakedPositions.length, 9);
     }
 
-    function test_StakeAndUnstakeMultiplePositions3() public stageStakeAndUnstakeMultiplePositions {
-        //This is the total amount that we've unstaked in the modifier
-        glw.stake(55 ether);
+    function test_StakeAndUnstakeMultiplePositions_oneExpired() public stageStakeAndUnstakeMultiplePositions {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        //unstakedPositions should be length 10 before starting a new stake
+        assertEq(unstakedPositions.length, 10);
+
+        //Warp to the end of the first bucket
+        //This means we should have 1 ether that is ready to claim 
+        //and we should have 54 ether that is still on cooldown
+        vm.warp(unstakedPositions[0].cooldownEnd + 1);
+
+        uint balBefore = glw.balanceOf(SIMON);
+        // We are testing to make sure that the length of unstaked position will
+        // be equal to 0 and that we indeed had to transfer zero tokens
+        glw.stake(55 ether);
+        unstakedPositions = glw.unstakedPositionsOf(SIMON);
+
+        uint balAfter = glw.balanceOf(SIMON);
+
+        //Make sure the balances are equal
+        assertEq(balBefore,balAfter);
         //since we staked a total of 55 ether, the new length should be 0
         assertEq(unstakedPositions.length, 0);
+
+    }
+
+    function test_StakeAndUnstakeMultiplePositions_useAllStakePositions() public stageStakeAndUnstakeMultiplePositions {
+        IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        //unstakedPositions should be length 10 before starting a new stake
+        assertEq(unstakedPositions.length, 10);
+
+        uint balBeforeStaking55 = glw.balanceOf(SIMON);
+        glw.stake(55 ether);
+        uint balAfterStaking55 = glw.balanceOf(SIMON);
+        //since thet total amount in our unstaked positions is 55 ether, we should have used all
+        // those positiosn and now have a length of 0 and the same balance as before
+        assertEq(balBeforeStaking55,balAfterStaking55);
+        unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        assertEq(unstakedPositions.length,0);
+        assertEq(glw.numStaked(SIMON),55 ether);
+        
 
         //Let's mint some more
         glw.mint(SIMON, 1e4 ether);
 
-        uint256 numStaked = glw.numStaked(SIMON);
-        assertEq(numStaked, 55 ether);
+        //Stake once more
         glw.stake(1 ether);
-        uint256 balBefore = glw.balanceOf(SIMON);
+        assertEq(glw.numStaked(SIMON),56 ether);
+        
+        //Unstake .5 ether
         glw.unstake(0.5 ether);
-
+        //We should now have a length of 1 in our unstaked position
+        // with .5 ether in the unstaked position
         unstakedPositions = glw.unstakedPositionsOf(SIMON);
         assertEq(unstakedPositions.length, 1);
         assertEq(unstakedPositions[0].amount, 0.5 ether);
-
+        
+        
+        // stake 1.5 ether now
+        uint256 balBefore = glw.balanceOf(SIMON);
         glw.stake(1.5 ether);
         uint256 balAfter = glw.balanceOf(SIMON);
         //Sanity check to make sure we actually transferred 1 ether of tokens
+        //since our unstaked position has .5 ether,
+        //we only need to transfer 1 ether since staking can pull from unstaked positions
         assertEq(balAfter, balBefore - 1 ether);
+        
+        //make sure we have a total of 57 ether staked
+        assertEq(glw.numStaked(SIMON),57 ether);
 
-        /*
-            We staked 1 ether, then unstaked .5, then staked 1.5
-            That means our unstaked position should still have .5 ether in it
-            If we now go to stake 1.5 ether, we should only need to stake 1 ether 
-            since we have .5 in our unstaked positions
-        */
-        unstakedPositions = glw.unstakedPositionsOf(SIMON);
         //The length should be 0 since we should have nothing in our unstaked positions since we restaked
+        unstakedPositions = glw.unstakedPositionsOf(SIMON);
         assertEq(unstakedPositions.length, 0);
     }
 
@@ -787,4 +840,13 @@ contract GlowTest is Test {
     function _calculateAmountToStakeForIndex(uint256 index) internal pure returns (uint256) {
         return (index + 1) * 1 ether;
     }
+
+    function logUnstakedPosition(uint256 id, IGlow.UnstakedPosition memory pos) internal {
+        console.logString("-------------------------------");
+        console.log("id = ", id);
+        console.log("timestamp expiration", pos.cooldownEnd);
+        console.log("amount in unstake pool", pos.amount);
+        console.logString("-------------------------------");
+    }
 }
+                                                         
