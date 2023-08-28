@@ -268,7 +268,6 @@ contract EarlyLiquidity is IEarlyLiquidity {
         //The maximum value of geometricSeries is 2.5e9 * 4087 = 1.02e13
         //This cant overflow since 1.02e13 < 2^63-1 = 9.223372e+18
 
-
         return result;
     }
 
@@ -281,20 +280,18 @@ contract EarlyLiquidity is IEarlyLiquidity {
         // This is done to perform mathematical operations with precision.
         int128 floatingPointTotalSold = ABDKMath64x64.fromUInt(totalSold);
 
-        
         // The goal is to compute the exponent for: 2^(totalSold / 1,000,000)
         // Using logarithmic properties, this can be re-written using the identity:
         // b^c = a^(ln(b)*c) => 2^(totalSold / 1,000,000) = e^(ln(2) * totalSold / 1,000,000)
         // Here, '_LN_2' is the natural logarithm of 2, and '_ONE_MILLION' represents 1,000,000.
         int128 exponent = _LN_2.mul(floatingPointTotalSold).div(_ONE_MILLION);
-        
+
         // Compute e^(exponent), which effectively calculates 2^(totalSold / 1,000,000)
         // because of the earlier logarithmic transformation.
         int128 baseResult = ABDKMath64x64.exp(exponent);
-        
+
         // Multiply the result by 0.6, where '_POINT_6' is the fixed-point representation of 0.6.
         int128 result = _POINT_6.mul(baseResult);
-        
 
         // The following comments are for the purpose of explaining why the code cannot overflow.
         //ln(2) = 0.693147......

@@ -8,26 +8,24 @@ import "forge-std/console.sol";
 import {MD2} from "@/temp/MD2.sol";
 
 contract MD2Handler is Test {
-
     /// @dev - we store the "should be" amounts in a ghost mapping
     mapping(uint256 => mapping(address => uint256)) public ghost_amountInBucket;
 
     /// @dev - we keep track of which ids have already been pushed to the ghost array
     ///         -   in order to avoid duplicates
-    mapping(uint256 => mapping(address=> bool)) private _pushedToBucket;
+    mapping(uint256 => mapping(address => bool)) private _pushedToBucket;
 
     /// @dev - the fmaous bucket ids that we will iterate over in the invariant test
     mapping(address => uint256[]) public ghost_bucketIds;
 
-    mapping(address => uint) public totalDeposited;
+    mapping(address => uint256) public totalDeposited;
 
     /// @dev - the reference contract that we are testing
     MD2 public minerMath;
 
     address[] public grcTokens;
 
-    uint public timesCalled;
-
+    uint256 public timesCalled;
 
     //-----------------CONSTRUCTOR-----------------
 
@@ -36,7 +34,7 @@ contract MD2Handler is Test {
      * @param _minerMath - the address of the reference contract
      * @param _grcTokens - the grc tokens to use
      */
-    constructor(address _minerMath,address[] memory _grcTokens) public {
+    constructor(address _minerMath, address[] memory _grcTokens) public {
         minerMath = MD2(_minerMath);
         grcTokens = _grcTokens;
     }
@@ -51,10 +49,9 @@ contract MD2Handler is Test {
     function addRewardsToBucket(uint256 daysToWarp, uint256 amount) public {
         address grcToken = grcTokens[timesCalled++ % grcTokens.length];
         addRewardsToBucketWithToken(grcToken, daysToWarp, amount);
-        
     }
 
-    function addRewardsToBucketWithToken(address grcToken,uint256 daysToWarp, uint256 amount) public {
+    function addRewardsToBucketWithToken(address grcToken, uint256 daysToWarp, uint256 amount) public {
         // vm.assume(daysToWarp < 200);
         // vm.assume(amount < 1_000_000_000_000 ether);
         // amount = bound(amount, 0,1_000_000_000_000 ether);
@@ -76,10 +73,9 @@ contract MD2Handler is Test {
                 ghost_bucketIds[grcToken].push(index);
             }
         }
-        minerMath.addToCurrentBucket(grcToken,amount);
+        minerMath.addToCurrentBucket(grcToken, amount);
         vm.warp(block.timestamp + daysToWarp * uint256(1 days));
     }
-
 
     /**
      * @dev same as above but does not warp forward
@@ -90,7 +86,7 @@ contract MD2Handler is Test {
         // vm.assume(amount < 1_000_000_000_000 ether);
         // amount = bound(amount, 0,1_000_000_000_000 ether);
         amount = amount % 1_000_000_000_000 ether;
-        
+
         //Round robin the grc tokens
         address grcToken = grcTokens[timesCalled++ % grcTokens.length];
         uint256 bucketId = minerMath.currentBucket();
@@ -108,8 +104,8 @@ contract MD2Handler is Test {
                 ghost_bucketIds[grcToken].push(index);
             }
         }
-        
-        minerMath.addToCurrentBucket(grcToken,amount);
+
+        minerMath.addToCurrentBucket(grcToken, amount);
     }
 
     /// @dev - helper function to get all the bucket ids

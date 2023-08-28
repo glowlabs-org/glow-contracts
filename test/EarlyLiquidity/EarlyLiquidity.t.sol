@@ -251,8 +251,6 @@ contract EarlyLiquidityTest is Test {
         earlyLiquidity.getPrice(12_000_000 + 1);
     }
 
-
-
     //-----------------UTILS-----------------
     function fallsWithinRange(uint256 a, uint256 b, uint256 range) public pure returns (bool) {
         return a >= b - range && a <= b + range;

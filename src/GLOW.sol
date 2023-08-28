@@ -95,8 +95,20 @@ contract Glow is ERC20, IGlow {
         uint256 tail = _unstakedPositionTail[msg.sender];
         uint256 unstakedTotal;
         uint256 newTail = tail;
+        uint len = _unstakedPositions[msg.sender].length;
 
-        for (uint256 i = tail; i < _unstakedPositions[msg.sender].length; ++i) {
+        //TODO: Figure out what to do when the unstaked positions are yet to be claimed.
+        /**
+            There's multiple ways to handle it
+            1. Re-Use the unstaked positions that are on cooldown
+            2. Only use them if they are not on cooldown
+            3. Force users to claim it before restaking?
+               - maybe we can have a bool that says use unstaked positions that are free to claim
+               - if they put false, we make them claim the unstaked positions first
+               - if they put true, we use the unstaked positions that are free to claim
+            
+        */
+        for (uint256 i = tail; i < len; ++i) {
             UnstakedPosition storage position = _unstakedPositions[msg.sender][i];
             uint256 positionAmount = position.amount;
             unstakedTotal += positionAmount;
