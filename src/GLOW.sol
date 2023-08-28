@@ -112,9 +112,8 @@ contract Glow is ERC20, IGlow {
         //  -   this is the amount of tokens that are claimable from unstaked positions
         uint256 amountClaimable;
 
-        for (uint256 i = tail; i < len;) {
+        for (uint256 i = tail; i < len; ++i) {
             UnstakedPosition storage position = _unstakedPositions[msg.sender][i];
-
             if (block.timestamp > position.cooldownEnd) {
                 amountClaimable += position.amount;
                 newTail = i + 1;
@@ -142,10 +141,7 @@ contract Glow is ERC20, IGlow {
             newTail = i + 1;
             delete _unstakedPositions[msg.sender][i];
 
-            //Unchecked since we are iterating over a bounded array
-            unchecked {
-                ++i;
-            }
+         
         }
 
         //Check if the newTail is different from the old tail

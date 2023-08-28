@@ -294,7 +294,7 @@ contract GlowTest is Test {
 
     function test_StakeAndUnstakeMultiplePositions_oneExpired() public stageStakeAndUnstakeMultiplePositions {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
-        //unstakedPositions should be length 10 before starting a new stake
+        // unstakedPositions should be length 10 before starting a new stake
         assertEq(unstakedPositions.length, 10);
 
         //Warp to the end of the first bucket
@@ -849,4 +849,3 @@ contract GlowTest is Test {
         console.logString("-------------------------------");
     }
 }
-                                                         
