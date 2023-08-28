@@ -73,7 +73,7 @@ contract Glow is ERC20, IGlow {
 
     /// @notice stores the last time a user staked in case the user has over 100 staked positions
     /// TODO: Implement this logic
-    mapping(address => uint256) public emergencyLastStakeTime;
+    mapping(address => uint256) public emergencyLastUnstakeTimestamp;
 
     //----------------------- CONSTRUCTOR -----------------------//
 
@@ -140,15 +140,13 @@ contract Glow is ERC20, IGlow {
             //In the less than case,
             newTail = i + 1;
             delete _unstakedPositions[msg.sender][i];
-
-         
         }
 
         //Check if the newTail is different from the old tail
         //If it is, we need to update the tail
         if (newTail != tail) {
             _unstakedPositionTail[msg.sender] = newTail;
-        }   
+        }
 
         //set the unstakedTotal to the minimum of the stakeAmount and the unstakedTotal
         //  -   so that amountToTransferFromUser is never negative and we don't revert for underflow
@@ -176,7 +174,6 @@ contract Glow is ERC20, IGlow {
 
         //Emit the Stake event
         emit IGlow.Stake(msg.sender, stakeAmount);
-
     }
 
     /**
@@ -190,21 +187,37 @@ contract Glow is ERC20, IGlow {
         }
         uint256 lenBefore = _unstakedPositions[msg.sender].length;
         uint256 tail = _unstakedPositionTail[msg.sender];
+        //Find the length of the unstaked positions starting at the tail
+        //This essentially gives us the # of unstaked positions that the user has
         uint256 adjustedLenBefore = lenBefore - tail;
 
         //TODO: I don't think we actually need this. check with @david,  just let people DoS themselves
-        if (adjustedLenBefore + 1 > MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN) {
-            uint256 lastStakedTimestamp = emergencyLastStakeTime[msg.sender];
-            if (block.timestamp - lastStakedTimestamp < EMERGENCY_COOLDOWN_PERIOD) {
+        //if adjustlenBefore >= 99
+        // we + 2 to proactively set emergencyLastUpdate when length will be 99 so the 100th unstake will trigger cooldown
+        if (adjustedLenBefore + 2 > MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN) {
+            uint256 lastUnstakedTimestamp = emergencyLastUnstakeTimestamp[msg.sender];
+
+            //Handle the zero case
+            if (lastUnstakedTimestamp == 0) {
+                emergencyLastUnstakeTimestamp[msg.sender] = block.timestamp;
+            // if the user has unstaked before, we need to check if they are in cooldown
+            } else if (block.timestamp - lastUnstakedTimestamp < EMERGENCY_COOLDOWN_PERIOD) {
                 _revert(IGlow.UnstakingOnEmergencyCooldown.selector);
+            // if the user is not in cooldown, we need to update the timestamp
+            } else {
+                emergencyLastUnstakeTimestamp[msg.sender] = block.timestamp;
             }
-            emergencyLastStakeTime[msg.sender] = block.timestamp;
         }
+
+        //Decrease the number of tokens staked by the user
         numStaked[msg.sender] = numAccountStaked - amount;
+
+        //Push an unstaked position to the user's unstaked positions
         _unstakedPositions[msg.sender].push(
             UnstakedPosition({amount: uint192(amount), cooldownEnd: uint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)})
         );
 
+        //Emit the Unstake event
         emit IGlow.Unstake(msg.sender, amount);
     }
 
@@ -215,8 +228,11 @@ contract Glow is ERC20, IGlow {
         uint256 start = _unstakedPositionTail[account];
         uint256 end = _unstakedPositions[account].length;
         unchecked {
+            //The sload is safe since it's in storage through {unstake}
             UnstakedPosition[] memory positions = new UnstakedPosition[](end - start);
+
             for (uint256 i = start; i < end; ++i) {
+                //No addittion, therefore no risk of overflow
                 positions[i - start] = _unstakedPositions[account][i];
             }
             return positions;
@@ -236,21 +252,40 @@ contract Glow is ERC20, IGlow {
         view
         returns (UnstakedPosition[] memory)
     {
+        //Find the total length of the unstaked positions
         uint256 length = _unstakedPositions[account].length;
+        //Find the tail of the unstaked positions
         uint256 tail = _unstakedPositionTail[account];
+
+        //Make sure the end is equal to the end + tail
+        //This is so because start only counts from the start of tail
         end = end + tail;
+
+        //If the start is greater than the length, we return an empty array
         if (start >= length) {
             return new UnstakedPosition[](0);
         }
+
+        //If the end is greater than the length, we set the end to the length
+        // so that we don't get an index out of bounds error
         if (end > length) {
             end = length;
         }
 
+        //Make sure that start adjusts for the tail
         start = tail + start;
+
+        //Calculate actu len
         uint256 len = end - start;
+
+        //Init the positions array
         UnstakedPosition[] memory positions = new UnstakedPosition[](len);
-        for (uint256 i = start; i < end; ++i) {
+        for (uint256 i = start; i < end;) {
             positions[i - start] = _unstakedPositions[account][i];
+            //No risk of overflow since i is always less than end
+            unchecked {
+                ++i;
+            }
         }
 
         return positions;
@@ -260,6 +295,7 @@ contract Glow is ERC20, IGlow {
      * @inheritdoc IGlow
      */
     function claimUnstakedTokens(uint256 amount) external {
+        //Cannot claim zero tokens
         if (amount == 0) _revert(IGlow.CannotClaimZeroTokens.selector);
         uint256 tail = _unstakedPositionTail[msg.sender];
         uint256 claimableTotal;

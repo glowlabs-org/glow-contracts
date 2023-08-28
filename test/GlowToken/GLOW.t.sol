@@ -255,19 +255,17 @@ contract GlowTest is Test {
     }
 
     function test_StakeAndUnstakeMultiplePositions_noneExpired() public stageStakeAndUnstakeMultiplePositions {
-
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
         //unstakedPositions should be length 10 before starting a new stake
         assertEq(unstakedPositions.length, 10);
         //The first pos should have 1 ether
-        assertEq(unstakedPositions[0].amount,1 ether);
+        assertEq(unstakedPositions[0].amount, 1 ether);
         //The second post should have 2 ether
-        assertEq(unstakedPositions[1].amount,2 ether);
+        assertEq(unstakedPositions[1].amount, 2 ether);
 
         glw.stake(2.5 ether);
         //verify that numStaked is 2.5 ether
-        assertEq(glw.numStaked(SIMON),2.5 ether);
-
+        assertEq(glw.numStaked(SIMON), 2.5 ether);
 
         //Get unstaked positions after the stake
         unstakedPositions = glw.unstakedPositionsOf(SIMON);
@@ -289,7 +287,6 @@ contract GlowTest is Test {
             //We also make sure the remaining positions were untuched
             assertEq(pos.amount, _calculateAmountToStakeForIndex(i + 1));
         }
-
     }
 
     function test_StakeAndUnstakeMultiplePositions_oneExpired() public stageStakeAndUnstakeMultiplePositions {
@@ -298,48 +295,49 @@ contract GlowTest is Test {
         assertEq(unstakedPositions.length, 10);
 
         //Warp to the end of the first bucket
-        //This means we should have 1 ether that is ready to claim 
+        //This means we should have 1 ether that is ready to claim
         //and we should have 54 ether that is still on cooldown
         vm.warp(unstakedPositions[0].cooldownEnd + 1);
 
-        uint balBefore = glw.balanceOf(SIMON);
+        uint256 balBefore = glw.balanceOf(SIMON);
         // We are testing to make sure that the length of unstaked position will
         // be equal to 0 and that we indeed had to transfer zero tokens
         glw.stake(55 ether);
         unstakedPositions = glw.unstakedPositionsOf(SIMON);
 
-        uint balAfter = glw.balanceOf(SIMON);
+        uint256 balAfter = glw.balanceOf(SIMON);
 
         //Make sure the balances are equal
-        assertEq(balBefore,balAfter);
+        assertEq(balBefore, balAfter);
         //since we staked a total of 55 ether, the new length should be 0
         assertEq(unstakedPositions.length, 0);
-
     }
 
-    function test_StakeAndUnstakeMultiplePositions_useAllStakePositions() public stageStakeAndUnstakeMultiplePositions {
+    function test_StakeAndUnstakeMultiplePositions_useAllStakePositions()
+        public
+        stageStakeAndUnstakeMultiplePositions
+    {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
         //unstakedPositions should be length 10 before starting a new stake
         assertEq(unstakedPositions.length, 10);
 
-        uint balBeforeStaking55 = glw.balanceOf(SIMON);
+        uint256 balBeforeStaking55 = glw.balanceOf(SIMON);
         glw.stake(55 ether);
-        uint balAfterStaking55 = glw.balanceOf(SIMON);
+        uint256 balAfterStaking55 = glw.balanceOf(SIMON);
         //since thet total amount in our unstaked positions is 55 ether, we should have used all
         // those positiosn and now have a length of 0 and the same balance as before
-        assertEq(balBeforeStaking55,balAfterStaking55);
+        assertEq(balBeforeStaking55, balAfterStaking55);
         unstakedPositions = glw.unstakedPositionsOf(SIMON);
-        assertEq(unstakedPositions.length,0);
-        assertEq(glw.numStaked(SIMON),55 ether);
-        
+        assertEq(unstakedPositions.length, 0);
+        assertEq(glw.numStaked(SIMON), 55 ether);
 
         //Let's mint some more
         glw.mint(SIMON, 1e4 ether);
 
         //Stake once more
         glw.stake(1 ether);
-        assertEq(glw.numStaked(SIMON),56 ether);
-        
+        assertEq(glw.numStaked(SIMON), 56 ether);
+
         //Unstake .5 ether
         glw.unstake(0.5 ether);
         //We should now have a length of 1 in our unstaked position
@@ -347,8 +345,7 @@ contract GlowTest is Test {
         unstakedPositions = glw.unstakedPositionsOf(SIMON);
         assertEq(unstakedPositions.length, 1);
         assertEq(unstakedPositions[0].amount, 0.5 ether);
-        
-        
+
         // stake 1.5 ether now
         uint256 balBefore = glw.balanceOf(SIMON);
         glw.stake(1.5 ether);
@@ -357,9 +354,9 @@ contract GlowTest is Test {
         //since our unstaked position has .5 ether,
         //we only need to transfer 1 ether since staking can pull from unstaked positions
         assertEq(balAfter, balBefore - 1 ether);
-        
+
         //make sure we have a total of 57 ether staked
-        assertEq(glw.numStaked(SIMON),57 ether);
+        assertEq(glw.numStaked(SIMON), 57 ether);
 
         //The length should be 0 since we should have nothing in our unstaked positions since we restaked
         unstakedPositions = glw.unstakedPositionsOf(SIMON);
@@ -367,19 +364,61 @@ contract GlowTest is Test {
     }
 
     function test_UnstakeOver100ShouldForceCooldown() public {
+        //make sure we don't start at timestamp 0
+        vm.warp(glw.EMERGENCY_COOLDOWN_PERIOD() * 12345);
         vm.startPrank(SIMON);
         uint256 amountToMint = 1e9 ether;
         glw.mint(SIMON, amountToMint);
         glw.stake(amountToMint);
+
+        //Unstake MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN times
+        // This should go through perfectly
         for (uint256 i; i < glw.MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN(); ++i) {
             glw.unstake(1 ether);
         }
+    
+  
+        
+        //Anything past the max unstakes should revert until we've passed the cooldown period
         vm.expectRevert(IGlow.UnstakingOnEmergencyCooldown.selector);
         glw.unstake(1 ether);
 
-        //After the emergency cooldown period, we should be able to unstake again
+        //Warp Forward past the cooldown
         vm.warp(block.timestamp + glw.EMERGENCY_COOLDOWN_PERIOD());
+        //After the emergency cooldown period, we should be able to unstake again
+        glw.unstake(.2 ether);
+
+        //Forward 10 years
+        vm.warp(block.timestamp + 365 * 10 * 1 days);
+        glw.stake(.2 ether);
+        
+        //Our length should be zero since we forwarded in time past all the cooldowns
+        uint len = glw.unstakedPositionsOf(SIMON).length;
+        assertEq(len,0);
+
+        
+        //Now on the 100th it should revert
+          for (uint256 i; i < glw.MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN(); ++i) {
+            glw.unstake(1 ether);
+        }
+
+        len = glw.unstakedPositionsOf(SIMON).length;
+        assertEq(len,100);
+
+
+        //The 101th should need a cooldown
+        vm.expectRevert(IGlow.UnstakingOnEmergencyCooldown.selector);
         glw.unstake(1 ether);
+
+
+         //Warp Forward past the cooldown
+         vm.warp(block.timestamp + glw.EMERGENCY_COOLDOWN_PERIOD());
+         //After the emergency cooldown period, we should be able to unstake again
+         glw.unstake(.2 ether);
+
+
+
+
     }
 
     function test_ClaimZeroTokensShouldFail() public {
