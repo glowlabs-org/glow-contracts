@@ -106,30 +106,51 @@ contract Glow is ERC20, IGlow {
         uint256 newTail = tail;
 
         //Cache len that we are traversing
+        //Unstaked positions should rarely be over 100 due to the cooldown period
         uint256 len = _unstakedPositions[msg.sender].length;
 
         //Init the amountClaimable -
-        //  -   this is the amount of tokens that are claimable from unstaked positions
+        //  -   this is the amount of tokens that are claimable from unstaked positions that are ready to be claimed
+        // This can't overflow since amountClaimable < totlaSupply < type(uint256).max
         uint256 amountClaimable;
 
         for (uint256 i = tail; i < len; ++i) {
+            //Load position from storage
             UnstakedPosition storage position = _unstakedPositions[msg.sender][i];
+            //Case 1: The position is ready to be claimed (block.timestamp > position.cooldownEnd)
+            //  -   we add the amount to the amountClaimable
+            //  -   we update the newTail in memory
+            //  -  we continue to the next iteration
             if (block.timestamp > position.cooldownEnd) {
                 amountClaimable += position.amount;
                 newTail = i + 1;
                 continue;
             }
+
+            //Case 2: The position is not ready to be claimed (block.timestamp <= position.cooldownEnd)
+            
+
+            //cache the position amount (the amount of glow that is unstaked in the position)
+            //increment the unstakedTotal by the position amount
             uint256 positionAmount = position.amount;
             unstakedTotal += positionAmount;
+
+            //If the unstakedTotal is equal to the stakeAmount, we need to delete the old position and increment the newTail
+            // because the old stake positions EXACTLY fulfill the stakeAmount
+            // (this should be an extremely rare case)
+            // - we also need to break since we have fulfilled the stakeAmount
+            // the old "unstaked tokens" inside the position are now used to fulfill the stakeAmount
             if (unstakedTotal == stakeAmount) {
                 newTail = i + 1;
                 delete _unstakedPositions[msg.sender][i];
                 break;
             }
+
             /*
-                if claimableTotal > stakeAmount, it means we overshot claimableTotal
-                and we need to ensure to partially deduct the user's unstaked position
-                and need to correctly set the tail
+                if claimableTotal > stakeAmount, it means that the user has more unstaked tokens than they need to fulfill the stakeAmount
+                and we need to ensure to partially deduct the user's unstaked position ao we dont over fulfill the stakeAmount 
+                the tail should not change since we are deducting "amount" from the current position and not deleting it
+                    -   this is so because the position does not need to be fully drained to fulfill the stakeAmount, so we need to keep it in the array with its new amount
             */
             if (unstakedTotal > stakeAmount) {
                 newTail = i;
@@ -137,30 +158,45 @@ contract Glow is ERC20, IGlow {
                 position.amount = uint192(amountThatIsNeededToFulfill);
                 break;
             }
-            //In the less than case,
+
+            //Case 4: If there aren't any more unstaked positions to check
+            // that means that we've used up all the unstaked positions to fulfill the stakeAmount
+            // and can remove them from the linked list
+            // we also delete  the position for a gas refund
             newTail = i + 1;
             delete _unstakedPositions[msg.sender][i];
         }
 
         //Check if the newTail is different from the old tail
         //If it is, we need to update the tail
+        // This conditional prevents redundant sstores
         if (newTail != tail) {
             _unstakedPositionTail[msg.sender] = newTail;
         }
 
         //set the unstakedTotal to the minimum of the stakeAmount and the unstakedTotal
         //  -   so that amountToTransferFromUser is never negative and we don't revert for underflow
+        // we need to set it to min because there's a chance we overcounted unstakedTotal in the loop, so this line is a safety check
         unstakedTotal = _min(unstakedTotal, stakeAmount);
 
-        //Calculate the amountToTransferFromUser
+        //Calculate the amountToTransferFromUser which is the amount that the user needs to transfer to the contract
+        //This should be impossible to overflow since supply is 72 million ether with an inflation of 12 million ether / year
+        //It's impossible to overflow since unstakedTotal <= stakeAmount
         uint256 amountToTransferFromUser = stakeAmount - unstakedTotal;
 
         //Impossible to overflow since supply is 72 million ether
         //  -   with 12 million ether inflation / year
         // The amount the user owes is equal to the amount we need them to transfer - the amount they have claimable
         int256 amountUserOwes = int256(amountToTransferFromUser) - int256(amountClaimable);
+        //numStaked shouldn't be able to overflow since supply is 72 million ether with 12 million ether inflation / year
         numStaked[msg.sender] += stakeAmount;
 
+        //We now need to check if the user is owed tokens or if they owe the contrac tokens
+        //In most cases, the user should need to transfer tokens to the contract
+        //In the less rare cases, the user will receive claimable tokkens from the contract
+        //      -People should use the claimTokens function to claim tokens rather than using the staking function
+        //      -The staking function simply catches edge cases that would cause the user to incur a net loss of tokens
+        
         //If the user owes us tokens, we need to transfer it from them
         if (amountUserOwes > 0) {
             _transfer(msg.sender, address(this), uint256(amountUserOwes));
@@ -170,6 +206,7 @@ contract Glow is ERC20, IGlow {
         if (amountUserOwes < 0) {
             _transfer(address(this), msg.sender, uint256(-amountUserOwes));
         }
+
         //Note: We don't handle the zero case since that would be a redundant transfer
 
         //Emit the Stake event
@@ -180,15 +217,24 @@ contract Glow is ERC20, IGlow {
      * @inheritdoc IGlow
      */
     function unstake(uint256 amount) external {
+        //Revert on zero amount
         if (amount == 0) _revert(IGlow.CannotUnstakeZeroTokens.selector);
+        
+        //Load the number of tokens staked by the user
         uint256 numAccountStaked = numStaked[msg.sender];
+
+        //if the user is unstaking more than they have staked, we revert
         if (amount > numAccountStaked) {
             _revert(IGlow.UnstakeAmountExceedsStakedBalance.selector);
         }
+
+        //Cache the length of the unstaked positions
         uint256 lenBefore = _unstakedPositions[msg.sender].length;
+        //Cache the tail of the unstaked positions
         uint256 tail = _unstakedPositionTail[msg.sender];
+
         //Find the length of the unstaked positions starting at the tail
-        //This essentially gives us the # of unstaked positions that the user has
+        //This gives us the # of unstaked positions that the user has
         uint256 adjustedLenBefore = lenBefore - tail;
 
         //TODO: I don't think we actually need this. check with @david,  just let people DoS themselves
@@ -239,6 +285,11 @@ contract Glow is ERC20, IGlow {
         }
     }
 
+    /**
+        * @notice returns the tail of the unstaked positions for the user
+        * @param account the account to get the tail for
+        * @return the tail of the unstaked positions for the user
+    */
     function tail(address account) external view returns (uint256) {
         return _unstakedPositionTail[account];
     }
@@ -291,6 +342,9 @@ contract Glow is ERC20, IGlow {
         return positions;
     }
 
+
+    //@SIMON left off here == come back
+    
     /**
      * @inheritdoc IGlow
      */
@@ -300,6 +354,7 @@ contract Glow is ERC20, IGlow {
         uint256 tail = _unstakedPositionTail[msg.sender];
         uint256 claimableTotal;
         uint256 newTail = tail;
+
 
         for (uint256 i = tail; i < _unstakedPositions[msg.sender].length; ++i) {
             UnstakedPosition storage position = _unstakedPositions[msg.sender][i];

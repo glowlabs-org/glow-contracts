@@ -560,18 +560,9 @@ contract GlowTest is Test {
         assertEq(glw.numStaked(SIMON), 0);
     }
 
-    //TODO: Debug why this test_ fails
-    // function test_Emits() public {
-    //     vm.startPrank(SIMON);
-    //     glw.mint(SIMON, 1e9 ether);
 
-    //     vm.expectEmit(address(glw));
-    //     emit Stake(SIMON, 1 ether);
-    //     glw.stake(1 ether);
 
-    // }
-
-    //-------------------- Inflation test_s --------------------
+    //-------------------- Inflation Tests --------------------
 
     function test_InflationShouldRevertIfContractsNotSet() public {
         vm.expectRevert(IGlow.AddressNotSet.selector);
