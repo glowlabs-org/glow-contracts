@@ -72,10 +72,11 @@ contract Glow is ERC20, IGlow {
     mapping(address => uint256) private _unstakedPositionTail;
 
     /// @notice stores the last time a user staked in case the user has over 100 staked positions
-    /// TODO: Implement this logic
     mapping(address => uint256) public emergencyLastUnstakeTimestamp;
 
-    //----------------------- CONSTRUCTOR -----------------------//
+    //************************************************************* */
+    //************************  CONSTRUCTOR    ******************* */
+    //************************************************************* */
 
     /// @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
     /// @notice sends 12 million GLW to the Early Liquidity Contract
@@ -128,7 +129,6 @@ contract Glow is ERC20, IGlow {
             }
 
             //Case 2: The position is not ready to be claimed (block.timestamp <= position.cooldownEnd)
-            
 
             //cache the position amount (the amount of glow that is unstaked in the position)
             //increment the unstakedTotal by the position amount
@@ -196,7 +196,7 @@ contract Glow is ERC20, IGlow {
         //In the less rare cases, the user will receive claimable tokkens from the contract
         //      -People should use the claimTokens function to claim tokens rather than using the staking function
         //      -The staking function simply catches edge cases that would cause the user to incur a net loss of tokens
-        
+
         //If the user owes us tokens, we need to transfer it from them
         if (amountUserOwes > 0) {
             _transfer(msg.sender, address(this), uint256(amountUserOwes));
@@ -219,7 +219,7 @@ contract Glow is ERC20, IGlow {
     function unstake(uint256 amount) external {
         //Revert on zero amount
         if (amount == 0) _revert(IGlow.CannotUnstakeZeroTokens.selector);
-        
+
         //Load the number of tokens staked by the user
         uint256 numAccountStaked = numStaked[msg.sender];
 
@@ -246,10 +246,10 @@ contract Glow is ERC20, IGlow {
             //Handle the zero case
             if (lastUnstakedTimestamp == 0) {
                 emergencyLastUnstakeTimestamp[msg.sender] = block.timestamp;
-            // if the user has unstaked before, we need to check if they are in cooldown
+                // if the user has unstaked before, we need to check if they are in cooldown
             } else if (block.timestamp - lastUnstakedTimestamp < EMERGENCY_COOLDOWN_PERIOD) {
                 _revert(IGlow.UnstakingOnEmergencyCooldown.selector);
-            // if the user is not in cooldown, we need to update the timestamp
+                // if the user is not in cooldown, we need to update the timestamp
             } else {
                 emergencyLastUnstakeTimestamp[msg.sender] = block.timestamp;
             }
@@ -270,6 +270,173 @@ contract Glow is ERC20, IGlow {
     /**
      * @inheritdoc IGlow
      */
+    function claimUnstakedTokens(uint256 amount) external {
+        //Cannot claim zero tokens
+        if (amount == 0) _revert(IGlow.CannotClaimZeroTokens.selector);
+        //read the tail of the msg.sender from storage
+        uint256 tail = _unstakedPositionTail[msg.sender];
+        //init the claimableTotal
+        uint256 claimableTotal;
+        //init the newTail (cache tail)
+        uint256 newTail = tail;
+
+        //Cache len
+        uint256 len = _unstakedPositions[msg.sender].length;
+
+        //Loop through the unstaked positions until claimableTotal >= amount
+        for (uint256 i = tail; i < len; ++i) {
+            //Read the position from storage
+            UnstakedPosition storage position = _unstakedPositions[msg.sender][i];
+            //another way of saying this is block.timestamp >= position.cooldownEnd
+            //If the position is not ready to be claimed, we revert
+            //  -   this is so because we can't claim tokens that are not ready to be claimed
+            //  -   and positions are chronologically ordered, so if one position is not ready to be claimed,
+            //  -   all following positions are not ready to be claimed
+            //  -   therefore, we can revert early since we'll never have enough tokens to fulfill the claim
+            if (!(position.cooldownEnd < block.timestamp)) {
+                _revert(IGlow.InsufficientClaimableBalance.selector);
+            }
+
+            //Cache the position amount (the amount of glow that is unstaked in the position)
+            uint256 positionAmount = position.amount;
+            //Increment the claimableTotal by the position amount
+            claimableTotal += positionAmount;
+
+            //If the claimableTotal is equal to the amount, we need to delete the old position and increment the newTail
+            // - since the old unstaked positions EXACTLY fulfill the amount
+            if (claimableTotal == amount) {
+                newTail = i + 1;
+                //Update teh tail in storage
+                _unstakedPositionTail[msg.sender] = newTail;
+                //delete the position for a gas refund
+                delete _unstakedPositions[msg.sender][i];
+                //transfer the amount to the user
+                _transfer(address(this), msg.sender, amount);
+                //emit the claim event
+                emit IGlow.ClaimUnstakedGLW(msg.sender, amount);
+                return;
+            }
+
+            //If the claimableTotal is greater than the amount, we need to  deduct from the position in storage
+            // and the tail will stay the same since the unstaked position still has some tokens left
+            if (claimableTotal > amount) {
+                //New tail is equal to i
+                newTail = i;
+                //Check redundancy before sstoring the new tail
+                if (newTail != tail) {
+                    _unstakedPositionTail[msg.sender] = newTail;
+                }
+                //Calculate the amount that is left in the position after the claim
+                uint256 amountLeftInPosition = claimableTotal - amount;
+                //Update the position amount in storage
+                position.amount = uint192(amountLeftInPosition);
+                //Transfer the amount to the user
+                _transfer(address(this), msg.sender, amount);
+                //Emit the claim event
+                emit IGlow.ClaimUnstakedGLW(msg.sender, amount);
+                return;
+            }
+
+            //When looping, we delete all unstaked positions that are consumed
+            // as part of the token claim
+            delete _unstakedPositions[msg.sender][i];
+        }
+
+        _revert(IGlow.InsufficientClaimableBalance.selector);
+    }
+
+    //************************************************************* */
+    //*********************  TOKEN INFLATION STATE    ******************** */
+    //************************************************************* */
+
+    /**
+     * @inheritdoc IGlow
+     */
+    function claimGLWFromGCAAndMinerPool() external returns (uint256) {
+        //If the address is not set, we revert
+        if (_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressNotSet.selector);
+        //If the caller is not the GCA and Miner Pool, we revert
+        if (msg.sender != gcaAndMinerPoolAddress) _revert(IGlow.CallerNotGCA.selector);
+        //Read the timestamp from storage
+        uint256 timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
+        //If the timestamp is zero, we set it to the genesis timestamp
+        // else we set it to the timestamp in storage
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        //Calculate the seconds since the last claim
+        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
+        //Calculate the amount to claim
+        uint256 amountToClaim = secondsSinceLastClaim * GCA_AND_MINER_POOL_INFLATION_PER_SECOND;
+        //If the amount to claim is zero, we return zero and exit
+        if (amountToClaim == 0) return 0;
+        //if the amount is not zero, we update the timestamp in storage
+        gcaAndMinerPoolLastClaimedTimestamp = block.timestamp;
+        //and we mint the amount to the GCA and Miner Pool
+        _mint(gcaAndMinerPoolAddress, amountToClaim);
+        //we then return the amount to claim
+        return amountToClaim;
+    }
+
+    /**
+     * @inheritdoc IGlow
+     */
+    function claimGLWFromVetoCouncil() external returns (uint256) {
+        //If the address is not set, we revert
+        if (_isZeroAddress(vetoCouncilAddress)) _revert(IGlow.AddressNotSet.selector);
+        //If the caller is not the Veto Council, we revert
+        if (msg.sender != vetoCouncilAddress) _revert(IGlow.CallerNotVetoCouncil.selector);
+        //Read the timestamp from storage
+        uint256 timestampInStorage = vetoCouncilLastClaimedTimestamp;
+        //If the timestamp is zero, we set it to the genesis timestamp
+        // else we set it to the timestamp in storage
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        //Calculate the seconds since the last claim
+        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
+        //Calculate the amount to claim
+        uint256 amountToClaim = secondsSinceLastClaim * VETO_COUNCIL_INFLATION_PER_SECOND;
+        //If the amount to claim is zero, we return zero and exit
+        if (amountToClaim == 0) return 0;
+        //if the amount is not zero, we update the timestamp in storage
+        vetoCouncilLastClaimedTimestamp = block.timestamp;
+        //and we mint the amount to the Veto Council
+        _mint(vetoCouncilAddress, amountToClaim);
+        //we then return the amount to claim
+        return amountToClaim;
+    }
+
+    /**
+     * @inheritdoc IGlow
+     */
+    function claimGLWFromGrantsTreasury() external returns (uint256) {
+        //If the address is not set, we revert
+        if (_isZeroAddress(grantsTreasuryAddress)) _revert(IGlow.AddressNotSet.selector);
+        //If the caller is not the Grants Treasury, we revert
+        if (msg.sender != grantsTreasuryAddress) _revert(IGlow.CallerNotGrantsTreasury.selector);
+        //Read the timestamp from storage
+        uint256 timestampInStorage = grantsTreasuryLastClaimedTimestamp;
+        //If the timestamp is zero, we set it to the genesis timestamp
+        // else we set it to the timestamp in storage
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        //Calculate the seconds since the last claim
+        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
+        //Calculate the amount to claim
+        uint256 amountToClaim = secondsSinceLastClaim * GRANTS_TREASURY_INFLATION_PER_SECOND;
+        //If the amount to claim is zero, we return zero and exit
+        if (amountToClaim == 0) return 0;
+        //if the amount is not zero, we update the timestamp in storage
+        grantsTreasuryLastClaimedTimestamp = block.timestamp;
+        //and we mint the amount to the Grants Treasury
+        _mint(grantsTreasuryAddress, amountToClaim);
+        //we then return the amount to claim
+        return amountToClaim;
+    }
+
+    //************************************************************* */
+    //**********************  VIEW FUNCTIONS    ******************** */
+    //************************************************************* */
+
+    /**
+     * @inheritdoc IGlow
+     */
     function unstakedPositionsOf(address account) external view returns (UnstakedPosition[] memory) {
         uint256 start = _unstakedPositionTail[account];
         uint256 end = _unstakedPositions[account].length;
@@ -279,6 +446,7 @@ contract Glow is ERC20, IGlow {
 
             for (uint256 i = start; i < end; ++i) {
                 //No addittion, therefore no risk of overflow
+                //i always >= start so no risk of underflow
                 positions[i - start] = _unstakedPositions[account][i];
             }
             return positions;
@@ -286,10 +454,10 @@ contract Glow is ERC20, IGlow {
     }
 
     /**
-        * @notice returns the tail of the unstaked positions for the user
-        * @param account the account to get the tail for
-        * @return the tail of the unstaked positions for the user
-    */
+     * @notice returns the tail of the unstaked positions for the user
+     * @param account the account to get the tail for
+     * @return the tail of the unstaked positions for the user
+     */
     function tail(address account) external view returns (uint256) {
         return _unstakedPositionTail[account];
     }
@@ -342,105 +510,6 @@ contract Glow is ERC20, IGlow {
         return positions;
     }
 
-
-    //@SIMON left off here == come back
-    
-    /**
-     * @inheritdoc IGlow
-     */
-    function claimUnstakedTokens(uint256 amount) external {
-        //Cannot claim zero tokens
-        if (amount == 0) _revert(IGlow.CannotClaimZeroTokens.selector);
-        uint256 tail = _unstakedPositionTail[msg.sender];
-        uint256 claimableTotal;
-        uint256 newTail = tail;
-
-
-        for (uint256 i = tail; i < _unstakedPositions[msg.sender].length; ++i) {
-            UnstakedPosition storage position = _unstakedPositions[msg.sender][i];
-            //another way of saying this is block.timestamp >= position.cooldownEnd
-            if (!(position.cooldownEnd < block.timestamp)) {
-                _revert(IGlow.InsufficientClaimableBalance.selector);
-            }
-            uint256 positionAmount = position.amount;
-            claimableTotal += positionAmount;
-            if (claimableTotal == amount) {
-                newTail = i + 1;
-                _unstakedPositionTail[msg.sender] = newTail;
-                delete _unstakedPositions[msg.sender][i];
-                _transfer(address(this), msg.sender, amount);
-                emit IGlow.ClaimUnstakedGLW(msg.sender, amount);
-                return;
-            }
-
-            if (claimableTotal > amount) {
-                newTail = i;
-                if (newTail != tail) {
-                    _unstakedPositionTail[msg.sender] = newTail;
-                }
-                uint256 amountThatIsNeededToFulfill = claimableTotal - amount;
-                position.amount = uint192(amountThatIsNeededToFulfill);
-                _transfer(address(this), msg.sender, amount);
-                emit IGlow.ClaimUnstakedGLW(msg.sender, amount);
-                return;
-            }
-
-            delete _unstakedPositions[msg.sender][i];
-        }
-
-        _revert(IGlow.InsufficientClaimableBalance.selector);
-    }
-
-    //----------------------- TOKEN INFLATION ----------------------//
-
-    /**
-     * @inheritdoc IGlow
-     */
-    function claimGLWFromGCAAndMinerPool() external returns (uint256) {
-        if (_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressNotSet.selector);
-        if (msg.sender != gcaAndMinerPoolAddress) _revert(IGlow.CallerNotGCA.selector);
-        uint256 timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
-        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
-        uint256 amountToClaim = secondsSinceLastClaim * GCA_AND_MINER_POOL_INFLATION_PER_SECOND;
-        if (amountToClaim == 0) return 0;
-        gcaAndMinerPoolLastClaimedTimestamp = block.timestamp;
-        _mint(gcaAndMinerPoolAddress, amountToClaim);
-        return amountToClaim;
-    }
-
-    /**
-     * @inheritdoc IGlow
-     */
-    function claimGLWFromVetoCouncil() external returns (uint256) {
-        if (_isZeroAddress(vetoCouncilAddress)) _revert(IGlow.AddressNotSet.selector);
-        if (msg.sender != vetoCouncilAddress) _revert(IGlow.CallerNotVetoCouncil.selector);
-        uint256 timestampInStorage = vetoCouncilLastClaimedTimestamp;
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
-        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
-        uint256 amountToClaim = secondsSinceLastClaim * VETO_COUNCIL_INFLATION_PER_SECOND;
-        if (amountToClaim == 0) return 0;
-        vetoCouncilLastClaimedTimestamp = block.timestamp;
-        _mint(vetoCouncilAddress, amountToClaim);
-        return amountToClaim;
-    }
-
-    /**
-     * @inheritdoc IGlow
-     */
-    function claimGLWFromGrantsTreasury() external returns (uint256) {
-        if (_isZeroAddress(grantsTreasuryAddress)) _revert(IGlow.AddressNotSet.selector);
-        if (msg.sender != grantsTreasuryAddress) _revert(IGlow.CallerNotGrantsTreasury.selector);
-        uint256 timestampInStorage = grantsTreasuryLastClaimedTimestamp;
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
-        uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
-        uint256 amountToClaim = secondsSinceLastClaim * GRANTS_TREASURY_INFLATION_PER_SECOND;
-        if (amountToClaim == 0) return 0;
-        grantsTreasuryLastClaimedTimestamp = block.timestamp;
-        _mint(grantsTreasuryAddress, amountToClaim);
-        return amountToClaim;
-    }
-
     /**
      * @inheritdoc IGlow
      */
@@ -488,7 +557,9 @@ contract Glow is ERC20, IGlow {
         return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
-    //----------------------- ONE-TIME SETTERS -----------------------//
+    //************************************************************* */
+    //*********************  ONE TIME SETTERS    ******************** */
+    //************************************************************* */
 
     /**
      * @notice Sets the addresses of the GCA and Miner Pool, Veto Council, and Grants Treasury
@@ -515,7 +586,9 @@ contract Glow is ERC20, IGlow {
         grantsTreasuryAddress = _grantsTreasuryAddress;
     }
 
-    //----------------------- PRIVATE FUNCTIONS ----------------------//
+    //************************************************************* */
+    //*******************  PRIVATE HELPER FUNCS    **************** */
+    //************************************************************* */
 
     /**
      * @notice Returns the smaller of two numbers

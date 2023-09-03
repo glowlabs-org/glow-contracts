@@ -376,9 +376,7 @@ contract GlowTest is Test {
         for (uint256 i; i < glw.MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN(); ++i) {
             glw.unstake(1 ether);
         }
-    
-  
-        
+
         //Anything past the max unstakes should revert until we've passed the cooldown period
         vm.expectRevert(IGlow.UnstakingOnEmergencyCooldown.selector);
         glw.unstake(1 ether);
@@ -386,39 +384,32 @@ contract GlowTest is Test {
         //Warp Forward past the cooldown
         vm.warp(block.timestamp + glw.EMERGENCY_COOLDOWN_PERIOD());
         //After the emergency cooldown period, we should be able to unstake again
-        glw.unstake(.2 ether);
+        glw.unstake(0.2 ether);
 
         //Forward 10 years
         vm.warp(block.timestamp + 365 * 10 * 1 days);
-        glw.stake(.2 ether);
-        
-        //Our length should be zero since we forwarded in time past all the cooldowns
-        uint len = glw.unstakedPositionsOf(SIMON).length;
-        assertEq(len,0);
+        glw.stake(0.2 ether);
 
-        
+        //Our length should be zero since we forwarded in time past all the cooldowns
+        uint256 len = glw.unstakedPositionsOf(SIMON).length;
+        assertEq(len, 0);
+
         //Now on the 100th it should revert
-          for (uint256 i; i < glw.MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN(); ++i) {
+        for (uint256 i; i < glw.MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN(); ++i) {
             glw.unstake(1 ether);
         }
 
         len = glw.unstakedPositionsOf(SIMON).length;
-        assertEq(len,100);
-
+        assertEq(len, 100);
 
         //The 101th should need a cooldown
         vm.expectRevert(IGlow.UnstakingOnEmergencyCooldown.selector);
         glw.unstake(1 ether);
 
-
-         //Warp Forward past the cooldown
-         vm.warp(block.timestamp + glw.EMERGENCY_COOLDOWN_PERIOD());
-         //After the emergency cooldown period, we should be able to unstake again
-         glw.unstake(.2 ether);
-
-
-
-
+        //Warp Forward past the cooldown
+        vm.warp(block.timestamp + glw.EMERGENCY_COOLDOWN_PERIOD());
+        //After the emergency cooldown period, we should be able to unstake again
+        glw.unstake(0.2 ether);
     }
 
     function test_ClaimZeroTokensShouldFail() public {
@@ -559,8 +550,6 @@ contract GlowTest is Test {
         //Sanity check: num staked should be zero
         assertEq(glw.numStaked(SIMON), 0);
     }
-
-
 
     //-------------------- Inflation Tests --------------------
 
