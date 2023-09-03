@@ -4,6 +4,7 @@ import "@typechain/hardhat";
 import "hardhat-preprocessor";
 import { HardhatUserConfig, task } from "hardhat/config";
 import "hardhat-gas-reporter"
+import 'solidity-docgen';
 
 
 import example from "./tasks/example";
@@ -27,6 +28,10 @@ const config: HardhatUserConfig = {
         runs: 200,
       },
     },
+  },
+  //@ts-ignore
+  docgen : {
+
   },
   //@ts-ignore
   gasReporter: {
