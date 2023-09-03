@@ -203,32 +203,32 @@ This function ensures that an empty array is returned when the args are out of b
     -   enumerate all arrays to look for infinite length bugs
         -   This contract does not contain any loops
     -   enumerate all additions to look for overflows
-        -   potential overflows and why they aren't possible are explained:
-            -  ```_getFirstTimeInSeries```
-            -   ```_getPrice```
+        - there are no worrying concerns for overflow.
     -   enumerate all multiplications to look for overflows
-            -  ```_getFirstTimeInSeries```
-            -   ```_getPrice```
+            -   multiplication is most apparent in the inflation claim functions..
+            - those functions have been tested in this suite and appear to be free from overflow and significant rounding errors
     -   enumerate all subtractions to look for underflows
-            -  ```_getFirstTimeInSeries```
-            -   ```_getPrice```
+            -   underflow prevention is explained in the respective functions
+                -   ```stake```
+                -   ```claimUnstakedTokens```
+                -   ```unstakedPositionsOf```
     -   enumerate all divisions to look for divide by zero
-        -   Divison by zero is not possible since any values we divide by are hard-coded
+        -   There is no division occuring in this contract
     -   enumerate all divisions to look for precision issues
-        -   Handled in the hardhat test
+        -   handled in the test suite
     -   reentrancy attacks
-        -   Cross contract calls are only being made to USDC and to the Miner Pool Contract. None of which are attackers. Furthermore, the contract falls the checks and effects pattern.
+        -   There are no cross-contract calls being made
     -   frontrun attacks
-        -   Technically it is possible to frontrun a person's buy transaction in order to cause them to revert, but keeping up this sort of attack over an extended period of time would require a large amount of funds
-        to purchase tokens (USDC) as well as to pay the gas (ETH).
+        -   There are no functions in this contract where front-running could be an issue.
     -   censorship attacks
+        -   N/A
     -   DoS with block gas limit
-        -   There are no such data structures in which users could DoS themselves or DoS others
+        -   There are no such data structures in which users could DoS themselves or DoS others, specifically in the unstaking logic. The contract implements a restriction on users that have over 100 unstaked positions. This should prevent users from preventing unwanted harm to themsleves.
     -   proper access control
-        -   Setting the Glow contract could be front-run, but this is highly unlikely since the Glow team will be deploying contracts from an anonymous wallet.
+        -   Setting the contracts could be front-run, but this is highly unlikely since the Glow team will be deploying contracts from an anonymous wallet.
     -   checks and effects pattern
         - All storage writes happen after reads.
     -   logic bugs
         -   TBD
     -   cross-contract bugs
-        -   Cross-contract calls are explicitly checked in the ```test_Buy_checkUSDCGoesToMinerPool``` function
+        -   No cross contract calls
