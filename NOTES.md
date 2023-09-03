@@ -6,6 +6,7 @@ Maybe?
 1. Remove (to) in docs on retire functions 
 2. Remove public domain seperator into private and make it public in test files.
 3. decide if 712 signatures for retiring allowance should also work on transfer amounts....
+4. get rid of increase and decrease and just have a standard set?
 
 ---GCA---
 1. Finish pending payout

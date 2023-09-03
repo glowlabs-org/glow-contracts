@@ -39,13 +39,6 @@ contract GCC is ERC20, IGCC, EIP712 {
     mapping(address => uint256) public totalCreditsRetired;
 
     /**
-     * @notice The total nominations held by a user in storage
-     * @dev nominations have a half life of 52 weeks
-     * @dev this is not safe to query directly, use the `nominationsOf` function
-     */
-    mapping(address => IGCC.Nominations) private _nominations;
-
-    /**
      * @notice The allowances for retiring GCC
      * @dev similar to ERC20
      */
@@ -222,12 +215,10 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @param spender the address of the spender to decrease the allowance for
      * @param amount the amount to decrease the allowance by
      * @param emitEvent whether or not to emit the event
+     * @dev underflow auto-reverts due to built in safemath
      */
     function _decreaseRetiringAllowance(address from, address spender, uint256 amount, bool emitEvent) private {
         uint256 currentAllowance = _retireGCCAllowances[from][spender];
-        if (amount > currentAllowance) {
-            _revert(IGCC.RetiringAllowanceUnderflow.selector);
-        }
 
         uint256 newAllowance = currentAllowance - amount;
         _retireGCCAllowances[from][spender] = newAllowance;

@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
+import "forge-std/StdError.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
@@ -20,8 +21,6 @@ contract GCC_Test is Test {
     address public constant GCA_AND_MINER_POOL_CONTRACT = address(0x2);
     address public SIMON;
     uint256 public SIMON_PK;
-    mapping(uint256 => bool) public isFuzzUsedBitmap;
-    uint256[] public fuzzBitmapIds;
     Handler public handler;
     address other = address(0xdead);
 
@@ -69,6 +68,11 @@ contract GCC_Test is Test {
         vm.stopPrank();
     }
 
+    /**
+    This test ensures that the GCC contract 
+    is correctly minting to the carbon credit auction contract.
+
+    */
     function test_sendToCarbonCreditAuction() public {
         vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
         gcc.mintToCarbonCreditAuction(1, 1e20 ether);
@@ -79,6 +83,10 @@ contract GCC_Test is Test {
         vm.stopPrank();
     }
 
+    /**
+        This test ensures that only the GCA and 
+        Miner Pool contract can use the ```mintToCarbonCredit``` function.
+    */
     function test_sendToCarbonCreditAuction_callerNotGCA_shouldRevert() public {
         vm.startPrank(SIMON);
         vm.expectRevert(IGCC.CallerNotGCAContract.selector);
@@ -86,6 +94,7 @@ contract GCC_Test is Test {
         vm.stopPrank();
     }
 
+    //This test ensures that we can only mint from a bucket once
     function test_sendToCarbonCreditAuctionSameBucketShouldRevert() public {
         test_sendToCarbonCreditAuction();
         vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
@@ -113,6 +122,7 @@ contract GCC_Test is Test {
         assertEq(gcc.balanceOf(address(gcc)), 1e20 ether);
     }
 
+    //TODO: Check if we handle downstream case for errro
     function test_retireGCC_ApprovalShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1e20 ether);
@@ -132,6 +142,7 @@ contract GCC_Test is Test {
         vm.stopPrank();
     }
 
+
     function test_setRetiringAllowance_single() public {
         vm.startPrank(SIMON);
         gcc.increaseRetiringAllowance(other, 500_000);
@@ -146,6 +157,19 @@ contract GCC_Test is Test {
 
         vm.expectRevert(IGCC.RetiringAllowanceUnderflow.selector);
         gcc.decreaseRetiringAllowance(other, 1);
+    }
+
+    function test_setRetiringAllowances_overflowShouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.increaseRetiringAllowance(other, type(uint256).max);
+        vm.expectRevert(stdError.arithmeticError);
+        gcc.increaseRetiringAllowance(other, 5 ether);
+    }
+
+    function test_setRetiringAllowances_underflowShouldRevert() public {
+        vm.startPrank(SIMON);
+        vm.expectRevert(stdError.arithmeticError);
+        gcc.decreaseRetiringAllowance(other, 1 ether);
     }
 
     // Sets transfer allowance and retiring allowance in one
