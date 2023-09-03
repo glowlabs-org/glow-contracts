@@ -182,7 +182,22 @@ The inflation tests are rather straightforward and aim to ensure that only the a
 
 
 ## Unstaked Positions (view) function tests
-TODO: Start from here
+These tests ensure that the view functions related to ```unstakedPositionsOf``` function properly. This includes a direct call which returns all the unstaked positions, and pagination calls.
+
+### test_UnstakedPositionsOf
+1. Create 10 unstaked positions with varying amounts and expirations
+2. Assert that all ten are there.
+3. Fast forward 5 years
+4. Claim tokens equal to the amount in the first position
+    -   This should remove the first unstaked position from the list
+4. Expect only the first one to be there
+
+
+### test_UnstakedPositionsOfPagination
+The following function follows the same principle as above, but ensures that correct values are being returned when pagination is used through the ```unstakedPositionsOf(address user,uint start,uint end) ``` function.
+
+### test_PaginationTailGreaterThanLengthShouldReturnEmptyArray
+This function ensures that an empty array is returned when the args are out of bounds of the array.
 
 ## Testing Checklist
     -   enumerate all arrays to look for infinite length bugs
