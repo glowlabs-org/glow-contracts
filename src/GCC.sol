@@ -131,7 +131,6 @@ contract GCC is ERC20, IGCC, EIP712 {
             _revert(IGCC.RetiringSignatureInvalid.selector);
         }
         _increaseRetiringAllowance(from, msg.sender, amount, false);
-        //TODO: Should we also increase transfer allowance?
         uint256 transferAllowance = allowance(from, msg.sender);
         if (transferAllowance < amount) {
             _approve(from, msg.sender, amount, false);

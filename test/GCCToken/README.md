@@ -63,7 +63,21 @@ This function checks that when you do have proper allowances, that you should be
 
 
 ### test_retireGCC_Signature
-leftoff here
+We check that users can grant an address retiring allowance using a signature similar to Permit in ERC20. If users don't have enough approval allowance, the ```retireForGCCAuthorized``` function bumps up the retiring allowance to allow only those tokens requested to be retired.
+
+### test_retireGCC_Signature_badSignature_shouldFail
+This test checks to make sure that retiring with signatures should revert if the deadline on the signature has already passsed.
+
+### test_retireGCC_Signature_badSignature_shouldFail
+This function tests that incoherent signatures don't pass signature validation.
+
+
+### test_retireGCC_badSigner_shouldFail
+This test checks that only the EoA account that wants to approve an external entity can provide a signature to increase the allowance of that spender. All other signers should fail.
+
+
+
+
 
 ## Testing Checklist
     -   enumerate all arrays to look for infinite length bugs
