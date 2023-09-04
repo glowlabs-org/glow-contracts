@@ -92,6 +92,7 @@ contract GCC is ERC20, IGCC, EIP712 {
      */
     function _setBucketMinted(uint256 bucketId) private {
         (uint256 key, uint256 shift) = _getKeyAndShiftFromBucketId(bucketId);
+        //Can't overflow because _MAX_SHIFT is 255
         uint256 bitmap = _mintedBucketsBitmap[key];
         if (bitmap & (1 << shift) != 0) _revert(IGCC.BucketAlreadyMinted.selector);
         _mintedBucketsBitmap[key] = bitmap | (1 << shift);
@@ -137,6 +138,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         }
         retireGCCFor(from, rewardAddress, amount);
     }
+    
 
     function increaseAllowances(address spender, uint256 addedValue) public {
         _approve(msg.sender, spender, allowance(msg.sender, spender) + addedValue);
@@ -178,6 +180,11 @@ contract GCC is ERC20, IGCC, EIP712 {
         return _retireGCCAllowances[account][spender];
     }
 
+    /**
+        * @notice Returns the domain separator used in the permit signature
+        * @dev Should be deterministic
+        * @return result The domain separator
+    */
     function domainSeparatorV4() public view returns (bytes32) {
         return _domainSeparatorV4();
     }
@@ -198,6 +205,7 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @param spender the address of the spender to increase the allowance for
      * @param amount the amount to increase the allowance by
      * @param emitEvent whether or not to emit the event
+     * @dev overflow auto-reverts due to built in safemath
      */
     function _increaseRetiringAllowance(address from, address spender, uint256 amount, bool emitEvent) private {
         uint256 currentAllowance = _retireGCCAllowances[from][spender];
@@ -231,12 +239,23 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @notice Returns the key and shift for a bucketId
      * @return key The key for the bucketId
      * @return shift The shift for the bucketId
+     * @dev cant overflow because _MAX_SHIFT is 255
+     * @dev no division by zero because _MAX_SHIFT is 255
      */
     function _getKeyAndShiftFromBucketId(uint256 bucketId) private pure returns (uint256 key, uint256 shift) {
         key = bucketId / _MAX_SHIFT;
         shift = bucketId % _MAX_SHIFT;
     }
 
+    /**
+        * @dev Constructs a retiring permit EIP712 message hash to be signed
+        * @param owner The owner of the funds
+        * @param spender The spender
+        * @param amount The amount of funds
+        * @param nonce The next nonce
+        * @param deadline The deadline for the signature to be valid
+        * @return digest The EIP712 digest
+    */
     function _constructRetiringPermitDigest(
         address owner,
         address spender,
@@ -248,6 +267,14 @@ contract GCC is ERC20, IGCC, EIP712 {
             _hashTypedDataV4(keccak256(abi.encode(RETIRING_PERMIT_TYPEHASH, owner, spender, amount, nonce, deadline)));
     }
 
+    /**
+        * @dev Checks if the signature provided is valid for the provided data, hash.
+        * @param signer The address of the signer.
+        * @param message The EIP-712 digest.
+        * @param signature The signature, in bytes.
+        * @return bool indicating if the signature was valid (true) or not (false).
+        * @dev accounts for EIP-1271 magic values as well
+    */
     function _checkRetiringPermitSignature(address signer, bytes32 message, bytes memory signature)
         private
         view

@@ -83,32 +83,27 @@ This test checks that only the EoA account that wants to approve an external ent
     -   enumerate all arrays to look for infinite length bugs
         -   This contract does not contain any loops
     -   enumerate all additions to look for overflows
-        - there are no worrying concerns for overflow.
+        - a1) overflow could happen in the retiring allowances, but built in safemath prevents reverts
     -   enumerate all multiplications to look for overflows
-            -   multiplication is most apparent in the inflation claim functions..
-            - those functions have been tested in this suite and appear to be free from overflow and significant rounding errors
+            -  There is no multiplication occuring
+            - However, there is bit shifting happening for tracking bucket statuses. Those are safe since MAX_SHIFT is 255
     -   enumerate all subtractions to look for underflows
-            -   underflow prevention is explained in the respective functions
-                -   ```stake```
-                -   ```claimUnstakedTokens```
-                -   ```unstakedPositionsOf```
+            -   same as a1
     -   enumerate all divisions to look for divide by zero
-        -   There is no division occuring in this contract
+        -   There is only one division occuring and it is by a hard-coded value of MAX_SHIFT(255)
     -   enumerate all divisions to look for precision issues
-        -   handled in the test suite
+        -   no precision issues
     -   reentrancy attacks
-        -   There are no cross-contract calls being made
+        -   There are no cross-contract calls being made to unauthorized actors
     -   frontrun attacks
-        -   There are no functions in this contract where front-running could be an issue.
+        -   Signature based Approvals can be front-run by integrators. However, this is not an issue since integrators should be properly aware of how to integrate signature based approvals. It's the same concept as ERC20 permit and there is a lot of great information out there already.
     -   censorship attacks
         -   N/A
     -   DoS with block gas limit
-        -   There are no such data structures in which users could DoS themselves or DoS others, specifically in the unstaking logic. The contract implements a restriction on users that have over 100 unstaked positions. This should prevent users from preventing unwanted harm to themsleves.
-    -   proper access control
-        -   Setting the contracts could be front-run, but this is highly unlikely since the Glow team will be deploying contracts from an anonymous wallet.
+        -   n/a
     -   checks and effects pattern
         - All storage writes happen after reads.
     -   logic bugs
         -   TBD
     -   cross-contract bugs
-        -   No cross contract calls
+        -   only cross contract calls to known actors
