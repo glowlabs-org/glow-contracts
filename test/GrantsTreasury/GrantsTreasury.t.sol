@@ -87,6 +87,35 @@ contract GrantsTreasuryTest is Test {
         vm.stopPrank();
     }
 
+    function test_actualBalanceTooLow() public {
+
+        vm.startPrank(GOVERNANCE);
+        vm.warp(block.timestamp + 365 days);
+        grantsTreasury.sync();
+        uint256 balBefore = glw.balanceOf(address(grantsTreasury));
+        bool succesfulCall = grantsTreasury.allocateGrantFunds(SIMON, balBefore);
+        assertEq(succesfulCall, true);
+        assertEq(grantsTreasury.recipientBalance(SIMON), balBefore);
+        assertEq(grantsTreasury.cumulativeAllocated(), balBefore);
+        assertEq(grantsTreasury.cumulativePaidOut(), 0 ether);
+
+        //try to give 1 token to a recipient
+        succesfulCall = grantsTreasury.allocateGrantFunds(address(0x12312312),1);
+        assertEq(succesfulCall, false);
+        vm.stopPrank();
+
+        //-----------------  CLAIM ---------------------//
+        vm.startPrank(SIMON);
+        grantsTreasury.claimGrantReward();
+        assertEq(glw.balanceOf(SIMON), balBefore);
+        assertEq(grantsTreasury.cumulativePaidOut(), balBefore);
+        uint256 balAfter = grantsTreasury.totalBalanceInGrantsTreasury();
+        assertEq(grantsTreasury.recipientBalance(SIMON), 0 ether);
+        assertEq(grantsTreasury.cumulativeAllocated(), balBefore);
+        vm.stopPrank();
+
+    }
+
     function test_ClaimZeroShouldRevert() public {
         test_AllocationShouldReturnTrueAndRecipientShouldClaim();
         vm.startPrank(SIMON);
