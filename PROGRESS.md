@@ -7,7 +7,7 @@
 | GLOW     | Ready For Review |
 | Early Liquidity | Ready For Review |
 | GCC      | Ready For Review     |
-| Grants Contract | Prepping For Review |
+| Grants Contract | Ready For Review |
 | Veto Council Contract | 80% Done (Missing Payout) |
 | GCA Contract    |  40% completion |
 | Miner Pool Contract | 50% Completion |
