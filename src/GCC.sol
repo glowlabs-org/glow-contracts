@@ -8,8 +8,6 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {ABDKMath64x64} from "./libraries/ABDKMath64x64.sol";
 import {IGovernance} from "@/interfaces/IGovernance.sol";
-import "forge-std/console.sol";
-// import {IERC20Errors} from "@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol";
 
 contract GCC is ERC20, IGCC, EIP712 {
     /// @notice The address of the CarbonCreditAuction contract
@@ -50,8 +48,9 @@ contract GCC is ERC20, IGCC, EIP712 {
      */
     mapping(address => uint256) public nextRetiringNonce;
 
-    //-------------  CONSTRUCTOR --------------------//
-
+    //************************************************************* */
+    //*********************  CONSTRUCTOR    ********************** */
+    //************************************************************* */
     /**
      * @notice GCC constructor
      * @param _carbonCreditAuction The address of the CarbonCreditAuction contract
@@ -67,6 +66,13 @@ contract GCC is ERC20, IGCC, EIP712 {
         GOVERNANCE = IGovernance(_governance);
     }
 
+    //************************************************************* */
+    //*************  EXTERNAL STATE CHANGING FUNCS    ************ */
+    //************************************************************* */
+
+
+    //-----------------  MINTING -----------------//
+
     /**
      * @inheritdoc IGCC
      */
@@ -77,29 +83,9 @@ contract GCC is ERC20, IGCC, EIP712 {
         _mint(address(CARBON_CREDIT_AUCTION), amount);
     }
 
-    /**
-     * @inheritdoc IGCC
-     */
-    function isBucketMinted(uint256 bucketId) external view returns (bool) {
-        (uint256 key, uint256 shift) = _getKeyAndShiftFromBucketId(bucketId);
-        return _mintedBucketsBitmap[key] & (1 << shift) != 0;
-    }
 
-    /**
-     * @notice sets the bucket as minted
-     * @param bucketId the id of the bucket to set as minted
-     * @dev reverts if the bucket has already been minted
-     */
-    function _setBucketMinted(uint256 bucketId) private {
-        (uint256 key, uint256 shift) = _getKeyAndShiftFromBucketId(bucketId);
-        //Can't overflow because _MAX_SHIFT is 255
-        uint256 bitmap = _mintedBucketsBitmap[key];
-        if (bitmap & (1 << shift) != 0) _revert(IGCC.BucketAlreadyMinted.selector);
-        _mintedBucketsBitmap[key] = bitmap | (1 << shift);
-    }
-
-    //-----------------  RETIRING AND NOMINATIONS -----------------//
-
+    //-----------------  RETIRING -----------------//
+ 
     /**
      * @inheritdoc IGCC
      */
@@ -142,6 +128,9 @@ contract GCC is ERC20, IGCC, EIP712 {
         retireGCCFor(from, rewardAddress, amount);
     }
 
+    //-----------------  ALLOWANCES -----------------//
+
+
     /// @inheritdoc IGCC
     function increaseAllowances(address spender, uint256 addedValue) public {
         _approve(msg.sender, spender, allowance(msg.sender, spender) + addedValue);
@@ -161,8 +150,6 @@ contract GCC is ERC20, IGCC, EIP712 {
         _decreaseRetiringAllowance(msg.sender, spender, requestedDecrease, true);
     }
 
-    //-----------------  RETIRING ALLOWANCES -----------------//
-
     /**
      * @inheritdoc IGCC
      */
@@ -177,12 +164,26 @@ contract GCC is ERC20, IGCC, EIP712 {
         _decreaseRetiringAllowance(msg.sender, spender, amount, true);
     }
 
+
+    //************************************************************* */
+    //******************  EXTERNAL VIEW FUNCS    ***************** */
+    //************************************************************* */
+
     /**
      * @inheritdoc IGCC
      */
     function retiringAllowance(address account, address spender) public view override returns (uint256) {
         return _retireGCCAllowances[account][spender];
     }
+
+    /**
+     * @inheritdoc IGCC
+     */
+     function isBucketMinted(uint256 bucketId) external view returns (bool) {
+        (uint256 key, uint256 shift) = _getKeyAndShiftFromBucketId(bucketId);
+        return _mintedBucketsBitmap[key] & (1 << shift) != 0;
+    }
+
 
     /**
      * @notice Returns the domain separator used in the permit signature
@@ -193,7 +194,25 @@ contract GCC is ERC20, IGCC, EIP712 {
         return _domainSeparatorV4();
     }
 
-    //-----------------  PRIVATE -----------------//
+    //************************************************************* */
+    //***************  PRIVATE STATE CHANGING FUNCS   ************** */
+    //************************************************************* */
+
+
+      /**
+     * @notice sets the bucket as minted
+     * @param bucketId the id of the bucket to set as minted
+     * @dev reverts if the bucket has already been minted
+     */
+     function _setBucketMinted(uint256 bucketId) private {
+        (uint256 key, uint256 shift) = _getKeyAndShiftFromBucketId(bucketId);
+        //Can't overflow because _MAX_SHIFT is 255
+        uint256 bitmap = _mintedBucketsBitmap[key];
+        if (bitmap & (1 << shift) != 0) _revert(IGCC.BucketAlreadyMinted.selector);
+        _mintedBucketsBitmap[key] = bitmap | (1 << shift);
+    }
+
+
 
     /// @notice handles the storage writes and event emissions relating to retiring carbon credits.
     /// @dev should only be used internally and by function that require a transfer of {amount} to address(this)
@@ -237,6 +256,8 @@ contract GCC is ERC20, IGCC, EIP712 {
             emit IGCC.RetireGCCAllowance(from, spender, newAllowance);
         }
     }
+
+  
 
     //-------------  PRIVATE UTILS  --------------------//
     /**
