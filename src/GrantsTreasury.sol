@@ -5,16 +5,30 @@ import {IGlow} from "./interfaces/IGlow.sol";
 import {IGrantsTreasury} from "./interfaces/IGrantsTreasury.sol";
 
 contract GrantsTreasury is IGrantsTreasury {
+
+    /// @notice glow token
     IGlow public immutable GLOW_TOKEN;
+
+    /// @notice governance contract
     address public immutable GOVERNANCE;
+
+    /// @notice timestamp of the genesis block of the glow token
     uint256 public immutable GENESIS_TIMESTAMP;
 
+    /// @notice the balance of each recipient
+    /// @dev this is a mapping of recipient => balance
+    /// @dev if a user has a balance of 0, they are not owed any funds
     mapping(address => uint256) public recipientBalance;
+
+    /// @notice the cumulative amount of funds allocated to recipients
     uint256 public cumulativeAllocated;
+
+    /// @notice the cumulative amount of funds paid out to recipients
     uint256 public cumulativePaidOut;
 
-    //-------------  CONSTRUCTOR --------------------//
-
+    //************************************************************* */
+    //*********************  CONSTRUCTOR    ********************** */
+    //************************************************************* */
     /**
      * @notice GrantsTreasury constructor
      *     @param _glowToken The address of the Glow token
@@ -26,6 +40,10 @@ contract GrantsTreasury is IGrantsTreasury {
         GENESIS_TIMESTAMP = GLOW_TOKEN.GENESIS_TIMESTAMP();
     }
 
+    //************************************************************* */
+    //*********************  EXTERNAL FUNCS    ********************** */
+    //************************************************************* */
+    
     /**
      * @inheritdoc IGrantsTreasury
      */
@@ -38,7 +56,11 @@ contract GrantsTreasury is IGrantsTreasury {
             return false;
         }
 
+        /// can't overflow because {amount} will never be greater than GLW's total supply
         recipientBalance[to] += amount;
+
+        /// can't overflow because {amount} will never be greater than GLW's total supply
+        /// and glow token's total supply will never be greater than 2^256
         cumulativeAllocated += amount;
         emit IGrantsTreasury.GrantFundsAllocated(to, amount);
         return true;
@@ -50,12 +72,25 @@ contract GrantsTreasury is IGrantsTreasury {
     function claimGrantReward() external {
         uint256 allocation = recipientBalance[msg.sender];
         if (allocation == 0) _revert(IGrantsTreasury.AllocationCannotBeZero.selector);
-        GLOW_TOKEN.transfer(msg.sender, allocation);
         delete recipientBalance[msg.sender];
+        GLOW_TOKEN.transfer(msg.sender, allocation);
+
+        //Can't overflow because the amount a recipient will never be greater than the total supply of GLW
         cumulativePaidOut += allocation;
         emit IGrantsTreasury.GrantFundsClaimed(msg.sender, allocation);
     }
 
+    /**
+     * @inheritdoc IGrantsTreasury
+     */
+     function sync() public {
+        uint256 amt = GLOW_TOKEN.claimGLWFromGrantsTreasury();
+        emit IGrantsTreasury.TreasurySynced(amt);
+    }
+    
+    //************************************************************* */
+    //*********************  VIEW FUNCS    ********************** */
+    //************************************************************* */
     /**
      * @inheritdoc IGrantsTreasury
      */
@@ -66,14 +101,9 @@ contract GrantsTreasury is IGrantsTreasury {
         return balance + cumulativePaidOut - cumulativeAllocated;
     }
 
-    /**
-     * @inheritdoc IGrantsTreasury
-     */
-    function sync() public {
-        uint256 amt = GLOW_TOKEN.claimGLWFromGrantsTreasury();
-        emit IGrantsTreasury.TreasurySynced(amt);
-    }
-
+    //************************************************************* */
+    //*********************  PRIVATE UTILS    ********************** */
+    //************************************************************* */
     /**
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with

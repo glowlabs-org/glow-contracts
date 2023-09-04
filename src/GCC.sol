@@ -51,6 +51,7 @@ contract GCC is ERC20, IGCC, EIP712 {
     //************************************************************* */
     //*********************  CONSTRUCTOR    ********************** */
     //************************************************************* */
+    
     /**
      * @notice GCC constructor
      * @param _carbonCreditAuction The address of the CarbonCreditAuction contract
