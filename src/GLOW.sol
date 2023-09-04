@@ -287,7 +287,7 @@ contract Glow is ERC20, IGlow {
         uint256 len = _unstakedPositions[msg.sender].length;
 
         //Loop through the unstaked positions until claimableTotal >= amount
-           //Tail will also be <= len so no risk of underflow
+        //Tail will also be <= len so no risk of underflow
         //Tail should also remain close to len since we delete unstaked positions as we claim them
         //and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
         for (uint256 i = tail; i < len; ++i) {
@@ -507,7 +507,7 @@ contract Glow is ERC20, IGlow {
 
         //Init the positions array
         UnstakedPosition[] memory positions = new UnstakedPosition[](len);
-         //Start is always less than end so no risk of underflow
+        //Start is always less than end so no risk of underflow
         //start should also be close to end since we delete unstaked positions as we claim them
         // and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
         for (uint256 i = start; i < end;) {

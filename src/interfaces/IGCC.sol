@@ -50,6 +50,20 @@ interface IGCC is IERC20 {
     function decreaseRetiringAllowance(address spender, uint256 amount) external;
 
     /**
+        * @notice allows a user to increase the erc20 and retiring allowance of a spender in one transaction
+        * @param spender the address of the spender
+        * @param addedValue the amount of credits to increase the allowance by
+    */
+    function increaseAllowances(address spender,uint256 addedValue) external;
+
+    /**
+        * @notice allows a user to decrease the erc20 and retiring allowance of a spender in one transaction
+        * @param spender the address of the spender
+        * @param requestedDecrease the amount of credits to decrease the allowance by
+    */
+    function decreaseAllowances(address spender,uint256 requestedDecrease) external;
+    
+    /**
      * @notice returns the retiring allowance for a user
      * @param account the address of the account to check
      * @param spender the address of the spender to check

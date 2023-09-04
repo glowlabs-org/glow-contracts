@@ -69,10 +69,9 @@ contract GCC_Test is Test {
     }
 
     /**
-    This test ensures that the GCC contract 
-    is correctly minting to the carbon credit auction contract.
-
-    */
+     * This test ensures that the GCC contract
+     * is correctly minting to the carbon credit auction contract.
+     */
     function test_sendToCarbonCreditAuction() public {
         vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
         gcc.mintToCarbonCreditAuction(1, 1e20 ether);
@@ -84,9 +83,9 @@ contract GCC_Test is Test {
     }
 
     /**
-        This test ensures that only the GCA and 
-        Miner Pool contract can use the ```mintToCarbonCredit``` function.
-    */
+     * This test ensures that only the GCA and
+     *     Miner Pool contract can use the ```mintToCarbonCredit``` function.
+     */
     function test_sendToCarbonCreditAuction_callerNotGCA_shouldRevert() public {
         vm.startPrank(SIMON);
         vm.expectRevert(IGCC.CallerNotGCAContract.selector);
@@ -141,7 +140,6 @@ contract GCC_Test is Test {
         gcc.retireGCCFor(SIMON, other, 1e20 ether);
         vm.stopPrank();
     }
-
 
     function test_setRetiringAllowance_single() public {
         vm.startPrank(SIMON);

@@ -108,6 +108,9 @@ contract GCC is ERC20, IGCC, EIP712 {
         _handleRetirement(msg.sender, rewardAddress, amount);
     }
 
+    /**
+     * @inheritdoc IGCC
+     */
     function retireGCCFor(address from, address rewardAddress, uint256 amount) public {
         transferFrom(from, address(this), amount);
         if (msg.sender != from) {
@@ -138,13 +141,14 @@ contract GCC is ERC20, IGCC, EIP712 {
         }
         retireGCCFor(from, rewardAddress, amount);
     }
-    
 
+    /// @inheritdoc IGCC
     function increaseAllowances(address spender, uint256 addedValue) public {
         _approve(msg.sender, spender, allowance(msg.sender, spender) + addedValue);
         _increaseRetiringAllowance(msg.sender, spender, addedValue, true);
     }
 
+    /// @inheritdoc IGCC
     function decreaseAllowances(address spender, uint256 requestedDecrease) public {
         address owner = _msgSender();
         uint256 currentAllowance = allowance(msg.sender, spender);
@@ -181,10 +185,10 @@ contract GCC is ERC20, IGCC, EIP712 {
     }
 
     /**
-        * @notice Returns the domain separator used in the permit signature
-        * @dev Should be deterministic
-        * @return result The domain separator
-    */
+     * @notice Returns the domain separator used in the permit signature
+     * @dev Should be deterministic
+     * @return result The domain separator
+     */
     function domainSeparatorV4() public view returns (bytes32) {
         return _domainSeparatorV4();
     }
@@ -248,14 +252,14 @@ contract GCC is ERC20, IGCC, EIP712 {
     }
 
     /**
-        * @dev Constructs a retiring permit EIP712 message hash to be signed
-        * @param owner The owner of the funds
-        * @param spender The spender
-        * @param amount The amount of funds
-        * @param nonce The next nonce
-        * @param deadline The deadline for the signature to be valid
-        * @return digest The EIP712 digest
-    */
+     * @dev Constructs a retiring permit EIP712 message hash to be signed
+     * @param owner The owner of the funds
+     * @param spender The spender
+     * @param amount The amount of funds
+     * @param nonce The next nonce
+     * @param deadline The deadline for the signature to be valid
+     * @return digest The EIP712 digest
+     */
     function _constructRetiringPermitDigest(
         address owner,
         address spender,
@@ -268,13 +272,13 @@ contract GCC is ERC20, IGCC, EIP712 {
     }
 
     /**
-        * @dev Checks if the signature provided is valid for the provided data, hash.
-        * @param signer The address of the signer.
-        * @param message The EIP-712 digest.
-        * @param signature The signature, in bytes.
-        * @return bool indicating if the signature was valid (true) or not (false).
-        * @dev accounts for EIP-1271 magic values as well
-    */
+     * @dev Checks if the signature provided is valid for the provided data, hash.
+     * @param signer The address of the signer.
+     * @param message The EIP-712 digest.
+     * @param signature The signature, in bytes.
+     * @return bool indicating if the signature was valid (true) or not (false).
+     * @dev accounts for EIP-1271 magic values as well
+     */
     function _checkRetiringPermitSignature(address signer, bytes32 message, bytes memory signature)
         private
         view

@@ -157,14 +157,14 @@ contract GlowTest is Test {
 
     /**
      * @dev Tests that we can stake
-        -   1. Mint 1e9 tokens to SIMON
-        -   2. Stake the entire balance of SIMON
-        -   3. Ensure simon is staking 1e9 tokens 
-        -   4. Ensure staking zero tokens should revert
-        -   5. Ensure that staking more than Simon's balance should revert
-        -   6. Mint 1e9 tokens to simon again
-        -   7. Stake the entire balance again
-        -   8. Make sure that simon now has 1e9 * 2 tokens
+     *     -   1. Mint 1e9 tokens to SIMON
+     *     -   2. Stake the entire balance of SIMON
+     *     -   3. Ensure simon is staking 1e9 tokens 
+     *     -   4. Ensure staking zero tokens should revert
+     *     -   5. Ensure that staking more than Simon's balance should revert
+     *     -   6. Mint 1e9 tokens to simon again
+     *     -   7. Stake the entire balance again
+     *     -   8. Make sure that simon now has 1e9 * 2 tokens
      */
     function test_Stake()
         public
@@ -190,16 +190,15 @@ contract GlowTest is Test {
     {}
 
     /**
-    
-    * @dev This test is designed to test if unstaking correctly appends to a user's unstaked position
-        -   1. Mint 1e9 tokens to SIMON
-        -   2. Stake 1 token
-        -   3. Ensure 1 token is staked
-        -   4. Unstake 1 ether
-        -   5. Ensure that SIMON has 1 unstaked dposiiton
-        -   6a. Ensure the unstaked position's cooldown end is the unstake timestamp + 5 years
-        -   6b. Ensure the amount inside the unstaked position is 1 token
-        */
+     * @dev This test is designed to test if unstaking correctly appends to a user's unstaked position
+     *     -   1. Mint 1e9 tokens to SIMON
+     *     -   2. Stake 1 token
+     *     -   3. Ensure 1 token is staked
+     *     -   4. Unstake 1 ether
+     *     -   5. Ensure that SIMON has 1 unstaked dposiiton
+     *     -   6a. Ensure the unstaked position's cooldown end is the unstake timestamp + 5 years
+     *     -   6b. Ensure the amount inside the unstaked position is 1 token
+     */
     function test_StakeAndUnstake_SinglePosition()
         public
         mintTokens(SIMON, 1e9 ether)
@@ -224,25 +223,24 @@ contract GlowTest is Test {
     }
 
     /**
-    * @dev When users stake glow, they are allowed to pull from their unstaked positions. For example, if a user has 100 tokens in their unstaked positions, 
-            -   they can reuse those pending tokens to stake. This means that users do not need to put up fresh tokens every single time they stake. 
-            -   If users have tokens in their unstaked positions that are not yet claimed, the stake function handles the claim for the user. 
-            -   This means that if a user has 10 tokens that are ready to be claimed and wants to stake 1 token, the user will actually receive 9 tokens, (and also not have to send any tokens) 
-            -   when they go to stake that 1 token. This tests focusese on that logic.
-            
-            -   1. Repeats all steps inside ```test_StakeAndUnstake_SinglePosition_stakingShouldClaimGLOW``` above.
-            -   2. Fast forwards to the cooldown end of the unstaked position
-            -       -   This means that the 1 token inside the unstaked position is ready to be claimed
-            -   3. Perform some sanity checks
-            -       -   a. Ensure the amount in the unstake position is still 1 token
-            -       -   b. Ensure that we have zero tokens staked
-            -   4. Stake .5 tokens
-            -   5. Ensure that SIMON, RECEIVED, .5 tokens
-            -       -   Since we are staking .5 tokens and have 1 token that is ready to be claimed
-            -           The expected behavior is that SIMON receives .5 of that unstaked token and uses the rest to cover his new stake
-            -   6. Ensure that unstaked positons is correctly updated and that there are now no unstaked positions left.
-
-    */
+     * @dev When users stake glow, they are allowed to pull from their unstaked positions. For example, if a user has 100 tokens in their unstaked positions,
+     *         -   they can reuse those pending tokens to stake. This means that users do not need to put up fresh tokens every single time they stake. 
+     *         -   If users have tokens in their unstaked positions that are not yet claimed, the stake function handles the claim for the user. 
+     *         -   This means that if a user has 10 tokens that are ready to be claimed and wants to stake 1 token, the user will actually receive 9 tokens, (and also not have to send any tokens) 
+     *         -   when they go to stake that 1 token. This tests focusese on that logic.
+     *         
+     *         -   1. Repeats all steps inside ```test_StakeAndUnstake_SinglePosition_stakingShouldClaimGLOW``` above.
+     *         -   2. Fast forwards to the cooldown end of the unstaked position
+     *         -       -   This means that the 1 token inside the unstaked position is ready to be claimed
+     *         -   3. Perform some sanity checks
+     *         -       -   a. Ensure the amount in the unstake position is still 1 token
+     *         -       -   b. Ensure that we have zero tokens staked
+     *         -   4. Stake .5 tokens
+     *         -   5. Ensure that SIMON, RECEIVED, .5 tokens
+     *         -       -   Since we are staking .5 tokens and have 1 token that is ready to be claimed
+     *         -           The expected behavior is that SIMON receives .5 of that unstaked token and uses the rest to cover his new stake
+     *         -   6. Ensure that unstaked positons is correctly updated and that there are now no unstaked positions left.
+     */
     function test_StakeAndUnstake_SinglePosition_stakingShouldClaimGLOW() public {
         test_StakeAndUnstake_SinglePosition();
         vm.startPrank(SIMON);
@@ -301,16 +299,16 @@ contract GlowTest is Test {
     }
 
     /**
-        * @dev This test is meant to be the same as the test above, except it tests claiming unstaked positions across multiple positions as opposed to just one. This ensures that looping is correctly happening and values are correctly being adjusted.
-            1. Create 10 unstaked positions each with a different expiration and amount for a total of 55 tokens
-                - Check the ```stageStakeAndUnstakeMultiplePositions``` for more information
-            2. Fast forward to the final position's cooldown
-            3. Ensure that SIMON has 0 staked (sanity check)
-            4. Try staking 3 tokens
-            5. Make sure that we receive 52 tokens
-                -   We had a total of 55 tokens across unstaked positions and now we want to stake 3 tokens. The contract should refund us 52 tokens and keep 3 tokens to stake with
-            6. Make sure all unstaked positions are cleared.
-    */
+     * @dev This test is meant to be the same as the test above, except it tests claiming unstaked positions across multiple positions as opposed to just one. This ensures that looping is correctly happening and values are correctly being adjusted.
+     *         1. Create 10 unstaked positions each with a different expiration and amount for a total of 55 tokens
+     *             - Check the ```stageStakeAndUnstakeMultiplePositions``` for more information
+     *         2. Fast forward to the final position's cooldown
+     *         3. Ensure that SIMON has 0 staked (sanity check)
+     *         4. Try staking 3 tokens
+     *         5. Make sure that we receive 52 tokens
+     *             -   We had a total of 55 tokens across unstaked positions and now we want to stake 3 tokens. The contract should refund us 52 tokens and keep 3 tokens to stake with
+     *         6. Make sure all unstaked positions are cleared.
+     */
     function test_StakeAndUnstakeMultiplePositions_allExpired() public stageStakeAndUnstakeMultiplePositions {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
         vm.warp(unstakedPositions[9].cooldownEnd + 1);
@@ -337,19 +335,18 @@ contract GlowTest is Test {
     }
 
     /**
-    
-        * @dev This test checks to see the reaction of the Glow contract when none of the unstaked positions have expired. The expected behavior is that the glow contract should pull from unstaked positions when a user goes to stake.
-            1. Create 10 unstaked positions each with a different expiration and amount for a total of 55 tokens
-                - Check the ```stageStakeAndUnstakeMultiplePositions``` for more information
-            2. Stake 2.5 tokens
-            3. Ensure that we have 2.5 tokens staked
-            4. Pull all unstaked posiitons
-            5. The first and second unstaked positions should have 1 token and 2 tokens respectively. By staking 2.5 tokens, we expect that the contract will use the full 1 token in the unstaked position and 1.5 of the tokens in the second unstaked position to fulfill this 2.5 token stake request. This means, we can expect the tail of the unstaked position to move up 1 (or the length of the unstaked positions to decrease by 1)
-            6. Ensure that new array length has decreased by 1.
-            7. Loop through the unstaked positions.
-                -   If first position, ensure that the new amount inside that unstaked position is .5 tokens. This is because we needed to pull 1.5 tokens from the 2 tokens that existed in that unstaked position previously.
-                - For the rest of the positions, ensure that the amounts stayed the same.
-    */
+     * @dev This test checks to see the reaction of the Glow contract when none of the unstaked positions have expired. The expected behavior is that the glow contract should pull from unstaked positions when a user goes to stake.
+     *         1. Create 10 unstaked positions each with a different expiration and amount for a total of 55 tokens
+     *             - Check the ```stageStakeAndUnstakeMultiplePositions``` for more information
+     *         2. Stake 2.5 tokens
+     *         3. Ensure that we have 2.5 tokens staked
+     *         4. Pull all unstaked posiitons
+     *         5. The first and second unstaked positions should have 1 token and 2 tokens respectively. By staking 2.5 tokens, we expect that the contract will use the full 1 token in the unstaked position and 1.5 of the tokens in the second unstaked position to fulfill this 2.5 token stake request. This means, we can expect the tail of the unstaked position to move up 1 (or the length of the unstaked positions to decrease by 1)
+     *         6. Ensure that new array length has decreased by 1.
+     *         7. Loop through the unstaked positions.
+     *             -   If first position, ensure that the new amount inside that unstaked position is .5 tokens. This is because we needed to pull 1.5 tokens from the 2 tokens that existed in that unstaked position previously.
+     *             - For the rest of the positions, ensure that the amounts stayed the same.
+     */
     function test_StakeAndUnstakeMultiplePositions_noneExpired() public stageStakeAndUnstakeMultiplePositions {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
         //unstakedPositions should be length 10 before starting a new stake
@@ -386,19 +383,18 @@ contract GlowTest is Test {
     }
 
     /**
-        * @dev This test checks to make sure that when a user has multiple unstaked positions, with the first that is ready to be claimed, that a stake correctly updates state. If a user has a position(s) that is ready to be claimed, the glow contract should look to pull from other unstaked positions first if it can. The idea here is that it takes a long time for a position to be able to be claimed, so, it's better to give users the benefit of the doubt by ensuring that the amount to stake if first pulled from their unstaked positions that have not yet expired, and if needed, also pull from those expirerd positions.
-
-            1. Create 10 unstaked positions each with a different expiration and amount for a total of 55 tokens
-                - Check the ```stageStakeAndUnstakeMultiplePositions``` for more information
-            2. Fast forward to the end of the first unstaked position's expiration
-            3. Stake 1 token (the amount inside the first position)
-            4. Read unstaked positions
-            5. Ensure that the new user's unstaked positions doesent include the claimable unstaked position
-            6. Ensure that the unstaked position in the first index has been deducted by 1 token (since the function should pull from unstaked positions before pulling from claimable positions)
-            7. Ensure the user's balance of GLOW has increased by 1 token 
-                -   This is because the stake function should claim tokens for the user if they are ready to be claimed
-
-    */
+     * @dev This test checks to make sure that when a user has multiple unstaked positions, with the first that is ready to be claimed, that a stake correctly updates state. If a user has a position(s) that is ready to be claimed, the glow contract should look to pull from other unstaked positions first if it can. The idea here is that it takes a long time for a position to be able to be claimed, so, it's better to give users the benefit of the doubt by ensuring that the amount to stake if first pulled from their unstaked positions that have not yet expired, and if needed, also pull from those expirerd positions.
+     * 
+     *         1. Create 10 unstaked positions each with a different expiration and amount for a total of 55 tokens
+     *             - Check the ```stageStakeAndUnstakeMultiplePositions``` for more information
+     *         2. Fast forward to the end of the first unstaked position's expiration
+     *         3. Stake 1 token (the amount inside the first position)
+     *         4. Read unstaked positions
+     *         5. Ensure that the new user's unstaked positions doesent include the claimable unstaked position
+     *         6. Ensure that the unstaked position in the first index has been deducted by 1 token (since the function should pull from unstaked positions before pulling from claimable positions)
+     *         7. Ensure the user's balance of GLOW has increased by 1 token 
+     *             -   This is because the stake function should claim tokens for the user if they are ready to be claimed
+     */
     function test_StakeAndUnstakeMultiplePositions_oneExpiredStakeOne() public stageStakeAndUnstakeMultiplePositions {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
         // unstakedPositions should be length 10 before starting a new stake
@@ -418,15 +414,13 @@ contract GlowTest is Test {
         unstakedPositions = glw.unstakedPositionsOf(SIMON);
 
         assertEq(unstakedPositions.length, 9);
-        assertEq(unstakedPositions[0].amount,1 ether);
+        assertEq(unstakedPositions[0].amount, 1 ether);
 
         uint256 balAfter = glw.balanceOf(SIMON);
         int256 diff = int256(balAfter) - int256(balBefore);
 
         //Ensure 1 token got transferred to the user
         assertTrue(diff == int256(1 ether));
-
-
     }
 
     function test_StakeAndUnstakeMultiplePositions_useAllStakePositions()
@@ -451,10 +445,10 @@ contract GlowTest is Test {
         glw.mint(SIMON, 1e4 ether);
 
         //Stake once more
-        uint balBefore = glw.balanceOf(SIMON);
+        uint256 balBefore = glw.balanceOf(SIMON);
         glw.stake(1 ether);
-        uint balAfter = glw.balanceOf(SIMON);
-        assertEq(balAfter+1 ether,balBefore);
+        uint256 balAfter = glw.balanceOf(SIMON);
+        assertEq(balAfter + 1 ether, balBefore);
         assertEq(glw.numStaked(SIMON), 56 ether);
 
         //Unstake .5 ether
@@ -599,7 +593,7 @@ contract GlowTest is Test {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
         assertEq(unstakedPositions.length, 1);
 
-        assertEq(unstakedPositions[0].amount,.9 ether);
+        assertEq(unstakedPositions[0].amount, 0.9 ether);
 
         //Sanity check: num staked should be zero
         assertEq(glw.numStaked(SIMON), 0);
@@ -633,12 +627,11 @@ contract GlowTest is Test {
 
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
         assertEq(unstakedPositions.length, 1);
-        assertEq(unstakedPositions[0].amount, .99 ether - .1 ether + .01 ether);
+        assertEq(unstakedPositions[0].amount, 0.99 ether - 0.1 ether + 0.01 ether);
 
         //Sanity check: num staked should be zero
         assertEq(glw.numStaked(SIMON), 0);
     }
-
 
     //-------------------- Inflation Tests --------------------
 
