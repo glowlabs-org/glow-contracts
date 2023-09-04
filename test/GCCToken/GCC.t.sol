@@ -153,7 +153,7 @@ contract GCC_Test is Test {
         gcc.decreaseRetiringAllowance(other, 250_000);
         assertEq(gcc.retiringAllowance(SIMON, other), 0);
 
-        vm.expectRevert(IGCC.RetiringAllowanceUnderflow.selector);
+        vm.expectRevert(stdError.arithmeticError);
         gcc.decreaseRetiringAllowance(other, 1);
     }
 
@@ -218,7 +218,7 @@ contract GCC_Test is Test {
 
         vm.startPrank(other);
         /// spender,allowance,needed
-        vm.expectRevert(IGCC.RetiringAllowanceUnderflow.selector);
+        vm.expectRevert(stdError.arithmeticError);
         gcc.retireGCCFor(SIMON, other, 1e20 ether);
         vm.stopPrank();
     }
