@@ -185,7 +185,7 @@ contract GCA is IGCA {
         //If the bucket has not been reinstated, we need to make sure that the submission period is still open
         //The submission period is open if the current timestamp is less than the endSubmissionTimestamp
         if (!reinstated) {
-            uint256 bucketSubmissionStartTimestamp = bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP;
+            uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
             if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
             //Submissions are only open for one week
             if (block.timestamp >= bucketSubmissionStartTimestamp + BUCKET_LENGTH ) {
@@ -228,7 +228,7 @@ contract GCA is IGCA {
                 if (!reinstated) {
                     bucket.nonce = uint192(_slashNonce);
                     if (!alreadyInitialized) {
-                        bucket.finalizationTimestamp = (bucketId + 2) * BUCKET_LENGTH + GENESIS_TIMESTAMP;
+                        bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
                     }
                 }
             } else {
@@ -291,6 +291,12 @@ contract GCA is IGCA {
         proposalHashes.push(hash);
     }
 
+
+    //************************************************************* */
+    //*****************  PUBLIC VIEW FUNCTIONS    ************** */
+    //************************************************************* */
+
+
     /// @inheritdoc IGCA
     function compensationPlan(address gca) public view returns (IGCA.ICompensation[] memory) {
         return _compensationPlan(gca, gcaAgents);
@@ -343,6 +349,39 @@ contract GCA is IGCA {
             }
         }
     }
+
+    /**
+        * @notice returns the start submission timestamp of a bucket
+        * @param bucketId - the id of the bucket
+        * @return the start submission timestamp of a bucket
+        * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+    */
+    function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
+        return bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP;
+    }
+
+    /**
+        * @notice returns the end submission timestamp of a bucket
+            - GCA's wont be able to submit if block.timestamp >= endSubmissionTimestamp
+        * @param bucketId - the id of the bucket
+        * @return the end submission timestamp of a bucket
+        * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+    */
+    function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
+        return bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH;
+    }
+
+
+    /**
+        * @notice returns the finalization timestamp of a bucket
+        * @param bucketId - the id of the bucket
+        * @return the finalization timestamp of a bucket
+        * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+    */
+    function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
+        return bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH;
+    }
+
 
     /**
      * @dev Find total owed now and slashable balance using the summation of an arithmetic series

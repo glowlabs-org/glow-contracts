@@ -25,6 +25,8 @@ contract GCA_TEST is Test {
     address SIMON = address(0x6);
     address OTHER_GCA = address(0x7);
     uint256 constant ONE_WEEK = 7 * uint(1 days);
+    uint256 constant _UINT256_MAX_DIV5 = type(uint256).max / 5;
+    uint256 constant _200_BILLION = 200_000_000_000 ether;
 
     function setUp() public {
         glow = new TestGLOW(earlyLiquidity,vestingContract);
@@ -180,6 +182,69 @@ contract GCA_TEST is Test {
         test_issueReport_newGCAShouldCreateNewReport();
         issueReport_newSubmissionShouldOverrideOldOne(2);
     }
+
+    function test_issueReport_weightMoreThanUint256Div5_shouldRevert() public {
+        addGCA(SIMON);
+        vm.startPrank(SIMON);
+        uint256 currentBucket = 0;
+        uint256 totalNewGCC = 101 ether;
+        uint256 totalGlwRewardsWeight = _UINT256_MAX_DIV5 + 1;
+        uint256 totalGRCRewardsWeight = 101 ether;
+        //Use a random root for now
+        bytes32 root = keccak256("random but different");
+
+        vm.expectRevert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
+        gca.issueWeeklyReport(
+            currentBucket,
+            totalNewGCC,
+            totalGlwRewardsWeight,
+            totalGRCRewardsWeight,
+            root
+        );
+        
+        totalGlwRewardsWeight = 1;
+        totalGRCRewardsWeight = _UINT256_MAX_DIV5 + 1;
+        vm.expectRevert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
+        gca.issueWeeklyReport(
+            currentBucket,
+            totalNewGCC,
+            totalGlwRewardsWeight,
+            totalGRCRewardsWeight,
+            root
+        );
+
+        vm.stopPrank();
+
+
+    }
+
+    function test_issueReport_moreThan200BillionGCC_shouldRevert() public {
+
+        addGCA(SIMON);
+        vm.startPrank(SIMON);
+        uint256 currentBucket = 0;
+        uint256 totalNewGCC =  _200_BILLION + 1;
+        uint256 totalGlwRewardsWeight = 105 ether;
+        uint256 totalGRCRewardsWeight = 101 ether;
+        //Use a random root for now
+        bytes32 root = keccak256("random but different");
+
+        vm.expectRevert(IGCA.ReportGCCMustBeLT200Billion.selector);
+        gca.issueWeeklyReport(
+            currentBucket,
+            totalNewGCC,
+            totalGlwRewardsWeight,
+            totalGRCRewardsWeight,
+            root
+        );
+   
+
+        vm.stopPrank();
+
+    }
+        
+
+    
 
     function test_issueReport_submittingAfterSubmissionShouldRevert() public {
         test_issueReport();
