@@ -159,7 +159,7 @@ contract GlowTest is Test {
      * @dev Tests that we can stake
      *     -   1. Mint 1e9 tokens to SIMON
      *     -   2. Stake the entire balance of SIMON
-     *     -   3. Ensure simon is staking 1e9 tokens 
+     *     -   3. Ensure simon is staking 1e9 tokens
      *     -   4. Ensure staking zero tokens should revert
      *     -   5. Ensure that staking more than Simon's balance should revert
      *     -   6. Mint 1e9 tokens to simon again
@@ -224,11 +224,11 @@ contract GlowTest is Test {
 
     /**
      * @dev When users stake glow, they are allowed to pull from their unstaked positions. For example, if a user has 100 tokens in their unstaked positions,
-     *         -   they can reuse those pending tokens to stake. This means that users do not need to put up fresh tokens every single time they stake. 
-     *         -   If users have tokens in their unstaked positions that are not yet claimed, the stake function handles the claim for the user. 
-     *         -   This means that if a user has 10 tokens that are ready to be claimed and wants to stake 1 token, the user will actually receive 9 tokens, (and also not have to send any tokens) 
+     *         -   they can reuse those pending tokens to stake. This means that users do not need to put up fresh tokens every single time they stake.
+     *         -   If users have tokens in their unstaked positions that are not yet claimed, the stake function handles the claim for the user.
+     *         -   This means that if a user has 10 tokens that are ready to be claimed and wants to stake 1 token, the user will actually receive 9 tokens, (and also not have to send any tokens)
      *         -   when they go to stake that 1 token. This tests focusese on that logic.
-     *         
+     *
      *         -   1. Repeats all steps inside ```test_StakeAndUnstake_SinglePosition_stakingShouldClaimGLOW``` above.
      *         -   2. Fast forwards to the cooldown end of the unstaked position
      *         -       -   This means that the 1 token inside the unstaked position is ready to be claimed
@@ -384,7 +384,7 @@ contract GlowTest is Test {
 
     /**
      * @dev This test checks to make sure that when a user has multiple unstaked positions, with the first that is ready to be claimed, that a stake correctly updates state. If a user has a position(s) that is ready to be claimed, the glow contract should look to pull from other unstaked positions first if it can. The idea here is that it takes a long time for a position to be able to be claimed, so, it's better to give users the benefit of the doubt by ensuring that the amount to stake if first pulled from their unstaked positions that have not yet expired, and if needed, also pull from those expirerd positions.
-     * 
+     *
      *         1. Create 10 unstaked positions each with a different expiration and amount for a total of 55 tokens
      *             - Check the ```stageStakeAndUnstakeMultiplePositions``` for more information
      *         2. Fast forward to the end of the first unstaked position's expiration
@@ -392,7 +392,7 @@ contract GlowTest is Test {
      *         4. Read unstaked positions
      *         5. Ensure that the new user's unstaked positions doesent include the claimable unstaked position
      *         6. Ensure that the unstaked position in the first index has been deducted by 1 token (since the function should pull from unstaked positions before pulling from claimable positions)
-     *         7. Ensure the user's balance of GLOW has increased by 1 token 
+     *         7. Ensure the user's balance of GLOW has increased by 1 token
      *             -   This is because the stake function should claim tokens for the user if they are ready to be claimed
      */
     function test_StakeAndUnstakeMultiplePositions_oneExpiredStakeOne() public stageStakeAndUnstakeMultiplePositions {

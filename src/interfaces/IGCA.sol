@@ -8,6 +8,15 @@ interface IGCA {
     error InsufficientShares();
     error NoBalanceToPayout();
     error CallerNotGovernance();
+    error ProposalHashesNotUpdated();
+    error ProposalHashDoesNotMatch();
+    error ProposalAlreadyUpdated();
+    error BucketAlreadyFinalized();
+    error ReportGCCMustBeLT200Billion();
+    error ReportWeightMustBeLTUintMaxDiv5();
+    error BucketSubmissionNotOpen();
+    error BucketSubmissionEnded();
+    // error BucketNotReinitilizable();
 
     /**
      * @return = true if the account is a gca , false otherwise
@@ -61,6 +70,37 @@ interface IGCA {
     }
 
     /**
+     * @dev a struct to represent a report
+     * @param totalNewGCC - the total amount of new gcc
+     * @param totalGLWRewardsWeight - the total amount of glw rewards weight
+     * @param totalGRCRewardsWeight - the total amount of grc rewards weight
+     * @param merkleRoot - the root containing all the reports (leaves) for the period
+     *             - The leaf structure is as follows:
+     *                 -   (address payoutWallet,uint256 glwRewardsWeight,uint256 grcRewardsWeight)
+     * @param proposingAgent - the address of the gca agent proposing the report
+     */
+    struct Report {
+        uint256 totalNewGCC;
+        uint256 totalGLWRewardsWeight;
+        uint256 totalGRCRewardsWeight;
+        bytes32 merkleRoot;
+        address proposingAgent;
+    }
+
+    /**
+     * @param nonce - the slash nonce in storage at the time of report submission
+     * @param finalizationTimestamp - the finalization timestamp for the bucket according to the weekly bucket schedule
+     * @param reports - the reports for the bucket
+     */
+    struct Bucket {
+        uint192 nonce;
+        bool reinstated;
+        //if finalizationTimestamp > 0
+        uint256 finalizationTimestamp;
+        Report[] reports;
+    }
+
+    /**
      * @dev Emitted when a gca submits a new compensation plan.
      * @param agent - the address of the gca agent proposing
      * @param plans - the compensation plans
@@ -74,4 +114,17 @@ interface IGCA {
      * @param totalSlashableBalance - the total slashable balance of the gca
      */
     event GCAPayoutClaimed(address indexed agent, uint256 amount, uint256 totalSlashableBalance);
+
+    /**
+     * @dev Emitted when a proposal hash is acted upon
+     * @param index - the index of the proposal hash inside the {proposalHashes} array
+     * @param proposalHash - the proposal hash
+     */
+    event ProposalHashUpdate(uint256 indexed index, bytes32 proposalHash);
+
+    /**
+     * @dev Emitted when governacne updates the {requirementsHash}
+     * @param requirementsHash - the new requirements hash gcas must abide by
+     */
+    event RequirementsHashUpdated(bytes32 requirementsHash);
 }

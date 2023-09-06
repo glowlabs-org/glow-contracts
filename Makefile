@@ -6,7 +6,7 @@ use-solc-0.8.21 :; solc-select use 0.8.21
 
 
 # --- [Gen HTML] requires linux or wsl
-gen-lcov :; forge coverage --report lcov
+gen-lcov :; forge coverage --ffi --report lcov
 
 gen-html :;  make gen-lcov && genhtml -o report --branch-coverage lcov.info
 

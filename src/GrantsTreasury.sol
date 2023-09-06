@@ -5,7 +5,6 @@ import {IGlow} from "./interfaces/IGlow.sol";
 import {IGrantsTreasury} from "./interfaces/IGrantsTreasury.sol";
 
 contract GrantsTreasury is IGrantsTreasury {
-
     /// @notice glow token
     IGlow public immutable GLOW_TOKEN;
 
@@ -43,7 +42,7 @@ contract GrantsTreasury is IGrantsTreasury {
     //************************************************************* */
     //*********************  EXTERNAL FUNCS    ********************** */
     //************************************************************* */
-    
+
     /**
      * @inheritdoc IGrantsTreasury
      */
@@ -83,11 +82,11 @@ contract GrantsTreasury is IGrantsTreasury {
     /**
      * @inheritdoc IGrantsTreasury
      */
-     function sync() public {
+    function sync() public {
         uint256 amt = GLOW_TOKEN.claimGLWFromGrantsTreasury();
         emit IGrantsTreasury.TreasurySynced(amt);
     }
-    
+
     //************************************************************* */
     //*********************  VIEW FUNCS    ********************** */
     //************************************************************* */

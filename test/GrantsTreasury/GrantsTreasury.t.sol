@@ -88,7 +88,6 @@ contract GrantsTreasuryTest is Test {
     }
 
     function test_actualBalanceTooLow() public {
-
         vm.startPrank(GOVERNANCE);
         vm.warp(block.timestamp + 365 days);
         grantsTreasury.sync();
@@ -100,7 +99,7 @@ contract GrantsTreasuryTest is Test {
         assertEq(grantsTreasury.cumulativePaidOut(), 0 ether);
 
         //try to give 1 token to a recipient
-        succesfulCall = grantsTreasury.allocateGrantFunds(address(0x12312312),1);
+        succesfulCall = grantsTreasury.allocateGrantFunds(address(0x12312312), 1);
         assertEq(succesfulCall, false);
         vm.stopPrank();
 
@@ -113,7 +112,6 @@ contract GrantsTreasuryTest is Test {
         assertEq(grantsTreasury.recipientBalance(SIMON), 0 ether);
         assertEq(grantsTreasury.cumulativeAllocated(), balBefore);
         vm.stopPrank();
-
     }
 
     function test_ClaimZeroShouldRevert() public {
