@@ -7,6 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import "forge-std/console.sol";
+
 interface IDecimals {
     error IncorrectDecimals();
 
@@ -267,7 +268,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
         //The maximum value of divisionResult is -4087 / -0.000000693  = 5,907,834,144
         //The maximum value of firstTermInSeries is 600,000 * 2^12,000,000 / 1,000,000 = 2.5e9
         //The maximum value of geometricSeries is 2.5e9 * 5,907,834,144 = 1.476e+19
-        //This cant overflow since 1.476e+19< 2^63-1 
+        //This cant overflow since 1.476e+19< 2^63-1
 
         return result;
     }

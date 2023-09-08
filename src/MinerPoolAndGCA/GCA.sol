@@ -6,7 +6,6 @@ import {IGlow} from "@/interfaces/IGlow.sol";
 import "forge-std/console.sol";
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import "forge-std/console.sol";
-// TODO: note to self -- im brain fried rn, go back to the slashable vesting in your notebook
 
 contract GCA is IGCA {
     /**
@@ -141,70 +140,84 @@ contract GCA is IGCA {
         uint256 totalGRCRewardsWeight,
         bytes32 root
     ) external {
+        //GCAs can't submit if the contract is frozen (pending a proposal hash update)
+        _revertIfFrozen();
         if (!isGCA(msg.sender)) _revert(NotGCA.selector);
         //Need to check if bucket is slashed
         Bucket storage bucket = _buckets[bucketId];
         //Cache values
-        (uint256 bucketNonce, uint256 bucketFinalizationTimestamp, bool reinstated) =
-            (bucket.nonce, bucket.finalizationTimestamp, bucket.reinstated);
+        (uint256 bucketFinalizationTimestamp, bool reinstated) = (bucket.finalizationTimestamp, bucket.reinstated);
         uint256 _slashNonce = slashNonce;
         bool alreadyInitialized = bucketFinalizationTimestamp != 0;
+        uint256 bucketNonce = bucket.nonce;
         uint256 len = bucket.reports.length;
 
-        //idea: what if current bucket was not init and then slash nonce happens
-        // so current bucket has a diff slash nonce and is not init, what do we do?
-        // a: not allow the bucket to be written to
-        // b: allow the bucket to be written to
+        //Arithmetic Checks
+        //To make sure that the weight's dont result in an overflow,
+        // we need to make sure that the total weight is less than 1/5 of the max uint256
+        if (totalGlwRewardsWeight > _UINT256_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
+        if (totalGRCRewardsWeight > _UINT256_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
+        //Max of 1 trillion GCC per week
+        //Since there are a max of 5 GCA's at any point in time,
+        // this means that the max amount of GCC that can be minted per GCA is 200 Billion
+        if (totalNewGCC > _200_BILLION) _revert(IGCA.ReportGCCMustBeLT200Billion.selector);
 
-        /**
-         * We don't check the endSubmissionTimestamp when
-         *         the bucket needs to be reinstated.
-         *         When does the bucket need to be reinstated?
-         *         When slashNonce != slashNonce and it's not reinstated
-         */
+        //The submission start timestamp always remains the same
+        uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
+        if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
+
+        //Keep in mind, all bucketNonces start with 0
+        //So on the first init, we need to set the bucketNonce to the slashNonce in storage
+        if (!alreadyInitialized) {
+            bucket.nonce = uint192(_slashNonce);
+            bucketNonce = _slashNonce;
+            alreadyInitialized = true;
+            bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
+        }
+
         {
-            bool reinstatingTx = (bucketNonce != _slashNonce) && !reinstated;
+            //We only reinstante if the bucketNonce is not the same as the slashNonce
+            // and the bucket has not been reinstated
+            // and the bucket has already been initialized
+            bool reinstatingTx = (bucketNonce != _slashNonce) && !reinstated && alreadyInitialized;
 
+            /**
+             * If it is a reinstating tx,
+             *             we need to set reinstated to true
+             *             and we need to change the finalization timestamp
+             *             lastly, we need to delete all reports in storage if there are any
+             */
             if (reinstatingTx) {
                 bucket.reinstated = true;
                 reinstated = true;
-                if (!alreadyInitialized) {
-                    alreadyInitialized = true;
-                }
                 //Finalizes one week after submission period ends
+                alreadyInitialized = true;
                 bucketFinalizationTimestamp = (_WCEIL(bucketNonce) + BUCKET_LENGTH);
                 bucket.finalizationTimestamp = bucketFinalizationTimestamp;
                 //conditionally delete all reports in storage
                 if (len > 0) {
                     len = 0;
+                    //TODO: figure out if we want to override length with assembly for cheaper gas
                     delete bucket.reports;
                 }
             }
         }
 
-        //If the bucket has not been reinstated, we need to make sure that the submission period is still open
-        //The submission period is open if the current timestamp is less than the endSubmissionTimestamp
+        //If we have reinstated, we need to check if the bucket is still taking submissions
+        //if it's not reinstated, the end submission time is the same as the {bucketSubmissionStartTimestamp} + 1 week
+        //This enforces that GCA's can only submit for one week
         if (!reinstated) {
-            uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
-            if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
             //Submissions are only open for one week
-            if (block.timestamp >= bucketSubmissionStartTimestamp + BUCKET_LENGTH ) {
+            if (block.timestamp >= bucketSubmissionStartTimestamp + BUCKET_LENGTH) {
+                _revert(IGCA.BucketSubmissionEnded.selector);
+            }
+            //If the bucket has been reinstated, we need to check if the bucket is still taking submissions
+            // by comparing it to the WCEIL of the bucket
+        } else {
+            if (block.timestamp > (_WCEIL(bucketNonce))) {
                 _revert(IGCA.BucketSubmissionEnded.selector);
             }
         }
-
-        if (reinstated) {
-            if (block.timestamp > (bucketFinalizationTimestamp - BUCKET_LENGTH)) {
-                _revert(IGCA.BucketSubmissionNotOpen.selector);
-            }
-        }
-
-        // if(_isBucketFinalized(bucketNonce, bucketFinalizationTimestamp,_slashNonce))
-        //     _revert(IGCA.BucketAlreadyFinalized.selector);
-        // if(bucket.nonce != _slashNonce) revert("simon fill this in");
-        if (totalGlwRewardsWeight > _UINT256_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
-        if (totalGRCRewardsWeight > _UINT256_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
-        if (totalNewGCC > _200_BILLION) _revert(IGCA.ReportGCCMustBeLT200Billion.selector);
 
         uint256 foundIndex;
         unchecked {
@@ -214,7 +227,8 @@ contract GCA is IGCA {
                     break;
                 }
             }
-
+            //If the array was empty
+            // we need to push
             if (foundIndex == 0) {
                 bucket.reports.push(
                     IGCA.Report({
@@ -225,14 +239,10 @@ contract GCA is IGCA {
                         merkleRoot: root
                     })
                 );
-                if (!reinstated) {
-                    bucket.nonce = uint192(_slashNonce);
-                    if (!alreadyInitialized) {
-                        bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
-                    }
-                }
+                //else we write the the index we found
             } else {
                 bucket.reports[foundIndex == type(uint256).max ? 0 : foundIndex] = IGCA.Report({
+                    //Redundant sstore on {proposingAgent}
                     proposingAgent: msg.sender,
                     totalNewGCC: totalNewGCC,
                     totalGLWRewardsWeight: totalGlwRewardsWeight,
@@ -291,11 +301,9 @@ contract GCA is IGCA {
         proposalHashes.push(hash);
     }
 
-
     //************************************************************* */
     //*****************  PUBLIC VIEW FUNCTIONS    ************** */
     //************************************************************* */
-
 
     /// @inheritdoc IGCA
     function compensationPlan(address gca) public view returns (IGCA.ICompensation[] memory) {
@@ -351,37 +359,35 @@ contract GCA is IGCA {
     }
 
     /**
-        * @notice returns the start submission timestamp of a bucket
-        * @param bucketId - the id of the bucket
-        * @return the start submission timestamp of a bucket
-        * @dev should not be used for reinstated buckets or buckets that need to be reinstated
-    */
+     * @notice returns the start submission timestamp of a bucket
+     * @param bucketId - the id of the bucket
+     * @return the start submission timestamp of a bucket
+     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+     */
     function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
         return bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP;
     }
 
     /**
-        * @notice returns the end submission timestamp of a bucket
-            - GCA's wont be able to submit if block.timestamp >= endSubmissionTimestamp
-        * @param bucketId - the id of the bucket
-        * @return the end submission timestamp of a bucket
-        * @dev should not be used for reinstated buckets or buckets that need to be reinstated
-    */
+     * @notice returns the end submission timestamp of a bucket
+     *         - GCA's wont be able to submit if block.timestamp >= endSubmissionTimestamp
+     * @param bucketId - the id of the bucket
+     * @return the end submission timestamp of a bucket
+     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+     */
     function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
         return bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH;
     }
 
-
     /**
-        * @notice returns the finalization timestamp of a bucket
-        * @param bucketId - the id of the bucket
-        * @return the finalization timestamp of a bucket
-        * @dev should not be used for reinstated buckets or buckets that need to be reinstated
-    */
+     * @notice returns the finalization timestamp of a bucket
+     * @param bucketId - the id of the bucket
+     * @return the finalization timestamp of a bucket
+     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+     */
     function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
         return bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH;
     }
-
 
     /**
      * @dev Find total owed now and slashable balance using the summation of an arithmetic series
@@ -473,7 +479,7 @@ contract GCA is IGCA {
         for (uint256 i; i < oldGCAs.length; ++i) {
             delete _compensationPlans[oldGCAs[i]];
         }
-        
+
         gcaAgents = gcaAddresses;
         //log all the gcaAddresses
         for (uint256 i; i < gcaAddresses.length; ++i) {
@@ -516,6 +522,12 @@ contract GCA is IGCA {
         returns (bool)
     {
         if (bucketNonce == _slashNonce && block.timestamp >= bucketFinalizationTimestamp) return true;
+        //TODO: there's prbably an easier way than the method below.
+        //We could probably do if (bucketNonce < slashNonce && reinitilized &&
+        //if(bucketFinalizationTimestamp == 0) return false
+        //if(block.timestamp < bucketFinalizationTimestamp) return false
+        // if(slashNonce != bucketNonce) { if(!reinitilized) return false }
+        //return true;
         if (
             bucketNonce < _slashNonce && bucketFinalizationTimestamp < slashNonceToSlashTimestamp[bucketNonce]
                 && block.timestamp >= bucketFinalizationTimestamp
@@ -535,7 +547,14 @@ contract GCA is IGCA {
         }
     }
 
-    function _WCEIL(uint256 _slashNonce) private view returns (uint256) {
+    /**
+     * @dev will underflow and revert if slashNonceToSlashTimestamp[_slashNonce] has not yet been written to
+     * @dev returns the WCEIL for the given slash nonce.
+     * @dev WCEIL is equal to the end bucket submission time for the bucket that the slash nonce was slashed in + 2 weeks
+     * @dev it's two weeks instead of one to make sure there is adequate time for GCA's to submit reports
+     */
+    function _WCEIL(uint256 _slashNonce) internal view returns (uint256) {
+        //This will underflow if slashNonceToSlashTimestamp[_slashNonce] has not yet been written to
         uint256 bucketNonceWasSlashedAt = (slashNonceToSlashTimestamp[_slashNonce] - GENESIS_TIMESTAMP) / BUCKET_LENGTH;
         //the end submission period is the bucket + 2
         return (bucketNonceWasSlashedAt + 2) * BUCKET_LENGTH + GENESIS_TIMESTAMP;

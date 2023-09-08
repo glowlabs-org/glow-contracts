@@ -123,7 +123,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
             auctionData.hash,
             auctionData.minimumBid,
             auctionData.endTime
-            );
+        );
         ++electricityFutureAuctionCount;
     }
 
