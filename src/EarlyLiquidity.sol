@@ -6,7 +6,7 @@ import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
-
+import "forge-std/console.sol";
 interface IDecimals {
     error IncorrectDecimals();
 
@@ -67,6 +67,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
     int128 private constant _LN_2 = 12786308645202655659;
 
     /// @dev represents (1-r) in 64x64 format
+    /// @dev r =  1 - 1.000000693 = -0.000000693
     int128 private constant _DENOMINATOR = -12786313076599;
 
     /// @dev tokens are demagnified by 1e18 to make floating point math easier
@@ -263,10 +264,10 @@ contract EarlyLiquidity is IEarlyLiquidity {
         // _LN_RATIO  = ln(1.000000693) = 0.000000693
         //The maximum value of rToTheN is e^(12,000,000 * .000000693) = 4088
         //The maximum value of numerator is 1 - 4088 = -4087
-        //The maximum value of divisionResult is -4087 / 0.999999307 = 4087
+        //The maximum value of divisionResult is -4087 / -0.000000693  = 5,907,834,144
         //The maximum value of firstTermInSeries is 600,000 * 2^12,000,000 / 1,000,000 = 2.5e9
-        //The maximum value of geometricSeries is 2.5e9 * 4087 = 1.02e13
-        //This cant overflow since 1.02e13 < 2^63-1 = 9.223372e+18
+        //The maximum value of geometricSeries is 2.5e9 * 5,907,834,144 = 1.476e+19
+        //This cant overflow since 1.476e+19< 2^63-1 
 
         return result;
     }

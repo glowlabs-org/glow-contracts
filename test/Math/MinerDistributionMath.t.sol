@@ -73,7 +73,7 @@ contract MinerDistributionMathTest is Test {
             vm.warp(block.timestamp + oneWeek);
         }
 
-        saveBucketsToFile(0, 340, "py-utils/miner-pool/data/buckets.json");
+        saveBucketsToFile(0, 340, "./py-utils/miner-pool/data/buckets.json");
     }
 
     //-----------------UTILS-----------------
@@ -126,7 +126,7 @@ contract MinerDistributionMathTest is Test {
     /// @dev - helper function to delete the json file that contains the bucket outputs
     function deleteFile() public {
         string[] memory deleteFileCommands = new string[](2);
-        deleteFileCommands[0] = "py";
+        deleteFileCommands[0] = "python3";
         deleteFileCommands[1] = "./py-utils/miner-pool/delete_file_if_exists.py";
         vm.ffi(deleteFileCommands);
     }
@@ -134,7 +134,7 @@ contract MinerDistributionMathTest is Test {
     /// @dev - helper function that generates the json and then shows the distribution of the buckets
     function showGraph() public {
         string[] memory graphCommands = new string[](2);
-        graphCommands[0] = "py";
+        graphCommands[0] = "python3";
         graphCommands[1] = "./py-utils/miner-pool/graph_buckets.py";
         vm.ffi(graphCommands);
     }
