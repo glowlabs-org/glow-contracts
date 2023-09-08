@@ -31,4 +31,8 @@ contract MockGCA is GCA {
     function WCEIL(uint256 _slashNonce) public view returns (uint256) {
         return _WCEIL(_slashNonce);
     }
+
+    function pushRequirementsHashMock(bytes32 hash) external {
+        proposalHashes.push(hash);
+    }
 }

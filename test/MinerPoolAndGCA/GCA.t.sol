@@ -102,6 +102,8 @@ contract GCA_TEST is Test {
         vm.stopPrank();
     }
 
+
+    
     function testFuzz_invalidBucketSubmission_nonInitBucket_withDifferentSlashNonce_shouldAlwaysRevert(uint256 bucketId)
         public
     {
@@ -215,7 +217,7 @@ contract GCA_TEST is Test {
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
 
-        //------ START PRANK ------
+        //------ START PRANK ------//
         vm.startPrank(SIMON);
 
         gca.issueWeeklyReport(
@@ -223,7 +225,7 @@ contract GCA_TEST is Test {
         );
 
         vm.stopPrank();
-        //------ STOP PRANK ------
+        //------ STOP PRANK ------//
 
         IGCA.Bucket memory bucket = gca.bucket(currentBucket);
         assertEq(bucket.reports.length, lengthOfReports);
@@ -254,7 +256,7 @@ contract GCA_TEST is Test {
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different again");
 
-        //------ START PRANK ------
+        //------ START PRANK ------//
         vm.startPrank(OTHER_GCA);
 
         gca.issueWeeklyReport(
@@ -518,6 +520,27 @@ contract GCA_TEST is Test {
 
     function test_incrementNonce() public {
         gca.incrementSlashNonce();
+    }
+
+    function test_issueReport_proposalsNotUpdated_shouldRevert() public {
+        addGCA(SIMON);
+        vm.startPrank(SIMON);
+        uint256 currentBucket = 0;
+        uint256 totalNewGCC = 101 ether;
+        uint256 totalGlwRewardsWeight = 105 ether;
+        uint256 totalGRCRewardsWeight = 101 ether;
+
+        //Use a random root for now
+        bytes32 randomMerkleRoot = keccak256("random but different");
+
+        bytes32 proposalHash = keccak256("proposal hash");
+        gca.pushRequirementsHashMock(proposalHash);
+
+        vm.expectRevert(IGCA.ProposalHashesNotUpdated.selector);
+        gca.issueWeeklyReport(
+            currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
+        );
+        
     }
 
     function test_Constructor_shouldSetGenesisTimestampForGCAs() public {
