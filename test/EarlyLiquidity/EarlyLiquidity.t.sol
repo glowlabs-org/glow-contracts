@@ -238,7 +238,9 @@ contract EarlyLiquidityTest is Test {
     function test_getCurrentPrice() public {
         test_setGlowAndMint();
         //starting price should be 60 cents
-        bool withinRange = fallsWithinRange(earlyLiquidity.getCurrentPrice(), POINT_6_USDC, 1);
+        uint currentPrice = earlyLiquidity.getCurrentPrice();
+        console.log("current price", currentPrice);
+        bool withinRange = fallsWithinRange(currentPrice, POINT_6_USDC, 1);
         assertTrue(withinRange);
     }
 
@@ -249,6 +251,12 @@ contract EarlyLiquidityTest is Test {
         test_setGlowAndMint();
         vm.expectRevert(IEarlyLiquidity.AllSold.selector);
         earlyLiquidity.getPrice(12_000_000 + 1);
+    }
+
+    function test_SimonIE() public {
+        uint amountToGet = 44_000_000;
+        uint price = earlyLiquidity.getPrice(amountToGet);
+
     }
 
 

@@ -42,7 +42,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
     /// @dev The minimum increment that tokens can be bought in
     /// @dev this is essential so our floating point math doesn't break
-    uint256 public constant MIN_TOKEN_INCREMENT = 1e18;
+    uint256 public constant MIN_TOKEN_INCREMENT = 1e18 / 4;
 
     //************************************************************* */
     //*****************  FLOATING POINT CONSTANTS    ************** */
@@ -225,9 +225,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
     function _getPrice(uint256 totalSold, uint256 tokensToBuy) private pure returns (uint256) {
         // Check if the combined total of tokens sold and tokens to buy exceed the allowed amount.
         // If it does, revert the transaction.
-        if (totalSold + tokensToBuy > TOTAL_TOKENS_TO_SELL_DIV_1E18) {
-            _revert(IEarlyLiquidity.AllSold.selector);
-        }
+        // if (totalSold + tokensToBuy > TOTAL_TOKENS_TO_SELL_DIV_1E18) {
+        //     _revert(IEarlyLiquidity.AllSold.selector);
+        // }
 
         // Convert the number of tokens to buy into a fixed-point representation.
         int128 n = ABDKMath64x64.fromUInt(tokensToBuy);
@@ -251,11 +251,22 @@ contract EarlyLiquidity is IEarlyLiquidity {
         int128 firstTermInSeries = _getFirstTermInSeries(totalSold);
 
         // Compute the sum of the geometric series.
-        int128 geometricSeries = (firstTermInSeries.mul(divisionResult));
+        // int128 geometricSeries = (firstTermInSeries.mul(divisionResult));
+
+        //divisionResult > than geometricSeries, so we convert divisionResult to uint256
+        //divUint will also always be negative
+        uint firstTimeInSerieWithFloat = uint256(int256(firstTermInSeries));
+        uint divUint = uint256(int256(divisionResult));
+        uint mulRes = firstTimeInSerieWithFloat * divUint >> 64;
+        return mulRes >> 64;
+        
+        // uint gs = firstTimeInSeriesUint * divUint;
+
+        
 
         // Convert the fixed-point result back to an unsigned integer, representing the
         // final price in microdollars.
-        uint256 result = geometricSeries.toUInt();
+        // uint256 result = geometricSeries.toUInt();
 
         // The following comments are for the purpose of explaining why the code cannot overflow.
         //The maximum value of totalSold is 12,000,000
@@ -269,7 +280,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
         //The maximum value of geometricSeries is 2.5e9 * 5,907,834,144 = 1.476e+19
         //This cant overflow since 1.476e+19< 2^63-1 
 
-        return result;
+        // return result;
     }
 
     /**
