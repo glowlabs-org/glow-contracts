@@ -101,7 +101,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     ) GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _setGRCToken(_grcToken, true, 0);
-        // grcTracker[_grcToken] = GRCTracker({firstAddedBucketId: type(uint248).max, isGRC: true});
     }
 
     function createElectricityFutureAuction(ElectricityFutureAuction memory auctionData) external {
@@ -146,8 +145,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
         IERC20 grcToken = IERC20(auction.grcToken);
 
-        //TODO: add the grc to the reward pools.
         SafeERC20.safeTransferFrom(grcToken, msg.sender, address(this), amount);
+        _addToCurrentBucket(auction.grcToken, amount);
     }
 
     //----------------- VIEW FUNCTIONS -----------------//
@@ -179,25 +178,4 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     function _genesisTimestamp() internal view override(BucketSubmission) returns (uint256) {
         return GENESIS_TIMESTAMP;
     }
-
-    // /**
-    //  * @notice sets the grc tracker for a token
-    //  * @dev the external implementation should only be allowed to be called by governance
-    //  * @param grcToken - the address of the token
-    //  * @param adding - if true, this adds the token to the allowed grcTokens
-    //  *                     - else it removes it
-    //  */
-    // function _setGRCTracker(address grcToken, bool adding, uint256 currentBucket) internal {
-    //     GRCTracker storage _grcTracker = grcTracker[grcToken];
-    //     if (adding) {
-    //         if (_grcTracker.firstAddedBucketId != 0) {
-    //             _grcTracker.firstAddedBucketId = currentBucket == 0 ? type(uint248).max : uint248(currentBucket);
-    //         }
-    //         if (!_grcTracker.isGRC) {
-    //             _grcTracker.isGRC = true;
-    //         }
-    //     } else {
-    //         _grcTracker.isGRC = false;
-    //     }
-    // }
 }

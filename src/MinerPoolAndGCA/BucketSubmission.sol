@@ -2,6 +2,7 @@
 pragma solidity 0.8.21;
 
 import "forge-std/console.sol";
+import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 
 contract BucketSubmission {
     /**
@@ -169,15 +170,35 @@ contract BucketSubmission {
         }
     }
 
+    function reward(address grcToken, uint256 id) external view returns (WeeklyReward memory) {
+        (WeeklyReward memory bucket,) = _rewardWithNeedsInitializing(grcToken, id);
+        return bucket;
+    }
+
     //TODO: Check if this returns correctly on unitialized buckets.
     //TODO: When the bucket is being withdrawn from, if it's not yet init,
     //          -   make sure that it gets init so we dont need to spend time looking backwards
-    function reward(address grcToken, uint256 id) external view returns (WeeklyReward memory) {
+    /**
+     * @notice returns the weekly reward for a given bucket
+     * @dev if the bucket has not yet been initialized,
+     *             - the function will look backwards to calculate the correct amount
+     *             - if the bucket has been initialized, it will return the bucket
+     * @param grcToken - the address of the grcToken
+     * @param id - the bucketId to query for
+     * @return bucket - the  weekly reward struct for the bucket
+     * @return needsInitializing -- flag to see if the bucket needs to be initialized
+     * @dev `needsInitializing` should be used in the withdraw reward function to see if the bucket needs to be initialized
+     */
+    function _rewardWithNeedsInitializing(address grcToken, uint256 id)
+        internal
+        view
+        returns (WeeklyReward memory, bool)
+    {
         WeeklyReward memory bucket = rewards[id][grcToken];
         // If the bucket has already been initialized
         // Then we can just return the bucket.
         if (bucket.inheritedFromLastWeek || id < 16) {
-            return bucket;
+            return (bucket, false);
         }
 
         // If the index to search for is greater than the maxBucketId
@@ -185,7 +206,7 @@ contract BucketSubmission {
         // So we return the empty bucket
         BucketTracker memory _bucketTracker = bucketTracker[grcToken];
         if (id > _bucketTracker.maxBucketId) {
-            return bucket;
+            return (bucket, false);
         }
 
         uint256 amountToSubtract = bucket.amountToDeduct;
@@ -206,11 +227,11 @@ contract BucketSubmission {
                 break;
             }
         }
-        return bucket;
+        return (bucket, true);
     }
 
     //************************************************************* */
-    //*****************  INTERNAL/PRIVATE  ************** */
+    //**************  INTERNAL/PRIVATE STATE CHANGING  ************ */
     //************************************************************* */
 
     /**
@@ -238,13 +259,12 @@ contract BucketSubmission {
         }
     }
 
+    //************************************************************* */
+    //**************  INTERNAL/PRIVATE VIEW  ************ */
+    //************************************************************* */
+
     /// @dev this must be overriden inside the parent contract.
     function _genesisTimestamp() internal view virtual returns (uint256) {
         return 0;
-    }
-
-    function minBucket(uint256 forwardBucket) private view returns (uint256) {
-        if (forwardBucket < TOTAL_VESTING_PERIODS) return OFFSET_LEFT;
-        return forwardBucket - TOTAL_VESTING_PERIODS;
     }
 }

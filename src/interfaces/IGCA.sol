@@ -15,7 +15,7 @@ interface IGCA {
     error ProposalAlreadyUpdated();
     error BucketAlreadyFinalized();
     error ReportGCCMustBeLT200Billion();
-    error ReportWeightMustBeLTUintMaxDiv5();
+    error ReportWeightMustBeLTUint64MaxDiv5();
     error BucketSubmissionNotOpen();
     error BucketSubmissionEnded();
     // error BucketNotReinitilizable();
@@ -83,12 +83,14 @@ interface IGCA {
      * @param proposingAgent - the address of the gca agent proposing the report
      */
     struct Report {
-        uint256 totalNewGCC;
-        uint256 totalGLWRewardsWeight;
-        uint256 totalGRCRewardsWeight;
+        uint128 totalNewGCC;
+        uint64 totalGLWRewardsWeight;
+        uint64 totalGRCRewardsWeight;
         bytes32 merkleRoot;
         address proposingAgent;
+        uint96 scratch;
     }
+    //3 slots
 
     /**
      * @param nonce - the slash nonce in storage at the time of report submission
@@ -96,10 +98,9 @@ interface IGCA {
      * @param reports - the reports for the bucket
      */
     struct Bucket {
-        uint192 nonce;
+        uint64 nonce;
         bool reinstated;
-        //if finalizationTimestamp > 0
-        uint256 finalizationTimestamp;
+        uint184 finalizationTimestamp;
         Report[] reports;
     }
 

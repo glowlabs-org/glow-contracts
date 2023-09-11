@@ -4,6 +4,7 @@ pragma solidity 0.8.21;
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
+import "forge-std/console.sol";
 
 /**
  * @title GCA (Glow Certification Agent)
@@ -43,7 +44,12 @@ contract GCA is IGCA {
     /// @dev 200 Billion in 18 decimals
     uint256 private constant _200_BILLION = 200_000_000_000 ether;
 
-    uint256 private constant _UINT256_MAX_DIV5 = type(uint256).max / 5;
+    uint256 private constant _UINT64_MAX_DIV5 = type(uint64).max / 5;
+
+    uint256 private constant _UINT128_MASK = (1 << 128) - 1;
+    uint256 private constant _UINT64_MASK = (1 << 64) - 1;
+    uint256 private constant _BOOL_MASK = (1 << 8) - 1;
+    uint256 private constant _UINT184_MASK = (1 << 184) - 1;
 
     // 1 week
     uint256 private constant BUCKET_LENGTH = 7 * uint256(1 days);
@@ -159,8 +165,8 @@ contract GCA is IGCA {
         //Arithmetic Checks
         //To make sure that the weight's dont result in an overflow,
         // we need to make sure that the total weight is less than 1/5 of the max uint256
-        if (totalGlwRewardsWeight > _UINT256_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
-        if (totalGRCRewardsWeight > _UINT256_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
+        if (totalGlwRewardsWeight > _UINT64_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
+        if (totalGRCRewardsWeight > _UINT64_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
         //Max of 1 trillion GCC per week
         //Since there are a max of 5 GCA's at any point in time,
         // this means that the max amount of GCC that can be minted per GCA is 200 Billion
@@ -173,7 +179,7 @@ contract GCA is IGCA {
         //Keep in mind, all bucketNonces start with 0
         //So on the first init, we need to set the bucketNonce to the slashNonce in storage
         if (!alreadyInitialized) {
-            bucket.nonce = uint192(_slashNonce);
+            bucket.nonce = uint64(_slashNonce);
             bucketNonce = _slashNonce;
             alreadyInitialized = true;
             bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
@@ -197,7 +203,7 @@ contract GCA is IGCA {
                 //Finalizes one week after submission period ends
                 alreadyInitialized = true;
                 bucketFinalizationTimestamp = (_WCEIL(bucketNonce) + BUCKET_LENGTH);
-                bucket.finalizationTimestamp = bucketFinalizationTimestamp;
+                bucket.finalizationTimestamp = uint184(bucketFinalizationTimestamp);
                 //conditionally delete all reports in storage
                 if (len > 0) {
                     len = 0;
@@ -237,10 +243,11 @@ contract GCA is IGCA {
                 bucket.reports.push(
                     IGCA.Report({
                         proposingAgent: msg.sender,
-                        totalNewGCC: totalNewGCC,
-                        totalGLWRewardsWeight: totalGlwRewardsWeight,
-                        totalGRCRewardsWeight: totalGRCRewardsWeight,
-                        merkleRoot: root
+                        totalNewGCC: uint128(totalNewGCC),
+                        totalGLWRewardsWeight: uint64(totalGlwRewardsWeight),
+                        totalGRCRewardsWeight: uint64(totalGRCRewardsWeight),
+                        merkleRoot: root,
+                        scratch: 0
                     })
                 );
                 //else we write the the index we found
@@ -248,10 +255,11 @@ contract GCA is IGCA {
                 bucket.reports[foundIndex == type(uint256).max ? 0 : foundIndex] = IGCA.Report({
                     //Redundant sstore on {proposingAgent}
                     proposingAgent: msg.sender,
-                    totalNewGCC: totalNewGCC,
-                    totalGLWRewardsWeight: totalGlwRewardsWeight,
-                    totalGRCRewardsWeight: totalGRCRewardsWeight,
-                    merkleRoot: root
+                    totalNewGCC: uint128(totalNewGCC),
+                    totalGLWRewardsWeight: uint64(totalGlwRewardsWeight),
+                    totalGRCRewardsWeight: uint64(totalGRCRewardsWeight),
+                    merkleRoot: root,
+                    scratch: 0
                 });
             }
         }
@@ -355,8 +363,8 @@ contract GCA is IGCA {
      * @return the start submission timestamp of a bucket
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
-    function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
-        return bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP;
+    function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint184) {
+        return uint184(bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP);
     }
 
     /**
@@ -366,8 +374,8 @@ contract GCA is IGCA {
      * @return the end submission timestamp of a bucket
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
-    function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
-        return bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH;
+    function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint184) {
+        return uint184(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
     }
 
     /**
@@ -376,8 +384,8 @@ contract GCA is IGCA {
      * @return the finalization timestamp of a bucket
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
-    function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
-        return bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH;
+    function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint184) {
+        return uint184(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
     }
 
     /**
@@ -435,6 +443,86 @@ contract GCA is IGCA {
         uint256 _slashNonce = slashNonce;
         return _isBucketFinalized(bucket.nonce, bucket.finalizationTimestamp, _slashNonce);
     }
+
+    struct EfficientReport {
+        uint256 totalNewGCC;
+        uint256 totalGLWRewardsWeight;
+        uint256 totalGRCRewardsWeight;
+        bytes32 merkleRoot;
+    }
+
+    struct EfficientBucket {
+        uint64 nonce;
+        bool reinstated;
+        uint184 finalizationTimestamp;
+        EfficientReport[] reports;
+    }
+
+    function getBucketDataEfficient(uint256 bucketId) public view returns (EfficientBucket memory) {
+        uint256 length;
+        uint256 reportsArrayStartSlot;
+        uint64 nonce;
+        bool reinstated;
+        uint184 finalizationTimestamp;
+        uint256 uint128Mask = _UINT128_MASK;
+        uint256 uint64Mask = _UINT64_MASK;
+        uint256 boolMask = _BOOL_MASK;
+        uint256 uint184Mask = _UINT184_MASK;
+
+        assembly {
+            // Calculate the storage slot for the given bucket
+            // keccak256(bucketId . slot number of _buckets)
+            //First get slot
+            mstore(0x00, bucketId)
+            mstore(0x20, _buckets.slot)
+            let bucketSlot := keccak256(0x00, 0x40)
+            //Find the reports slot
+            reportsArrayStartSlot := add(bucketSlot, 1)
+            let reportsSlot := reportsArrayStartSlot
+            //Find the length
+            length := sload(reportsSlot)
+            let packedData := sload(bucketSlot)
+            nonce := and(uint64Mask, packedData)
+            reinstated := and(boolMask, shr(64, packedData))
+            finalizationTimestamp := and(uint184Mask, shr(72, packedData))
+            //Each `Report` struct is 2 slots
+            mstore(0x0, reportsArrayStartSlot)
+            reportsArrayStartSlot := keccak256(0x0, 0x20)
+        }
+        //Increment this so we start exactly at the start of index 0
+
+        EfficientReport[] memory reports = new EfficientReport[](length);
+
+        for (uint256 i; i < length;) {
+            uint128 totalNewGCC;
+            uint64 totalGlwRewardsWeight;
+            uint64 totalGRCRewardsWeight;
+            bytes32 root;
+            assembly {
+                let slot1Val := sload(reportsArrayStartSlot)
+                totalNewGCC := and(slot1Val, uint128Mask)
+                totalGlwRewardsWeight := and(uint64Mask, shr(128, slot1Val))
+                totalGRCRewardsWeight := and(uint64Mask, shr(192, slot1Val))
+                root := sload(add(reportsArrayStartSlot, 1))
+                //Each report is 3 slots in storage
+                reportsArrayStartSlot := add(reportsArrayStartSlot, 3)
+
+
+            }
+
+            reports[i] = EfficientReport(totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+            unchecked {
+                ++i;
+            }
+        }
+
+        EfficientBucket memory bucket = EfficientBucket(nonce, reinstated, finalizationTimestamp, reports);
+        return bucket;
+    }
+
+    //************************************************************* */
+    //***************  INTERNAL  ********************** */
+    //************************************************************* */
 
     function _getShares(address agent, address[] memory gcas)
         internal

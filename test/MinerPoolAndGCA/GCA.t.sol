@@ -33,8 +33,8 @@ contract GCA_TEST is Test {
 
     //--------  CONSTANTS ---------//
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
-    uint256 constant _UINT256_MAX_DIV5 = type(uint256).max / 5;
-    uint256 constant _200_BILLION = 200_000_000_000 ether;
+    uint256 constant _UINT64_MAX_DIV5 = type(uint64).max / 5;
+    uint256 constant _200_BILLION = 200_000_000_000 * 1e18;
 
     function setUp() public {
         //Make sure we don't start at 0
@@ -81,7 +81,7 @@ contract GCA_TEST is Test {
 
     function testFuzz_invalidBucketSubmission_shouldAlwaysRevert(uint256 bucketId) public {
         //Each bucket last's 1 week, so there will realistically never be a bucket with an id greater than 1e18
-        bucketId = bound(bucketId, 0, 1 ether);
+        bucketId = bound(bucketId, 0, 1 * 1e15);
         uint256 genesis = gca.GENESIS_TIMESTAMP();
         assertEq(genesis, 10);
         addGCA(SIMON);
@@ -105,7 +105,7 @@ contract GCA_TEST is Test {
     function testFuzz_invalidBucketSubmission_nonInitBucket_withDifferentSlashNonce_shouldAlwaysRevert(uint256 bucketId)
         public
     {
-        bucketId = bound(bucketId, 0, 1 ether);
+        bucketId = bound(bucketId, 0, 1 * 1e15);
         addGCA(SIMON);
         vm.startPrank(SIMON);
         uint256 submissionStartTimestamp = gca.bucketStartSubmissionTimestampNotReinstated(bucketId);
@@ -131,7 +131,7 @@ contract GCA_TEST is Test {
     function testFuzz_invalidBucketSubmission_initBucket_withDifferentSlashNonce_shouldAlwaysRevert(uint256 bucketId)
         public
     {
-        bucketId = bound(bucketId, 0, 1 ether);
+        bucketId = bound(bucketId, 0, 1 * 1e15);
         addGCA(SIMON);
         vm.startPrank(SIMON);
         uint256 submissionStartTimestamp = gca.bucketStartSubmissionTimestampNotReinstated(bucketId);
@@ -168,18 +168,18 @@ contract GCA_TEST is Test {
         assertTrue(_containsElement(allGCAs, newGCA));
     }
 
-    function issueReport(uint256 lengthOfReports) public {
-        addGCA(SIMON);
+    function issueReport(uint256 lengthOfReports, address gcaToSubmitAs) public {
+        addGCA(gcaToSubmitAs);
         //Current bucket should be zero, let's see if we can add to it
         uint256 currentBucket = 0;
-        uint256 totalNewGCC = 100 ether;
-        uint256 totalGlwRewardsWeight = 100 ether;
-        uint256 totalGRCRewardsWeight = 100 ether;
+        uint256 totalNewGCC = 100 * 1e15;
+        uint256 totalGlwRewardsWeight = 100 * 1e15;
+        uint256 totalGRCRewardsWeight = 100 * 1e15;
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random");
 
         //------ START PRANK ------
-        vm.startPrank(SIMON);
+        vm.startPrank(gcaToSubmitAs);
 
         gca.issueWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
@@ -203,15 +203,15 @@ contract GCA_TEST is Test {
     }
 
     function test_issueReport() public {
-        issueReport(1);
+        issueReport(1, SIMON);
     }
 
     function issueReport_newSubmissionShouldOverrideOldOne(uint256 lengthOfReports) public {
-        issueReport(lengthOfReports);
+        issueReport(lengthOfReports, SIMON);
         uint256 currentBucket = 0;
-        uint256 totalNewGCC = 101 ether;
-        uint256 totalGlwRewardsWeight = 105 ether;
-        uint256 totalGRCRewardsWeight = 101 ether;
+        uint256 totalNewGCC = 101 * 1e15;
+        uint256 totalGlwRewardsWeight = 105 * 1e15;
+        uint256 totalGRCRewardsWeight = 101 * 1e15;
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
 
@@ -248,9 +248,9 @@ contract GCA_TEST is Test {
         addGCA(OTHER_GCA);
 
         uint256 currentBucket = 0;
-        uint256 totalNewGCC = 201 ether;
-        uint256 totalGlwRewardsWeight = 205 ether;
-        uint256 totalGRCRewardsWeight = 204 ether;
+        uint256 totalNewGCC = 201 * 1e15;
+        uint256 totalGlwRewardsWeight = 205 * 1e15;
+        uint256 totalGRCRewardsWeight = 204 * 1e15;
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different again");
 
@@ -287,18 +287,18 @@ contract GCA_TEST is Test {
         addGCA(SIMON);
         vm.startPrank(SIMON);
         uint256 currentBucket = 0;
-        uint256 totalNewGCC = 101 ether;
-        uint256 totalGlwRewardsWeight = _UINT256_MAX_DIV5 + 1;
-        uint256 totalGRCRewardsWeight = 101 ether;
+        uint256 totalNewGCC = 101 * 1e15;
+        uint256 totalGlwRewardsWeight = _UINT64_MAX_DIV5 + 1;
+        uint256 totalGRCRewardsWeight = 101 * 1e15;
         //Use a random root for now
         bytes32 root = keccak256("random but different");
 
-        vm.expectRevert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
+        vm.expectRevert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
         gca.issueWeeklyReport(currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
 
         totalGlwRewardsWeight = 1;
-        totalGRCRewardsWeight = _UINT256_MAX_DIV5 + 1;
-        vm.expectRevert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
+        totalGRCRewardsWeight = _UINT64_MAX_DIV5 + 1;
+        vm.expectRevert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
         gca.issueWeeklyReport(currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
 
         vm.stopPrank();
@@ -309,8 +309,8 @@ contract GCA_TEST is Test {
         vm.startPrank(SIMON);
         uint256 currentBucket = 0;
         uint256 totalNewGCC = _200_BILLION + 1;
-        uint256 totalGlwRewardsWeight = 105 ether;
-        uint256 totalGRCRewardsWeight = 101 ether;
+        uint256 totalGlwRewardsWeight = 105 * 1e15;
+        uint256 totalGRCRewardsWeight = 101 * 1e15;
         //Use a random root for now
         bytes32 root = keccak256("random but different");
 
@@ -330,9 +330,9 @@ contract GCA_TEST is Test {
 
         vm.startPrank(SIMON);
         uint256 currentBucket = 0;
-        uint256 totalNewGCC = 101 ether;
-        uint256 totalGlwRewardsWeight = 105 ether;
-        uint256 totalGRCRewardsWeight = 101 ether;
+        uint256 totalNewGCC = 101 * 1e15;
+        uint256 totalGlwRewardsWeight = 105 * 1e15;
+        uint256 totalGRCRewardsWeight = 101 * 1e15;
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
 
@@ -348,9 +348,9 @@ contract GCA_TEST is Test {
         addGCA(SIMON);
         vm.startPrank(SIMON);
         uint256 currentBucket = 1;
-        uint256 totalNewGCC = 101 ether;
-        uint256 totalGlwRewardsWeight = 105 ether;
-        uint256 totalGRCRewardsWeight = 101 ether;
+        uint256 totalNewGCC = 101 * 1e15;
+        uint256 totalGlwRewardsWeight = 105 * 1e15;
+        uint256 totalGRCRewardsWeight = 101 * 1e15;
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
 
@@ -368,9 +368,9 @@ contract GCA_TEST is Test {
         vm.warp(bucketStartSubmission);
         vm.startPrank(SIMON);
         addGCA(SIMON);
-        uint256 totalNewGCC = 101 ether;
-        uint256 totalGlwRewardsWeight = 105 ether;
-        uint256 totalGRCRewardsWeight = 101 ether;
+        uint256 totalNewGCC = 101 * 1e15;
+        uint256 totalGlwRewardsWeight = 105 * 1e15;
+        uint256 totalGRCRewardsWeight = 101 * 1e15;
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
 
@@ -395,9 +395,9 @@ contract GCA_TEST is Test {
         addGCA(SIMON);
         vm.startPrank(SIMON);
         uint256 currentBucket = 1;
-        uint256 totalNewGCC = 101 ether;
-        uint256 totalGlwRewardsWeight = 105 ether;
-        uint256 totalGRCRewardsWeight = 101 ether;
+        uint256 totalNewGCC = 101 * 1e15;
+        uint256 totalGlwRewardsWeight = 105 * 1e15;
+        uint256 totalGRCRewardsWeight = 101 * 1e15;
 
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
@@ -425,9 +425,9 @@ contract GCA_TEST is Test {
 
         vm.startPrank(SIMON);
         uint256 currentBucket = 0;
-        uint256 totalNewGCC = 101 ether;
-        uint256 totalGlwRewardsWeight = 105 ether;
-        uint256 totalGRCRewardsWeight = 101 ether;
+        uint256 totalNewGCC = 101 * 1e15;
+        uint256 totalGlwRewardsWeight = 105 * 1e15;
+        uint256 totalGRCRewardsWeight = 101 * 1e15;
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
 
@@ -459,9 +459,9 @@ contract GCA_TEST is Test {
         test_issueReport_createReport_thenIncrementNonce_shouldClearAllOldReports();
         vm.startPrank(OTHER_GCA);
         uint256 currentBucket = 0;
-        uint256 totalNewGCC = 201 ether;
-        uint256 totalGlwRewardsWeight = 205 ether;
-        uint256 totalGRCRewardsWeight = 204 ether;
+        uint256 totalNewGCC = 201 * 1e15;
+        uint256 totalGlwRewardsWeight = 205 * 1e15;
+        uint256 totalGRCRewardsWeight = 204 * 1e15;
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different again again");
 
@@ -491,9 +491,9 @@ contract GCA_TEST is Test {
         addGCA(SIMON);
         vm.startPrank(SIMON);
         uint256 currentBucket = 0;
-        uint256 totalNewGCC = 101 ether;
-        uint256 totalGlwRewardsWeight = 105 ether;
-        uint256 totalGRCRewardsWeight = 101 ether;
+        uint256 totalNewGCC = 101 * 1e15;
+        uint256 totalGlwRewardsWeight = 105 * 1e15;
+        uint256 totalGRCRewardsWeight = 101 * 1e15;
 
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
@@ -524,9 +524,9 @@ contract GCA_TEST is Test {
         addGCA(SIMON);
         vm.startPrank(SIMON);
         uint256 currentBucket = 0;
-        uint256 totalNewGCC = 101 ether;
-        uint256 totalGlwRewardsWeight = 105 ether;
-        uint256 totalGRCRewardsWeight = 101 ether;
+        uint256 totalNewGCC = 101 * 1e15;
+        uint256 totalGlwRewardsWeight = 105 * 1e15;
+        uint256 totalGRCRewardsWeight = 101 * 1e15;
 
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
@@ -690,6 +690,55 @@ contract GCA_TEST is Test {
 
         vm.expectRevert(IGCA.ProposalHashesEmpty.selector);
         gca.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
+    }
+
+    function test_getBucketDataEfficient() public {
+        issueReport(1, SIMON);
+
+        IGCA.Bucket memory bucket = gca.bucket(0);
+        assertEq(bucket.reports.length, 1);
+        MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
+        MockGCA.EfficientReport[] memory efficientReports = efficientBucket.reports;
+        assertEq(efficientBucket.nonce, bucket.nonce);
+        assertEq(efficientBucket.finalizationTimestamp, bucket.finalizationTimestamp);
+        assertEq(efficientBucket.reinstated, bucket.reinstated);
+        assertEq(efficientReports.length, 1);
+
+        for (uint256 i; i < efficientReports.length; ++i) {
+            IGCA.Report memory normalReport = bucket.reports[i];
+            MockGCA.EfficientReport memory efficientReport = efficientReports[i];
+            assertEq(efficientReport.totalNewGCC, normalReport.totalNewGCC);
+            assertEq(efficientReport.totalGLWRewardsWeight, normalReport.totalGLWRewardsWeight);
+            assertEq(efficientReport.totalGRCRewardsWeight, normalReport.totalGRCRewardsWeight);
+            assertEq(efficientReport.merkleRoot, normalReport.merkleRoot);
+        }
+
+        // }
+        // assertEq(length, 1);
+    }
+
+    function test_getBucketDataEfficient_multipleArrays() public {
+        issueReport(1, SIMON);
+        issueReport(2, OTHER_GCA);
+        issueReport(3, OTHER_GCA_2);
+
+        IGCA.Bucket memory bucket = gca.bucket(0);
+        assertEq(bucket.reports.length, 3);
+        MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
+        MockGCA.EfficientReport[] memory efficientReports = efficientBucket.reports;
+        assertEq(efficientBucket.nonce, bucket.nonce);
+        assertEq(efficientBucket.finalizationTimestamp, bucket.finalizationTimestamp);
+        assertEq(efficientBucket.reinstated, bucket.reinstated);
+        assertEq(efficientReports.length, 3);
+
+        for (uint256 i; i < bucket.reports.length; ++i) {
+            IGCA.Report memory normalReport = bucket.reports[i];
+            MockGCA.EfficientReport memory efficientReport = efficientReports[i];
+            assertEq(efficientReport.totalNewGCC, normalReport.totalNewGCC);
+            assertEq(efficientReport.totalGLWRewardsWeight, normalReport.totalGLWRewardsWeight);
+            assertEq(efficientReport.totalGRCRewardsWeight, normalReport.totalGRCRewardsWeight);
+            assertEq(efficientReport.merkleRoot, normalReport.merkleRoot);
+        }
     }
 
     //------------------------ HELPERS -----------------------------
