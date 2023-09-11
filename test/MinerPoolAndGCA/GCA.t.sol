@@ -102,8 +102,6 @@ contract GCA_TEST is Test {
         vm.stopPrank();
     }
 
-
-    
     function testFuzz_invalidBucketSubmission_nonInitBucket_withDifferentSlashNonce_shouldAlwaysRevert(uint256 bucketId)
         public
     {
@@ -540,7 +538,6 @@ contract GCA_TEST is Test {
         gca.issueWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
-        
     }
 
     function test_Constructor_shouldSetGenesisTimestampForGCAs() public {
@@ -623,6 +620,76 @@ contract GCA_TEST is Test {
         vm.startPrank(governance);
         gca.setRequirementsHash(bytes32("new hash"));
         assertEq(gca.requirementsHash(), bytes32("new hash"));
+    }
+
+    function test_pushHash_callerNotGovernance_shouldFail() public {
+        bytes32 randomHash = keccak256("new hash");
+        vm.expectRevert(IGCA.CallerNotGovernance.selector);
+        gca.pushHash(randomHash, true);
+    }
+
+    function test_pushHash_callerNotGovernance_shouldWork() public {
+        bytes32 randomHash = keccak256("new hash");
+        uint256 slashNonceBefore = gca.slashNonce();
+        vm.startPrank(governance);
+        gca.pushHash(randomHash, true);
+
+        assertEq(gca.slashNonce(), slashNonceBefore + 1);
+        bytes32[] memory proposalHashes = gca.getProposalHashes();
+        assertEq(proposalHashes.length, 1);
+        assertEq(proposalHashes[0], randomHash);
+    }
+
+    function test_pushHash_callerNotGovernance_slashNonceShouldNotIncrement() public {
+        bytes32 randomHash = keccak256("new hash");
+        uint256 slashNonceBefore = gca.slashNonce();
+        vm.startPrank(governance);
+        gca.pushHash(randomHash, false);
+
+        assertEq(gca.slashNonce(), slashNonceBefore);
+        bytes32[] memory proposalHashes = gca.getProposalHashes();
+        assertEq(proposalHashes.length, 1);
+        assertEq(proposalHashes[0], randomHash);
+    }
+
+    //TODO: Fix the function to include payouts
+    function test_executeAgainstHash() public {
+        //Warp to random timestamp
+        vm.warp(501);
+        uint256 indexOfProposalHash = 0;
+        //Start with two GCA's
+        addGCA(SIMON);
+        addGCA(OTHER_GCA);
+        address[] memory gcasToSlash = new address[](1);
+        gcasToSlash[0] = SIMON;
+        address[] memory newGCAs = new address[](2);
+        newGCAs[0] = OTHER_GCA;
+        newGCAs[1] = OTHER_GCA_2;
+        uint256 proposalCreationTimestamp = 501;
+
+        vm.startPrank(governance);
+
+        gca.pushHash(keccak256(abi.encodePacked(gcasToSlash, newGCAs, proposalCreationTimestamp)), true);
+        vm.stopPrank();
+
+        gca.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
+
+        assertTrue(gca.isGCA(OTHER_GCA));
+        assertTrue(gca.isGCA(OTHER_GCA_2));
+        assertFalse(gca.isGCA(SIMON));
+    }
+
+    function test_executeAgainstHash_emptyProposalHashes_shouldRevert() public {
+        vm.startPrank(SIMON);
+        address[] memory gcasToSlash = new address[](1);
+        gcasToSlash[0] = SIMON;
+        address[] memory newGCAs = new address[](2);
+        newGCAs[0] = OTHER_GCA;
+        newGCAs[1] = OTHER_GCA_2;
+        uint256 proposalCreationTimestamp = 501;
+
+        vm.expectRevert(IGCA.ProposalHashesEmpty.selector);
+        gca.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
     }
 
     //------------------------ HELPERS -----------------------------

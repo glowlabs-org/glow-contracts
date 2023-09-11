@@ -45,7 +45,7 @@ contract GCA is IGCA {
     uint256 private constant BUCKET_LENGTH = 7 * uint256(1 days);
 
     /// @notice the index of the last proposal that was updated + 1
-    uint256 public lastUpdatedProposalIndexPlusOne;
+    uint256 public nextProposalIndexToUpdate;
 
     /// @notice the hashes of the proposals that have been submitted from {GOVERNANCE}
     bytes32[] public proposalHashes;
@@ -254,40 +254,24 @@ contract GCA is IGCA {
     }
 
     function executeAgainstHash(
-        uint256 index,
         address[] calldata gcasToSlash,
         address[] calldata newGCAs,
         uint256 proposalCreationTimestamp
     ) external {
-        uint256 _lastUpdatedProposalIndexPlusOne = lastUpdatedProposalIndexPlusOne;
+        uint256 _nextProposalIndexToUpdate = nextProposalIndexToUpdate;
         uint256 len = proposalHashes.length;
+        if (len == 0) _revert(IGCA.ProposalHashesEmpty.selector);
         bytes32 derivedHash = keccak256(abi.encodePacked(gcasToSlash, newGCAs, proposalCreationTimestamp));
-        //On firt submit
-        if (_lastUpdatedProposalIndexPlusOne == 0) {
-            if (derivedHash != requirementsHash) {
-                _revert(IGCA.ProposalHashDoesNotMatch.selector);
-            }
-            _setGCAs(newGCAs);
-            _slashGCAs(gcasToSlash);
-            //TODO: Insert payment mechanism here
-            lastUpdatedProposalIndexPlusOne = 1;
-            emit IGCA.ProposalHashUpdate(index, derivedHash);
-            return;
-        }
 
-        if (index + 1 < lastUpdatedProposalIndexPlusOne) {
-            _revert(IGCA.ProposalAlreadyUpdated.selector);
-        }
-
-        if (proposalHashes[index] != derivedHash) {
+        if (proposalHashes[_nextProposalIndexToUpdate] != derivedHash) {
             _revert(IGCA.ProposalHashDoesNotMatch.selector);
         }
 
         //TODO: Insert payment mechanism here
         _setGCAs(newGCAs);
         _slashGCAs(gcasToSlash);
-        lastUpdatedProposalIndexPlusOne = index + 1;
-        emit IGCA.ProposalHashUpdate(index, derivedHash);
+        nextProposalIndexToUpdate = _nextProposalIndexToUpdate + 1;
+        emit IGCA.ProposalHashUpdate(_nextProposalIndexToUpdate, derivedHash);
     }
 
     function setRequirementsHash(bytes32 _requirementsHash) external {
@@ -296,8 +280,11 @@ contract GCA is IGCA {
         emit IGCA.RequirementsHashUpdated(_requirementsHash);
     }
 
-    function pushHash(bytes32 hash) external {
+    function pushHash(bytes32 hash, bool incrementSlashNonce) external {
         if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
+        if (incrementSlashNonce) {
+            ++slashNonce;
+        }
         proposalHashes.push(hash);
     }
 
@@ -311,7 +298,7 @@ contract GCA is IGCA {
     }
 
     function _compensationPlan(address gca, address[] memory gcaAddresses)
-        public
+        internal
         view
         returns (IGCA.ICompensation[] memory)
     {
@@ -505,7 +492,7 @@ contract GCA is IGCA {
         uint256 len = proposalHashes.length;
         //If no proposals have been submitted, we don't need to check
         if (len == 0) return;
-        if (len != lastUpdatedProposalIndexPlusOne) {
+        if (len != nextProposalIndexToUpdate) {
             _revert(IGCA.ProposalHashesNotUpdated.selector);
         }
     }

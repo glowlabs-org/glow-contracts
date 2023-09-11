@@ -10,6 +10,8 @@ interface IGCA {
     error CallerNotGovernance();
     error ProposalHashesNotUpdated();
     error ProposalHashDoesNotMatch();
+    error IndexDoesNotMatchNextProposalIndex();
+    error ProposalHashesEmpty();
     error ProposalAlreadyUpdated();
     error BucketAlreadyFinalized();
     error ReportGCCMustBeLT200Billion();
@@ -29,7 +31,7 @@ interface IGCA {
     /// @return - returns the compensation plan for a gca by unpacking the packed compensation plan
     function compensationPlan(address gca) external view returns (ICompensation[] memory);
 
-    /// @return - returns all the gcas
+    /// @return - returns all thFe gcas
     function allGcas() external view returns (address[] memory);
 
     /// @dev allows the contrac to pull glow from inflation
