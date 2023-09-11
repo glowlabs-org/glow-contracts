@@ -12,8 +12,9 @@ import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {BucketSubmission} from "./BucketSubmission.sol";
 
-contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
+contract MinerPoolAndGCA is GCA, EIP712, IMinerPool,BucketSubmission {
     //----------------- CONSTANTS -----------------//
 
     /// @notice the typehash for the electricity future auction authorization
@@ -24,24 +25,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
     /// @notice the maximum length of an authorization
     /// @dev a signature can only last 16 weeks
     uint256 public constant MAX_AUTHORIZATION_LENGTH = uint256(7 days) * 16;
-
-    /// @dev each bucket is 1 week long
-    uint256 public constant BUCKET_LENGTH = uint256(1 days) * 7;
-
-    /**
-     * @notice the start offset to the current bucket for the grc deposit
-     * @dev when depositing grc, the grc is evenly distributed across 192 weeks
-     *         -   The first bucket to receive grc is the current bucket + 16
-     *         -   The last bucket to receive grc is the current bucket + 208
-     */
-    uint256 public constant GRC_DEPOSIT_BUCKET_OFFSET_START = 16;
-
-    /**
-     * @notice the end offset to the current bucket for the grc deposit
-     * @dev the amount to offset b(x) by to get the final bucket number where the grc will have finished vesting
-     *         - where b(x) is the current bucket
-     */
-    uint256 public constant GRC_DEPOSIT_BUCKET_OFFSET_END = 208;
 
     /**
      * @notice the address of the early liquidity contract
@@ -162,35 +145,31 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool {
 
     //----------------- VIEW FUNCTIONS -----------------//
 
-    /**
-     * @notice returns the id of the current bucket
-     */
-    function currentBucket() public view returns (uint256) {
-        return (block.timestamp - _genesisTimestamp()) / BUCKET_LENGTH;
-    }
 
     //---------- HELPERS -----------//
 
-    ///@dev gets {GENESIS_TIMESTAMP} from the GCA contract
-    function _genesisTimestamp() private view returns (uint256) {
-        return GENESIS_TIMESTAMP;
-    }
 
     /**
      * @inheritdoc IMinerPool
      */
     function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
-        return;
+        SafeERC20.safeTransferFrom(IERC20(grcToken),msg.sender,address(this),amount);
+        _addToCurrentBucket(grcToken,amount);
     }
 
     /**
      * @inheritdoc IMinerPool
      */
     function donateToGRCMinerRewardsPoolEarlyLiquidity(address grcToken, uint256 amount) external virtual {
-        return;
+        if(msg.sender != _EARLY_LIQUIDITY) _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
+        _addToCurrentBucket(grcToken,amount);
     }
 
     function earlyLiquidity() public view returns (address) {
         return _EARLY_LIQUIDITY;
+    }
+
+    function _genesisTimestamp() internal view override(BucketSubmission) returns(uint){
+        return GENESIS_TIMESTAMP;
     }
 }

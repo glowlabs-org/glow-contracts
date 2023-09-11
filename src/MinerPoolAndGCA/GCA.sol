@@ -7,6 +7,12 @@ import "forge-std/console.sol";
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import "forge-std/console.sol";
 
+/**
+ * @title GCA (Glow Certification Agent)
+ * @author @DavidVorick
+ * @author @0xSimon
+ */
+
 contract GCA is IGCA {
     /**
      * @notice the amount of shares required per agent when submitting a compensation plan
