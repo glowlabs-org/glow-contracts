@@ -57,6 +57,8 @@ contract MD2Handler is Test {
         // amount = bound(amount, 0,1_000_000_000_000 ether);
         // daysToWarp = bound(daysToWarp, 0,200);
         amount = amount % 1_000_000_000_000 ether;
+        if (minerMath.currentBucket() > type(uint48).max) return;
+
         //200 weeks max advance
         daysToWarp = daysToWarp % (200 * 7);
         uint256 bucketId = minerMath.currentBucket();
@@ -85,6 +87,8 @@ contract MD2Handler is Test {
     function addRewardsToBucketNoWarp(uint256 amount) public {
         // vm.assume(amount < 1_000_000_000_000 ether);
         // amount = bound(amount, 0,1_000_000_000_000 ether);
+        uint256 currentBucket = minerMath.currentBucket();
+        if (currentBucket > type(uint48).max) return;
         amount = amount % 1_000_000_000_000 ether;
 
         //Round robin the grc tokens

@@ -14,7 +14,7 @@ import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 
-contract MinerPoolAndGCA is GCA, EIP712, IMinerPool,BucketSubmission {
+contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
 
     /// @notice the typehash for the electricity future auction authorization
@@ -37,7 +37,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool,BucketSubmission {
 
     //----------------- MAPPINGS -----------------//
 
-    mapping(address => bool) public isGrcToken;
+    struct GRCTracker {
+        uint248 firstAddedBucketId;
+        bool isGRC;
+    }
 
     mapping(uint256 => ElectricityFutureAuction) public electricityFutureAuctions;
 
@@ -86,15 +89,19 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool,BucketSubmission {
      * @param _glowToken the address of the glow token
      * @param _governance the address of the governance contract
      * @param _requirementsHash the requirements hash of GCA Agents
+     * @param _grcToken - the first grc token (USDC)
      */
     constructor(
         address[] memory _gcaAgents,
         address _glowToken,
         address _governance,
         bytes32 _requirementsHash,
-        address _earlyLiquidity
+        address _earlyLiquidity,
+        address _grcToken
     ) GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
+        _setGRCToken(_grcToken, true, 0);
+        // grcTracker[_grcToken] = GRCTracker({firstAddedBucketId: type(uint248).max, isGRC: true});
     }
 
     function createElectricityFutureAuction(ElectricityFutureAuction memory auctionData) external {
@@ -145,31 +152,52 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool,BucketSubmission {
 
     //----------------- VIEW FUNCTIONS -----------------//
 
-
     //---------- HELPERS -----------//
-
 
     /**
      * @inheritdoc IMinerPool
      */
     function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
-        SafeERC20.safeTransferFrom(IERC20(grcToken),msg.sender,address(this),amount);
-        _addToCurrentBucket(grcToken,amount);
+        // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
+        SafeERC20.safeTransferFrom(IERC20(grcToken), msg.sender, address(this), amount);
+        _addToCurrentBucket(grcToken, amount);
     }
 
     /**
      * @inheritdoc IMinerPool
      */
     function donateToGRCMinerRewardsPoolEarlyLiquidity(address grcToken, uint256 amount) external virtual {
-        if(msg.sender != _EARLY_LIQUIDITY) _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
-        _addToCurrentBucket(grcToken,amount);
+        if (msg.sender != _EARLY_LIQUIDITY) _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
+        // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
+        _addToCurrentBucket(grcToken, amount);
     }
 
     function earlyLiquidity() public view returns (address) {
         return _EARLY_LIQUIDITY;
     }
 
-    function _genesisTimestamp() internal view override(BucketSubmission) returns(uint){
+    function _genesisTimestamp() internal view override(BucketSubmission) returns (uint256) {
         return GENESIS_TIMESTAMP;
     }
+
+    // /**
+    //  * @notice sets the grc tracker for a token
+    //  * @dev the external implementation should only be allowed to be called by governance
+    //  * @param grcToken - the address of the token
+    //  * @param adding - if true, this adds the token to the allowed grcTokens
+    //  *                     - else it removes it
+    //  */
+    // function _setGRCTracker(address grcToken, bool adding, uint256 currentBucket) internal {
+    //     GRCTracker storage _grcTracker = grcTracker[grcToken];
+    //     if (adding) {
+    //         if (_grcTracker.firstAddedBucketId != 0) {
+    //             _grcTracker.firstAddedBucketId = currentBucket == 0 ? type(uint248).max : uint248(currentBucket);
+    //         }
+    //         if (!_grcTracker.isGRC) {
+    //             _grcTracker.isGRC = true;
+    //         }
+    //     } else {
+    //         _grcTracker.isGRC = false;
+    //     }
+    // }
 }

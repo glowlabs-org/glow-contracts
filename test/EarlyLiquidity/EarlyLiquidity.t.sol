@@ -39,7 +39,7 @@ contract EarlyLiquidityTest is Test {
         usdc = new MockUSDC();
         earlyLiquidity = new EarlyLiquidity(address(usdc));
         glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
-        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow));
+        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(usdc));
         earlyLiquidity.setMinerPool(address(minerPool));
         glw = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
         handler = new Handler(address(earlyLiquidity), address(usdc));
@@ -164,7 +164,7 @@ contract EarlyLiquidityTest is Test {
         earlyLiquidity = new EarlyLiquidity(address(taxUsdc));
         glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
         earlyLiquidity.setGlowToken(address(glow));
-        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow));
+        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(taxUsdc));
         earlyLiquidity.setMinerPool(address(minerPool));
 
         //buy 1 million token
