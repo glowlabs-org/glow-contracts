@@ -12,6 +12,7 @@ Maybe?
 1. Finish pending payout
 2. add max gcas
 3. include freeze when proposal hashes isnt up to date
+4. Finish implementing global state!
 
 ---- GOVERNANCE AND HALF LIFE ------
 Thought about two ways we could handle the math.
