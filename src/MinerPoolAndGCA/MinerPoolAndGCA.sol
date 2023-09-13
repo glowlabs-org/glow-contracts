@@ -13,6 +13,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
+import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
@@ -31,6 +32,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @dev used for authorization in {donateToGRCMinerRewardsPoolEarlyLiquidity}
      */
     address private immutable _EARLY_LIQUIDITY;
+
+    uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
 
     //----------------- STATE VARIABLES -----------------//
     uint256 public electricityFutureAuctionCount;
@@ -148,6 +151,49 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         SafeERC20.safeTransferFrom(grcToken, msg.sender, address(this), amount);
         _addToCurrentBucket(auction.grcToken, amount);
     }
+
+    function claimRewardOneRootOneBucket(
+        uint256 bucketId,
+        address payoutWallet,
+        uint256 glwWeight,
+        uint256 grcWeight,
+        bytes32[] calldata proof,
+        uint256 index,
+        IGCA.Bucket memory bucket
+    ) internal {
+        bytes32 leaf = keccak256(abi.encodePacked(payoutWallet, glwWeight, grcWeight));
+        if (!MerkleProofLib.verifyCalldata(proof, bucket.reports[index].merkleRoot, leaf)) {
+            _revert(IMinerPool.InvalidProof.selector);
+        }
+        /**
+         * we can keep a bitmap with 5 bits for every bucket
+         *     bucket 0 [0-4]
+         *     bucket 1 [1-9]
+         *     bucket 50 [250-255]
+         */
+    }
+
+    function claimRewardMultipleRootsOneBucket(
+        uint256 bucketId,
+        address payoutWallet,
+        uint256[] calldata glwWeights,
+        uint256[] calldata grcWeights,
+        bytes32[][] calldata proofs,
+        uint256[] calldata indexes
+    ) external {
+        //Call from GCA.sol
+        IGCA.Bucket memory bucket = bucket(bucketId);
+        unchecked {
+            for (uint256 i; i < indexes.length; ++i) {
+                claimRewardOneRootOneBucket(
+                    bucketId, payoutWallet, glwWeights[i], grcWeights[i], proofs[i], indexes[i], bucket
+                );
+            }
+        }
+    }
+    // function claimGLWRewards(address payoutWallet,uint256 bucketId, uint glwWeight, uint grcWeight,bytes32[] calldata proof) external {}
+    // function claimGRCRewards(address payoutWallet,uint256[] calldata bucketIds,uint[] calldata glwWeights, uint[] calldata grcWeights,bytes32[][] calldata proofs) external {}
+    // function claimGLWRewards(address payoutWallet,uint256[] calldata bucketIds,uint[] calldata glwWeights, uint[] calldata grcWeights,bytes32[][] calldata proofs) external {}
 
     //----------------- VIEW FUNCTIONS -----------------//
 

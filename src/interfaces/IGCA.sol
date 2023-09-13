@@ -88,7 +88,6 @@ interface IGCA {
         uint64 totalGRCRewardsWeight;
         bytes32 merkleRoot;
         address proposingAgent;
-        uint96 scratch;
     }
     //3 slots
 

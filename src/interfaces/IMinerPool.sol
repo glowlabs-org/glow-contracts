@@ -7,6 +7,7 @@ interface IMinerPool {
     error ElectricityFuturesAuctionInvalidSignature();
     error CallerNotEarlyLiquidity();
     error NotGRCToken();
+    error InvalidProof();
 
     /**
      * @notice Allows anyone to donate GRC into the miner grc rewards pool

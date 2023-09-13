@@ -30,6 +30,8 @@ contract GCA_TEST is Test {
     address SIMON = address(0x6);
     address OTHER_GCA = address(0x7);
     address OTHER_GCA_2 = address(0x8);
+    address OTHER_GCA_3 = address(0x9);
+    address OTHER_GCA_4 = address(0x10);
 
     //--------  CONSTANTS ---------//
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
@@ -55,6 +57,8 @@ contract GCA_TEST is Test {
         targetSender(SIMON);
         targetSender(OTHER_GCA);
         targetSender(OTHER_GCA_2);
+        targetSender(OTHER_GCA_3);
+        targetSender(OTHER_GCA_4);
         targetContract(address(handler));
     }
 
@@ -70,6 +74,27 @@ contract GCA_TEST is Test {
         for (uint256 i; i < bucketIds.length; i++) {
             uint256 bucketId = bucketIds[i];
             IGCA.Bucket memory bucket = gca.bucket(bucketId);
+            bool initOnCurrentWeek = handler.initOnCurrentWeek(bucketId);
+            if (initOnCurrentWeek) {
+                assertEq(bucket.nonce, handler.bucketIdToSlashNonce(bucketId));
+            } else {
+                assertEq(bucket.nonce, 0);
+            }
+        }
+    }
+
+    /**
+     * forge-config: default.invariant.runs = 10
+     * forge-config: default.invariant.depth = 500
+     * @dev buckets nonces should never change
+     *     -   and should always be zero if they didn't get initialized during their current week
+     *         -   if they're not initialized that means that they submitted the first report for the bucket
+     */
+    function invariant_bucketNonceShouldNeverChangeGas() public {
+        uint256[] memory bucketIds = handler.ghost_bucketIds();
+        for (uint256 i; i < bucketIds.length; i++) {
+            uint256 bucketId = bucketIds[i];
+            MockGCA.EfficientBucket memory bucket = gca.getBucketDataEfficient(bucketId);
             bool initOnCurrentWeek = handler.initOnCurrentWeek(bucketId);
             if (initOnCurrentWeek) {
                 assertEq(bucket.nonce, handler.bucketIdToSlashNonce(bucketId));
@@ -714,7 +739,16 @@ contract GCA_TEST is Test {
         }
 
         // }
-        // assertEq(length, 1);
+    }
+
+    function test_getBucketData_gasCheck() public {
+        issueReport(1, SIMON);
+        IGCA.Bucket memory bucket = gca.bucket(0);
+    }
+
+    function test_getBucketData_gasCheckEfficient() public {
+        issueReport(1, SIMON);
+        MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
     }
 
     function test_getBucketDataEfficient_multipleArrays() public {

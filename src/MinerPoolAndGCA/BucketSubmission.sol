@@ -2,7 +2,6 @@
 pragma solidity 0.8.21;
 
 import "forge-std/console.sol";
-import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 
 contract BucketSubmission {
     /**
