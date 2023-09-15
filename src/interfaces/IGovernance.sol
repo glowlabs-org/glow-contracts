@@ -3,28 +3,28 @@ pragma solidity 0.8.21;
 
 interface IGovernance {
     //---------- ERRORS -----------------//
-    error ProposalNotInitialized(uint256 proposalId);
-    error ProposalHasNotExpired(uint256 proposalId);
+    error ProposalNotInitialized();
+    error ProposalHasNotExpired();
 
     enum ProposalType {
-        NONE, //default value for unset proposals
-        VETO_COUNCIL_ELECTION_OR_SLASH,
-        GCA_COUNCIL_ELECTION_OR_SLASH,
-        ADD_RESERVE_CURRENCIES,
-        GRANTS_PROPOSAL,
-        CHANGE_GCA_REQUIREMENTS,
-        REQUEST_FOR_COMMENT
+        None,
+        VetoCouncilElectionOrSlash,
+        GcaCountilElectionOrSlash,
+        AddReserveCurrencies,
+        GrantsProposal,
+        ChangeGcaRequirements,
+        RequestForComment
     }
 
     enum ProposalStatus {
-        PENDING,
-        UNDER_REVIEW_FOR_APPROVAL,
-        REJECTED_BY_STAKERS,
-        APPROVED,
-        EXECUTED_WITH_ERROR,
-        EXECUTED_SUCCESSFULLY,
-        EXPIRED,
-        VETOED
+        Pending,
+        UnderReviewForApproval,
+        RejectedByStakers,
+        Approved,
+        ExecutedWithError,
+        ExecutedSuccessfully,
+        Expired,
+        Vetoed
     }
 
     /**
@@ -34,6 +34,7 @@ interface IGovernance {
      */
     struct Proposal {
         ProposalType proposalType;
+        ProposalStatus status;
         uint64 expirationTimestamp;
         bytes data;
     }
@@ -42,12 +43,8 @@ interface IGovernance {
      * @notice gets the proposal and the status of the proposal with the given id
      * @param proposalId the id of the proposal
      * @return proposal the proposal
-     * @return status the status of the proposal
      */
-    function getProposalWithStatus(uint256 proposalId)
-        external
-        view
-        returns (Proposal memory proposal, ProposalStatus);
+    function getProposalWithStatus(uint256 proposalId) external view returns (Proposal memory proposal);
 
     /**
      * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC

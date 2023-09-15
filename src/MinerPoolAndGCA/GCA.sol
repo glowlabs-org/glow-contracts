@@ -54,12 +54,12 @@ contract GCA is IGCA {
     struct BucketGlobalState {
         uint128 totalNewGCC;
         uint64 totalGlwRewardsWeight;
-        uint64 totalGRCRewardsWeigt;
+        uint64 totalGRCRewardsWeight;
         //A hash of all the roots
         bytes32 stateHash;
     }
 
-    mapping(uint => BucketGlobalState) public bucketGlobalState;
+    mapping(uint256 => BucketGlobalState) public bucketGlobalState;
 
     // 1 week
     uint256 private constant BUCKET_LENGTH = 7 * uint256(1 days);
@@ -153,6 +153,13 @@ contract GCA is IGCA {
         emit IGCA.CompensationPlanSubmitted(msg.sender, plans);
     }
 
+    // struct WeeklyReportParams {
+    //     uint256 bucketId;
+    //     uint256 totalNewGCC;
+    //     uint256 totalGlwRewardsWeight;
+    //     uint256 totalGRCRewardsWeight;
+    //     bytes32 root;
+    // }
     function issueWeeklyReport(
         uint256 bucketId,
         uint256 totalNewGCC,
@@ -167,7 +174,6 @@ contract GCA is IGCA {
         Bucket storage bucket = _buckets[bucketId];
         //Cache values
         (uint256 bucketFinalizationTimestamp, bool reinstated) = (bucket.finalizationTimestamp, bucket.reinstated);
-        uint256 _slashNonce = slashNonce;
         bool alreadyInitialized = bucketFinalizationTimestamp != 0;
         uint256 bucketNonce = bucket.nonce;
         uint256 len = bucket.reports.length;
@@ -175,57 +181,65 @@ contract GCA is IGCA {
         //Arithmetic Checks
         //To make sure that the weight's dont result in an overflow,
         // we need to make sure that the total weight is less than 1/5 of the max uint256
-        if (totalGlwRewardsWeight > _UINT64_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
-        if (totalGRCRewardsWeight > _UINT64_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
-        //Max of 1 trillion GCC per week
-        //Since there are a max of 5 GCA's at any point in time,
-        // this means that the max amount of GCC that can be minted per GCA is 200 Billion
-        if (totalNewGCC > _200_BILLION) _revert(IGCA.ReportGCCMustBeLT200Billion.selector);
-
-        //The submission start timestamp always remains the same
-        uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
-        if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
-
-        //Keep in mind, all bucketNonces start with 0
-        //So on the first init, we need to set the bucketNonce to the slashNonce in storage
-        if (!alreadyInitialized) {
-            bucket.nonce = uint64(_slashNonce);
-            bucketNonce = _slashNonce;
-            alreadyInitialized = true;
-            bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
-        }
-
         {
-            //We only reinstante if the bucketNonce is not the same as the slashNonce
-            // and the bucket has not been reinstated
-            // and the bucket has already been initialized
-            bool reinstatingTx = (bucketNonce != _slashNonce) && !reinstated && alreadyInitialized;
-
-            /**
-             * If it is a reinstating tx,
-             *             we need to set reinstated to true
-             *             and we need to change the finalization timestamp
-             *             lastly, we need to delete all reports in storage if there are any
-             */
-            if (reinstatingTx) {
-                bucket.reinstated = true;
-                reinstated = true;
-                //Finalizes one week after submission period ends
-                alreadyInitialized = true;
-                bucketFinalizationTimestamp = (_WCEIL(bucketNonce) + BUCKET_LENGTH);
-                bucket.finalizationTimestamp = uint184(bucketFinalizationTimestamp);
-                //conditionally delete all reports in storage
-                if (len > 0) {
-                    len = 0;
-                    //TODO: figure out if we want to override length with assembly for cheaper gas
-                    // or if we replace with a delete
-                    assembly {
-                        //1 slot offset for buckets length
-                        sstore(add(1, bucket.slot), 0)
-                    }
-                }
-            }
+            if (totalGlwRewardsWeight > _UINT64_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
+            if (totalGRCRewardsWeight > _UINT64_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
+            //Max of 1 trillion GCC per week
+            //Since there are a max of 5 GCA's at any point in time,
+            // this means that the max amount of GCC that can be minted per GCA is 200 Billion
+            if (totalNewGCC > _200_BILLION) _revert(IGCA.ReportGCCMustBeLT200Billion.selector);
         }
+        {
+            //The submission start timestamp always remains the same
+            uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
+            if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
+
+            //Keep in mind, all bucketNonces start with 0
+            //So on the first init, we need to set the bucketNonce to the slashNonce in storage
+            // uint256 _slashNonce = slashNonce;
+
+            // if (!alreadyInitialized) {
+            //     bucket.nonce = uint64(_slashNonce);
+            //     bucketNonce = _slashNonce;
+            //     alreadyInitialized = true;
+            //     bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
+            // }
+
+            // {
+            //     //We only reinstante if the bucketNonce is not the same as the slashNonce
+            //     // and the bucket has not been reinstated
+            //     // and the bucket has already been initialized
+            //     bool reinstatingTx = (bucketNonce != _slashNonce) && !reinstated && alreadyInitialized;
+
+            //     /**
+            //      * If it is a reinstating tx,
+            //      *             we need to set reinstated to true
+            //      *             and we need to change the finalization timestamp
+            //      *             lastly, we need to delete all reports in storage if there are any
+            //      */
+            //     if (reinstatingTx) {
+            //         bucket.reinstated = true;
+            //         reinstated = true;
+            //         //Finalizes one week after submission period ends
+            //         alreadyInitialized = true;
+            //         bucketFinalizationTimestamp = (_WCEIL(bucketNonce) + BUCKET_LENGTH);
+            //         bucket.finalizationTimestamp = uint184(bucketFinalizationTimestamp);
+            //         //conditionally delete all reports in storage
+            //         if (len > 0) {
+            //             len = 0;
+            //             //TODO: figure out if we want to override length with assembly for cheaper gas
+            //             // or if we replace with a delete
+            //             assembly {
+            //                 //1 slot offset for buckets length
+            //                 // equivalent to delete bucket.reports but more efficient
+            //                 sstore(add(1, bucket.slot), 0)
+            //             }
+            //         }
+            //     }
+            // }
+            (reinstated, alreadyInitialized, bucketFinalizationTimestamp, bucketNonce, len) = _handleReinstatement(
+                bucket, reinstated, alreadyInitialized, bucketFinalizationTimestamp, bucketNonce, len, bucketId
+            );
 
         //If we have reinstated, we need to check if the bucket is still taking submissions
         //if it's not reinstated, the end submission time is the same as the {bucketSubmissionStartTimestamp} + 1 week
@@ -243,17 +257,18 @@ contract GCA is IGCA {
             }
         }
 
+        }
         uint256 foundIndex;
+        uint256 packedExistingData;
         unchecked {
             {
                 bytes32[] memory roots = new bytes32[](len+1);
                 //TODO:  brain not working anymore
                 // figure out how to get global state to the correct values tomorrow
-                
+
                 // int256 amountGCCToAddToBucketGlobalState =;
                 // int256 amountGlwRewardsWeightToAddToGlobalState;
                 // int256 amountGRCRewardsWeightToAddToGlobalState;
-
 
                 for (uint256 i; i < len; ++i) {
                     if (bucket.reports[i].proposingAgent == msg.sender) {
@@ -267,19 +282,64 @@ contract GCA is IGCA {
                     }
                 }
 
-                if(foundIndex == 0) {
+                //If the GCA hadn't submitted before
+                // we need to add them to the end of the array
+                if (foundIndex == 0) {
                     //Write the root to the last available slot;
-                    roots[len] = root;
+                    {
+                        roots[len] = root;
+                    }
+
+                    {
+                        bytes32 hashes = keccak256(abi.encodePacked(roots));
+
+                        assembly {
+                            mstore(0x0, bucketId)
+                            mstore(0x20, bucketGlobalState.slot)
+                            mstore(0x0, keccak256(0x0, 0x40))
+                            mstore(
+                                0x20,
+                                or(totalNewGCC, or(shl(128, totalGlwRewardsWeight), shl(192, totalGRCRewardsWeight)))
+                            )
+                            sstore(mload(0x0), mload(0x20))
+                            sstore(add(mload(0x0), 1), hashes)
+                        }
+                    }
+
                     // bucketGlobalState[bucketId].totalNewGCC += uint128(totalNewGCC);
                     // bucketGlobalState[bucketId].totalGlwRewardsWeight += uint64(totalGlwRewardsWeight);
                     // bucketGlobalState[bucketId].totalGRCRewardsWeight += uint64(totalGRCRewardsWeight);
                     // bucketGlobalState[bucketId].stateHash = keccak256(abi.encodePacked(roots));
-
                 } else {
-                    assembly{
-                        //if the gca has already submitted, 
+                    assembly {
+                        //if the gca has already submitted,
                         //we resize the array
-                        mstore(roots,len)
+                        mstore(roots, len)
+                        //We need to subtract the amount that was already added to the global state from the previous report
+                    }
+                    bytes32 hashes = keccak256(abi.encodePacked(roots));
+                    assembly {
+                        mstore(0x0, bucketId)
+                        mstore(0x20, bucketGlobalState.slot)
+                        let slot := keccak256(0x0, 0x40)
+                        //slot is in 0x0
+                        //Write to hashes
+                        sstore(add(slot, 1), hashes)
+                        //store the packed struct in mem at 0x20
+                        let packedData := sload(slot)
+                        //loads the previous totalNewGCC
+                        mstore(0x0, and(0xffffffffffffffffffffffffffffffff, packedData))
+                        mstore(0x20, and(0xffffffffffffffff, shr(128, packedData)))
+                        mstore(0x60, and(0xffffffffffffffff, shr(192, packedData)))
+
+                        let ptr := mload(0x40)
+                        mstore(ptr, bucketId)
+                        mstore(add(ptr, 0x20), bucket.slot)
+                        mstore(ptr, keccak256(ptr, add(ptr, 0x20))) //evaluates to bucket.slot
+
+                        //We also need to load the previous totalNewGCC that was added to the global state from the previous report
+
+                        mstore(0x60, 0)
                     }
                 }
             }
@@ -287,9 +347,7 @@ contract GCA is IGCA {
             //If the array was empty
             // we need to push
             if (foundIndex == 0) {
-                {
-
-                }
+                {}
                 bucket.reports.push(
                     IGCA.Report({
                         proposingAgent: msg.sender,
@@ -683,5 +741,58 @@ contract GCA is IGCA {
         uint256 bucketNonceWasSlashedAt = (slashNonceToSlashTimestamp[_slashNonce] - GENESIS_TIMESTAMP) / BUCKET_LENGTH;
         //the end submission period is the bucket + 2
         return (bucketNonceWasSlashedAt + 2) * BUCKET_LENGTH + GENESIS_TIMESTAMP;
+    }
+
+    function _handleReinstatement(
+        IGCA.Bucket storage bucket,
+        bool reinstated,
+        bool alreadyInitialized,
+        uint256 bucketFinalizationTimestamp,
+        uint256 bucketNonce,
+        uint256 len,
+        uint256 bucketId
+    ) internal returns (bool, bool, uint256, uint256, uint256) {
+        uint256 _slashNonce = slashNonce;
+
+        if (!alreadyInitialized) {
+            bucket.nonce = uint64(_slashNonce);
+            bucketNonce = _slashNonce;
+            alreadyInitialized = true;
+            bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
+        }
+
+        {
+            //We only reinstante if the bucketNonce is not the same as the slashNonce
+            // and the bucket has not been reinstated
+            // and the bucket has already been initialized
+            bool reinstatingTx = (bucketNonce != _slashNonce) && !reinstated && alreadyInitialized;
+
+            /**
+             * If it is a reinstating tx,
+             *             we need to set reinstated to true
+             *             and we need to change the finalization timestamp
+             *             lastly, we need to delete all reports in storage if there are any
+             */
+            if (reinstatingTx) {
+                bucket.reinstated = true;
+                reinstated = true;
+                //Finalizes one week after submission period ends
+                alreadyInitialized = true;
+                bucketFinalizationTimestamp = (_WCEIL(bucketNonce) + BUCKET_LENGTH);
+                bucket.finalizationTimestamp = uint184(bucketFinalizationTimestamp);
+                //conditionally delete all reports in storage
+                if (len > 0) {
+                    len = 0;
+                    //TODO: figure out if we want to override length with assembly for cheaper gas
+                    // or if we replace with a delete
+                    assembly {
+                        //1 slot offset for buckets length
+                        // equivalent to delete bucket.reports but more efficient
+                        sstore(add(1, bucket.slot), 0)
+                    }
+                }
+            }
+        }
+        return (reinstated, alreadyInitialized, bucketFinalizationTimestamp, bucketNonce, len);
     }
 }
