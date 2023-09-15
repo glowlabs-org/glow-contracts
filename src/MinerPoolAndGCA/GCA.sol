@@ -51,16 +51,6 @@ contract GCA is IGCA {
     uint256 private constant _BOOL_MASK = (1 << 8) - 1;
     uint256 private constant _UINT184_MASK = (1 << 184) - 1;
 
-    struct BucketGlobalState {
-        uint128 totalNewGCC;
-        uint64 totalGlwRewardsWeight;
-        uint64 totalGRCRewardsWeigt;
-        //A hash of all the roots
-        bytes32 stateHash;
-    }
-
-    mapping(uint => BucketGlobalState) public bucketGlobalState;
-
     // 1 week
     uint256 private constant BUCKET_LENGTH = 7 * uint256(1 days);
 
@@ -246,40 +236,10 @@ contract GCA is IGCA {
         uint256 foundIndex;
         unchecked {
             {
-                bytes32[] memory roots = new bytes32[](len+1);
-                //TODO:  brain not working anymore
-                // figure out how to get global state to the correct values tomorrow
-                
-                // int256 amountGCCToAddToBucketGlobalState =;
-                // int256 amountGlwRewardsWeightToAddToGlobalState;
-                // int256 amountGRCRewardsWeightToAddToGlobalState;
-
-
                 for (uint256 i; i < len; ++i) {
                     if (bucket.reports[i].proposingAgent == msg.sender) {
                         foundIndex = i == 0 ? type(uint256).max : i;
-                        //Override the index if we wrote to it.
-                        roots[i] = root;
-                        // amountGCCToAddToBucketGlobalState -=
-                        // break;
-                    } else {
-                        roots[i] = bucket.reports[i].merkleRoot;
-                    }
-                }
-
-                if(foundIndex == 0) {
-                    //Write the root to the last available slot;
-                    roots[len] = root;
-                    // bucketGlobalState[bucketId].totalNewGCC += uint128(totalNewGCC);
-                    // bucketGlobalState[bucketId].totalGlwRewardsWeight += uint64(totalGlwRewardsWeight);
-                    // bucketGlobalState[bucketId].totalGRCRewardsWeight += uint64(totalGRCRewardsWeight);
-                    // bucketGlobalState[bucketId].stateHash = keccak256(abi.encodePacked(roots));
-
-                } else {
-                    assembly{
-                        //if the gca has already submitted, 
-                        //we resize the array
-                        mstore(roots,len)
+                        break;
                     }
                 }
             }
@@ -287,9 +247,7 @@ contract GCA is IGCA {
             //If the array was empty
             // we need to push
             if (foundIndex == 0) {
-                {
-
-                }
+                {}
                 bucket.reports.push(
                     IGCA.Report({
                         proposingAgent: msg.sender,
