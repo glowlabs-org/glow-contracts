@@ -79,6 +79,8 @@ contract GCA is IGCA {
 
     mapping(uint256 => IGCA.Bucket) private _buckets;
 
+    mapping(uint256 => IGCA.BucketGlobalState) private _bucketGlobalState;
+
     /**
      * @notice constructs a new GCA contract
      * @param _gcaAgents the addresses of the gca agents the contract starts with
@@ -157,67 +159,124 @@ contract GCA is IGCA {
         //Need to check if bucket is slashed
         Bucket storage bucket = _buckets[bucketId];
         //Cache values
-        bool reinstated = bucket.reinstated;
-        bool alreadyInitialized = bucket.finalizationTimestamp != 0;
-        uint256 bucketNonce = bucket.nonce;
         uint256 len = bucket.reports.length;
-
-        //The submission start timestamp always remains the same
-        uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
-        if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
-
-        //Keep in mind, all bucketNonces start with 0
-        //So on the first init, we need to set the bucketNonce to the slashNonce in storage
         {
-            uint256 _slashNonce = slashNonce;
-            if (!alreadyInitialized) {
-                bucket.nonce = uint64(_slashNonce);
-                bucketNonce = _slashNonce;
-                alreadyInitialized = true;
-                bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
-            }
+            bool reinstated = bucket.reinstated;
+            bool alreadyInitialized = bucket.finalizationTimestamp != 0;
+            uint256 bucketNonce = bucket.nonce;
+            //The submission start timestamp always remains the same
+            uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
+            if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
 
+            //Keep in mind, all bucketNonces start with 0
+            //So on the first init, we need to set the bucketNonce to the slashNonce in storage
             {
-                //We only reinstante if the bucketNonce is not the same as the slashNonce
-                // and the bucket has not been reinstated
-                // and the bucket has already been initialized
-                bool reinstatingTx = (bucketNonce != _slashNonce) && !reinstated && alreadyInitialized;
+                uint256 _slashNonce = slashNonce;
+                if (!alreadyInitialized) {
+                    bucket.nonce = uint64(_slashNonce);
+                    bucketNonce = _slashNonce;
+                    alreadyInitialized = true;
+                    bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
+                }
 
-                /**
-                 * If it is a reinstating tx,
-                 *             we need to set reinstated to true
-                 *             and we need to change the finalization timestamp
-                 *             lastly, we need to delete all reports in storage if there are any
-                 */
-                if (reinstatingTx) {
-                    bucket.reinstated = true;
-                    reinstated = true;
-                    // //Finalizes one week after submission period ends
-                    // alreadyInitialized = true;
-                    bucket.finalizationTimestamp = uint184(_WCEIL(bucketNonce) + BUCKET_LENGTH);
-                    //conditionally delete all reports in storage
-                    if (len > 0) {
-                        len = 0;
-                        //TODO: figure out if we want to override length with assembly for cheaper gas
-                        // or if we replace with a delete
-                        assembly {
-                            //1 slot offset for buckets length
-                            sstore(add(1, bucket.slot), 0)
+                {
+                    //We only reinstante if the bucketNonce is not the same as the slashNonce
+                    // and the bucket has not been reinstated
+                    // and the bucket has already been initialized
+                    bool reinstatingTx = (bucketNonce != _slashNonce) && !reinstated && alreadyInitialized;
+
+                    /**
+                     * If it is a reinstating tx,
+                     *             we need to set reinstated to true
+                     *             and we need to change the finalization timestamp
+                     *             lastly, we need to delete all reports in storage if there are any
+                     */
+                    if (reinstatingTx) {
+                        bucket.reinstated = true;
+                        reinstated = true;
+                        // //Finalizes one week after submission period ends
+                        // alreadyInitialized = true;
+                        bucket.finalizationTimestamp = uint184(_WCEIL(bucketNonce) + BUCKET_LENGTH);
+                        //conditionally delete all reports in storage
+                        if (len > 0) {
+                            len = 0;
+                            //TODO: figure out if we want to override length with assembly for cheaper gas
+                            // or if we replace with a delete
+                            assembly {
+                                //1 slot offset for buckets length
+                                sstore(add(1, bucket.slot), 0)
+                            }
+                            delete _bucketGlobalState[bucketId];
                         }
                     }
                 }
             }
+            checkBucketSubmissionEnd(reinstated, bucketSubmissionStartTimestamp, bucketNonce);
+        }
+        uint256 reportArrayStartSlot;
+        assembly {
+            //add 1 for reports offset
+            mstore(0x0, add(bucket.slot, 1))
+            // hash the reports start slot to get the start of the data
+            reportArrayStartSlot := keccak256(0x0, 0x20)
         }
 
-        checkBucketSubmissionEnd(reinstated, bucketSubmissionStartTimestamp, bucketNonce);
-        handleBucketStore(
-            bucket,
-            findReportIndexOrUintMax(bucket, len),
-            totalNewGCC,
-            totalGlwRewardsWeight,
-            totalGRCRewardsWeight,
-            root
+        (uint256 foundIndex, uint256 gcaReportStartSlot) = findReportIndexOrUintMax(reportArrayStartSlot, len);
+        handleGlobalBucketStateStore(
+            totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, bucketId, foundIndex, gcaReportStartSlot
         );
+        handleBucketStore(bucket, foundIndex, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+    }
+
+    function handleGlobalBucketStateStore(
+        uint256 gcaTotalNewGCC,
+        uint256 gcaTotalGlwRewardsWeight,
+        uint256 gcaTotalGRCRewardsWeight,
+        uint256 bucketId,
+        uint256 foundIndex,
+        uint256 gcaReportStartSlot
+    ) internal {
+        uint256 packedGlobalState;
+        uint256 slot;
+        assembly {
+            mstore(0x0, bucketId)
+            mstore(0x20, _bucketGlobalState.slot)
+            slot := keccak256(0x0, 0x40)
+            packedGlobalState := sload(slot)
+        }
+
+        uint256 gccInBucketPlusGcaGcc = (packedGlobalState & _UINT128_MASK) + gcaTotalNewGCC;
+        uint256 glwWeightInBucketPlusGcaGlwWeight = (packedGlobalState >> 128 & _UINT64_MASK) + gcaTotalGlwRewardsWeight;
+        //No need to shift on `grcWeightInBucketPlusGcaGrcWeight` since  the grcWeight is the last 64 bits
+        uint256 grcWeightInBucketPlusGcaGrcWeight = (packedGlobalState >> 192) + gcaTotalGRCRewardsWeight;
+
+        if (foundIndex == 0) {
+            //gcc is uint128, glwWeight is uint64, grcWeight is uint64
+            packedGlobalState = gccInBucketPlusGcaGcc | (glwWeightInBucketPlusGcaGlwWeight << 128)
+                | (grcWeightInBucketPlusGcaGrcWeight << 192);
+            assembly {
+                sstore(slot, packedGlobalState)
+            }
+            return;
+        }
+
+        // foundIndex = foundIndex == type(uint256).max ? 0 : foundIndex;
+
+        uint256 packedDataInReport;
+        assembly {
+            packedDataInReport := sload(gcaReportStartSlot)
+        }
+
+        gccInBucketPlusGcaGcc -= packedDataInReport & _UINT128_MASK;
+        glwWeightInBucketPlusGcaGlwWeight -= (packedDataInReport >> 128) & _UINT64_MASK;
+        //no need to mask since the grcWeight is the last 64 bits
+        grcWeightInBucketPlusGcaGrcWeight -= (packedDataInReport >> 192);
+
+        packedGlobalState = gccInBucketPlusGcaGcc | (glwWeightInBucketPlusGcaGlwWeight << 128)
+            | (grcWeightInBucketPlusGcaGrcWeight << 192);
+        assembly {
+            sstore(slot, packedGlobalState)
+        }
     }
 
     function checkBucketSubmissionEnd(bool reinstated, uint256 bucketSubmissionStartTimestamp, uint256 bucketNonce)
@@ -256,22 +315,43 @@ contract GCA is IGCA {
         if (totalNewGCC > _200_BILLION) _revert(IGCA.ReportGCCMustBeLT200Billion.selector);
     }
 
-    function findReportIndexOrUintMax(IGCA.Bucket storage bucket, uint256 len)
+    function findReportIndexOrUintMax(uint256 reportArrayStartSlot, uint256 len)
         internal
         view
-        returns (uint256 foundIndex)
+        returns (uint256 foundIndex, uint256)
     {
         unchecked {
-            bytes32[] memory reports = new bytes32[](len+1);
             {
                 for (uint256 i; i < len; ++i) {
-                    if (bucket.reports[i].proposingAgent == msg.sender) {
+                    address proposingAgent;
+                    assembly {
+                        //the address is stored in the [0,1,2] - 3rd slot
+                        //                                  ^
+                        //that means the slot to read from is i*3 + startSlot + 2
+                        proposingAgent := sload(add(reportArrayStartSlot, 2))
+                        reportArrayStartSlot := add(reportArrayStartSlot, 3)
+                    }
+                    if (proposingAgent == msg.sender) {
                         foundIndex = i == 0 ? type(uint256).max : i;
+                        assembly {
+                            //since we incremented the slot by 3, we need to decrement it by 3 to get the start of the packed data
+                            reportArrayStartSlot := sub(reportArrayStartSlot, 3)
+                        }
                         break;
                     }
                 }
             }
         }
+
+        return (foundIndex, reportArrayStartSlot);
+    }
+
+    function getProposingAgentFromBucketEfficient(uint256 startSlot, uint256 index)
+        internal
+        view
+        returns (address proposingAgent)
+    {
+        //Each
     }
 
     function handleBucketStore(
@@ -509,85 +589,25 @@ contract GCA is IGCA {
         return _getShares(agent, gcaAgents);
     }
 
-    function isBucketFinalized(uint256 bucketId) external view returns (bool) {
+    function isBucketFinalized(uint256 bucketId) public view returns (bool) {
         Bucket storage bucket = _buckets[bucketId];
+
+        uint256 packedData;
+        assembly {
+            mstore(0x0, bucketId)
+            mstore(0x20, _buckets.slot)
+            let slot := keccak256(0x0, 0x40)
+            // nonce, reinstated and finalizationTimestamp are all in the first slot
+            packedData := sload(slot)
+        }
+        uint256 nonce = packedData & _UINT64_MASK;
+        //first 64 bits are nonce, next 8 bits  are reinstated, next 184 bits are finalizationTimestamp
+        //no need to us to use a mask since finalizationTimestamp takes up the last 184 bits
+        uint256 finalizationTimestamp = packedData >> 72;
+
         uint256 _slashNonce = slashNonce;
-        return _isBucketFinalized(bucket.nonce, bucket.finalizationTimestamp, _slashNonce);
+        return _isBucketFinalized(nonce, finalizationTimestamp, _slashNonce);
     }
-
-    // struct EfficientReport {
-    //     uint256 totalNewGCC;
-    //     uint256 totalGLWRewardsWeight;
-    //     uint256 totalGRCRewardsWeight;
-    //     bytes32 merkleRoot;
-    // }
-
-    // struct EfficientBucket {
-    //     uint64 nonce;
-    //     bool reinstated;
-    //     uint184 finalizationTimestamp;
-    //     EfficientReport[] reports;
-    // }
-    // //TODO: if this cant be more optimized, just get rid of it.
-
-    // function getBucketDataEfficient(uint256 bucketId) public view returns (EfficientBucket memory) {
-    //     unchecked {
-    //         uint256 length;
-    //         uint256 reportsArrayStartSlot;
-    //         uint64 nonce;
-    //         bool reinstated;
-    //         uint184 finalizationTimestamp;
-    //         uint256 uint128Mask = _UINT128_MASK;
-    //         uint256 uint64Mask = _UINT64_MASK;
-    //         uint256 boolMask = _BOOL_MASK;
-    //         uint256 uint184Mask = _UINT184_MASK;
-
-    //         assembly {
-    //             // Calculate the storage slot for the given bucket
-    //             // keccak256(bucketId . slot number of _buckets)
-    //             //First get slot
-    //             mstore(0x00, bucketId)
-    //             mstore(0x20, _buckets.slot)
-    //             let bucketSlot := keccak256(0x00, 0x40)
-    //             //Find the reports slot
-    //             reportsArrayStartSlot := add(bucketSlot, 1)
-    //             let reportsSlot := reportsArrayStartSlot
-    //             //Find the length
-    //             length := sload(reportsSlot)
-    //             let packedData := sload(bucketSlot)
-    //             nonce := and(uint64Mask, packedData)
-    //             reinstated := and(boolMask, shr(64, packedData))
-    //             finalizationTimestamp := and(uint184Mask, shr(72, packedData))
-    //             //Each `Report` struct is 2 slots
-    //             mstore(0x0, reportsArrayStartSlot)
-    //             reportsArrayStartSlot := keccak256(0x0, 0x20)
-    //         }
-    //         //Increment this so we start exactly at the start of index 0
-
-    //         EfficientReport[] memory reports = new EfficientReport[](length);
-
-    //         uint128 totalNewGCC;
-    //         uint64 totalGlwRewardsWeight;
-    //         uint64 totalGRCRewardsWeight;
-    //         bytes32 root;
-    //         for (uint256 i; i < length; ++i) {
-    //             assembly {
-    //                 let slot1Val := sload(reportsArrayStartSlot)
-    //                 totalNewGCC := and(slot1Val, uint128Mask)
-    //                 totalGlwRewardsWeight := and(uint64Mask, shr(128, slot1Val))
-    //                 totalGRCRewardsWeight := and(uint64Mask, shr(192, slot1Val))
-    //                 root := sload(add(reportsArrayStartSlot, 1))
-    //                 //Each report is 3 slots in storage
-    //                 reportsArrayStartSlot := add(reportsArrayStartSlot, 3)
-    //             }
-
-    //             reports[i] = EfficientReport(totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
-    //         }
-
-    //         EfficientBucket memory bucket = EfficientBucket(nonce, reinstated, finalizationTimestamp, reports);
-    //         return bucket;
-    //     }
-    // }
 
     //************************************************************* */
     //***************  INTERNAL  ********************** */
@@ -706,5 +726,18 @@ contract GCA is IGCA {
         uint256 bucketNonceWasSlashedAt = (slashNonceToSlashTimestamp[_slashNonce] - GENESIS_TIMESTAMP) / BUCKET_LENGTH;
         //the end submission period is the bucket + 2
         return (bucketNonceWasSlashedAt + 2) * BUCKET_LENGTH + GENESIS_TIMESTAMP;
+    }
+
+    function getPackedBucketGlobalState(uint256 bucketId) internal view returns (uint256 packedGlobalState) {
+        assembly {
+            mstore(0x0, bucketId)
+            mstore(0x20, _bucketGlobalState.slot)
+            let slot := keccak256(0x0, 0x40)
+            packedGlobalState := sload(slot)
+        }
+    }
+
+    function bucketGlobalState(uint256 bucketId) external view returns (IGCA.BucketGlobalState memory) {
+        return _bucketGlobalState[bucketId];
     }
 }

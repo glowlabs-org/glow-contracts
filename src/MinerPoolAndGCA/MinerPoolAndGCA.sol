@@ -16,10 +16,10 @@ import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 
 /**
-TODO: 
-Add tests for all the claim stuff
-Add tests for new bitmask stuff 
-add test for merkle root efficient in gca
+ * TODO:
+ * Add tests for all the claim stuff
+ * Add tests for new bitmask stuff
+ * add test for merkle root efficient in gca
  */
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
@@ -51,6 +51,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     uint256 public electricityFutureAuctionCount;
 
+    uint256 private constant _BITS_IN_UINT = 256;
+
     //----------------- MAPPINGS -----------------//
 
     struct GRCTracker {
@@ -63,16 +65,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //Sharded ID -> user -> bitmap
     mapping(uint256 => mapping(address => uint256)) private _bucketClaimBitmap;
 
-    mapping(uint256 => BucketGlobalState) private _bucketGlobalState;
     mapping(uint256 => uint256) private _mintedToCarbonCreditAuctionBitmap;
-
-    uint256 private constant _BITS_IN_UINT = 256;
-
-    struct BucketGlobalState {
-        uint128 totalNewGCC;
-        uint64 totalGLWRewardsWeight;
-        uint64 totalGRCRewardsWeight;
-    }
 
     /**
      * @param grcToken - the address of the grc token
@@ -179,18 +172,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _addToCurrentBucket(auction.grcToken, amount);
     }
 
-    function claimRewardOneRootOneBucket(
-        uint256 bucketId,
-        address payoutWallet,
-        uint256 glwWeight,
-        uint256 grcWeight,
-        bytes32[] calldata proof,
-        uint256 index,
-        IGCA.Bucket memory bucket
-    ) internal {
-        return;
-    }
-
     function checkProof(
         address payoutWallet,
         uint256 glwWeight,
@@ -212,12 +193,15 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         bytes32[] calldata proof,
         uint256 packedIndex,
         address user,
-        address[] memory grcTokens
+        address[] memory grcTokens,
+        bool claimFromInflation
     ) external {
-        if (packedIndex & (1 << 5) != 0) {
+        if (!isBucketFinalized(bucketId)) {
+            _revert(IMinerPool.BucketNotFinalized.selector);
+        }
+        if (claimFromInflation) {
             claimGlowFromInflation();
         }
-        packedIndex = packedIndex & 0x9;
         //Call from GCA.sol
         {
             bytes32 root = getBucketRootAtIndexEfficient(bucketId, packedIndex);
@@ -232,12 +216,13 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
         // Vulnerability if user does not put in all the correct grc tokens
         {
-            uint256 totalGRCWeight = globalStatePackedData >> 192 & _UINT64_MASK;
+            //no need to use a mask since totalGRCWeight uses the last 64 bits, so we can just shift
+            uint256 totalGRCWeight = globalStatePackedData >> 192;
 
             for (uint256 i; i < grcTokens.length;) {
-                uint256 amountToSend =
-                    getAmountForTokenAndInitIfNot(grcTokens[i], bucketId) * grcWeight / totalGRCWeight;
-                SafeERC20.safeTransfer(IERC20(grcTokens[i]), msg.sender, amountToSend);
+                uint256 amountInBucket = getAmountForTokenAndInitIfNot(grcTokens[i], bucketId);
+                amountInBucket = amountInBucket * grcWeight / totalGRCWeight;
+                SafeERC20.safeTransfer(IERC20(grcTokens[i]), msg.sender, amountInBucket);
                 //TODO: Check Overflow on following ops.
                 unchecked {
                     ++i;
@@ -253,15 +238,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     function getUserBitmapForBucket(uint256 bucketId, address user) internal view returns (uint256) {
         return _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user];
-    }
-
-    function getPackedBucketGlobalState(uint256 bucketId) internal view returns (uint256 packedData) {
-        assembly {
-            mstore(0x0, bucketId)
-            mstore(0x20, _bucketGlobalState.slot)
-            let slot := keccak256(0x0, 0x40)
-            packedData := sload(slot)
-        }
     }
 
     function _handleMintToCarbonCreditAuction(uint256 bucketId, uint256 amountToMint) internal {
@@ -291,9 +267,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         userBitmap |= mask;
         return userBitmap;
     }
-    // function claimGLWRewards(address payoutWallet,uint256 bucketId, uint glwWeight, uint grcWeight,bytes32[] calldata proof) external {}
-    // function claimGRCRewards(address payoutWallet,uint256[] calldata bucketIds,uint[] calldata glwWeights, uint[] calldata grcWeights,bytes32[][] calldata proofs) external {}
-    // function claimGLWRewards(address payoutWallet,uint256[] calldata bucketIds,uint[] calldata glwWeights, uint[] calldata grcWeights,bytes32[][] calldata proofs) external {}
 
     //----------------- VIEW FUNCTIONS -----------------//
 

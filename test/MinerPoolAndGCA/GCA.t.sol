@@ -15,6 +15,9 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
 import {TestGLOW} from "@/testing/TestGLOW.sol";
 import {Handler} from "./Handlers/Handler.GCA.sol";
 
+//TODO: add invariant for total inside global state and the sum of reports
+//TODO: add max length to set GCA contract?
+//TODO: add tests for withdrawing
 contract GCA_TEST is Test {
     //--------  CONTRACTS ---------//
     MockGCA gca;
@@ -193,15 +196,17 @@ contract GCA_TEST is Test {
         assertTrue(_containsElement(allGCAs, newGCA));
     }
 
-    function issueReport(uint256 lengthOfReports, address gcaToSubmitAs) public {
+    function issueReport(
+        address gcaToSubmitAs,
+        uint256 bucket,
+        uint256 totalNewGCC,
+        uint256 totalGlwRewardsWeight,
+        uint256 totalGRCRewardsWeight,
+        bytes32 randomMerkleRoot
+    ) public {
         addGCA(gcaToSubmitAs);
         //Current bucket should be zero, let's see if we can add to it
-        uint256 currentBucket = 0;
-        uint256 totalNewGCC = 100 * 1e15;
-        uint256 totalGlwRewardsWeight = 100 * 1e15;
-        uint256 totalGRCRewardsWeight = 100 * 1e15;
-        //Use a random root for now
-        bytes32 randomMerkleRoot = keccak256("random");
+        uint256 currentBucket = bucket;
 
         //------ START PRANK ------
         vm.startPrank(gcaToSubmitAs);
@@ -212,64 +217,126 @@ contract GCA_TEST is Test {
 
         vm.stopPrank();
         //------ STOP PRANK ------
+    }
 
-        IGCA.Bucket memory bucket = gca.bucket(currentBucket);
-        assertEq(bucket.reports.length, lengthOfReports);
-        assertEq(bucket.nonce, 0);
-        assertEq(bucket.reinstated, false);
+    function checkBucketAndReport(
+        uint256 bucketId,
+        uint256 reportIndex,
+        uint256 expectedNonce,
+        uint256 expectedReportsLength,
+        bool expectedReinstated,
+        uint256 expectedReportTotalNewGCC,
+        uint256 expectedReportTotalGLWRewardsWeight,
+        uint256 expectedReportTotalGRCRewardsWeight,
+        bytes32 expectedMerkleRoot,
+        address expectedProposingAgent
+    ) internal {
+        IGCA.Bucket memory bucket = gca.bucket(bucketId);
+        assertEq(bucket.reports.length, expectedReportsLength);
+        assertEq(bucket.nonce, expectedNonce);
+        assertEq(bucket.reinstated, expectedReinstated);
         //TODO: Add a check for the bucket finalization timestamp to make sure it's correct.
         assertTrue(bucket.finalizationTimestamp > 0);
-        IGCA.Report memory report = bucket.reports[0];
-        assertEq(report.totalNewGCC, totalNewGCC);
-        assertEq(report.totalGLWRewardsWeight, totalGlwRewardsWeight);
-        assertEq(report.totalGRCRewardsWeight, totalGRCRewardsWeight);
-        assertEq(report.merkleRoot, randomMerkleRoot);
-        assertEq(report.proposingAgent, SIMON);
+        IGCA.Report memory report = bucket.reports[reportIndex];
+        assertEq(report.totalNewGCC, expectedReportTotalNewGCC);
+        assertEq(report.totalGLWRewardsWeight, expectedReportTotalGLWRewardsWeight);
+        assertEq(report.totalGRCRewardsWeight, expectedReportTotalGRCRewardsWeight);
+        assertEq(report.merkleRoot, expectedMerkleRoot);
+        assertEq(report.proposingAgent, expectedProposingAgent);
+    }
+
+    function checkBucketGlobalState(
+        uint256 bucketId,
+        uint256 expectedTotalNewGCC,
+        uint256 expectedTotalGLWRewardsWeight,
+        uint256 expectedTotalGRCRewardsWeight
+    ) internal {
+        IGCA.BucketGlobalState memory state = gca.bucketGlobalState(bucketId);
+        assertEq(state.totalNewGCC, expectedTotalNewGCC);
+        assertEq(state.totalGLWRewardsWeight, expectedTotalGLWRewardsWeight);
+        assertEq(state.totalGRCRewardsWeight, expectedTotalGRCRewardsWeight);
     }
 
     function test_issueReport() public {
-        issueReport(1, SIMON);
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 100 * 1e15,
+            totalGlwRewardsWeight: 100 * 1e15,
+            totalGRCRewardsWeight: 100 * 1e15,
+            randomMerkleRoot: keccak256("random but different")
+        });
+
+        checkBucketAndReport({
+            bucketId: 0,
+            reportIndex: 0,
+            expectedNonce: 0,
+            expectedReportsLength: 1,
+            expectedReinstated: false,
+            expectedReportTotalNewGCC: 100 * 1e15,
+            expectedReportTotalGLWRewardsWeight: 100 * 1e15,
+            expectedReportTotalGRCRewardsWeight: 100 * 1e15,
+            expectedMerkleRoot: keccak256("random but different"),
+            expectedProposingAgent: SIMON
+        });
     }
 
-    function issueReport_newSubmissionShouldOverrideOldOne(uint256 lengthOfReports) public {
-        issueReport(lengthOfReports, SIMON);
-        uint256 currentBucket = 0;
-        uint256 totalNewGCC = 101 * 1e15;
-        uint256 totalGlwRewardsWeight = 105 * 1e15;
-        uint256 totalGRCRewardsWeight = 101 * 1e15;
-        //Use a random root for now
-        bytes32 randomMerkleRoot = keccak256("random but different");
-
-        //------ START PRANK ------//
-        vm.startPrank(SIMON);
-
-        gca.issueWeeklyReport(
-            currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
-        );
-
-        vm.stopPrank();
-        //------ STOP PRANK ------//
-
-        IGCA.Bucket memory bucket = gca.bucket(currentBucket);
-        assertEq(bucket.reports.length, lengthOfReports);
-        assertEq(bucket.nonce, 0);
-        assertEq(bucket.reinstated, false);
-        //TODO: Add a check for the bucket finalization timestamp to make sure it's correct.
-
-        IGCA.Report memory report = bucket.reports[0];
-        assertEq(report.totalNewGCC, totalNewGCC);
-        assertEq(report.totalGLWRewardsWeight, totalGlwRewardsWeight);
-        assertEq(report.totalGRCRewardsWeight, totalGRCRewardsWeight);
-        assertEq(report.merkleRoot, randomMerkleRoot);
-        assertEq(report.proposingAgent, SIMON);
+    function test_issueReport_andCheckGlobalState() public {
+        test_issueReport();
+        checkBucketGlobalState({
+            bucketId: 0,
+            expectedTotalNewGCC: 100 * 1e15,
+            expectedTotalGLWRewardsWeight: 100 * 1e15,
+            expectedTotalGRCRewardsWeight: 100 * 1e15
+        });
     }
 
     function test_issueReport_newSubmissionShouldOverrideOldOne() public {
-        issueReport_newSubmissionShouldOverrideOldOne(1);
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 100 * 1e15,
+            totalGlwRewardsWeight: 100 * 1e15,
+            totalGRCRewardsWeight: 100 * 1e15,
+            randomMerkleRoot: keccak256("random but different")
+        });
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 102 * 1e15,
+            totalGlwRewardsWeight: 103 * 1e15,
+            totalGRCRewardsWeight: 104 * 1e15,
+            randomMerkleRoot: keccak256("random but differents")
+        });
+
+        checkBucketAndReport({
+            bucketId: 0,
+            reportIndex: 0,
+            expectedNonce: 0,
+            expectedReportsLength: 1,
+            expectedReinstated: false,
+            expectedReportTotalNewGCC: 102 * 1e15,
+            expectedReportTotalGLWRewardsWeight: 103 * 1e15,
+            expectedReportTotalGRCRewardsWeight: 104 * 1e15,
+            expectedMerkleRoot: keccak256("random but differents"),
+            expectedProposingAgent: SIMON
+        });
     }
 
     function test_issueReport_newGCAShouldCreateNewReport() public {
+        //Create's one as simon
+        /**
+         * This should have
+         *         totalNewGCC: 100 * 1e15,
+         *         totalGlwRewardsWeight: 100 * 1e15,
+         *         totalGRCRewardsWeight: 100 * 1e15,
+         */
         test_issueReport();
+        uint256 totalNewGCCBefore = gca.bucketGlobalState(0).totalNewGCC;
+        uint256 totalGLWRewardsWeightBefore = gca.bucketGlobalState(0).totalGLWRewardsWeight;
+        uint256 totalGRCRewardsWeightBefore = gca.bucketGlobalState(0).totalGRCRewardsWeight;
+
         addGCA(OTHER_GCA);
 
         uint256 currentBucket = 0;
@@ -280,32 +347,90 @@ contract GCA_TEST is Test {
         bytes32 randomMerkleRoot = keccak256("random but different again");
 
         //------ START PRANK ------//
-        vm.startPrank(OTHER_GCA);
+        issueReport({
+            gcaToSubmitAs: OTHER_GCA,
+            bucket: currentBucket,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwRewardsWeight,
+            totalGRCRewardsWeight: totalGRCRewardsWeight,
+            randomMerkleRoot: randomMerkleRoot
+        });
 
-        gca.issueWeeklyReport(
-            currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
-        );
+        vm.startPrank(OTHER_GCA);
 
         vm.stopPrank();
         //------ STOP PRANK ------
 
-        IGCA.Bucket memory bucket = gca.bucket(currentBucket);
-        assertEq(bucket.reports.length, 2);
-        assertEq(bucket.nonce, 0);
-        assertEq(bucket.reinstated, false);
+        checkBucketAndReport({
+            bucketId: currentBucket,
+            reportIndex: 1,
+            expectedNonce: 0,
+            expectedReportsLength: 2,
+            expectedReinstated: false,
+            expectedReportTotalNewGCC: totalNewGCC,
+            expectedReportTotalGLWRewardsWeight: totalGlwRewardsWeight,
+            expectedReportTotalGRCRewardsWeight: totalGRCRewardsWeight,
+            expectedMerkleRoot: randomMerkleRoot,
+            expectedProposingAgent: OTHER_GCA
+        });
 
-        IGCA.Report memory report = bucket.reports[1];
-        assertEq(report.totalNewGCC, totalNewGCC);
-        assertEq(report.totalGLWRewardsWeight, totalGlwRewardsWeight);
-        assertEq(report.totalGRCRewardsWeight, totalGRCRewardsWeight);
-        assertEq(report.merkleRoot, randomMerkleRoot);
-        assertEq(report.proposingAgent, OTHER_GCA);
+        checkBucketGlobalState({
+            bucketId: currentBucket,
+            expectedTotalNewGCC: totalNewGCCBefore + totalNewGCC,
+            expectedTotalGLWRewardsWeight: totalGLWRewardsWeightBefore + totalGlwRewardsWeight,
+            expectedTotalGRCRewardsWeight: totalGRCRewardsWeightBefore + totalGRCRewardsWeight
+        });
     }
 
     function test_issueReport_oldReportShouldOverride_whenMultipleReportsInBucket() public {
+        //This issues as SIMON in first index
         test_issueReport();
+
+        //This issues as OTHER_GCA in second index
         test_issueReport_newGCAShouldCreateNewReport();
-        issueReport_newSubmissionShouldOverrideOldOne(2);
+
+        uint256 totalNewGCCBefore = gca.bucketGlobalState(0).totalNewGCC;
+        uint256 totalGLWRewardsWeightBefore = gca.bucketGlobalState(0).totalGLWRewardsWeight;
+        uint256 totalGRCRewardsWeightBefore = gca.bucketGlobalState(0).totalGRCRewardsWeight;
+        uint256 amountTotalGCC_OtherSubmittedPreviously = gca.bucket(0).reports[1].totalNewGCC;
+        uint256 amountTotalGlwWeight_OtherSubmittedPreviously = gca.bucket(0).reports[1].totalGLWRewardsWeight;
+        uint256 amountTotalGRCWeight_OtherSubmittedPreviously = gca.bucket(0).reports[1].totalGRCRewardsWeight;
+
+        //Submit another one as other
+        issueReport({
+            gcaToSubmitAs: OTHER_GCA,
+            bucket: 0,
+            totalNewGCC: 202 * 1e15,
+            totalGlwRewardsWeight: 206 * 1e15,
+            totalGRCRewardsWeight: 205 * 1e15,
+            randomMerkleRoot: keccak256("random but different again again")
+        });
+
+        //Check to make sure it's correctly overriden in the second index
+        uint256 newReportTotalNewGCC = 202 * 1e15;
+        uint256 newReportTotalGlwRewardsWeight = 206 * 1e15;
+        uint256 newReportTotalGRCRewardsWeight = 205 * 1e15;
+        checkBucketAndReport({
+            bucketId: 0,
+            reportIndex: 1,
+            expectedNonce: 0,
+            expectedReportsLength: 2,
+            expectedReinstated: false,
+            expectedReportTotalNewGCC: newReportTotalNewGCC,
+            expectedReportTotalGLWRewardsWeight: newReportTotalGlwRewardsWeight,
+            expectedReportTotalGRCRewardsWeight: newReportTotalGRCRewardsWeight,
+            expectedMerkleRoot: keccak256("random but different again again"),
+            expectedProposingAgent: OTHER_GCA
+        });
+
+        checkBucketGlobalState({
+            bucketId: 0,
+            expectedTotalNewGCC: totalNewGCCBefore + newReportTotalNewGCC - amountTotalGCC_OtherSubmittedPreviously,
+            expectedTotalGLWRewardsWeight: totalGLWRewardsWeightBefore + newReportTotalGlwRewardsWeight
+                - amountTotalGlwWeight_OtherSubmittedPreviously,
+            expectedTotalGRCRewardsWeight: totalGRCRewardsWeightBefore + newReportTotalGRCRewardsWeight
+                - amountTotalGRCWeight_OtherSubmittedPreviously
+        });
     }
 
     function test_issueReport_weightMoreThanUint256Div5_shouldRevert() public {
@@ -404,16 +529,26 @@ contract GCA_TEST is Test {
         vm.stopPrank();
 
         IGCA.Bucket memory bucket = gca.bucket(bucketId);
-        assertEq(bucket.reports.length, 1);
-        assertEq(bucket.nonce, 0);
-        assertEq(bucket.reinstated, false);
 
-        IGCA.Report memory report = bucket.reports[0];
-        assertEq(report.totalNewGCC, totalNewGCC);
-        assertEq(report.totalGLWRewardsWeight, totalGlwRewardsWeight);
-        assertEq(report.totalGRCRewardsWeight, totalGRCRewardsWeight);
-        assertEq(report.merkleRoot, randomMerkleRoot);
-        assertEq(report.proposingAgent, SIMON);
+        checkBucketAndReport({
+            bucketId: bucketId,
+            reportIndex: 0,
+            expectedNonce: 0,
+            expectedReportsLength: 1,
+            expectedReinstated: false,
+            expectedReportTotalNewGCC: totalNewGCC,
+            expectedReportTotalGLWRewardsWeight: totalGlwRewardsWeight,
+            expectedReportTotalGRCRewardsWeight: totalGRCRewardsWeight,
+            expectedMerkleRoot: randomMerkleRoot,
+            expectedProposingAgent: SIMON
+        });
+
+        checkBucketGlobalState({
+            bucketId: bucketId,
+            expectedTotalNewGCC: totalNewGCC,
+            expectedTotalGLWRewardsWeight: totalGlwRewardsWeight,
+            expectedTotalGRCRewardsWeight: totalGRCRewardsWeight
+        });
     }
 
     function test_issueReport_incrementNonce_shouldStore_ifBucketNotInit() public {
@@ -438,9 +573,25 @@ contract GCA_TEST is Test {
 
         vm.stopPrank();
 
-        IGCA.Bucket memory bucket = gca.bucket(currentBucket);
-        console.log("bucket nonce = ", bucket.nonce);
-        assertEq(bucket.nonce, 1);
+        checkBucketAndReport({
+            bucketId: currentBucket,
+            reportIndex: 0,
+            expectedNonce: 1,
+            expectedReportsLength: 1,
+            expectedReinstated: false,
+            expectedReportTotalNewGCC: totalNewGCC,
+            expectedReportTotalGLWRewardsWeight: totalGlwRewardsWeight,
+            expectedReportTotalGRCRewardsWeight: totalGRCRewardsWeight,
+            expectedMerkleRoot: randomMerkleRoot,
+            expectedProposingAgent: SIMON
+        });
+
+        checkBucketGlobalState({
+            bucketId: currentBucket,
+            expectedTotalNewGCC: totalNewGCC,
+            expectedTotalGLWRewardsWeight: totalGlwRewardsWeight,
+            expectedTotalGRCRewardsWeight: totalGRCRewardsWeight
+        });
     }
 
     function test_issueReport_createReport_thenIncrementNonce_shouldClearAllOldReports() public {
@@ -450,9 +601,9 @@ contract GCA_TEST is Test {
 
         vm.startPrank(SIMON);
         uint256 currentBucket = 0;
-        uint256 totalNewGCC = 101 * 1e15;
-        uint256 totalGlwRewardsWeight = 105 * 1e15;
-        uint256 totalGRCRewardsWeight = 101 * 1e15;
+        uint256 totalNewGCC = 321 * 1e15;
+        uint256 totalGlwRewardsWeight = 441 * 1e15;
+        uint256 totalGRCRewardsWeight = 231 * 1e15;
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
 
@@ -476,14 +627,25 @@ contract GCA_TEST is Test {
         assertEq(report.totalGRCRewardsWeight, totalGRCRewardsWeight);
         assertEq(report.merkleRoot, randomMerkleRoot);
         assertEq(report.proposingAgent, SIMON);
+
+        checkBucketGlobalState({
+            bucketId: currentBucket,
+            expectedTotalNewGCC: totalNewGCC,
+            expectedTotalGLWRewardsWeight: totalGlwRewardsWeight,
+            expectedTotalGRCRewardsWeight: totalGRCRewardsWeight
+        });
     }
 
     function test_issueReport_createReport_thenIncrementNonce_shouldClearAllOldReports_newSubmissionShouldPushToArray()
         public
     {
         test_issueReport_createReport_thenIncrementNonce_shouldClearAllOldReports();
-        vm.startPrank(OTHER_GCA);
         uint256 currentBucket = 0;
+        uint256 globalStateGCCBefore = gca.bucketGlobalState(currentBucket).totalNewGCC;
+        uint256 globalStateGLWBefore = gca.bucketGlobalState(currentBucket).totalGLWRewardsWeight;
+        uint256 globalStateGRCBefore = gca.bucketGlobalState(currentBucket).totalGRCRewardsWeight;
+
+        vm.startPrank(OTHER_GCA);
         uint256 totalNewGCC = 201 * 1e15;
         uint256 totalGlwRewardsWeight = 205 * 1e15;
         uint256 totalGRCRewardsWeight = 204 * 1e15;
@@ -510,6 +672,13 @@ contract GCA_TEST is Test {
         assertEq(report.totalGRCRewardsWeight, totalGRCRewardsWeight);
         assertEq(report.merkleRoot, randomMerkleRoot);
         assertEq(report.proposingAgent, OTHER_GCA);
+
+        checkBucketGlobalState({
+            bucketId: currentBucket,
+            expectedTotalNewGCC: globalStateGCCBefore + totalNewGCC,
+            expectedTotalGLWRewardsWeight: globalStateGLWBefore + totalGlwRewardsWeight,
+            expectedTotalGRCRewardsWeight: globalStateGRCBefore + totalGRCRewardsWeight
+        });
     }
 
     function test_issueReport_submittingReportLate_shouldRevert_slashNonceDifferent() public {
@@ -717,7 +886,43 @@ contract GCA_TEST is Test {
         gca.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
     }
 
-    // function test_getBucketDataEfficient() public {
+    //------------------------ HELPERS -----------------------------
+    function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
+        address[] memory addresses = new address[](numAddresses);
+        for (uint256 i = 0; i < numAddresses; i++) {
+            addresses[i] = address(uint160(addressOffset + i));
+        }
+        return addresses;
+    }
+
+    function _containsElement(address[] memory arr, address element) private pure returns (bool) {
+        for (uint256 i; i < arr.length; i++) {
+            if (arr[i] == element) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function _min(uint256 a, uint256 b) private pure returns (uint256) {
+        if (a < b) {
+            return a;
+        }
+        return b;
+    }
+
+    function logBucketGlobalState(IGCA.BucketGlobalState memory state) internal {
+        console.log("totalNewGCC", state.totalNewGCC);
+        console.log("totalGLWRewardsWeight", state.totalGLWRewardsWeight);
+        console.log("totalGRCRewardsWeight", state.totalGRCRewardsWeight);
+    }
+}
+
+/*
+
+Stashed
+
+ // function test_getBucketDataEfficient() public {
     //     issueReport(1, SIMON);
 
     //     IGCA.Bucket memory bucket = gca.bucket(0);
@@ -741,10 +946,7 @@ contract GCA_TEST is Test {
     //     // }
     // }
 
-    function test_getBucketData_gasCheck() public {
-        issueReport(1, SIMON);
-        IGCA.Bucket memory bucket = gca.bucket(0);
-    }
+
 
     // function test_getBucketData_gasCheckEfficient() public {
     //     issueReport(1, SIMON);
@@ -774,29 +976,4 @@ contract GCA_TEST is Test {
     //         assertEq(efficientReport.merkleRoot, normalReport.merkleRoot);
     //     }
     // }
-
-    //------------------------ HELPERS -----------------------------
-    function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
-        address[] memory addresses = new address[](numAddresses);
-        for (uint256 i = 0; i < numAddresses; i++) {
-            addresses[i] = address(uint160(addressOffset + i));
-        }
-        return addresses;
-    }
-
-    function _containsElement(address[] memory arr, address element) private pure returns (bool) {
-        for (uint256 i; i < arr.length; i++) {
-            if (arr[i] == element) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function _min(uint256 a, uint256 b) private pure returns (uint256) {
-        if (a < b) {
-            return a;
-        }
-        return b;
-    }
-}
+*/

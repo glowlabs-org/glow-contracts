@@ -104,6 +104,12 @@ interface IGCA {
         Report[] reports;
     }
 
+    struct BucketGlobalState {
+        uint128 totalNewGCC;
+        uint64 totalGLWRewardsWeight;
+        uint64 totalGRCRewardsWeight;
+    }
+
     /**
      * @dev Emitted when a gca submits a new compensation plan.
      * @param agent - the address of the gca agent proposing
