@@ -229,6 +229,15 @@ contract BucketSubmission {
         return (bucket, true);
     }
 
+    function getAmountForTokenAndInitIfNot(address grcToken, uint256 id) public returns (uint256) {
+        (WeeklyReward memory reward, bool needsInitializing) = _rewardWithNeedsInitializing(grcToken, id);
+        if (needsInitializing) {
+            reward.inheritedFromLastWeek = true;
+            rewards[id][grcToken] = reward;
+        }
+        return reward.amountInBucket;
+    }
+
     //************************************************************* */
     //**************  INTERNAL/PRIVATE STATE CHANGING  ************ */
     //************************************************************* */

@@ -15,6 +15,12 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 
+/**
+TODO: 
+Add tests for all the claim stuff
+Add tests for new bitmask stuff 
+add test for merkle root efficient in gca
+ */
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
 
@@ -33,9 +39,16 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     address private immutable _EARLY_LIQUIDITY;
 
+    /**
+     * @notice the total amount of glow rewards available for farms per bucket
+     */
     uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
 
     //----------------- STATE VARIABLES -----------------//
+
+    /**
+     * @notice a counter for the electricity future auctions
+     */
     uint256 public electricityFutureAuctionCount;
 
     //----------------- MAPPINGS -----------------//
@@ -46,6 +59,20 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     }
 
     mapping(uint256 => ElectricityFutureAuction) public electricityFutureAuctions;
+
+    //Sharded ID -> user -> bitmap
+    mapping(uint256 => mapping(address => uint256)) private _bucketClaimBitmap;
+
+    mapping(uint256 => BucketGlobalState) private _bucketGlobalState;
+    mapping(uint256 => uint256) private _mintedToCarbonCreditAuctionBitmap;
+
+    uint256 private constant _BITS_IN_UINT = 256;
+
+    struct BucketGlobalState {
+        uint128 totalNewGCC;
+        uint64 totalGLWRewardsWeight;
+        uint64 totalGRCRewardsWeight;
+    }
 
     /**
      * @param grcToken - the address of the grc token
@@ -161,35 +188,108 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint256 index,
         IGCA.Bucket memory bucket
     ) internal {
+        return;
+    }
+
+    function checkProof(
+        address payoutWallet,
+        uint256 glwWeight,
+        uint256 grcWeight,
+        bytes32[] calldata proof,
+        bytes32 root
+    ) internal {
         bytes32 leaf = keccak256(abi.encodePacked(payoutWallet, glwWeight, grcWeight));
-        if (!MerkleProofLib.verifyCalldata(proof, bucket.reports[index].merkleRoot, leaf)) {
+
+        if (!MerkleProofLib.verifyCalldata(proof, root, leaf)) {
             _revert(IMinerPool.InvalidProof.selector);
         }
-        /**
-         * we can keep a bitmap with 5 bits for every bucket
-         *     bucket 0 [0-4]
-         *     bucket 1 [1-9]
-         *     bucket 50 [250-255]
-         */
     }
 
     function claimRewardMultipleRootsOneBucket(
         uint256 bucketId,
-        address payoutWallet,
-        uint256[] calldata glwWeights,
-        uint256[] calldata grcWeights,
-        bytes32[][] calldata proofs,
-        uint256[] calldata indexes
+        uint256 glwWeight,
+        uint256 grcWeight,
+        bytes32[] calldata proof,
+        uint256 packedIndex,
+        address user,
+        address[] memory grcTokens
     ) external {
+        if (packedIndex & (1 << 5) != 0) {
+            claimGlowFromInflation();
+        }
+        packedIndex = packedIndex & 0x9;
         //Call from GCA.sol
-        IGCA.Bucket memory bucket = bucket(bucketId);
-        unchecked {
-            for (uint256 i; i < indexes.length; ++i) {
-                claimRewardOneRootOneBucket(
-                    bucketId, payoutWallet, glwWeights[i], grcWeights[i], proofs[i], indexes[i], bucket
-                );
+        {
+            bytes32 root = getBucketRootAtIndexEfficient(bucketId, packedIndex);
+            checkProof(user, glwWeight, grcWeight, proof, root);
+        }
+        {
+            uint256 userBitmap = getUserBitmapForBucket(bucketId, user);
+            userBitmap = checkClaimAvailableAndReturnNewBitmap(bucketId, userBitmap);
+            setUserBitmapForBucket(bucketId, user, userBitmap);
+        }
+        uint256 globalStatePackedData = getPackedBucketGlobalState(bucketId);
+
+        // Vulnerability if user does not put in all the correct grc tokens
+        {
+            uint256 totalGRCWeight = globalStatePackedData >> 192 & _UINT64_MASK;
+
+            for (uint256 i; i < grcTokens.length;) {
+                uint256 amountToSend =
+                    getAmountForTokenAndInitIfNot(grcTokens[i], bucketId) * grcWeight / totalGRCWeight;
+                SafeERC20.safeTransfer(IERC20(grcTokens[i]), msg.sender, amountToSend);
+                //TODO: Check Overflow on following ops.
+                unchecked {
+                    ++i;
+                }
             }
         }
+        {
+            uint256 totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
+            uint256 amountGlowToSend = GLOW_REWARDS_PER_BUCKET * glwWeight / totalGlwWeight;
+            SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), msg.sender, amountGlowToSend);
+        }
+    }
+
+    function getUserBitmapForBucket(uint256 bucketId, address user) internal view returns (uint256) {
+        return _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user];
+    }
+
+    function getPackedBucketGlobalState(uint256 bucketId) internal view returns (uint256 packedData) {
+        assembly {
+            mstore(0x0, bucketId)
+            mstore(0x20, _bucketGlobalState.slot)
+            let slot := keccak256(0x0, 0x40)
+            packedData := sload(slot)
+        }
+    }
+
+    function _handleMintToCarbonCreditAuction(uint256 bucketId, uint256 amountToMint) internal {
+        uint256 key = bucketId / _BITS_IN_UINT;
+        uint256 existingBitmap = _mintedToCarbonCreditAuctionBitmap[key];
+        uint256 shift = bucketId % bucketId;
+        uint256 mask = 1 << shift;
+        if (mask & existingBitmap == 0) {
+            //TODO: mint to the auction
+            existingBitmap |= mask;
+            _mintedToCarbonCreditAuctionBitmap[key] = existingBitmap;
+        }
+    }
+
+    function setUserBitmapForBucket(uint256 bucketId, address user, uint256 userBitmap) internal {
+        _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user] = userBitmap;
+    }
+
+    function checkClaimAvailableAndReturnNewBitmap(uint256 bucketId, uint256 userBitmap)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 shift = (bucketId % _BITS_IN_UINT);
+        uint256 mask = 1 << shift;
+        if (mask & userBitmap != 0) _revert(IMinerPool.UserAlreadyClaimed.selector);
+        userBitmap |= mask;
+        return userBitmap;
     }
     // function claimGLWRewards(address payoutWallet,uint256 bucketId, uint glwWeight, uint grcWeight,bytes32[] calldata proof) external {}
     // function claimGRCRewards(address payoutWallet,uint256[] calldata bucketIds,uint[] calldata glwWeights, uint[] calldata grcWeights,bytes32[][] calldata proofs) external {}

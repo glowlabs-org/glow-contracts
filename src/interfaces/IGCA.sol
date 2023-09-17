@@ -18,6 +18,7 @@ interface IGCA {
     error ReportWeightMustBeLTUint64MaxDiv5();
     error BucketSubmissionNotOpen();
     error BucketSubmissionEnded();
+    error EmptyRoot();
     // error BucketNotReinitilizable();
 
     /**

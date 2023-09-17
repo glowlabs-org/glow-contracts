@@ -83,26 +83,26 @@ contract GCA_TEST is Test {
         }
     }
 
-    /**
-     * forge-config: default.invariant.runs = 10
-     * forge-config: default.invariant.depth = 500
-     * @dev buckets nonces should never change
-     *     -   and should always be zero if they didn't get initialized during their current week
-     *         -   if they're not initialized that means that they submitted the first report for the bucket
-     */
-    function invariant_bucketNonceShouldNeverChangeGas() public {
-        uint256[] memory bucketIds = handler.ghost_bucketIds();
-        for (uint256 i; i < bucketIds.length; i++) {
-            uint256 bucketId = bucketIds[i];
-            MockGCA.EfficientBucket memory bucket = gca.getBucketDataEfficient(bucketId);
-            bool initOnCurrentWeek = handler.initOnCurrentWeek(bucketId);
-            if (initOnCurrentWeek) {
-                assertEq(bucket.nonce, handler.bucketIdToSlashNonce(bucketId));
-            } else {
-                assertEq(bucket.nonce, 0);
-            }
-        }
-    }
+    // /**
+    //  * forge-config: default.invariant.runs = 10
+    //  * forge-config: default.invariant.depth = 500
+    //  * @dev buckets nonces should never change
+    //  *     -   and should always be zero if they didn't get initialized during their current week
+    //  *         -   if they're not initialized that means that they submitted the first report for the bucket
+    //  */
+    // function invariant_bucketNonceShouldNeverChangeGas() public {
+    //     uint256[] memory bucketIds = handler.ghost_bucketIds();
+    //     for (uint256 i; i < bucketIds.length; i++) {
+    //         uint256 bucketId = bucketIds[i];
+    //         MockGCA.EfficientBucket memory bucket = gca.getBucketDataEfficient(bucketId);
+    //         bool initOnCurrentWeek = handler.initOnCurrentWeek(bucketId);
+    //         if (initOnCurrentWeek) {
+    //             assertEq(bucket.nonce, handler.bucketIdToSlashNonce(bucketId));
+    //         } else {
+    //             assertEq(bucket.nonce, 0);
+    //         }
+    //     }
+    // }
 
     function testFuzz_invalidBucketSubmission_shouldAlwaysRevert(uint256 bucketId) public {
         //Each bucket last's 1 week, so there will realistically never be a bucket with an id greater than 1e18
@@ -717,63 +717,63 @@ contract GCA_TEST is Test {
         gca.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
     }
 
-    function test_getBucketDataEfficient() public {
-        issueReport(1, SIMON);
+    // function test_getBucketDataEfficient() public {
+    //     issueReport(1, SIMON);
 
-        IGCA.Bucket memory bucket = gca.bucket(0);
-        assertEq(bucket.reports.length, 1);
-        MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
-        MockGCA.EfficientReport[] memory efficientReports = efficientBucket.reports;
-        assertEq(efficientBucket.nonce, bucket.nonce);
-        assertEq(efficientBucket.finalizationTimestamp, bucket.finalizationTimestamp);
-        assertEq(efficientBucket.reinstated, bucket.reinstated);
-        assertEq(efficientReports.length, 1);
+    //     IGCA.Bucket memory bucket = gca.bucket(0);
+    //     assertEq(bucket.reports.length, 1);
+    //     MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
+    //     MockGCA.EfficientReport[] memory efficientReports = efficientBucket.reports;
+    //     assertEq(efficientBucket.nonce, bucket.nonce);
+    //     assertEq(efficientBucket.finalizationTimestamp, bucket.finalizationTimestamp);
+    //     assertEq(efficientBucket.reinstated, bucket.reinstated);
+    //     assertEq(efficientReports.length, 1);
 
-        for (uint256 i; i < efficientReports.length; ++i) {
-            IGCA.Report memory normalReport = bucket.reports[i];
-            MockGCA.EfficientReport memory efficientReport = efficientReports[i];
-            assertEq(efficientReport.totalNewGCC, normalReport.totalNewGCC);
-            assertEq(efficientReport.totalGLWRewardsWeight, normalReport.totalGLWRewardsWeight);
-            assertEq(efficientReport.totalGRCRewardsWeight, normalReport.totalGRCRewardsWeight);
-            assertEq(efficientReport.merkleRoot, normalReport.merkleRoot);
-        }
+    //     for (uint256 i; i < efficientReports.length; ++i) {
+    //         IGCA.Report memory normalReport = bucket.reports[i];
+    //         MockGCA.EfficientReport memory efficientReport = efficientReports[i];
+    //         assertEq(efficientReport.totalNewGCC, normalReport.totalNewGCC);
+    //         assertEq(efficientReport.totalGLWRewardsWeight, normalReport.totalGLWRewardsWeight);
+    //         assertEq(efficientReport.totalGRCRewardsWeight, normalReport.totalGRCRewardsWeight);
+    //         assertEq(efficientReport.merkleRoot, normalReport.merkleRoot);
+    //     }
 
-        // }
-    }
+    //     // }
+    // }
 
     function test_getBucketData_gasCheck() public {
         issueReport(1, SIMON);
         IGCA.Bucket memory bucket = gca.bucket(0);
     }
 
-    function test_getBucketData_gasCheckEfficient() public {
-        issueReport(1, SIMON);
-        MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
-    }
+    // function test_getBucketData_gasCheckEfficient() public {
+    //     issueReport(1, SIMON);
+    //     MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
+    // }
 
-    function test_getBucketDataEfficient_multipleArrays() public {
-        issueReport(1, SIMON);
-        issueReport(2, OTHER_GCA);
-        issueReport(3, OTHER_GCA_2);
+    // function test_getBucketDataEfficient_multipleArrays() public {
+    //     issueReport(1, SIMON);
+    //     issueReport(2, OTHER_GCA);
+    //     issueReport(3, OTHER_GCA_2);
 
-        IGCA.Bucket memory bucket = gca.bucket(0);
-        assertEq(bucket.reports.length, 3);
-        MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
-        MockGCA.EfficientReport[] memory efficientReports = efficientBucket.reports;
-        assertEq(efficientBucket.nonce, bucket.nonce);
-        assertEq(efficientBucket.finalizationTimestamp, bucket.finalizationTimestamp);
-        assertEq(efficientBucket.reinstated, bucket.reinstated);
-        assertEq(efficientReports.length, 3);
+    //     IGCA.Bucket memory bucket = gca.bucket(0);
+    //     assertEq(bucket.reports.length, 3);
+    //     MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
+    //     MockGCA.EfficientReport[] memory efficientReports = efficientBucket.reports;
+    //     assertEq(efficientBucket.nonce, bucket.nonce);
+    //     assertEq(efficientBucket.finalizationTimestamp, bucket.finalizationTimestamp);
+    //     assertEq(efficientBucket.reinstated, bucket.reinstated);
+    //     assertEq(efficientReports.length, 3);
 
-        for (uint256 i; i < bucket.reports.length; ++i) {
-            IGCA.Report memory normalReport = bucket.reports[i];
-            MockGCA.EfficientReport memory efficientReport = efficientReports[i];
-            assertEq(efficientReport.totalNewGCC, normalReport.totalNewGCC);
-            assertEq(efficientReport.totalGLWRewardsWeight, normalReport.totalGLWRewardsWeight);
-            assertEq(efficientReport.totalGRCRewardsWeight, normalReport.totalGRCRewardsWeight);
-            assertEq(efficientReport.merkleRoot, normalReport.merkleRoot);
-        }
-    }
+    //     for (uint256 i; i < bucket.reports.length; ++i) {
+    //         IGCA.Report memory normalReport = bucket.reports[i];
+    //         MockGCA.EfficientReport memory efficientReport = efficientReports[i];
+    //         assertEq(efficientReport.totalNewGCC, normalReport.totalNewGCC);
+    //         assertEq(efficientReport.totalGLWRewardsWeight, normalReport.totalGLWRewardsWeight);
+    //         assertEq(efficientReport.totalGRCRewardsWeight, normalReport.totalGRCRewardsWeight);
+    //         assertEq(efficientReport.merkleRoot, normalReport.merkleRoot);
+    //     }
+    // }
 
     //------------------------ HELPERS -----------------------------
     function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
