@@ -20,6 +20,9 @@ import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
  * Add tests for all the claim stuff
  * Add tests for new bitmask stuff
  * add test for merkle root efficient in gca
+ * make sure that veto council agents can delay a bucket
+ * make sure to check for finalization around bucket submission
+ * add tests for withdrawing from reinstated buckets
  */
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
@@ -226,9 +229,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             for (uint256 i; i < grcTokens.length;) {
                 uint256 amountInBucket = getAmountForTokenAndInitIfNot(grcTokens[i], bucketId);
                 amountInBucket = amountInBucket * grcWeight / totalGRCWeight;
-                if(amountInBucket > 0) {
-
-                SafeERC20.safeTransfer(IERC20(grcTokens[i]), msg.sender, amountInBucket);
+                if (amountInBucket > 0) {
+                    SafeERC20.safeTransfer(IERC20(grcTokens[i]), msg.sender, amountInBucket);
                 }
                 //TODO: Check Overflow on following ops.
                 unchecked {
@@ -239,9 +241,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         {
             uint256 totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
             uint256 amountGlowToSend = GLOW_REWARDS_PER_BUCKET * glwWeight / totalGlwWeight;
-            if(amountGlowToSend > 0) {
-
-            SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), msg.sender, amountGlowToSend);
+            if (amountGlowToSend > 0) {
+                SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), msg.sender, amountGlowToSend);
             }
         }
     }

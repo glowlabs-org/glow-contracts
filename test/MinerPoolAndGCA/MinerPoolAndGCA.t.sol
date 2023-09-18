@@ -18,6 +18,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
+import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 
 struct ClaimLeaf {
     address payoutWallet;
@@ -43,6 +44,7 @@ contract MinerPoolAndGCATest is Test {
     address OTHER_GCA_3 = address(0x9);
     address OTHER_GCA_4 = address(0x10);
     address carbonCreditAuction = address(0x11);
+    address defaultAddressInWithdraw = address(0x555);
 
     //--------  CONSTANTS ---------//
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
@@ -77,7 +79,7 @@ contract MinerPoolAndGCATest is Test {
     function addGCA(address newGCA) public {
         address[] memory allGCAs = minerPoolAndGCA.allGcas();
         address[] memory temp = new address[](allGCAs.length+1);
-        for (uint256 i; i < allGCAs.length; i++) {
+        for (uint256 i; i < allGCAs.length; ++i) {
             temp[i] = allGCAs[i];
             if (allGCAs[i] == newGCA) {
                 return;
@@ -181,7 +183,7 @@ contract MinerPoolAndGCATest is Test {
 
     function test_FFI_MerkleRoot() public {
         address[] memory arr = new address[](2);
-        arr[0] = address(0x555);
+        arr[0] = defaultAddressInWithdraw;
         arr[1] = address(0x777);
         bytes32[] memory hashes = new bytes32[](arr.length);
         for (uint256 i; i < arr.length; ++i) {
@@ -202,7 +204,7 @@ contract MinerPoolAndGCATest is Test {
 
     function test_FFI_getMerkleProof() public {
         address[] memory arr = new address[](2);
-        arr[0] = address(0x555);
+        arr[0] = defaultAddressInWithdraw;
         arr[1] = address(0x777);
         bytes32[] memory hashes = new bytes32[](arr.length);
         for (uint256 i; i < arr.length; ++i) {
@@ -248,7 +250,7 @@ contract MinerPoolAndGCATest is Test {
 
         vm.warp(block.timestamp + (ONE_WEEK * 2));
 
-        vm.startPrank(address(0x555));
+        vm.startPrank(defaultAddressInWithdraw);
         uint256 glwWeightForAddress = 100;
         uint256 grcWeightForAddress = 200;
         // minerPoolAndGCA.claimRewardMultipleRootsOneBucket(bucketId, glwWeight, grcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
@@ -259,14 +261,13 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
-            user: address(0x555),
+            user: defaultAddressInWithdraw,
             grcTokens: grcTokens,
             claimFromInflation: true
         });
 
         //Should have gotten all the glow rewards
-        assertEq(glow.balanceOf(address(0x555)), 175_000 ether  * glwWeightForAddress / totalGlwWeight);
-    
+        assertEq(glow.balanceOf(defaultAddressInWithdraw), 175_000 ether * glwWeightForAddress / totalGlwWeight);
 
         vm.stopPrank();
     }
@@ -295,7 +296,7 @@ contract MinerPoolAndGCATest is Test {
 
         vm.warp(block.timestamp + (ONE_WEEK * 2));
 
-        vm.startPrank(address(0x555));
+        vm.startPrank(defaultAddressInWithdraw);
         uint256 glwWeightForAddress = 100;
         uint256 grcWeightForAddress = 200;
         // minerPoolAndGCA.claimRewardMultipleRootsOneBucket(bucketId, glwWeight, grcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
@@ -306,29 +307,129 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
-            user: address(0x555),
+            user: defaultAddressInWithdraw,
             grcTokens: grcTokens,
             claimFromInflation: true
         });
 
         //Should have gotten all the glow rewards
-        assertEq(glow.balanceOf(address(0x555)), 175_000 ether);
-    
+        assertEq(glow.balanceOf(defaultAddressInWithdraw), 175_000 ether);
 
+        vm.stopPrank();
+    }
+
+    modifier setStageForWithdrawRevertTests() {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](1);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] =
+                ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 101 * 1e15;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        _;
+    }
+
+    function test_withdrawFromBucket_BucketNotFinalizedShouldRevert() public setStageForWithdrawRevertTests {
+        vm.startPrank(defaultAddressInWithdraw);
+        vm.expectRevert(IMinerPool.BucketNotFinalized.selector);
+        uint256 glwWeightForAddress = 100;
+        uint256 grcWeightForAddress = 200;
+        // minerPoolAndGCA.claimRewardMultipleRootsOneBucket(bucketId, glwWeight, grcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
+        address[] memory grcTokens = new address[](1);
+        bytes32[] memory arbitraryProof = new bytes32[](1);
+        grcTokens[0] = address(usdc);
+        minerPoolAndGCA.claimRewardMultipleRootsOneBucket({
+            bucketId: 0,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: arbitraryProof,
+            index: 0,
+            user: defaultAddressInWithdraw,
+            grcTokens: grcTokens,
+            claimFromInflation: true
+        });
+    }
+
+    function test_withdrawTwiceShouldRevert() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] =
+                ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 101 * 1e15;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.warp(block.timestamp + (ONE_WEEK * 2));
+
+        vm.startPrank(defaultAddressInWithdraw);
+        uint256 glwWeightForAddress = 100;
+        uint256 grcWeightForAddress = 200;
+        // minerPoolAndGCA.claimRewardMultipleRootsOneBucket(bucketId, glwWeight, grcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
+        address[] memory grcTokens = new address[](1);
+        minerPoolAndGCA.claimRewardMultipleRootsOneBucket({
+            bucketId: bucketId,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+            index: 0,
+            user: defaultAddressInWithdraw,
+            grcTokens: grcTokens,
+            claimFromInflation: true
+        });
+
+        vm.expectRevert(IMinerPool.UserAlreadyClaimed.selector);
+        grcTokens[0] = address(usdc);
+        minerPoolAndGCA.claimRewardMultipleRootsOneBucket({
+            bucketId: 0,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+            index: 0,
+            user: defaultAddressInWithdraw,
+            grcTokens: grcTokens,
+            claimFromInflation: true
+        });
         vm.stopPrank();
     }
 
     //------------------------ HELPERS -----------------------------
     function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
         address[] memory addresses = new address[](numAddresses);
-        for (uint256 i = 0; i < numAddresses; i++) {
+        for (uint256 i = 0; i < numAddresses; ++i) {
             addresses[i] = address(uint160(addressOffset + i));
         }
         return addresses;
     }
 
     function _containsElement(address[] memory arr, address element) private pure returns (bool) {
-        for (uint256 i; i < arr.length; i++) {
+        for (uint256 i; i < arr.length; ++i) {
             if (arr[i] == element) {
                 return true;
             }

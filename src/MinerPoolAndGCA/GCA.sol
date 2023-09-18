@@ -590,8 +590,6 @@ contract GCA is IGCA {
     }
 
     function isBucketFinalized(uint256 bucketId) public view returns (bool) {
-        Bucket storage bucket = _buckets[bucketId];
-
         uint256 packedData;
         assembly {
             mstore(0x0, bucketId)

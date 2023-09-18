@@ -20,8 +20,7 @@ test.ffi :; forge test --ffi
 # --- [ Specific Tests ] -----------------------------------------------------------------------------------
 test.minerpool.math :; forge test --match-path test/temp/MinerDistributionMath.t.sol -vvv --ffi
 test.earlyLiquidity :; forge test --match-contract EarlyLiquidityTest -vvv && npx hardhat test
-
-
+test.minerPoolAndGCA :; forge test --match-contract MinerPoolAndGCATest --ffi -vv
 
 # --- [ Gas Snapshot] -----------------------------------------------------------------------------------
 gas.snapshot :; forge snapshot --gas-report --ffi 
