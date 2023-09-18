@@ -20,6 +20,12 @@ import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.so
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 
+/*
+TODO: 
+1. Add tests for also claiming GRC tokens
+2. Add tests for claiming multiple GRC tokens.
+3. Add test for claiming glw and grc at same time
+*/
 struct ClaimLeaf {
     address payoutWallet;
     uint256 glwWeight;
