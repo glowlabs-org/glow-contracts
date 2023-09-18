@@ -9,7 +9,15 @@ contract EarlyLiquidityMockMinerPool is MinerPoolAndGCA {
     mapping(address => uint256) public grcDepositFromEarlyLiquidity;
 
     constructor(address _earlyLiquidity, address _glowAddress, address _grcToken)
-        MinerPoolAndGCA(_startingGCAs, _glowAddress, address(0), bytes32(0x0), _earlyLiquidity, _grcToken)
+        MinerPoolAndGCA(
+            _startingGCAs,
+            _glowAddress,
+            address(0),
+            bytes32(0x0),
+            _earlyLiquidity,
+            _grcToken,
+            address(0x44444444444)
+        )
     {}
     /**
      * @inheritdoc MinerPoolAndGCA

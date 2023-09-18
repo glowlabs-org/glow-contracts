@@ -39,6 +39,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     address private immutable _EARLY_LIQUIDITY;
 
+    address private immutable _CARBON_CREDIT_AUCTION;
+
     /**
      * @notice the total amount of glow rewards available for farms per bucket
      */
@@ -120,9 +122,11 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         address _governance,
         bytes32 _requirementsHash,
         address _earlyLiquidity,
-        address _grcToken
+        address _grcToken,
+        address _carbonCreditAuction
     ) GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
+        _CARBON_CREDIT_AUCTION = _carbonCreditAuction;
         _setGRCToken(_grcToken, true, 0);
     }
 
@@ -191,7 +195,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint256 glwWeight,
         uint256 grcWeight,
         bytes32[] calldata proof,
-        uint256 packedIndex,
+        uint256 index,
         address user,
         address[] memory grcTokens,
         bool claimFromInflation
@@ -204,7 +208,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
         //Call from GCA.sol
         {
-            bytes32 root = getBucketRootAtIndexEfficient(bucketId, packedIndex);
+            bytes32 root = getBucketRootAtIndexEfficient(bucketId, index);
             checkProof(user, glwWeight, grcWeight, proof, root);
         }
         {
@@ -222,7 +226,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             for (uint256 i; i < grcTokens.length;) {
                 uint256 amountInBucket = getAmountForTokenAndInitIfNot(grcTokens[i], bucketId);
                 amountInBucket = amountInBucket * grcWeight / totalGRCWeight;
+                if(amountInBucket > 0) {
+
                 SafeERC20.safeTransfer(IERC20(grcTokens[i]), msg.sender, amountInBucket);
+                }
                 //TODO: Check Overflow on following ops.
                 unchecked {
                     ++i;
@@ -232,7 +239,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         {
             uint256 totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
             uint256 amountGlowToSend = GLOW_REWARDS_PER_BUCKET * glwWeight / totalGlwWeight;
+            if(amountGlowToSend > 0) {
+
             SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), msg.sender, amountGlowToSend);
+            }
         }
     }
 

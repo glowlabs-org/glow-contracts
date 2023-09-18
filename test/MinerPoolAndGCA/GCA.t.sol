@@ -14,11 +14,13 @@ import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
 import {Handler} from "./Handlers/Handler.GCA.sol";
-
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 //TODO: add invariant for total inside global state and the sum of reports
 //TODO: add max length to set GCA contract?
 //TODO: add tests for withdrawing
-contract GCA_TEST is Test {
+
+contract GCATest is Test {
     //--------  CONTRACTS ---------//
     MockGCA gca;
     TestGLOW glow;
