@@ -50,6 +50,7 @@ contract GCA is IGCA {
     uint256 internal constant _UINT64_MASK = (1 << 64) - 1;
     uint256 private constant _BOOL_MASK = (1 << 8) - 1;
     uint256 private constant _UINT184_MASK = (1 << 184) - 1;
+    // uint256 private constant _BOOL_MASK = (1<<8) - 1;
 
     // 1 week
     uint256 private constant BUCKET_LENGTH = 7 * uint256(1 days);
@@ -183,6 +184,9 @@ contract GCA is IGCA {
                     //We only reinstante if the bucketNonce is not the same as the slashNonce
                     // and the bucket has not been reinstated
                     // and the bucket has already been initialized
+                    //TODO: and if the timestamp is not > than the finalizationTimestamp?
+                    // - because we can't reinstate the bucket if the finalizationTimestamp has already passed.
+                    // or can we?
                     bool reinstatingTx = (bucketNonce != _slashNonce) && !reinstated && alreadyInitialized;
 
                     /**
@@ -196,6 +200,8 @@ contract GCA is IGCA {
                         reinstated = true;
                         // //Finalizes one week after submission period ends
                         // alreadyInitialized = true;
+                        //TODO: this should be the WCEIL of the slashNonceToSlashTimestamp ?
+                        //TODO: or should i
                         bucket.finalizationTimestamp = uint184(_WCEIL(bucketNonce) + BUCKET_LENGTH);
                         //conditionally delete all reports in storage
                         if (len > 0) {
@@ -599,12 +605,14 @@ contract GCA is IGCA {
             packedData := sload(slot)
         }
         uint256 nonce = packedData & _UINT64_MASK;
+        //First bit.
+        bool reinstated = (packedData >> 64) & 0x1 == 0x1;
         //first 64 bits are nonce, next 8 bits  are reinstated, next 184 bits are finalizationTimestamp
         //no need to us to use a mask since finalizationTimestamp takes up the last 184 bits
         uint256 finalizationTimestamp = packedData >> 72;
 
         uint256 _slashNonce = slashNonce;
-        return _isBucketFinalized(nonce, finalizationTimestamp, _slashNonce);
+        return _isBucketFinalized(nonce, finalizationTimestamp, _slashNonce, reinstated);
     }
 
     //************************************************************* */
@@ -681,23 +689,38 @@ contract GCA is IGCA {
      * @param bucketNonce the slash nonce of the bucket
      * @param bucketFinalizationTimestamp the finalization timestamp of the bucket
      * @return true if the bucket is finalized, false otherwise
+     TODO: Revisit this and implement logic from Bucket.py in scratchpad.
      */
-    function _isBucketFinalized(uint256 bucketNonce, uint256 bucketFinalizationTimestamp, uint256 _slashNonce)
-        internal
-        view
-        returns (bool)
-    {
-        if (bucketNonce == _slashNonce && block.timestamp >= bucketFinalizationTimestamp) return true;
-        //TODO: there's prbably an easier way than the method below.
-        //We could probably do if (bucketNonce < slashNonce && reinitilized &&
-        //if(bucketFinalizationTimestamp == 0) return false
-        //if(block.timestamp < bucketFinalizationTimestamp) return false
-        // if(slashNonce != bucketNonce) { if(!reinitilized) return false }
-        //return true;
-        if (
-            bucketNonce < _slashNonce && bucketFinalizationTimestamp < slashNonceToSlashTimestamp[bucketNonce]
-                && block.timestamp >= bucketFinalizationTimestamp
-        ) return true;
+    function _isBucketFinalized(
+        uint256 bucketNonce,
+        uint256 bucketFinalizationTimestamp,
+        uint256 _slashNonce,
+        bool reinstated
+    ) internal view returns (bool) {
+        //If the bft(bucket finalization timestamp) = 0,
+        // that means that bucket hasn't been initialized yet
+        // so that also means it's not finalized.
+        // this also means that we return false if
+        // the bucket was indeed finalized. but it was never pushed to
+        // in that case, we return a false negative,
+        // but it has no side effects since the bucket is empty
+        // and no one can claim rewards from it.
+        if (bucketFinalizationTimestamp == 0) return false;
+
+        //This checks if the bucket has finalized in regards to the timestamp stored
+        bool finalized = block.timestamp >= bucketFinalizationTimestamp;
+        //If there hasn't been a slash event and the bucket is finalized
+        // then we return true;
+        if (bucketNonce == _slashNonce && finalized) return true;
+
+        //If there has been a slash event
+        if (bucketNonce != slashNonce) {
+            //If the slash event happened after the bucket's finalization timestamp
+            //That means the bucket had already been finalized and we can return true;
+            if (slashNonceToSlashTimestamp[bucketNonce] > bucketFinalizationTimestamp && finalized) {
+                return true;
+            }
+        }
         return false;
     }
 

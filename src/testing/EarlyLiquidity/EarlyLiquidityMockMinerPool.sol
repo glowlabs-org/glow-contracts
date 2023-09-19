@@ -16,7 +16,10 @@ contract EarlyLiquidityMockMinerPool is MinerPoolAndGCA {
             bytes32(0x0),
             _earlyLiquidity,
             _grcToken,
-            address(0x44444444444)
+            //Carbon Credit Auction
+            address(0x44444444444),
+            //Veto Council Contract
+            address(0x4444)
         )
     {}
     /**

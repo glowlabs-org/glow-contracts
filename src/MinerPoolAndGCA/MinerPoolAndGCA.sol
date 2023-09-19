@@ -4,6 +4,7 @@ pragma solidity 0.8.21;
 import {GCA} from "./GCA.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
+import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
@@ -43,6 +44,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     address private immutable _EARLY_LIQUIDITY;
 
     address private immutable _CARBON_CREDIT_AUCTION;
+
+    address private immutable _VETO_COUNCIL;
 
     /**
      * @notice the total amount of glow rewards available for farms per bucket
@@ -118,6 +121,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param _governance the address of the governance contract
      * @param _requirementsHash the requirements hash of GCA Agents
      * @param _grcToken - the first grc token (USDC)
+     * @param _vetoCouncil - the address of the veto council contract.
      */
     constructor(
         address[] memory _gcaAgents,
@@ -126,10 +130,12 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         bytes32 _requirementsHash,
         address _earlyLiquidity,
         address _grcToken,
-        address _carbonCreditAuction
+        address _carbonCreditAuction,
+        address _vetoCouncil
     ) GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _CARBON_CREDIT_AUCTION = _carbonCreditAuction;
+        _VETO_COUNCIL = _vetoCouncil;
         _setGRCToken(_grcToken, true, 0);
     }
 
@@ -215,7 +221,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             checkProof(user, glwWeight, grcWeight, proof, root);
         }
         {
-            uint256 userBitmap = getUserBitmapForBucket(bucketId, user);
+            uint256 userBitmap = _getUserBitmapForBucket(bucketId, user);
             userBitmap = checkClaimAvailableAndReturnNewBitmap(bucketId, userBitmap);
             setUserBitmapForBucket(bucketId, user, userBitmap);
         }
@@ -247,7 +253,19 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
     }
 
-    function getUserBitmapForBucket(uint256 bucketId, address user) internal view returns (uint256) {
+    function delayBucketFinalization(uint256 bucketId) external {
+        if (isBucketFinalized(bucketId)) {
+            _revert(IGCA.BucketAlreadyFinalized.selector);
+        }
+        uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
+        if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
+
+        if (!IVetoCouncil(_VETO_COUNCIL).isCouncilMember(msg.sender)) {
+            _revert(IMinerPool.CallerNotVetoCouncilMember.selector);
+        }
+    }
+
+    function _getUserBitmapForBucket(uint256 bucketId, address user) internal view returns (uint256) {
         return _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user];
     }
 

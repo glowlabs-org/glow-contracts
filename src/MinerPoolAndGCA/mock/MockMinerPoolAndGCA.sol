@@ -11,7 +11,8 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         bytes32 _requirementsHash,
         address _earlyLiquidity,
         address _grcToken,
-        address _carbonCreditAuction
+        address _carbonCreditAuction,
+        address _vetoCouncil
     )
         MinerPoolAndGCA(
             _gcaAgents,
@@ -20,7 +21,8 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
             _requirementsHash,
             _earlyLiquidity,
             _grcToken,
-            _carbonCreditAuction
+            _carbonCreditAuction,
+            _vetoCouncil
         )
     {}
 
@@ -44,5 +46,9 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
 
     function pushRequirementsHashMock(bytes32 hash) external {
         proposalHashes.push(hash);
+    }
+
+    function getUserBitmapForBucket(uint256 bucketId, address user) public view returns (uint256) {
+        return _getUserBitmapForBucket(bucketId, user);
     }
 }

@@ -62,7 +62,7 @@ contract MinerPoolAndGCATest is Test {
         glow = new TestGLOW(earlyLiquidity,vestingContract);
         address[] memory temp = new address[](0);
         minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction);
+        new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress);
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         // handler = new Handler(address(gca));
         // addGCA(address(handler));
@@ -370,7 +370,125 @@ contract MinerPoolAndGCATest is Test {
         });
     }
 
-    function test_withdrawTwiceShouldRevert() public {
+    function test_withdrawFromBucket_badProof_shouldRevert() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] =
+                ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 101 * 1e15;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.warp(block.timestamp + (ONE_WEEK * 2));
+
+        vm.startPrank(defaultAddressInWithdraw);
+        uint256 glwWeightForAddress = 100;
+        uint256 grcWeightForAddress = 200;
+        // minerPoolAndGCA.claimRewardMultipleRootsOneBucket(bucketId, glwWeight, grcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
+        address[] memory grcTokens = new address[](1);
+        //Create the bad proof array
+        bytes32[] memory badProof = new bytes32[](3);
+        //put a random value
+        badProof[0] = bytes32(uint256(10));
+        vm.expectRevert(IMinerPool.InvalidProof.selector);
+        minerPoolAndGCA.claimRewardMultipleRootsOneBucket({
+            bucketId: bucketId,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: badProof,
+            index: 0,
+            user: defaultAddressInWithdraw,
+            grcTokens: grcTokens,
+            claimFromInflation: true
+        });
+    }
+
+    function test_ClaimingShouldSetBitmap() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] =
+                ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 totalNewGCC = 101 * 1e15;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.warp(block.timestamp + ONE_WEEK);
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 1,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.warp(block.timestamp + ONE_WEEK);
+
+        vm.startPrank(defaultAddressInWithdraw);
+        uint256 glwWeightForAddress = 100;
+        uint256 grcWeightForAddress = 200;
+        // minerPoolAndGCA.claimRewardMultipleRootsOneBucket(bucketId, glwWeight, grcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
+        address[] memory grcTokens = new address[](1);
+        grcTokens[0] = address(usdc);
+
+        minerPoolAndGCA.claimRewardMultipleRootsOneBucket({
+            bucketId: 0,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+            index: 0,
+            user: defaultAddressInWithdraw,
+            grcTokens: grcTokens,
+            claimFromInflation: true
+        });
+
+        uint256 bitmap = minerPoolAndGCA.getUserBitmapForBucket(0, defaultAddressInWithdraw);
+        assertTrue(bitmap == 1);
+
+        vm.warp(block.timestamp + ONE_WEEK);
+        // vm.expectRevert(IMinerPool.UserAlreadyClaimed.selector);
+        minerPoolAndGCA.claimRewardMultipleRootsOneBucket({
+            bucketId: 1,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+            index: 0,
+            user: defaultAddressInWithdraw,
+            grcTokens: grcTokens,
+            claimFromInflation: true
+        });
+
+        bitmap = minerPoolAndGCA.getUserBitmapForBucket(1, defaultAddressInWithdraw);
+        assertTrue(bitmap == 0x3);
+        vm.stopPrank();
+    }
+
+    function test_withdrawTwice_ShouldRevert() public {
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
         uint256 totalGlwWeight;
         uint256 totalGrcWeight;

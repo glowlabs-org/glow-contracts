@@ -22,7 +22,7 @@ contract MD2Test is Test {
     //------------- SETUP -------------
     /**
      * @dev we create all the contracts
-     *         -   and assign fuzzing and invariant targets
+     *         -   and assign fuzzing andinvariant_bucketMath_shouldMatchManualArray_badInvariant invariant targets
      *         -   we only test the addRewardsToBucket function inside the handler
      */
     function setUp() public {
@@ -99,6 +99,7 @@ contract MD2Test is Test {
     /**
      * @dev we test that all ghost buckets match the manual array
      * forge-config: default.invariant.runs = 2
+     * forge-config: default.invariant.depth = 30
      */
     function invariant_bucketMath_shouldMatchManualArray_badInvariant() public {
         for (uint256 i; i < grcTokens.length; ++i) {
