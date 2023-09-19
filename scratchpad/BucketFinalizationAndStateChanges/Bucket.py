@@ -91,6 +91,7 @@ def test_bucketMultipleSlashes():
     bucket.warpForward(week_in_seconds * 2 - 10)
     bucket.executeSlashEvent()
     latestSubmissionTimestampAfterSlash = bucket.calculateBucketSubmissionStartTimestamp()
+    bucket.print()
     assert(latestSubmissionTimestampAfterSlash == week_in_seconds * 3)
     assert(bucket.isFinalized() == False)
 
