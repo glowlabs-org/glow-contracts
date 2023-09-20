@@ -125,7 +125,7 @@ contract MinerPoolAndGCATest is Test {
         uint256 reportIndex,
         uint256 expectedNonce,
         uint256 expectedReportsLength,
-        bool expectedReinstated,
+        uint256 expectedLastUpdatedNonce,
         uint256 expectedReportTotalNewGCC,
         uint256 expectedReportTotalGLWRewardsWeight,
         uint256 expectedReportTotalGRCRewardsWeight,
@@ -134,8 +134,8 @@ contract MinerPoolAndGCATest is Test {
     ) internal {
         IGCA.Bucket memory bucket = minerPoolAndGCA.bucket(bucketId);
         assertEq(bucket.reports.length, expectedReportsLength);
-        assertEq(bucket.nonce, expectedNonce);
-        assertEq(bucket.reinstated, expectedReinstated);
+        assertEq(bucket.originalNonce, expectedNonce);
+        assertEq(bucket.lastUpdatedNonce, expectedLastUpdatedNonce);
         //TODO: Add a check for the bucket finalization timestamp to make sure it's correct.
         assertTrue(bucket.finalizationTimestamp > 0);
         IGCA.Report memory report = bucket.reports[reportIndex];

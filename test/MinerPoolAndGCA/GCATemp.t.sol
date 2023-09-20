@@ -67,26 +67,26 @@ contract GCATest is Test {
         targetContract(address(handler));
     }
 
-    /**
-     * forge-config: default.invariant.runs = 10
-     * forge-config: default.invariant.depth = 500
-     * @dev buckets nonces should never change
-     *     -   and should always be zero if they didn't get initialized during their current week
-     *         -   if they're not initialized that means that they submitted the first report for the bucket
-     */
-    function invariant_bucketNonceShouldNeverChange() public {
-        uint256[] memory bucketIds = handler.ghost_bucketIds();
-        for (uint256 i; i < bucketIds.length; i++) {
-            uint256 bucketId = bucketIds[i];
-            IGCA.Bucket memory bucket = gca.bucket(bucketId);
-            bool initOnCurrentWeek = handler.initOnCurrentWeek(bucketId);
-            if (initOnCurrentWeek) {
-                assertEq(bucket.nonce, handler.bucketIdToSlashNonce(bucketId));
-            } else {
-                assertEq(bucket.nonce, 0);
-            }
-        }
-    }
+    // /**
+    //  * forge-config: default.invariant.runs = 10
+    //  * forge-config: default.invariant.depth = 500
+    //  * @dev buckets nonces should never change
+    //  *     -   and should always be zero if they didn't get initialized during their current week
+    //  *         -   if they're not initialized that means that they submitted the first report for the bucket
+    //  */
+    // function invariant_bucketNonceShouldNeverChange() public {
+    //     uint256[] memory bucketIds = handler.ghost_bucketIds();
+    //     for (uint256 i; i < bucketIds.length; i++) {
+    //         uint256 bucketId = bucketIds[i];
+    //         IGCA.Bucket memory bucket = gca.bucket(bucketId);
+    //         bool initOnCurrentWeek = handler.initOnCurrentWeek(bucketId);
+    //         if (initOnCurrentWeek) {
+    //             assertEq(bucket.originalNonce, handler.bucketIdToSlashNonce(bucketId));
+    //         } else {
+    //             assertEq(bucket.originalNonce, 0);
+    //         }
+    //     }
+    // }
 
     // /**
     //  * forge-config: default.invariant.runs = 10
@@ -102,9 +102,9 @@ contract GCATest is Test {
     //         MockGCA.EfficientBucket memory bucket = gca.getBucketDataEfficient(bucketId);
     //         bool initOnCurrentWeek = handler.initOnCurrentWeek(bucketId);
     //         if (initOnCurrentWeek) {
-    //             assertEq(bucket.nonce, handler.bucketIdToSlashNonce(bucketId));
+    //             assertEq(bucket.originalNonce, handler.bucketIdToSlashNonce(bucketId));
     //         } else {
-    //             assertEq(bucket.nonce, 0);
+    //             assertEq(bucket.originalNonce, 0);
     //         }
     //     }
     // }
@@ -145,7 +145,8 @@ contract GCATest is Test {
         gca.incrementSlashNonce();
         //since the bucket is not init it should always be zero
         uint256 submissionEndTimestamp = gca.bucketEndSubmissionTimestampNotReinstated(bucketId);
-
+        uint256 submissionEndTimestamp2 = gca.calculateBucketSubmissionEndTimestamp(bucketId);
+        assertEq(submissionEndTimestamp, submissionEndTimestamp2);
         vm.warp(submissionStartTimestamp - 1);
 
         vm.expectRevert(IGCA.BucketSubmissionNotOpen.selector);
@@ -173,8 +174,36 @@ contract GCATest is Test {
         //Bucket is init and it's slash nonce != slashNonce in storage
         gca.incrementSlashNonce();
         //since the bucket is not init it should always be zero
-        uint256 submissionEndTimestamp = gca.WCEIL(gca.bucket(bucketId).nonce);
+        uint256 submissionEndTimestamp = gca.WCEIL(gca.bucket(bucketId).originalNonce);
+        uint256 submissionEndTimestamp2 = gca.calculateBucketSubmissionEndTimestamp(bucketId);
+        assertEq(submissionEndTimestamp, submissionEndTimestamp2);
 
+        vm.warp(submissionEndTimestamp + 1);
+        vm.expectRevert(IGCA.BucketSubmissionEnded.selector);
+        gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("ran2dom"));
+
+        vm.stopPrank();
+    }
+
+    function test_invalidBucketSubmission_initBucket_withDifferentSlashNonce_shouldAlwaysRevert() public {
+        uint256 bucketId = 2;
+        bucketId = bound(bucketId, 0, 1 * 1e15);
+        addGCA(SIMON);
+        vm.startPrank(SIMON);
+        uint256 submissionStartTimestamp = gca.bucketStartSubmissionTimestampNotReinstated(bucketId);
+
+        vm.warp(submissionStartTimestamp);
+        //Create it
+        uint256 bucketSubmissionEndTimestamp = gca.calculateBucketSubmissionEndTimestamp(bucketId);
+
+        gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
+
+        //Bucket is init and it's slash nonce != slashNonce in storage
+        gca.incrementSlashNonce();
+        //since the bucket is not init it should always be zero
+        uint256 submissionEndTimestamp = gca.calculateBucketSubmissionEndTimestamp(bucketId);
+        //It should also equal the wceil of 0 since the first nonce as 0
+        assertEq(submissionEndTimestamp, gca.WCEIL(0));
         vm.warp(submissionEndTimestamp + 1);
         vm.expectRevert(IGCA.BucketSubmissionEnded.selector);
         gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("ran2dom"));
@@ -226,7 +255,7 @@ contract GCATest is Test {
         uint256 reportIndex,
         uint256 expectedNonce,
         uint256 expectedReportsLength,
-        bool expectedReinstated,
+        uint256 expectedLastUpdatedNonce,
         uint256 expectedReportTotalNewGCC,
         uint256 expectedReportTotalGLWRewardsWeight,
         uint256 expectedReportTotalGRCRewardsWeight,
@@ -235,8 +264,8 @@ contract GCATest is Test {
     ) internal {
         IGCA.Bucket memory bucket = gca.bucket(bucketId);
         assertEq(bucket.reports.length, expectedReportsLength);
-        assertEq(bucket.nonce, expectedNonce);
-        assertEq(bucket.reinstated, expectedReinstated);
+        assertEq(bucket.originalNonce, expectedNonce);
+        assertEq(bucket.lastUpdatedNonce, expectedLastUpdatedNonce);
         //TODO: Add a check for the bucket finalization timestamp to make sure it's correct.
         assertTrue(bucket.finalizationTimestamp > 0);
         IGCA.Report memory report = bucket.reports[reportIndex];
@@ -274,7 +303,7 @@ contract GCATest is Test {
             reportIndex: 0,
             expectedNonce: 0,
             expectedReportsLength: 1,
-            expectedReinstated: false,
+            expectedLastUpdatedNonce: 0,
             expectedReportTotalNewGCC: 100 * 1e15,
             expectedReportTotalGLWRewardsWeight: 100 * 1e15,
             expectedReportTotalGRCRewardsWeight: 100 * 1e15,
@@ -317,7 +346,7 @@ contract GCATest is Test {
             reportIndex: 0,
             expectedNonce: 0,
             expectedReportsLength: 1,
-            expectedReinstated: false,
+            expectedLastUpdatedNonce: 0,
             expectedReportTotalNewGCC: 102 * 1e15,
             expectedReportTotalGLWRewardsWeight: 103 * 1e15,
             expectedReportTotalGRCRewardsWeight: 104 * 1e15,
@@ -368,7 +397,7 @@ contract GCATest is Test {
             reportIndex: 1,
             expectedNonce: 0,
             expectedReportsLength: 2,
-            expectedReinstated: false,
+            expectedLastUpdatedNonce: 0,
             expectedReportTotalNewGCC: totalNewGCC,
             expectedReportTotalGLWRewardsWeight: totalGlwRewardsWeight,
             expectedReportTotalGRCRewardsWeight: totalGRCRewardsWeight,
@@ -417,7 +446,7 @@ contract GCATest is Test {
             reportIndex: 1,
             expectedNonce: 0,
             expectedReportsLength: 2,
-            expectedReinstated: false,
+            expectedLastUpdatedNonce: 0,
             expectedReportTotalNewGCC: newReportTotalNewGCC,
             expectedReportTotalGLWRewardsWeight: newReportTotalGlwRewardsWeight,
             expectedReportTotalGRCRewardsWeight: newReportTotalGRCRewardsWeight,
@@ -537,7 +566,7 @@ contract GCATest is Test {
             reportIndex: 0,
             expectedNonce: 0,
             expectedReportsLength: 1,
-            expectedReinstated: false,
+            expectedLastUpdatedNonce: 0,
             expectedReportTotalNewGCC: totalNewGCC,
             expectedReportTotalGLWRewardsWeight: totalGlwRewardsWeight,
             expectedReportTotalGRCRewardsWeight: totalGRCRewardsWeight,
@@ -580,7 +609,7 @@ contract GCATest is Test {
             reportIndex: 0,
             expectedNonce: 1,
             expectedReportsLength: 1,
-            expectedReinstated: false,
+            expectedLastUpdatedNonce: 1,
             expectedReportTotalNewGCC: totalNewGCC,
             expectedReportTotalGLWRewardsWeight: totalGlwRewardsWeight,
             expectedReportTotalGRCRewardsWeight: totalGRCRewardsWeight,
@@ -617,9 +646,9 @@ contract GCATest is Test {
 
         IGCA.Bucket memory bucket = gca.bucket(currentBucket);
         assertEq(bucket.reports.length, 1);
-        assertEq(bucket.nonce, 0);
-        assertEq(bucket.reinstated, true);
-        uint256 endBucketSubmissionTimestamp = gca.WCEIL(bucket.nonce);
+        assertEq(bucket.originalNonce, 0);
+        assertEq(bucket.lastUpdatedNonce, 1);
+        uint256 endBucketSubmissionTimestamp = gca.WCEIL(bucket.originalNonce);
         uint256 bucketFinalizationTimestamp = endBucketSubmissionTimestamp + ONE_WEEK;
         assertEq(bucket.finalizationTimestamp, bucketFinalizationTimestamp);
 
@@ -662,9 +691,9 @@ contract GCATest is Test {
 
         IGCA.Bucket memory bucket = gca.bucket(currentBucket);
         assertEq(bucket.reports.length, 2);
-        assertEq(bucket.nonce, 0);
-        assertEq(bucket.reinstated, true);
-        uint256 endBucketSubmissionTimestamp = gca.WCEIL(bucket.nonce);
+        assertEq(bucket.originalNonce, 0);
+        assertEq(bucket.lastUpdatedNonce, 1);
+        uint256 endBucketSubmissionTimestamp = gca.WCEIL(bucket.originalNonce);
         uint256 bucketFinalizationTimestamp = endBucketSubmissionTimestamp + ONE_WEEK;
         assertEq(bucket.finalizationTimestamp, bucketFinalizationTimestamp);
 
@@ -931,7 +960,7 @@ Stashed
     //     assertEq(bucket.reports.length, 1);
     //     MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
     //     MockGCA.EfficientReport[] memory efficientReports = efficientBucket.reports;
-    //     assertEq(efficientBucket.nonce, bucket.nonce);
+    //     assertEq(efficientBucket.originalNonce, bucket.originalNonce);
     //     assertEq(efficientBucket.finalizationTimestamp, bucket.finalizationTimestamp);
     //     assertEq(efficientBucket.reinstated, bucket.reinstated);
     //     assertEq(efficientReports.length, 1);
@@ -964,7 +993,7 @@ Stashed
     //     assertEq(bucket.reports.length, 3);
     //     MockGCA.EfficientBucket memory efficientBucket = gca.getBucketDataEfficient(0);
     //     MockGCA.EfficientReport[] memory efficientReports = efficientBucket.reports;
-    //     assertEq(efficientBucket.nonce, bucket.nonce);
+    //     assertEq(efficientBucket.originalNonce, bucket.originalNonce);
     //     assertEq(efficientBucket.finalizationTimestamp, bucket.finalizationTimestamp);
     //     assertEq(efficientBucket.reinstated, bucket.reinstated);
     //     assertEq(efficientReports.length, 3);

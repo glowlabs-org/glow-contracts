@@ -93,14 +93,15 @@ interface IGCA {
     //3 slots
 
     /**
-     * @param nonce - the slash nonce in storage at the time of report submission
+     * @param originalNonce - the slash nonce in storage at the time of report submission
+     * @param lastUpdatedNonce - the slash nonce in storage at the time of the last report submission
      * @param finalizationTimestamp - the finalization timestamp for the bucket according to the weekly bucket schedule
      * @param reports - the reports for the bucket
      */
     struct Bucket {
-        uint64 nonce;
-        bool reinstated;
-        uint184 finalizationTimestamp;
+        uint64 originalNonce;
+        uint64 lastUpdatedNonce;
+        uint128 finalizationTimestamp;
         Report[] reports;
     }
 

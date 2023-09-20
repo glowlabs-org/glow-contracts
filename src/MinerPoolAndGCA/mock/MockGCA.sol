@@ -35,4 +35,14 @@ contract MockGCA is GCA {
     function pushRequirementsHashMock(bytes32 hash) external {
         proposalHashes.push(hash);
     }
+
+    function calculateBucketSubmissionEndTimestamp(uint256 id) public view returns (uint256) {
+        return _calculateBucketSubmissionEndTimestamp(
+            id,
+            _buckets[id].originalNonce,
+            _buckets[id].lastUpdatedNonce,
+            slashNonce,
+            _buckets[id].finalizationTimestamp
+        );
+    }
 }

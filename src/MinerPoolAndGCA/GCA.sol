@@ -78,7 +78,7 @@ contract GCA is IGCA {
     /// @notice the gca payouts
     mapping(address => IGCA.GCAPayout) private _gcaPayouts;
 
-    mapping(uint256 => IGCA.Bucket) private _buckets;
+    mapping(uint256 => IGCA.Bucket) internal _buckets;
 
     mapping(uint256 => IGCA.BucketGlobalState) private _bucketGlobalState;
 
@@ -102,6 +102,7 @@ contract GCA is IGCA {
 
     /// @inheritdoc IGCA
     function isGCA(address account) public view returns (bool) {
+        if (_isFrozen()) return false;
         return _compensationPlans[account] > 0;
     }
 
@@ -155,16 +156,16 @@ contract GCA is IGCA {
     ) external {
         //GCAs can't submit if the contract is frozen (pending a proposal hash update)
         _revertIfFrozen();
-        checkBucketSubmissionArithmeticInputs(totalGlwRewardsWeight, totalGRCRewardsWeight, totalNewGCC);
         if (!isGCA(msg.sender)) _revert(NotGCA.selector);
+        checkBucketSubmissionArithmeticInputs(totalGlwRewardsWeight, totalGRCRewardsWeight, totalNewGCC);
         //Need to check if bucket is slashed
         Bucket storage bucket = _buckets[bucketId];
         //Cache values
         uint256 len = bucket.reports.length;
         {
-            bool reinstated = bucket.reinstated;
-            bool alreadyInitialized = bucket.finalizationTimestamp != 0;
-            uint256 bucketNonce = bucket.nonce;
+            uint256 bucketFinalizationTimestamp = bucket.finalizationTimestamp;
+
+            uint256 lastUpdatedNonce = bucket.lastUpdatedNonce;
             //The submission start timestamp always remains the same
             uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
             if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
@@ -173,36 +174,33 @@ contract GCA is IGCA {
             //So on the first init, we need to set the bucketNonce to the slashNonce in storage
             {
                 uint256 _slashNonce = slashNonce;
-                if (!alreadyInitialized) {
-                    bucket.nonce = uint64(_slashNonce);
-                    bucketNonce = _slashNonce;
-                    alreadyInitialized = true;
-                    bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
+                //If not init
+                if (bucketFinalizationTimestamp == 0) {
+                    bucket.originalNonce = uint64(_slashNonce);
+                    bucket.lastUpdatedNonce = uint64(_slashNonce);
+                    bucket.finalizationTimestamp = uint128(bucketFinalizationTimestampNotReinstated(bucketId));
+                    lastUpdatedNonce = _slashNonce;
                 }
 
                 {
-                    //We only reinstante if the bucketNonce is not the same as the slashNonce
-                    // and the bucket has not been reinstated
-                    // and the bucket has already been initialized
-                    //TODO: and if the timestamp is not > than the finalizationTimestamp?
-                    // - because we can't reinstate the bucket if the finalizationTimestamp has already passed.
-                    // or can we?
-                    bool reinstatingTx = (bucketNonce != _slashNonce) && !reinstated && alreadyInitialized;
-
                     /**
                      * If it is a reinstating tx,
                      *             we need to set reinstated to true
                      *             and we need to change the finalization timestamp
                      *             lastly, we need to delete all reports in storage if there are any
                      */
-                    if (reinstatingTx) {
-                        bucket.reinstated = true;
-                        reinstated = true;
-                        // //Finalizes one week after submission period ends
-                        // alreadyInitialized = true;
-                        //TODO: this should be the WCEIL of the slashNonceToSlashTimestamp ?
-                        //TODO: or should i
-                        bucket.finalizationTimestamp = uint184(_WCEIL(bucketNonce) + BUCKET_LENGTH);
+                    uint256 bucketSubmissionEndTimestamp = _calculateBucketSubmissionEndTimestamp(
+                        bucketId, bucket.originalNonce, lastUpdatedNonce, _slashNonce, bucketFinalizationTimestamp
+                    );
+                    if (block.timestamp >= bucketSubmissionEndTimestamp) _revert(IGCA.BucketSubmissionEnded.selector);
+
+                    if (lastUpdatedNonce != _slashNonce) {
+                        bucket.lastUpdatedNonce = uint64(_slashNonce);
+                        //Need to check before storing the finalization timestamp in case
+                        //the bucket was delayed.
+                        if (bucketSubmissionEndTimestamp + BUCKET_LENGTH > bucketFinalizationTimestamp) {
+                            bucket.finalizationTimestamp = uint128(bucketSubmissionEndTimestamp + BUCKET_LENGTH);
+                        }
                         //conditionally delete all reports in storage
                         if (len > 0) {
                             len = 0;
@@ -217,7 +215,6 @@ contract GCA is IGCA {
                     }
                 }
             }
-            checkBucketSubmissionEnd(reinstated, bucketSubmissionStartTimestamp, bucketNonce);
         }
         uint256 reportArrayStartSlot;
         assembly {
@@ -282,26 +279,6 @@ contract GCA is IGCA {
             | (grcWeightInBucketPlusGcaGrcWeight << 192);
         assembly {
             sstore(slot, packedGlobalState)
-        }
-    }
-
-    function checkBucketSubmissionEnd(bool reinstated, uint256 bucketSubmissionStartTimestamp, uint256 bucketNonce)
-        internal
-    {
-        //If we have reinstated, we need to check if the bucket is still taking submissions
-        //if it's not reinstated, the end submission time is the same as the {bucketSubmissionStartTimestamp} + 1 week
-        //This enforces that GCA's can only submit for one week
-        if (!reinstated) {
-            //Submissions are only open for one week
-            if (block.timestamp >= bucketSubmissionStartTimestamp + BUCKET_LENGTH) {
-                _revert(IGCA.BucketSubmissionEnded.selector);
-            }
-            //If the bucket has been reinstated, we need to check if the bucket is still taking submissions
-            // by comparing it to the WCEIL of the bucket
-        } else {
-            if (block.timestamp > (_WCEIL(bucketNonce))) {
-                _revert(IGCA.BucketSubmissionEnded.selector);
-            }
         }
     }
 
@@ -595,6 +572,7 @@ contract GCA is IGCA {
         return _getShares(agent, gcaAgents);
     }
 
+    //TODO: Implement from Bucket.py
     function isBucketFinalized(uint256 bucketId) public view returns (bool) {
         uint256 packedData;
         assembly {
@@ -604,15 +582,15 @@ contract GCA is IGCA {
             // nonce, reinstated and finalizationTimestamp are all in the first slot
             packedData := sload(slot)
         }
-        uint256 nonce = packedData & _UINT64_MASK;
+
+        uint256 bucketLastUpdatedNonce = (packedData >> 64) & _UINT64_MASK;
         //First bit.
-        bool reinstated = (packedData >> 64) & 0x1 == 0x1;
         //first 64 bits are nonce, next 8 bits  are reinstated, next 184 bits are finalizationTimestamp
         //no need to us to use a mask since finalizationTimestamp takes up the last 184 bits
-        uint256 finalizationTimestamp = packedData >> 72;
+        uint256 finalizationTimestamp = packedData >> 128;
 
         uint256 _slashNonce = slashNonce;
-        return _isBucketFinalized(nonce, finalizationTimestamp, _slashNonce, reinstated);
+        return _isBucketFinalized(bucketLastUpdatedNonce, finalizationTimestamp, _slashNonce);
     }
 
     //************************************************************* */
@@ -676,26 +654,30 @@ contract GCA is IGCA {
     }
 
     function _revertIfFrozen() internal view {
+        if (_isFrozen()) _revert(IGCA.ProposalHashesNotUpdated.selector);
+    }
+
+    function _isFrozen() internal view returns (bool) {
         uint256 len = proposalHashes.length;
         //If no proposals have been submitted, we don't need to check
-        if (len == 0) return;
+        if (len == 0) return false;
         if (len != nextProposalIndexToUpdate) {
-            _revert(IGCA.ProposalHashesNotUpdated.selector);
+            return true;
         }
+        return false;
     }
 
     /**
      * @dev checks if a bucket is finalized
-     * @param bucketNonce the slash nonce of the bucket
+     * @param bucketLastUpdatedNonce the last updated nonce of the bucket
      * @param bucketFinalizationTimestamp the finalization timestamp of the bucket
      * @return true if the bucket is finalized, false otherwise
      *  TODO: Revisit this and implement logic from Bucket.py in scratchpad.
      */
     function _isBucketFinalized(
-        uint256 bucketNonce,
+        uint256 bucketLastUpdatedNonce,
         uint256 bucketFinalizationTimestamp,
-        uint256 _slashNonce,
-        bool reinstated
+        uint256 _slashNonce
     ) internal view returns (bool) {
         //If the bft(bucket finalization timestamp) = 0,
         // that means that bucket hasn't been initialized yet
@@ -711,14 +693,18 @@ contract GCA is IGCA {
         bool finalized = block.timestamp >= bucketFinalizationTimestamp;
         //If there hasn't been a slash event and the bucket is finalized
         // then we return true;
-        if (bucketNonce == _slashNonce && finalized) return true;
+        if (bucketLastUpdatedNonce == _slashNonce) {
+            if (finalized) return true;
+        }
 
         //If there has been a slash event
-        if (bucketNonce != slashNonce) {
+        if (bucketLastUpdatedNonce != slashNonce) {
             //If the slash event happened after the bucket's finalization timestamp
             //That means the bucket had already been finalized and we can return true;
-            if (slashNonceToSlashTimestamp[bucketNonce] > bucketFinalizationTimestamp && finalized) {
-                return true;
+            if (slashNonceToSlashTimestamp[bucketLastUpdatedNonce] >= bucketFinalizationTimestamp) {
+                if (finalized) {
+                    return true;
+                }
             }
         }
         return false;
@@ -741,6 +727,7 @@ contract GCA is IGCA {
      * @dev returns the WCEIL for the given slash nonce.
      * @dev WCEIL is equal to the end bucket submission time for the bucket that the slash nonce was slashed in + 2 weeks
      * @dev it's two weeks instead of one to make sure there is adequate time for GCA's to submit reports
+     * @dev the finalization timestamp is the end of the submission period + 1 week
      */
     function _WCEIL(uint256 _slashNonce) internal view returns (uint256) {
         //This will underflow if slashNonceToSlashTimestamp[_slashNonce] has not yet been written to
@@ -760,5 +747,50 @@ contract GCA is IGCA {
 
     function bucketGlobalState(uint256 bucketId) external view returns (IGCA.BucketGlobalState memory) {
         return _bucketGlobalState[bucketId];
+    }
+
+    function _calculateBucketSubmissionEndTimestamp(
+        uint256 bucketId,
+        uint256 bucketOriginNonce,
+        uint256 bucketLastUpdatedNonce,
+        uint256 _slashNonce,
+        uint256 bucketFinalizationTimestamp
+    ) internal view returns (uint256) {
+        // if the bucket has never been initialized
+        if (bucketFinalizationTimestamp == 0) return bucketEndSubmissionTimestampNotReinstated(bucketId);
+        if (bucketOriginNonce == _slashNonce) return bucketEndSubmissionTimestampNotReinstated(bucketId);
+        if (bucketLastUpdatedNonce == _slashNonce) return bucketFinalizationTimestamp;
+        uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
+        //If the slash occurred between the start of the submission period and the bucket finalization timestamp
+        for (uint256 i = bucketLastUpdatedNonce; i < _slashNonce;) {
+            if (_between(slashNonceToSlashTimestamp[i], bucketSubmissionStartTimestamp, bucketFinalizationTimestamp)) {
+                bucketSubmissionStartTimestamp = _WCEIL(i);
+            } else {
+                break;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        return bucketSubmissionStartTimestamp;
+    }
+
+    /**
+     * @dev checks if `a` is between `b` and `c`
+     * @param a the number to check
+     * @param b the lower bound
+     * @param c the upper bound
+     */
+    function _between(uint256 a, uint256 b, uint256 c) internal pure returns (bool) {
+        return a >= b && a <= c;
+    }
+
+    /**
+     * @dev returns the max of two numbers
+     * @param a the first number
+     * @param b the second number
+     */
+    function _max(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a > b ? a : b;
     }
 }
