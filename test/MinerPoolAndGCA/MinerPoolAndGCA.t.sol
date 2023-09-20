@@ -874,17 +874,17 @@ contract MinerPoolAndGCATest is Test {
 
         vm.startPrank(SIMON);
         //simon is a council member in the `setUp` function
-        uint finalizationTimestampBefore = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+        uint256 finalizationTimestampBefore = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
         minerPoolAndGCA.delayBucketFinalization(0);
-        uint finalizationTimestampAfter = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+        uint256 finalizationTimestampAfter = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
 
         assertEq(finalizationTimestampBefore + (604800 * 13), finalizationTimestampAfter);
         checkBucketAndReport({
             bucketId: bucketId,
             reportIndex: 0,
             expectedNonce: 0,
-            expectedReportsLength:1,
-            expectedLastUpdatedNonce:0,
+            expectedReportsLength: 1,
+            expectedLastUpdatedNonce: 0,
             expectedReportTotalNewGCC: totalNewGCC,
             expectedReportTotalGLWRewardsWeight: totalGlwWeight,
             expectedReportTotalGRCRewardsWeight: totalGrcWeight,

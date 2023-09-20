@@ -83,6 +83,36 @@ contract EarlyLiquidityTest is Test {
     }
 
     /**
+     * @dev miner pool shouldnt be able to be set to 0 address
+     */
+    function test_setMinerPool_zeroAddress_shouldRevert() public {
+        earlyLiquidity = new EarlyLiquidity(address(usdc));
+        vm.expectRevert(IEarlyLiquidity.ZeroAddress.selector);
+        earlyLiquidity.setMinerPool(address(0));
+    }
+
+    /**
+     * @dev miner pool shouldnt be allowed to be set more than once
+     */
+    function test_setMinerPool_addressAlreadySet_shouldRevert() public {
+        earlyLiquidity = new EarlyLiquidity(address(usdc));
+        earlyLiquidity.setMinerPool(address(minerPool));
+        vm.expectRevert(IEarlyLiquidity.MinerPoolAlreadySet.selector);
+        earlyLiquidity.setMinerPool(address(minerPool));
+    }
+
+    /**
+     * @dev - users shouldnt be able to buy before the miner pool is set
+     */
+    function test_buyTokensBeforeMinerPoolIsSet_shouldRevert() public {
+        earlyLiquidity = new EarlyLiquidity(address(usdc));
+        earlyLiquidity.setGlowToken(address(glw));
+        usdc.mint(SIMON, 1_000_000_000 ether);
+        vm.expectRevert(IEarlyLiquidity.ZeroAddress.selector);
+        earlyLiquidity.buy(1_000_000 * 1e18, 1_000_000_000 ether);
+    }
+
+    /**
      * @dev we test that purchasing glow should
      *         -   increase the total sold
      *         -   increase the glw balance of the buyer by the amount bought
