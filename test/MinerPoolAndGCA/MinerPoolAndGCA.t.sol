@@ -20,6 +20,8 @@ import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.so
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
+import {VetoCouncil} from "@/VetoCouncil.sol";
+
 /*
 TODO: 
 1. Add tests for also claiming GRC tokens
@@ -43,7 +45,8 @@ contract MinerPoolAndGCATest is Test {
     address governance = address(0x1);
     address earlyLiquidity = address(0x2);
     address vestingContract = address(0x3);
-    address vetoCouncilAddress = address(0x4);
+    address vetoCouncilAddress;
+    VetoCouncil vetoCouncil;
     address grantsTreasuryAddress = address(0x5);
     address SIMON;
     uint256 SIMON_PRIVATE_KEY;
@@ -67,9 +70,14 @@ contract MinerPoolAndGCATest is Test {
         usdc = new MockUSDC();
         glow = new TestGLOW(earlyLiquidity,vestingContract);
         address[] memory temp = new address[](0);
+        address[] memory startingAgents = new address[](1);
+        startingAgents[0] = address(SIMON);
+        vetoCouncil = new VetoCouncil(governance, address(glow),startingAgents);
+        vetoCouncilAddress = address(vetoCouncil);
         minerPoolAndGCA =
         new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress);
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
+
         // handler = new Handler(address(gca));
         // addGCA(address(handler));
         // bytes4[] memory selectors = new bytes4[](4);
@@ -178,11 +186,18 @@ contract MinerPoolAndGCATest is Test {
     function test_CreateClaimLeafProof() public {
         ClaimLeaf[] memory leaves = new ClaimLeaf[](5);
         for (uint256 i; i < leaves.length; ++i) {
-            leaves[i] = ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+            leaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
         }
 
-        ClaimLeaf memory targetLeaf =
-            ClaimLeaf({payoutWallet: address(uint160(0x555 + 3)), glwWeight: 103, grcWeight: 203});
+        ClaimLeaf memory targetLeaf = ClaimLeaf({
+            payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + 3)),
+            glwWeight: 103,
+            grcWeight: 203
+        });
         bytes32 root = createClaimLeafRoot(leaves);
         bytes32[] memory proof = createClaimLeafProof(leaves, targetLeaf);
         bool validProof = MerkleProofLib.verify(
@@ -195,7 +210,7 @@ contract MinerPoolAndGCATest is Test {
 
     function test_FFI_MerkleRoot() public {
         address[] memory arr = new address[](2);
-        arr[0] = defaultAddressInWithdraw;
+        arr[0] = (defaultAddressInWithdraw);
         arr[1] = address(0x777);
         bytes32[] memory hashes = new bytes32[](arr.length);
         for (uint256 i; i < arr.length; ++i) {
@@ -216,7 +231,7 @@ contract MinerPoolAndGCATest is Test {
 
     function test_FFI_getMerkleProof() public {
         address[] memory arr = new address[](2);
-        arr[0] = defaultAddressInWithdraw;
+        arr[0] = (defaultAddressInWithdraw);
         arr[1] = address(0x777);
         bytes32[] memory hashes = new bytes32[](arr.length);
         for (uint256 i; i < arr.length; ++i) {
@@ -245,8 +260,11 @@ contract MinerPoolAndGCATest is Test {
         for (uint256 i; i < claimLeaves.length; ++i) {
             totalGlwWeight += 100 + i;
             totalGrcWeight += 200 + i;
-            claimLeaves[i] =
-                ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves);
         uint256 bucketId = 0;
@@ -273,13 +291,13 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
-            user: defaultAddressInWithdraw,
+            user: (defaultAddressInWithdraw),
             grcTokens: grcTokens,
             claimFromInflation: true
         });
 
         //Should have gotten all the glow rewards
-        assertEq(glow.balanceOf(defaultAddressInWithdraw), 175_000 ether * glwWeightForAddress / totalGlwWeight);
+        assertEq(glow.balanceOf((defaultAddressInWithdraw)), 175_000 ether * glwWeightForAddress / totalGlwWeight);
 
         vm.stopPrank();
     }
@@ -291,8 +309,11 @@ contract MinerPoolAndGCATest is Test {
         for (uint256 i; i < claimLeaves.length; ++i) {
             totalGlwWeight += 100 + i;
             totalGrcWeight += 200 + i;
-            claimLeaves[i] =
-                ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves);
         uint256 bucketId = 0;
@@ -319,13 +340,13 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
-            user: defaultAddressInWithdraw,
+            user: (defaultAddressInWithdraw),
             grcTokens: grcTokens,
             claimFromInflation: true
         });
 
         //Should have gotten all the glow rewards
-        assertEq(glow.balanceOf(defaultAddressInWithdraw), 175_000 ether);
+        assertEq(glow.balanceOf((defaultAddressInWithdraw)), 175_000 ether);
 
         vm.stopPrank();
     }
@@ -337,8 +358,11 @@ contract MinerPoolAndGCATest is Test {
         for (uint256 i; i < claimLeaves.length; ++i) {
             totalGlwWeight += 100 + i;
             totalGrcWeight += 200 + i;
-            claimLeaves[i] =
-                ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves);
         uint256 bucketId = 0;
@@ -370,7 +394,7 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: arbitraryProof,
             index: 0,
-            user: defaultAddressInWithdraw,
+            user: (defaultAddressInWithdraw),
             grcTokens: grcTokens,
             claimFromInflation: true
         });
@@ -383,8 +407,11 @@ contract MinerPoolAndGCATest is Test {
         for (uint256 i; i < claimLeaves.length; ++i) {
             totalGlwWeight += 100 + i;
             totalGrcWeight += 200 + i;
-            claimLeaves[i] =
-                ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves);
         uint256 bucketId = 0;
@@ -416,7 +443,7 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: badProof,
             index: 0,
-            user: defaultAddressInWithdraw,
+            user: (defaultAddressInWithdraw),
             grcTokens: grcTokens,
             claimFromInflation: true
         });
@@ -429,8 +456,11 @@ contract MinerPoolAndGCATest is Test {
         for (uint256 i; i < claimLeaves.length; ++i) {
             totalGlwWeight += 100 + i;
             totalGrcWeight += 200 + i;
-            claimLeaves[i] =
-                ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves);
         uint256 totalNewGCC = 101 * 1e15;
@@ -468,12 +498,12 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
-            user: defaultAddressInWithdraw,
+            user: (defaultAddressInWithdraw),
             grcTokens: grcTokens,
             claimFromInflation: true
         });
 
-        uint256 bitmap = minerPoolAndGCA.getUserBitmapForBucket(0, defaultAddressInWithdraw);
+        uint256 bitmap = minerPoolAndGCA.getUserBitmapForBucket(0, (defaultAddressInWithdraw));
         assertTrue(bitmap == 1);
 
         vm.warp(block.timestamp + ONE_WEEK);
@@ -484,12 +514,12 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
-            user: defaultAddressInWithdraw,
+            user: (defaultAddressInWithdraw),
             grcTokens: grcTokens,
             claimFromInflation: true
         });
 
-        bitmap = minerPoolAndGCA.getUserBitmapForBucket(1, defaultAddressInWithdraw);
+        bitmap = minerPoolAndGCA.getUserBitmapForBucket(1, (defaultAddressInWithdraw));
         assertTrue(bitmap == 0x3);
         vm.stopPrank();
     }
@@ -501,8 +531,11 @@ contract MinerPoolAndGCATest is Test {
         for (uint256 i; i < claimLeaves.length; ++i) {
             totalGlwWeight += 100 + i;
             totalGrcWeight += 200 + i;
-            claimLeaves[i] =
-                ClaimLeaf({payoutWallet: address(uint160(0x555 + i)), glwWeight: 100 + i, grcWeight: 200 + i});
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves);
         uint256 bucketId = 0;
@@ -529,7 +562,7 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
-            user: defaultAddressInWithdraw,
+            user: (defaultAddressInWithdraw),
             grcTokens: grcTokens,
             claimFromInflation: true
         });
@@ -542,7 +575,7 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
-            user: defaultAddressInWithdraw,
+            user: (defaultAddressInWithdraw),
             grcTokens: grcTokens,
             claimFromInflation: true
         });
@@ -805,26 +838,94 @@ contract MinerPoolAndGCATest is Test {
         vm.stopPrank();
     }
 
-    //  function test_bidOnElectricityFuturesAuction_transferUnsuccesful_shouldRevert() public {
-    //     test_createElectricityFutureAuction();
+    //************************************************************* */
+    //****************  DELAYING BUCKET TESTS   *************** */
+    //************************************************************* */
 
-    //     vm.startPrank(bidder2);
-    //     usdc.mint(bidder2, 1e6);
-    //     usdc.approve(address(minerPoolAndGCA), 1e6);
-    //     uint256 expiration = block.timestamp + 604800;
-    //     bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(SIMON_PK, expiration);
-    //     bytes memory authorizationSignature = _signDigest(nonGcaPk, digest);
-    //     vm.expectRevert(IMinerPool.ElectricityFuturesAuctionInvalidSignature.selector);
-    //     minerPoolAndGCA.bidOnFuturesAuction({
-    //         auctionId: 0,
-    //         amount: 1e6,
-    //         expiration: expiration,
-    //         gca: SIMON,
-    //         signature: authorizationSignature
-    //     });
+    function test_delayBucketFinalization_bucketNotInitialized_shouldRevert() public {
+        vm.expectRevert(IMinerPool.CannotDelayEmptyBucket.selector);
+        minerPoolAndGCA.delayBucketFinalization(0);
+    }
 
-    //     vm.stopPrank();
-    // }
+    function test_delayBucketFinalization_shouldComplete() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 101 * 1e15;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.startPrank(SIMON);
+        //simon is a council member in the `setUp` function
+        uint finalizationTimestampBefore = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+        minerPoolAndGCA.delayBucketFinalization(0);
+        uint finalizationTimestampAfter = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+
+        assertEq(finalizationTimestampBefore + (604800 * 13), finalizationTimestampAfter);
+        checkBucketAndReport({
+            bucketId: bucketId,
+            reportIndex: 0,
+            expectedNonce: 0,
+            expectedReportsLength:1,
+            expectedLastUpdatedNonce:0,
+            expectedReportTotalNewGCC: totalNewGCC,
+            expectedReportTotalGLWRewardsWeight: totalGlwWeight,
+            expectedReportTotalGRCRewardsWeight: totalGrcWeight,
+            expectedMerkleRoot: root,
+            expectedProposingAgent: SIMON
+        });
+
+        vm.stopPrank();
+    }
+
+    function test_delayBucketFinalization_callerNotVetoCouncilMember_shouldRevert() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 101 * 1e15;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.startPrank(bidder1);
+        vm.expectRevert(IMinerPool.CallerNotVetoCouncilMember.selector);
+        minerPoolAndGCA.delayBucketFinalization(0);
+
+        vm.stopPrank();
+    }
 
     //------------------------ HELPERS -----------------------------
     function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
@@ -909,5 +1010,9 @@ contract MinerPoolAndGCATest is Test {
     function _signDigest(uint256 signerPrivateKey, bytes32 digestHash) internal pure returns (bytes memory signature) {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digestHash);
         signature = abi.encodePacked(r, s, v);
+    }
+
+    function addrToUint(address a) internal pure returns (uint256 addr) {
+        addr = uint256(uint160(a));
     }
 }

@@ -14,6 +14,7 @@ interface IGCA {
     error ProposalHashesEmpty();
     error ProposalAlreadyUpdated();
     error BucketAlreadyFinalized();
+    // error BucketNotInitialized();
     error ReportGCCMustBeLT200Billion();
     error ReportWeightMustBeLTUint64MaxDiv5();
     error BucketSubmissionNotOpen();
