@@ -229,15 +229,6 @@ contract BucketSubmission {
         return (bucket, true);
     }
 
-    function getAmountForTokenAndInitIfNot(address grcToken, uint256 id) public returns (uint256) {
-        (WeeklyReward memory reward, bool needsInitializing) = _rewardWithNeedsInitializing(grcToken, id);
-        if (needsInitializing) {
-            reward.inheritedFromLastWeek = true;
-            rewards[id][grcToken] = reward;
-        }
-        return reward.amountInBucket;
-    }
-
     //************************************************************* */
     //**************  INTERNAL/PRIVATE STATE CHANGING  ************ */
     //************************************************************* */
@@ -265,6 +256,21 @@ contract BucketSubmission {
         } else {
             _bucketTracker.isGRC = false;
         }
+    }
+
+    /**
+     * @dev gets the total amount of grc in a bucket that is available to withdraw and initializes it
+     *             - this is a helper function only meant to be used inside the claimRewards function
+     * @param grcToken - the address of the token
+     * @param id - the id of the bucket
+     */
+    function _getAmountForTokenAndInitIfNot(address grcToken, uint256 id) internal returns (uint256) {
+        (WeeklyReward memory reward, bool needsInitializing) = _rewardWithNeedsInitializing(grcToken, id);
+        if (needsInitializing) {
+            reward.inheritedFromLastWeek = true;
+            rewards[id][grcToken] = reward;
+        }
+        return reward.amountInBucket;
     }
 
     //************************************************************* */

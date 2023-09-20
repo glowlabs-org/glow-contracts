@@ -19,13 +19,14 @@ import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
-
+import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
 /*
 TODO: 
 1. Add tests for also claiming GRC tokens
 2. Add tests for claiming multiple GRC tokens.
 3. Add test for claiming glw and grc at same time
 */
+
 struct ClaimLeaf {
     address payoutWallet;
     uint256 glwWeight;
@@ -44,19 +45,24 @@ contract MinerPoolAndGCATest is Test {
     address vestingContract = address(0x3);
     address vetoCouncilAddress = address(0x4);
     address grantsTreasuryAddress = address(0x5);
-    address SIMON = address(0x6);
+    address SIMON;
+    uint256 SIMON_PRIVATE_KEY;
+
     address OTHER_GCA = address(0x7);
     address OTHER_GCA_2 = address(0x8);
     address OTHER_GCA_3 = address(0x9);
     address OTHER_GCA_4 = address(0x10);
     address carbonCreditAuction = address(0x11);
     address defaultAddressInWithdraw = address(0x555);
+    address bidder1 = address(0x12);
+    address bidder2 = address(0x13);
 
     //--------  CONSTANTS ---------//
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
 
     function setUp() public {
         //Make sure we don't start at 0
+        (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
         vm.warp(10);
         usdc = new MockUSDC();
         glow = new TestGLOW(earlyLiquidity,vestingContract);
@@ -543,6 +549,283 @@ contract MinerPoolAndGCATest is Test {
         vm.stopPrank();
     }
 
+    //************************************************************* */
+    //*************  ELECTRICITY FUTURE AUCTION TESTS   ************ */
+    //************************************************************* */
+
+    function test_createElectricityFutureAuction() public {
+        addGCA(SIMON);
+        vm.startPrank(SIMON);
+        uint256 auctionCount = minerPoolAndGCA.electricityFutureAuctionCount();
+        //should be the first
+        assertEq(auctionCount, 0);
+        bytes32 auctionHash = keccak256("Auction data");
+
+        uint256 creationTimestamp = block.timestamp;
+        //1 usdc minimum bid `1e6`
+        minerPoolAndGCA.createElectricityFutureAuction(address(usdc), auctionHash, 1e6);
+        assertEq(auctionCount + 1, minerPoolAndGCA.electricityFutureAuctionCount());
+
+        IMinerPool.ElectricityFutureAuction memory auctionData = minerPoolAndGCA.electricityFutureAuction(0);
+
+        assertEq(auctionData.grcToken, address(usdc));
+        assertEq(auctionData.hash, auctionHash);
+        assertEq(uint256(auctionData.minimumBid), uint256(1e6));
+        assertEq(auctionData.endTime, creationTimestamp + 604800);
+        assertEq(auctionData.highestBid, 0);
+        assertEq(auctionData.highestBidder, address(0));
+        vm.stopPrank();
+    }
+
+    function test_createElectricityFutureAuction_callerNotGCA_shouldRevert() public {
+        vm.startPrank(address(0xdead));
+        bytes32 auctionHash = keccak256("Auction data");
+
+        uint256 creationTimestamp = block.timestamp;
+        //1 usdc minimum bid `1e6`
+        vm.expectRevert(IGCA.CallerNotGCA.selector);
+        minerPoolAndGCA.createElectricityFutureAuction(address(usdc), auctionHash, 1e6);
+
+        vm.stopPrank();
+    }
+
+    function test_bidOnElectricityFuturesAuction() public {
+        test_createElectricityFutureAuction();
+
+        vm.startPrank(bidder1);
+        //Expires in one week
+        uint256 expiration = block.timestamp + 604800;
+        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder1, expiration);
+        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
+
+        usdc.mint(bidder1, 1e6);
+        usdc.approve(address(minerPoolAndGCA), 1e6);
+        // minerPoolAndGCA.bidOnFuturesAuction(auctionId, amount, expiration, gca, signature);
+        minerPoolAndGCA.bidOnFuturesAuction({
+            auctionId: 0,
+            amount: 1e6,
+            expiration: expiration,
+            gca: SIMON,
+            signature: authorizationSignature
+        });
+
+        IMinerPool.ElectricityFutureAuction memory auctionData = minerPoolAndGCA.electricityFutureAuction(0);
+
+        assertEq(auctionData.highestBid, 1e6);
+        assertEq(auctionData.highestBidder, bidder1);
+
+        //Since we are at bucket 0 when we deposit
+        unchecked {
+            for (uint256 i = 16; i < 208; ++i) {
+                BucketSubmission.WeeklyReward memory reward = minerPoolAndGCA.reward(address(usdc), i);
+                uint256 amount = reward.amountInBucket;
+                //Rewards vest over 192 weeks
+                assertEq(amount, uint256(1e6) / uint256(192));
+            }
+        }
+
+        vm.stopPrank();
+    }
+
+    function test_bidOnElectricityFuturesAuction_higherBidShouldReplaceLowerBid() public {
+        test_bidOnElectricityFuturesAuction();
+        vm.startPrank(bidder2);
+        usdc.mint(bidder2, 1e7);
+        usdc.approve(address(minerPoolAndGCA), 1e7);
+        uint256 expiration = block.timestamp + 604800;
+        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
+        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
+        minerPoolAndGCA.bidOnFuturesAuction({
+            auctionId: 0,
+            amount: 1e7,
+            expiration: expiration,
+            gca: SIMON,
+            signature: authorizationSignature
+        });
+
+        vm.stopPrank();
+
+        IMinerPool.ElectricityFutureAuction memory auctionData = minerPoolAndGCA.electricityFutureAuction(0);
+
+        assertEq(auctionData.highestBid, 1e7);
+        assertEq(auctionData.highestBidder, bidder2);
+    }
+
+    function test_bidOnElectricityFuturesAuction_auctionEnded_shouldRevert() public {
+        test_createElectricityFutureAuction();
+
+        vm.startPrank(bidder2);
+        usdc.mint(bidder2, 1e7);
+        IMinerPool.ElectricityFutureAuction memory auctionData = minerPoolAndGCA.electricityFutureAuction(0);
+        vm.warp(auctionData.endTime + 1);
+        usdc.approve(address(minerPoolAndGCA), 1e7);
+        uint256 expiration = block.timestamp + 604800;
+        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
+        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
+        vm.expectRevert(IMinerPool.ElectricityFuturesAuctionEnded.selector);
+        minerPoolAndGCA.bidOnFuturesAuction({
+            auctionId: 0,
+            amount: 1e7,
+            expiration: expiration,
+            gca: SIMON,
+            signature: authorizationSignature
+        });
+
+        vm.stopPrank();
+    }
+
+    function test_bidOnElectricityFuturesAuction_bidLessThanMinimumBid_shouldRevert() public {
+        test_createElectricityFutureAuction();
+        vm.startPrank(bidder2);
+        usdc.mint(bidder2, 1e6 - 1);
+        usdc.approve(address(minerPoolAndGCA), 1e6 - 1);
+        uint256 expiration = block.timestamp + 604800;
+        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
+        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
+        vm.expectRevert(IMinerPool.ElectricityFutureAuctionBidMustBeGreaterThanMinimumBid.selector);
+        minerPoolAndGCA.bidOnFuturesAuction({
+            auctionId: 0,
+            amount: 1e6 - 1,
+            expiration: expiration,
+            gca: SIMON,
+            signature: authorizationSignature
+        });
+
+        vm.stopPrank();
+    }
+
+    function test_bidOnElectricityFuturesAuction_bidLowerThanHighestBid_shouldRevert() public {
+        test_bidOnElectricityFuturesAuction_higherBidShouldReplaceLowerBid();
+        //highest bid should be 1e7 atm
+        vm.startPrank(bidder1);
+        usdc.mint(bidder1, 1e7 - 1);
+        usdc.approve(address(minerPoolAndGCA), 1e7 - 1);
+        uint256 expiration = block.timestamp + 604800;
+        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder1, expiration);
+        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
+
+        vm.expectRevert(IMinerPool.ElectricityFuturesAuctionBidTooLow.selector);
+        minerPoolAndGCA.bidOnFuturesAuction({
+            auctionId: 0,
+            amount: 1e7 - 1,
+            expiration: expiration,
+            gca: SIMON,
+            signature: authorizationSignature
+        });
+
+        vm.stopPrank();
+    }
+
+    function test_bidOnElectricityFuturesAuction_signatureExpirationInPast_shouldRevert() public {
+        test_createElectricityFutureAuction();
+        vm.startPrank(bidder1);
+        //Expires in one week
+        uint256 expiration = block.timestamp + 1000;
+        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder1, expiration);
+        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
+
+        vm.warp(expiration + 1);
+
+        usdc.mint(bidder1, 1e6);
+        usdc.approve(address(minerPoolAndGCA), 1e6);
+
+        vm.expectRevert(IMinerPool.ElectricityFuturesSignatureExpired.selector);
+        minerPoolAndGCA.bidOnFuturesAuction({
+            auctionId: 0,
+            amount: 1e6,
+            expiration: expiration,
+            gca: SIMON,
+            signature: authorizationSignature
+        });
+
+        vm.stopPrank();
+    }
+
+    function test_bidOnElectricityFuturesAuction_asymetricHash_shouldRevert() public {
+        test_createElectricityFutureAuction();
+        vm.startPrank(bidder2);
+        usdc.mint(bidder2, 1e6);
+        usdc.approve(address(minerPoolAndGCA), 1e6);
+        uint256 expiration = block.timestamp + 604800;
+        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
+        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
+        vm.expectRevert(IMinerPool.ElectricityFuturesAuctionInvalidSignature.selector);
+        minerPoolAndGCA.bidOnFuturesAuction({
+            auctionId: 0,
+            amount: 1e6,
+            expiration: expiration - 1,
+            gca: SIMON,
+            signature: authorizationSignature
+        });
+
+        vm.stopPrank();
+    }
+
+    function test_bidOnElectricityFuturesAuction_nonGcaSignature_shouldRevert() public {
+        test_createElectricityFutureAuction();
+        (address nonGca, uint256 nonGcaPk) = _createAccount(0x2314231, type(uint256).max);
+
+        vm.startPrank(bidder2);
+        usdc.mint(bidder2, 1e6);
+        usdc.approve(address(minerPoolAndGCA), 1e6);
+        uint256 expiration = block.timestamp + 604800;
+        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
+        bytes memory authorizationSignature = _signDigest(nonGcaPk, digest);
+        vm.expectRevert(IMinerPool.SignerNotGCA.selector);
+        minerPoolAndGCA.bidOnFuturesAuction({
+            auctionId: 0,
+            amount: 1e6,
+            expiration: expiration,
+            gca: nonGca,
+            signature: authorizationSignature
+        });
+
+        vm.stopPrank();
+    }
+
+    function test_bidOnElectricityFuturesAuction_signerNotSignerInFunctionInputs_shouldRevert() public {
+        test_createElectricityFutureAuction();
+        (address nonGca, uint256 nonGcaPk) = _createAccount(0x2314231, type(uint256).max);
+
+        vm.startPrank(bidder2);
+        usdc.mint(bidder2, 1e6);
+        usdc.approve(address(minerPoolAndGCA), 1e6);
+        uint256 expiration = block.timestamp + 604800;
+        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
+        bytes memory authorizationSignature = _signDigest(nonGcaPk, digest);
+        vm.expectRevert(IMinerPool.ElectricityFuturesAuctionInvalidSignature.selector);
+        minerPoolAndGCA.bidOnFuturesAuction({
+            auctionId: 0,
+            amount: 1e6,
+            expiration: expiration,
+            gca: SIMON,
+            signature: authorizationSignature
+        });
+
+        vm.stopPrank();
+    }
+
+    //  function test_bidOnElectricityFuturesAuction_transferUnsuccesful_shouldRevert() public {
+    //     test_createElectricityFutureAuction();
+
+    //     vm.startPrank(bidder2);
+    //     usdc.mint(bidder2, 1e6);
+    //     usdc.approve(address(minerPoolAndGCA), 1e6);
+    //     uint256 expiration = block.timestamp + 604800;
+    //     bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(SIMON_PK, expiration);
+    //     bytes memory authorizationSignature = _signDigest(nonGcaPk, digest);
+    //     vm.expectRevert(IMinerPool.ElectricityFuturesAuctionInvalidSignature.selector);
+    //     minerPoolAndGCA.bidOnFuturesAuction({
+    //         auctionId: 0,
+    //         amount: 1e6,
+    //         expiration: expiration,
+    //         gca: SIMON,
+    //         signature: authorizationSignature
+    //     });
+
+    //     vm.stopPrank();
+    // }
+
     //------------------------ HELPERS -----------------------------
     function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
         address[] memory addresses = new address[](numAddresses);
@@ -611,5 +894,20 @@ contract MinerPoolAndGCATest is Test {
         bytes memory res = vm.ffi(inputs);
         bytes32[] memory proof = abi.decode(res, (bytes32[]));
         return proof;
+    }
+
+    function _createAccount(uint256 privateKey, uint256 amount)
+        internal
+        returns (address addr, uint256 signerPrivateKey)
+    {
+        addr = vm.addr(privateKey);
+        vm.deal(addr, amount);
+        signerPrivateKey = privateKey;
+        return (addr, signerPrivateKey);
+    }
+
+    function _signDigest(uint256 signerPrivateKey, bytes32 digestHash) internal pure returns (bytes memory signature) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digestHash);
+        signature = abi.encodePacked(r, s, v);
     }
 }

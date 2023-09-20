@@ -33,9 +33,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     bytes32 public constant ELECTRICITY_FUTURES_TYPEHASH =
         keccak256("ElectricityFutureAuctionAuthorization(address bidder,uint256 expirationTimestamp)");
 
-    /// @notice the maximum length of an authorization
-    /// @dev a signature can only last 16 weeks
-    uint256 public constant MAX_AUTHORIZATION_LENGTH = uint256(7 days) * 16;
+    // /// @notice the maximum length of an authorization
+    // /// @dev a signature can only last 16 weeks
+    // uint256 public constant MAX_AUTHORIZATION_LENGTH = uint256(7 days) * 16;
 
     /**
      * @notice the address of the early liquidity contract
@@ -70,15 +70,16 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     //----------------- MAPPINGS -----------------//
 
+    //TODO: see if we use this in the getReward function from GCA.
     struct GRCTracker {
         uint248 firstAddedBucketId;
         bool isGRC;
     }
 
     /**
-     *  @notice a mapping of auction id -> auction data
+     *  @notice a mapping o4f auction id -> auction data
      */
-    mapping(uint256 => ElectricityFutureAuction) public electricityFutureAuctions;
+    mapping(uint256 => IMinerPool.ElectricityFutureAuction) private _electricityFutureAuctions;
 
     /**
      * @dev a mapping of (bucketId / 256) -> user -> bitmap
@@ -90,44 +91,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     mapping(uint256 => uint256) private _mintedToCarbonCreditAuctionBitmap;
 
-    /**
-     * @param grcToken - the address of the grc token
-     * @param hash - the hash of the auction data
-     * @param minimumBid - the minimum bid for the auction
-     * @param endTime - the end time of the auction
-     * @param highestBid - the highest bid for the auction
-     * @param highestBidder - the highest bidder for the auction
-     */
-    struct ElectricityFutureAuction {
-        address grcToken;
-        bytes32 hash;
-        uint192 minimumBid;
-        uint64 endTime;
-        uint256 highestBid;
-        address highestBidder;
-    }
-    /**
-     * @notice emitted when a GCA creates a new electricity future auction
-     * @param id - the id of the auction
-     * @param grcToken - the address of the grc token
-     * @param hash - the hash of the auction data
-     * @param minimumBid - the minimum bid for the auction
-     * @param endTime - the end time of the auction
-     */
-
-    event ElectricityFutureAuctionCreated(
-        uint256 indexed id, address grcToken, bytes32 hash, uint256 minimumBid, uint256 endTime
-    );
-
-    /**
-     * @notice emitted when a new highest bid is placed on an electricity future auction
-     * @param bidder - the address of the bidder
-     * @param auctionId - the id of the auction
-     * @param amount - the amount of the bid
-     */
-    event FuturesBid(address indexed bidder, uint256 indexed auctionId, uint256 amount);
-
-    //----------------- CONSTRUCTOR -----------------//
+    //************************************************************* */
+    //*****************  CONSTRUCTOR   ************** */
+    //************************************************************* */
 
     /**
      * @notice constructs a new GCA contract
@@ -154,6 +120,12 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _setGRCToken(_grcToken, true, 0);
     }
 
+    //************************************************************* */
+    //***********  EXTERNAL/PUBLIC STATE CHANGING FUNCS    ******** */
+    //************************************************************* */
+
+    //----------------- ELECTRICITY FUTURE AUCTIONS -----------------//
+
     /**
      * @notice allows GCA's to create a new electricity future auction
      * @param grcToken - the address of the grc token to conduct the auction in
@@ -162,10 +134,11 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param minimumBid - the minimum bid for the auction
      */
     function createElectricityFutureAuction(address grcToken, bytes32 hash, uint256 minimumBid) external {
+        //TODO: need to add check if it's a valid grc token...
         if (!isGCA(msg.sender)) _revert(IGCA.CallerNotGCA.selector);
         //current time + 1 week
         uint64 endTime = uint64(block.timestamp + 604800);
-        electricityFutureAuctions[electricityFutureAuctionCount] = ElectricityFutureAuction({
+        _electricityFutureAuctions[electricityFutureAuctionCount] = ElectricityFutureAuction({
             grcToken: grcToken,
             hash: hash,
             minimumBid: uint192(minimumBid),
@@ -173,7 +146,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             highestBid: 0,
             highestBidder: address(0)
         });
-        emit ElectricityFutureAuctionCreated(electricityFutureAuctionCount, grcToken, hash, minimumBid, endTime);
+        emit IMinerPool.ElectricityFutureAuctionCreated(
+            electricityFutureAuctionCount, grcToken, hash, minimumBid, endTime
+        );
         ++electricityFutureAuctionCount;
     }
 
@@ -194,19 +169,19 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         address gca,
         bytes calldata signature
     ) external {
-        ElectricityFutureAuction memory auction = electricityFutureAuctions[auctionId];
+        ElectricityFutureAuction memory auction = _electricityFutureAuctions[auctionId];
         if (block.timestamp > auction.endTime) {
             _revert(IMinerPool.ElectricityFuturesAuctionEnded.selector);
         }
         if (amount < auction.minimumBid) {
-            _revert(IMinerPool.ElectricityFuturesAuctionBidTooLow.selector);
+            _revert(IMinerPool.ElectricityFutureAuctionBidMustBeGreaterThanMinimumBid.selector);
         }
         if (amount < auction.highestBid) {
             _revert(IMinerPool.ElectricityFuturesAuctionBidTooLow.selector);
         }
-        //if block.timestamp > expiration then this will revert from underflow
-        if (expiration - block.timestamp > MAX_AUTHORIZATION_LENGTH) {
-            _revert(IMinerPool.ElectricityFuturesAuctionAuthorizationTooLong.selector);
+
+        if (block.timestamp > expiration) {
+            _revert(IMinerPool.ElectricityFuturesSignatureExpired.selector);
         }
 
         if (!isGCA(gca)) _revert(IMinerPool.SignerNotGCA.selector);
@@ -220,40 +195,33 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
         SafeERC20.safeTransferFrom(grcToken, msg.sender, address(this), amount);
 
-        electricityFutureAuctions[auctionId].highestBid = amount;
-        electricityFutureAuctions[auctionId].highestBidder = msg.sender;
+        _electricityFutureAuctions[auctionId].highestBid = amount;
+        _electricityFutureAuctions[auctionId].highestBidder = msg.sender;
         _addToCurrentBucket(auction.grcToken, amount);
+        emit IMinerPool.FuturesBid(msg.sender, auctionId, amount);
     }
 
-    function _constructElectricityFutureAuctionDigest(address bidder, uint256 expiration)
-        internal
-        view
-        returns (bytes32)
-    {
-        return _hashTypedDataV4(keccak256(abi.encode(ELECTRICITY_FUTURES_TYPEHASH, bidder, expiration)));
+    //----------------- DONATIONS -----------------//
+
+    /**
+     * @inheritdoc IMinerPool
+     */
+    function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
+        // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
+        SafeERC20.safeTransferFrom(IERC20(grcToken), msg.sender, address(this), amount);
+        _addToCurrentBucket(grcToken, amount);
     }
 
     /**
-     * @dev used internally check if a proof is valid
-     * @param payoutWallet - the address of the user
-     * @param glwWeight - the weight of the user's glw rewards
-     * @param grcWeight - the weight of the user's grc rewards
-     * @param proof - the merkle proof of the user's rewards
-     *                     - the leaves are {payoutWallet, glwWeight, grcWeight}
+     * @inheritdoc IMinerPool
      */
-    function checkProof(
-        address payoutWallet,
-        uint256 glwWeight,
-        uint256 grcWeight,
-        bytes32[] calldata proof,
-        bytes32 root
-    ) internal {
-        bytes32 leaf = keccak256(abi.encodePacked(payoutWallet, glwWeight, grcWeight));
-
-        if (!MerkleProofLib.verifyCalldata(proof, root, leaf)) {
-            _revert(IMinerPool.InvalidProof.selector);
-        }
+    function donateToGRCMinerRewardsPoolEarlyLiquidity(address grcToken, uint256 amount) external virtual {
+        if (msg.sender != _EARLY_LIQUIDITY) _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
+        // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
+        _addToCurrentBucket(grcToken, amount);
     }
+
+    //----------------- CLAIMING -----------------//
 
     /**
      * @notice allows a user to claim their rewards for a bucket
@@ -294,12 +262,12 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         //Call from GCA.sol
         {
             bytes32 root = getBucketRootAtIndexEfficient(bucketId, index);
-            checkProof(user, glwWeight, grcWeight, proof, root);
+            _checkProof(user, glwWeight, grcWeight, proof, root);
         }
         {
             uint256 userBitmap = _getUserBitmapForBucket(bucketId, user);
-            userBitmap = checkClaimAvailableAndReturnNewBitmap(bucketId, userBitmap);
-            setUserBitmapForBucket(bucketId, user, userBitmap);
+            userBitmap = _checkClaimAvailableAndReturnNewBitmap(bucketId, userBitmap);
+            _setUserBitmapForBucket(bucketId, user, userBitmap);
         }
         uint256 globalStatePackedData = getPackedBucketGlobalState(bucketId);
 
@@ -310,14 +278,14 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             uint256 totalGRCWeight = globalStatePackedData >> 192;
 
             for (uint256 i; i < grcTokens.length;) {
-                uint256 amountInBucket = getAmountForTokenAndInitIfNot(grcTokens[i], bucketId);
+                uint256 amountInBucket = _getAmountForTokenAndInitIfNot(grcTokens[i], bucketId);
                 //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
                 // so that we don't overflow the available GRC rewards
                 amountInBucket = amountInBucket * _min(grcWeight, totalGRCWeight) / totalGRCWeight;
                 if (amountInBucket > 0) {
                     SafeERC20.safeTransfer(IERC20(grcTokens[i]), msg.sender, amountInBucket);
                 }
-                //TODO: Check Overflow on following ops.
+
                 unchecked {
                     ++i;
                 }
@@ -333,6 +301,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             }
         }
     }
+
+    //----------------- BUCKET DELAY -----------------//
 
     /**
      * @notice allows a veto council member to delay the finalization of a bucket
@@ -361,16 +331,25 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
     }
 
+    //************************************************************* */
+    //*************  PUBLIC/EXTERNAL VIEW FUNCTIONS   ************ */
+    //************************************************************* */
+
     /**
-     * @dev used internally to get the user bitmap for a bucket
-     * @param bucketId - the id of the bucket
-     *                 - this is divided by 256 to find the key in the mapping
-     * @param user - the address of the user
-     * @return userBitmap - the bitmap of the user
+     * @notice the early liquidity contract address
+     * @return the early liquidity contract address
      */
-    function _getUserBitmapForBucket(uint256 bucketId, address user) internal view returns (uint256) {
-        return _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user];
+    function earlyLiquidity() public view returns (address) {
+        return _EARLY_LIQUIDITY;
     }
+
+    function electricityFutureAuction(uint256 id) external view returns (ElectricityFutureAuction memory) {
+        return _electricityFutureAuctions[id];
+    }
+
+    //************************************************************* */
+    //*************  INTERNAL STATE CHANGING FUNCS   ************ */
+    //************************************************************* */
 
     /**
      * @notice used internally to mint `amount` of GCC to the carbon credit auction contract
@@ -402,9 +381,13 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param user - the address of the user
      * @param userBitmap - the new bitmap to set for the user
      */
-    function setUserBitmapForBucket(uint256 bucketId, address user, uint256 userBitmap) internal {
+    function _setUserBitmapForBucket(uint256 bucketId, address user, uint256 userBitmap) internal {
         _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user] = userBitmap;
     }
+
+    //************************************************************* */
+    //***************  INTERNAL VIEW/PURE FUNCTIONS   ************ */
+    //************************************************************* */
 
     /**
      * @dev user internally to check if a user has already claimed for a bucket
@@ -414,7 +397,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param userBitmap - the existing bitmap of the user
      * @return userBitmap - the new bitmap of the user
      */
-    function checkClaimAvailableAndReturnNewBitmap(uint256 bucketId, uint256 userBitmap)
+    function _checkClaimAvailableAndReturnNewBitmap(uint256 bucketId, uint256 userBitmap)
         internal
         pure
         returns (uint256)
@@ -426,34 +409,37 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         return userBitmap;
     }
 
-    //----------------- VIEW FUNCTIONS -----------------//
-
-    //---------- HELPERS -----------//
-
     /**
-     * @inheritdoc IMinerPool
+     * @dev used internally check if a proof is valid
+     * @param payoutWallet - the address of the user
+     * @param glwWeight - the weight of the user's glw rewards
+     * @param grcWeight - the weight of the user's grc rewards
+     * @param proof - the merkle proof of the user's rewards
+     *                     - the leaves are {payoutWallet, glwWeight, grcWeight}
      */
-    function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
-        // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
-        SafeERC20.safeTransferFrom(IERC20(grcToken), msg.sender, address(this), amount);
-        _addToCurrentBucket(grcToken, amount);
+    function _checkProof(
+        address payoutWallet,
+        uint256 glwWeight,
+        uint256 grcWeight,
+        bytes32[] calldata proof,
+        bytes32 root
+    ) internal pure {
+        bytes32 leaf = keccak256(abi.encodePacked(payoutWallet, glwWeight, grcWeight));
+
+        if (!MerkleProofLib.verifyCalldata(proof, root, leaf)) {
+            _revert(IMinerPool.InvalidProof.selector);
+        }
     }
 
     /**
-     * @inheritdoc IMinerPool
+     * @dev used internally to get the user bitmap for a bucket
+     * @param bucketId - the id of the bucket
+     *                 - this is divided by 256 to find the key in the mapping
+     * @param user - the address of the user
+     * @return userBitmap - the bitmap of the user
      */
-    function donateToGRCMinerRewardsPoolEarlyLiquidity(address grcToken, uint256 amount) external virtual {
-        if (msg.sender != _EARLY_LIQUIDITY) _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
-        // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
-        _addToCurrentBucket(grcToken, amount);
-    }
-
-    /**
-     * @notice the early liquidity contract address
-     * @return the early liquidity contract address
-     */
-    function earlyLiquidity() public view returns (address) {
-        return _EARLY_LIQUIDITY;
+    function _getUserBitmapForBucket(uint256 bucketId, address user) internal view returns (uint256) {
+        return _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user];
     }
 
     /**
@@ -463,5 +449,19 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     function _genesisTimestamp() internal view override(BucketSubmission) returns (uint256) {
         return GENESIS_TIMESTAMP;
+    }
+
+    /**
+     * @dev used internally to construct the digest for the electricity future auction authorization
+     * @param bidder - the address of the bidder
+     * @param expiration - the expiration timestamp of the authorization
+     * @return digest - the digest of the authorization
+     */
+    function _constructElectricityFutureAuctionDigest(address bidder, uint256 expiration)
+        internal
+        view
+        returns (bytes32)
+    {
+        return _hashTypedDataV4(keccak256(abi.encode(ELECTRICITY_FUTURES_TYPEHASH, bidder, expiration)));
     }
 }
