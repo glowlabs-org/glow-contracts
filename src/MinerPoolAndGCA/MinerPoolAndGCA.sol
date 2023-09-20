@@ -52,6 +52,13 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
 
+    /**
+     * @dev the amount to increase the finalization timestamp of a bucket by
+     *             -   only veto council agents can delay a bucket.
+     *             -   the delay is 13 weeks
+     */
+    uint256 private constant _BUCKET_DELAY_LENGTH = uint256(7 days) * 13;
+
     //----------------- STATE VARIABLES -----------------//
 
     /**
@@ -68,11 +75,19 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         bool isGRC;
     }
 
+    /**
+     *  @notice a mapping of auction id -> auction data
+     */
     mapping(uint256 => ElectricityFutureAuction) public electricityFutureAuctions;
 
-    //Sharded ID -> user -> bitmap
+    /**
+     * @dev a mapping of (bucketId / 256) -> user -> bitmap
+     */
     mapping(uint256 => mapping(address => uint256)) private _bucketClaimBitmap;
 
+    /**
+     * @dev a mapping of (bucketId / 256) -> user -> bitmap
+     */
     mapping(uint256 => uint256) private _mintedToCarbonCreditAuctionBitmap;
 
     /**
@@ -86,7 +101,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     struct ElectricityFutureAuction {
         address grcToken;
         bytes32 hash;
-        uint64 minimumBid;
+        uint192 minimumBid;
         uint64 endTime;
         uint256 highestBid;
         address highestBidder;
@@ -139,19 +154,39 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _setGRCToken(_grcToken, true, 0);
     }
 
-    function createElectricityFutureAuction(ElectricityFutureAuction memory auctionData) external {
+    /**
+     * @notice allows GCA's to create a new electricity future auction
+     * @param grcToken - the address of the grc token to conduct the auction in
+     * @param hash - the hash of the auction data
+     *                         -   should be available off-chain
+     * @param minimumBid - the minimum bid for the auction
+     */
+    function createElectricityFutureAuction(address grcToken, bytes32 hash, uint256 minimumBid) external {
         if (!isGCA(msg.sender)) _revert(IGCA.CallerNotGCA.selector);
-        electricityFutureAuctions[electricityFutureAuctionCount] = auctionData;
-        emit ElectricityFutureAuctionCreated(
-            electricityFutureAuctionCount,
-            auctionData.grcToken,
-            auctionData.hash,
-            auctionData.minimumBid,
-            auctionData.endTime
-        );
+        //current time + 1 week
+        uint64 endTime = uint64(block.timestamp + 604800);
+        electricityFutureAuctions[electricityFutureAuctionCount] = ElectricityFutureAuction({
+            grcToken: grcToken,
+            hash: hash,
+            minimumBid: uint192(minimumBid),
+            endTime: endTime,
+            highestBid: 0,
+            highestBidder: address(0)
+        });
+        emit ElectricityFutureAuctionCreated(electricityFutureAuctionCount, grcToken, hash, minimumBid, endTime);
         ++electricityFutureAuctionCount;
     }
 
+    /**
+     * @notice entrypoint for an authorized bidder to bid on an electricity future auction
+     * @param auctionId - the id of the auction
+     * @param amount - the amount of the bid in the grc token of the auction
+     * @param expiration - the expiration timestamp of the authorization signature in seconds
+     * @param gca - the address of the gca that authorized the bidder
+     *                 -   must be an active gca
+     * @param signature - the signature of the authorization
+     *                     -   the signature cannot be expired
+     */
     function bidOnFuturesAuction(
         uint256 auctionId,
         uint256 amount,
@@ -173,8 +208,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         if (expiration - block.timestamp > MAX_AUTHORIZATION_LENGTH) {
             _revert(IMinerPool.ElectricityFuturesAuctionAuthorizationTooLong.selector);
         }
-        if (!isGCA(gca)) _revert(IGCA.CallerNotGCA.selector);
-        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(ELECTRICITY_FUTURES_TYPEHASH, msg.sender, expiration)));
+
+        if (!isGCA(gca)) _revert(IMinerPool.SignerNotGCA.selector);
+
+        bytes32 digest = _constructElectricityFutureAuctionDigest(msg.sender, expiration);
         if (!SignatureChecker.isValidSignatureNow(gca, digest, signature)) {
             _revert(IMinerPool.ElectricityFuturesAuctionInvalidSignature.selector);
         }
@@ -182,9 +219,28 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         IERC20 grcToken = IERC20(auction.grcToken);
 
         SafeERC20.safeTransferFrom(grcToken, msg.sender, address(this), amount);
+
+        electricityFutureAuctions[auctionId].highestBid = amount;
+        electricityFutureAuctions[auctionId].highestBidder = msg.sender;
         _addToCurrentBucket(auction.grcToken, amount);
     }
 
+    function _constructElectricityFutureAuctionDigest(address bidder, uint256 expiration)
+        internal
+        view
+        returns (bytes32)
+    {
+        return _hashTypedDataV4(keccak256(abi.encode(ELECTRICITY_FUTURES_TYPEHASH, bidder, expiration)));
+    }
+
+    /**
+     * @dev used internally check if a proof is valid
+     * @param payoutWallet - the address of the user
+     * @param glwWeight - the weight of the user's glw rewards
+     * @param grcWeight - the weight of the user's grc rewards
+     * @param proof - the merkle proof of the user's rewards
+     *                     - the leaves are {payoutWallet, glwWeight, grcWeight}
+     */
     function checkProof(
         address payoutWallet,
         uint256 glwWeight,
@@ -199,6 +255,26 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
     }
 
+    /**
+     * @notice allows a user to claim their rewards for a bucket
+     * @dev It's highly recommended to use a CLI or UI to call this function.
+     *             - the proof can only be generated off-chain with access to the entire tree
+     *             - furthermore, GRC tokens must be correctly input in order to receive rewards
+     *             - the grc tokens should be kept on record off-chain.
+     *             - failure to input all correct GRC Tokens will result in lost rewards
+     * @param bucketId - the id of the bucket
+     * @param glwWeight - the weight of the user's glw rewards
+     * @param grcWeight - the weight of the user's grc rewards
+     * @param proof - the merkle proof of the user's rewards
+     *                     - the leaves are {payoutWallet, glwWeight, grcWeight}
+     * @param index - the index of the report in the bucket
+     *                     - that contains the merkle root where the user's rewards are stored
+     * @param user - the address of the user
+     *                   - TODO: make a wrapper contract that can loop through buckets
+     *                   - OR: have an approved withdrawal address that can initiate the tx
+     * @param grcTokens - the grc tokens to send to the user
+     * @param claimFromInflation - whether or not to claim glow from inflation
+     */
     function claimRewardMultipleRootsOneBucket(
         uint256 bucketId,
         uint256 glwWeight,
@@ -227,6 +303,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
         uint256 globalStatePackedData = getPackedBucketGlobalState(bucketId);
 
+        _handleMintToCarbonCreditAuction(bucketId, globalStatePackedData & _UINT128_MASK);
         // Vulnerability if user does not put in all the correct grc tokens
         {
             //no need to use a mask since totalGRCWeight uses the last 64 bits, so we can just shift
@@ -234,7 +311,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
             for (uint256 i; i < grcTokens.length;) {
                 uint256 amountInBucket = getAmountForTokenAndInitIfNot(grcTokens[i], bucketId);
-                amountInBucket = amountInBucket * grcWeight / totalGRCWeight;
+                //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
+                // so that we don't overflow the available GRC rewards
+                amountInBucket = amountInBucket * _min(grcWeight, totalGRCWeight) / totalGRCWeight;
                 if (amountInBucket > 0) {
                     SafeERC20.safeTransfer(IERC20(grcTokens[i]), msg.sender, amountInBucket);
                 }
@@ -246,33 +325,68 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
         {
             uint256 totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
-            uint256 amountGlowToSend = GLOW_REWARDS_PER_BUCKET * glwWeight / totalGlwWeight;
+            //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
+            // so that we don't overflow the available glow rewards
+            uint256 amountGlowToSend = GLOW_REWARDS_PER_BUCKET * _min(glwWeight, totalGlwWeight) / totalGlwWeight;
             if (amountGlowToSend > 0) {
                 SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), msg.sender, amountGlowToSend);
             }
         }
     }
 
+    /**
+     * @notice allows a veto council member to delay the finalization of a bucket
+     * @dev the bucket must already be initialized in order to be delayed
+     * @dev the bucket cannot be finalized in order to be delayed
+     * @dev the bucket can be delayed multiple times
+     * @param bucketId - the id of the bucket to delay
+     */
     function delayBucketFinalization(uint256 bucketId) external {
         if (isBucketFinalized(bucketId)) {
             _revert(IGCA.BucketAlreadyFinalized.selector);
         }
-        uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
-        if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
+
+        //If the length is zero that means
+        // the bucket has never been initialized
+        // therefore, the veto council should not be able
+        // to delay a bucket that has never been initialized
+        if (_buckets[bucketId].reports.length == 0) {
+            _revert(IMinerPool.CannotDelayEmptyBucket.selector);
+        }
+
+        _buckets[bucketId].finalizationTimestamp += uint128(_BUCKET_DELAY_LENGTH);
 
         if (!IVetoCouncil(_VETO_COUNCIL).isCouncilMember(msg.sender)) {
             _revert(IMinerPool.CallerNotVetoCouncilMember.selector);
         }
     }
 
+    /**
+     * @dev used internally to get the user bitmap for a bucket
+     * @param bucketId - the id of the bucket
+     *                 - this is divided by 256 to find the key in the mapping
+     * @param user - the address of the user
+     * @return userBitmap - the bitmap of the user
+     */
     function _getUserBitmapForBucket(uint256 bucketId, address user) internal view returns (uint256) {
         return _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user];
     }
 
+    /**
+     * @notice used internally to mint `amount` of GCC to the carbon credit auction contract
+     * @dev each bucketId can only be used once to mint to the carbon credit auction
+     * @dev the `_mintedToCarbonCreditAuctionBitmap` is used to track which buckets have already been used to mint to the carbon credit auction
+     *             -   the key for the mapping is `bucketId / 256`
+     *             -   where each slot stores a bitmap of the buckets that have been used to mint to the carbon credit auction
+     * @dev if the bucket has already been used to mint to the carbon credit auction, the function continues
+     *             -   this behaviour is necessary since the function is called on each claim
+     *             -   this function's `trigger` is the `claimRewardMultipleRootsOneBucket` function
+     *             -   it should also be able to be called publically
+     */
     function _handleMintToCarbonCreditAuction(uint256 bucketId, uint256 amountToMint) internal {
         uint256 key = bucketId / _BITS_IN_UINT;
         uint256 existingBitmap = _mintedToCarbonCreditAuctionBitmap[key];
-        uint256 shift = bucketId % bucketId;
+        uint256 shift = bucketId % _BITS_IN_UINT;
         uint256 mask = 1 << shift;
         if (mask & existingBitmap == 0) {
             //TODO: mint to the auction
@@ -281,10 +395,25 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
     }
 
+    /**
+     * @dev used internally to set the user bitmap for a bucket
+     * @param bucketId - the id of the bucket
+     *                         - this is divided by 256 to find the key in the mapping
+     * @param user - the address of the user
+     * @param userBitmap - the new bitmap to set for the user
+     */
     function setUserBitmapForBucket(uint256 bucketId, address user, uint256 userBitmap) internal {
         _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user] = userBitmap;
     }
 
+    /**
+     * @dev user internally to check if a user has already claimed for a bucket
+     *             -   if the have already claimed, the function reverts
+     *             -   if they have not claimed from the bucket, the function returns the new bitmap that should be stored
+     * @param bucketId - the id of the bucket
+     * @param userBitmap - the existing bitmap of the user
+     * @return userBitmap - the new bitmap of the user
+     */
     function checkClaimAvailableAndReturnNewBitmap(uint256 bucketId, uint256 userBitmap)
         internal
         pure
@@ -319,10 +448,19 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _addToCurrentBucket(grcToken, amount);
     }
 
+    /**
+     * @notice the early liquidity contract address
+     * @return the early liquidity contract address
+     */
     function earlyLiquidity() public view returns (address) {
         return _EARLY_LIQUIDITY;
     }
 
+    /**
+     * @dev used internally to get the genesis timestamp
+     *             - it must override the function in BucketSubmission
+     * @return the genesis timestamp
+     */
     function _genesisTimestamp() internal view override(BucketSubmission) returns (uint256) {
         return GENESIS_TIMESTAMP;
     }

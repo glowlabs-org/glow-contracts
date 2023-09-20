@@ -46,7 +46,7 @@ contract GCA is IGCA {
 
     uint256 private constant _UINT64_MAX_DIV5 = type(uint64).max / 5;
 
-    uint256 private constant _UINT128_MASK = (1 << 128) - 1;
+    uint256 internal constant _UINT128_MASK = (1 << 128) - 1;
     uint256 internal constant _UINT64_MASK = (1 << 64) - 1;
     uint256 private constant _BOOL_MASK = (1 << 8) - 1;
     uint256 private constant _UINT184_MASK = (1 << 184) - 1;
@@ -792,5 +792,14 @@ contract GCA is IGCA {
      */
     function _max(uint256 a, uint256 b) internal pure returns (uint256) {
         return a > b ? a : b;
+    }
+
+    /**
+     * @dev returns the min of two numbers
+     * @param a the first number
+     * @param b the second number
+     */
+    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
     }
 }

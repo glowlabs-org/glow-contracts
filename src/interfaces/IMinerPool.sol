@@ -12,6 +12,8 @@ interface IMinerPool {
     error AlreadyMintedToCarbonCreditAuction();
     error BucketNotFinalized();
     error CallerNotVetoCouncilMember();
+    error CannotDelayEmptyBucket();
+    error SignerNotGCA();
 
     /**
      * @notice Allows anyone to donate GRC into the miner grc rewards pool

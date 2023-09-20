@@ -51,4 +51,12 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
     function getUserBitmapForBucket(uint256 bucketId, address user) public view returns (uint256) {
         return _getUserBitmapForBucket(bucketId, user);
     }
+
+    function constructElectricityFutureAuctionDigest(address bidder, uint256 expiration)
+        external
+        view
+        returns (bytes32)
+    {
+        return _constructElectricityFutureAuctionDigest(bidder, expiration);
+    }
 }
