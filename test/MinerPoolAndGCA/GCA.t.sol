@@ -67,47 +67,55 @@ contract GCATest is Test {
         targetContract(address(handler));
     }
 
-    // /**
-    //  * forge-config: default.invariant.runs = 10
-    //  * forge-config: default.invariant.depth = 500
-    //  * @dev buckets nonces should never change
-    //  *     -   and should always be zero if they didn't get initialized during their current week
-    //  *         -   if they're not initialized that means that they submitted the first report for the bucket
-    //  */
-    // function invariant_bucketNonceShouldNeverChange() public {
-    //     uint256[] memory bucketIds = handler.ghost_bucketIds();
-    //     for (uint256 i; i < bucketIds.length; i++) {
-    //         uint256 bucketId = bucketIds[i];
-    //         IGCA.Bucket memory bucket = gca.bucket(bucketId);
-    //         bool initOnCurrentWeek = handler.initOnCurrentWeek(bucketId);
-    //         if (initOnCurrentWeek) {
-    //             assertEq(bucket.originalNonce, handler.bucketIdToSlashNonce(bucketId));
-    //         } else {
-    //             assertEq(bucket.originalNonce, 0);
-    //         }
-    //     }
-    // }
+    // /** 
 
-    // /**
-    //  * forge-config: default.invariant.runs = 10
-    //  * forge-config: default.invariant.depth = 500
-    //  * @dev buckets nonces should never change
-    //  *     -   and should always be zero if they didn't get initialized during their current week
-    //  *         -   if they're not initialized that means that they submitted the first report for the bucket
-    //  */
-    // function invariant_bucketNonceShouldNeverChangeGas() public {
-    //     uint256[] memory bucketIds = handler.ghost_bucketIds();
-    //     for (uint256 i; i < bucketIds.length; i++) {
-    //         uint256 bucketId = bucketIds[i];
-    //         MockGCA.EfficientBucket memory bucket = gca.getBucketDataEfficient(bucketId);
-    //         bool initOnCurrentWeek = handler.initOnCurrentWeek(bucketId);
-    //         if (initOnCurrentWeek) {
-    //             assertEq(bucket.originalNonce, handler.bucketIdToSlashNonce(bucketId));
-    //         } else {
-    //             assertEq(bucket.originalNonce, 0);
-    //         }
-    //     }
-    // }
+    /**
+     * forge-config: default.invariant.runs = 10
+     * forge-config: default.invariant.depth = 100
+     * @dev buckets nonces should never change
+     *     -   and should always be zero if they didn't get initialized during their current week
+     *         -   if they're not initialized that means that they submitted the first report for the bucket
+     */
+    function invariant_bucketNonceShouldNeverChangeGas() public {
+        uint256[] memory bucketIds = handler.ghost_bucketIds();
+        for (uint256 i; i < bucketIds.length; i++) {
+            uint256 bucketId = bucketIds[i];
+            IGCA.Bucket memory bucket = gca.bucket(bucketId);
+            bool initOnCurrentWeek = handler.initOnCurrentWeek(bucketId);
+            if (initOnCurrentWeek) {
+                assertEq(bucket.originalNonce, handler.bucketIdToSlashNonce(bucketId));
+            } else {
+                assertEq(bucket.originalNonce, 0);
+            }
+        }
+    }
+
+    function invariant_bucketGlobalState_shouldMatchSumOfReports() public {
+
+        uint256[] memory bucketIds = handler.ghost_bucketIds();
+        for(uint i; i<bucketIds.length;++i){
+            uint bucketId = bucketIds[i];
+            IGCA.BucketGlobalState memory state = gca.bucketGlobalState(bucketId);
+            uint totalNewGCCInBucket;
+            uint totalGlowWeightInBucket;
+            uint totalGRCWeightInBucket;
+            IGCA.Report[] memory reports = gca.bucket(bucketId).reports;
+            for(uint j; j<reports.length;++j){ 
+                totalNewGCCInBucket += reports[i].totalNewGCC;
+                totalGlowWeightInBucket += reports[i].totalGLWRewardsWeight;
+                totalGRCWeightInBucket += reports[i].totalGRCRewardsWeight;
+
+            }
+            
+            assertEq(totalNewGCCInBucket,state.totalNewGCC);
+            assertEq(totalNewGCCInBucket,state.totalNewGCC);
+            assertEq(totalNewGCCInBucket,state.totalNewGCC);
+
+
+        }
+
+
+    }
 
     function testFuzz_invalidBucketSubmission_shouldAlwaysRevert(uint256 bucketId) public {
         //Each bucket last's 1 week, so there will realistically never be a bucket with an id greater than 1e18
@@ -777,6 +785,16 @@ contract GCATest is Test {
         }
     }
 
+    /**
+     * note: the arithmetic checks for sending correct amounts is done 
+     *             - in the glow tests
+     */
+    function test_claimGlwFromInflation() public {
+        vm.warp(block.timestamp + ONE_WEEK);
+        gca.claimGlowFromInflation();
+        assertTrue(glow.balanceOf(address(gca)) > 0);
+    }
+
     function test_setGCAs() public {
         //Create addresses in memory so we can set
         address[] memory gcaAddresses = _getAddressArray(5, 25);
@@ -877,6 +895,36 @@ contract GCATest is Test {
         assertEq(proposalHashes[0], randomHash);
     }
 
+    function test_getProposalHashes_pagination() public {
+        bytes32 randomHash = keccak256("new hash");
+        bytes32 randomHash2 = keccak256("RH");
+        uint256 slashNonceBefore = gca.slashNonce();
+        vm.startPrank(governance);
+        gca.pushHash(randomHash, false);
+        gca.pushHash(randomHash2, false);
+
+        assertEq(gca.slashNonce(), slashNonceBefore);
+        bytes32[] memory proposalHashes = gca.getProposalHashes(0, 2);
+        assertEq(proposalHashes.length, 2);
+        assertEq(proposalHashes[0], randomHash);
+        assertEq(proposalHashes[1], randomHash2);
+
+        //if start > end, return []
+        proposalHashes = gca.getProposalHashes(3, 1);
+        assertEq(proposalHashes.length, 0);
+
+        proposalHashes = gca.getProposalHashes(1, 2);
+        assertEq(proposalHashes.length, 1);
+        assertEq(proposalHashes[0], randomHash2);
+
+        // if end > the actual len of proposalHashes
+        // return up to the actual end
+        proposalHashes = gca.getProposalHashes(0, 5);
+        assertEq(proposalHashes.length, 2);
+        assertEq(proposalHashes[0], randomHash);
+        assertEq(proposalHashes[1], randomHash2);
+    }
+
     //TODO: Fix the function to include payouts
     function test_executeAgainstHash() public {
         //Warp to random timestamp
@@ -902,6 +950,30 @@ contract GCATest is Test {
         assertTrue(gca.isGCA(OTHER_GCA));
         assertTrue(gca.isGCA(OTHER_GCA_2));
         assertFalse(gca.isGCA(SIMON));
+    }
+
+    function test_executeAgainstHash_badInputsShouldRevert() public {
+        //Warp to random timestamp
+        vm.warp(501);
+        uint256 indexOfProposalHash = 0;
+        //Start with two GCA's
+        addGCA(SIMON);
+        addGCA(OTHER_GCA);
+        address[] memory gcasToSlash = new address[](1);
+        gcasToSlash[0] = SIMON;
+        address[] memory newGCAs = new address[](2);
+        newGCAs[0] = OTHER_GCA;
+        newGCAs[1] = OTHER_GCA_2;
+        uint256 proposalCreationTimestamp = 501;
+
+        vm.startPrank(governance);
+
+        gca.pushHash(keccak256(abi.encodePacked(gcasToSlash, newGCAs, proposalCreationTimestamp)), true);
+        vm.stopPrank();
+
+        newGCAs[0] = address(uint160(uint256(keccak256("NOT SIMON"))));
+        vm.expectRevert(IGCA.ProposalHashDoesNotMatch.selector);
+        gca.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
     }
 
     function test_executeAgainstHash_emptyProposalHashes_shouldRevert() public {

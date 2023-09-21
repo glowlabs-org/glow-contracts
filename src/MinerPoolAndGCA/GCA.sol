@@ -329,14 +329,6 @@ contract GCA is IGCA {
         return (foundIndex, reportArrayStartSlot);
     }
 
-    function getProposingAgentFromBucketEfficient(uint256 startSlot, uint256 index)
-        internal
-        view
-        returns (address proposingAgent)
-    {
-        //Each
-    }
-
     function handleBucketStore(
         IGCA.Bucket storage bucket,
         uint256 foundIndex,
@@ -461,6 +453,7 @@ contract GCA is IGCA {
                 result[i - start] = proposalHashes[i];
             }
         }
+        return result;
     }
 
     /**

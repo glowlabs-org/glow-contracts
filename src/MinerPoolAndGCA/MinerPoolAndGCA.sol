@@ -203,13 +203,17 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     //----------------- DONATIONS -----------------//
 
+    //     TODO: token whitelist
+
     /**
      * @inheritdoc IMinerPool
      */
     function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
         // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
+        uint256 balBefore = IERC20(grcToken).balanceOf(address(this));
         SafeERC20.safeTransferFrom(IERC20(grcToken), msg.sender, address(this), amount);
-        _addToCurrentBucket(grcToken, amount);
+        uint256 transferredBalance = IERC20(grcToken).balanceOf(address(this)) - balBefore;
+        _addToCurrentBucket(grcToken, transferredBalance);
     }
 
     /**

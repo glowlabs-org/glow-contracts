@@ -40,6 +40,7 @@ contract MinerPoolAndGCATest is Test {
     MockMinerPoolAndGCA minerPoolAndGCA;
     TestGLOW glow;
     MockUSDC usdc;
+    MockUSDC grc2;
 
     //--------  ADDRESSES ---------//
     address governance = address(0x1);
@@ -77,7 +78,7 @@ contract MinerPoolAndGCATest is Test {
         minerPoolAndGCA =
         new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress);
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
-
+        grc2 = new MockUSDC();
         // handler = new Handler(address(gca));
         // addGCA(address(handler));
         // bytes4[] memory selectors = new bytes4[](4);
@@ -253,6 +254,8 @@ contract MinerPoolAndGCATest is Test {
     }
 
     //------------WITHDRAWALS----------------//
+    //TODO: Add sending to carbon credit auction
+
     function test_withdrawFromBucket() public {
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
         uint256 totalGlwWeight;
@@ -269,6 +272,7 @@ contract MinerPoolAndGCATest is Test {
         bytes32 root = createClaimLeafRoot(claimLeaves);
         uint256 bucketId = 0;
         uint256 totalNewGCC = 101 * 1e15;
+
         issueReport({
             gcaToSubmitAs: SIMON,
             bucket: bucketId,
@@ -298,6 +302,146 @@ contract MinerPoolAndGCATest is Test {
 
         //Should have gotten all the glow rewards
         assertEq(glow.balanceOf((defaultAddressInWithdraw)), 175_000 ether * glwWeightForAddress / totalGlwWeight);
+
+        vm.stopPrank();
+    }
+
+    function test_withdrawFromBucket_shouldClaimGRCTokens() public {
+        vm.startPrank(SIMON);
+        uint256 amountGRCToDonate = 1_000_000 * 1e6;
+        uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
+        usdc.mint(SIMON, amountGRCToDonate);
+        usdc.approve(address(minerPoolAndGCA), amountGRCToDonate);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), amountGRCToDonate);
+        vm.stopPrank();
+
+        //Go to the 16th bucket since that's where the grc tokens start unlocking
+        vm.warp(block.timestamp + ONE_WEEK * 16);
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 16;
+        uint256 totalNewGCC = 101 * 1e15;
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.warp(block.timestamp + (ONE_WEEK * 2));
+
+        vm.startPrank(defaultAddressInWithdraw);
+        uint256 glwWeightForAddress = 100;
+        uint256 grcWeightForAddress = 200;
+        // minerPoolAndGCA.claimRewardMultipleRootsOneBucket(bucketId, glwWeight, grcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
+        address[] memory grcTokens = new address[](1);
+        grcTokens[0] = address(usdc);
+        minerPoolAndGCA.claimRewardMultipleRootsOneBucket({
+            bucketId: bucketId,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+            index: 0,
+            user: (defaultAddressInWithdraw),
+            grcTokens: grcTokens,
+            claimFromInflation: true
+        });
+
+        //Should have gotten all the glow rewards
+        assertEq(glow.balanceOf((defaultAddressInWithdraw)), 175_000 ether * glwWeightForAddress / totalGlwWeight);
+        assertEq(
+            usdc.balanceOf(defaultAddressInWithdraw), expectedAmountInEachBucket * grcWeightForAddress / totalGrcWeight
+        );
+        vm.stopPrank();
+    }
+
+    function test_withdrawFromBucket_shouldClaimMultipleGRCTokens() public {
+        vm.startPrank(SIMON);
+        uint256 amountGRCToDonate = 1_000_000 * 1e6;
+        uint256 amountGRC2_toDonate = 1_000 * 1e6;
+        usdc.mint(SIMON, amountGRCToDonate);
+        usdc.approve(address(minerPoolAndGCA), amountGRCToDonate);
+        grc2.mint(SIMON, amountGRC2_toDonate);
+        grc2.approve(address(minerPoolAndGCA), amountGRC2_toDonate);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), amountGRCToDonate);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(grc2), amountGRC2_toDonate);
+        vm.stopPrank();
+
+        {
+            //make sure we sent all the tokens we could
+            assertEq(grc2.balanceOf(SIMON), 0);
+            assertEq(usdc.balanceOf(SIMON), 0);
+        }
+
+        //Go to the 16th bucket since that's where the grc tokens start unlocking
+        vm.warp(block.timestamp + ONE_WEEK * 16);
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 16;
+        uint256 totalNewGCC = 101 * 1e15;
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.warp(block.timestamp + (ONE_WEEK * 2));
+
+        vm.startPrank(defaultAddressInWithdraw);
+        uint256 glwWeightForAddress = 100;
+        uint256 grcWeightForAddress = 200;
+        // minerPoolAndGCA.claimRewardMultipleRootsOneBucket(bucketId, glwWeight, grcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
+        address[] memory grcTokens = new address[](2);
+        grcTokens[0] = address(usdc);
+        grcTokens[1] = address(grc2);
+        minerPoolAndGCA.claimRewardMultipleRootsOneBucket({
+            bucketId: bucketId,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+            index: 0,
+            user: (defaultAddressInWithdraw),
+            grcTokens: grcTokens,
+            claimFromInflation: true
+        });
+
+        //Should have gotten all the glow rewards
+        assertEq(glow.balanceOf((defaultAddressInWithdraw)), 175_000 ether * glwWeightForAddress / totalGlwWeight);
+        assertEq(
+            usdc.balanceOf(defaultAddressInWithdraw), amountGRCToDonate / 192 * grcWeightForAddress / totalGrcWeight
+        );
+        assertEq(
+            grc2.balanceOf(defaultAddressInWithdraw), amountGRC2_toDonate / 192 * grcWeightForAddress / totalGrcWeight
+        );
 
         vm.stopPrank();
     }
@@ -925,6 +1069,66 @@ contract MinerPoolAndGCATest is Test {
         minerPoolAndGCA.delayBucketFinalization(0);
 
         vm.stopPrank();
+    }
+
+    //************************************************************* */
+    //*************  DONATIONS   ************ */
+    //************************************************************* */
+
+    function test_donateToGRCMinerRewardsPool() public {
+        vm.startPrank(SIMON);
+        uint256 donationAmount = 1_000_000_000 * 1e6;
+        usdc.mint(SIMON, donationAmount);
+        usdc.approve(address(minerPoolAndGCA), donationAmount);
+        uint256 simonBalanceBefore = usdc.balanceOf(SIMON);
+        assertEq(simonBalanceBefore, donationAmount);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), donationAmount);
+        {
+            uint256 simonBalanceAfter = usdc.balanceOf(SIMON);
+            assertEq(simonBalanceAfter, 0);
+            assertEq(usdc.balanceOf(address(minerPoolAndGCA)), donationAmount);
+        }
+        uint256 amountExpectedInEachBucket = donationAmount / 192;
+        //Since we are at bucket 0 when we deposit
+        unchecked {
+            for (uint256 i = 16; i < 208; ++i) {
+                BucketSubmission.WeeklyReward memory reward = minerPoolAndGCA.reward(address(usdc), i);
+                uint256 amount = reward.amountInBucket;
+                //Rewards vest over 192 weeks
+                assertEq(amount, amountExpectedInEachBucket);
+            }
+        }
+        //Let's also expect bucket 209 to have 0
+        uint256 amountInBucket208 = minerPoolAndGCA.reward(address(usdc), 208).amountInBucket;
+        assertEq(amountInBucket208, 0);
+        vm.stopPrank();
+    }
+
+    function test_donateToGRCMinerRewardsPoolEarlyLiquidity() public {
+        vm.startPrank(earlyLiquidity);
+        uint256 donationAmount = 1_000_000_000 * 1e6;
+        minerPoolAndGCA.donateToGRCMinerRewardsPoolEarlyLiquidity(address(usdc), donationAmount);
+        uint256 amountExpectedInEachBucket = donationAmount / 192;
+        //Since we are at bucket 0 when we deposit
+        unchecked {
+            for (uint256 i = 16; i < 208; ++i) {
+                BucketSubmission.WeeklyReward memory reward = minerPoolAndGCA.reward(address(usdc), i);
+                uint256 amount = reward.amountInBucket;
+                //Rewards vest over 192 weeks
+                assertEq(amount, amountExpectedInEachBucket);
+            }
+        }
+        //Let's also expect bucket 209 to have 0
+        uint256 amountInBucket208 = minerPoolAndGCA.reward(address(usdc), 208).amountInBucket;
+        assertEq(amountInBucket208, 0);
+        vm.stopPrank();
+    }
+
+    function test_donateToGRCMinerRewardsPoolEarlyLiquidity_callerNotEarlyLiquidity_shouldRevert() public {
+        vm.startPrank(SIMON);
+        uint256 amount = 10000;
+        vm.expectRevert(IMinerPool.CallerNotEarlyLiquidity.selector);
+        minerPoolAndGCA.donateToGRCMinerRewardsPoolEarlyLiquidity(address(usdc), amount);
     }
 
     //------------------------ HELPERS -----------------------------
