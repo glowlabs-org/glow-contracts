@@ -21,7 +21,7 @@ import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
-
+import {BucketDelayHandler} from "./Handlers/BucketDelayHandler.sol";
 /*
 TODO: 
 1. Add tests for also claiming GRC tokens
@@ -41,6 +41,7 @@ contract MinerPoolAndGCATest is Test {
     TestGLOW glow;
     MockUSDC usdc;
     MockUSDC grc2;
+    BucketDelayHandler bucketDelayHandler;
 
     //--------  ADDRESSES ---------//
     address governance = address(0x1);
@@ -70,30 +71,33 @@ contract MinerPoolAndGCATest is Test {
         vm.warp(10);
         usdc = new MockUSDC();
         glow = new TestGLOW(earlyLiquidity,vestingContract);
+        bucketDelayHandler = new BucketDelayHandler();
         address[] memory temp = new address[](0);
-        address[] memory startingAgents = new address[](1);
+        address[] memory startingAgents = new address[](2);
         startingAgents[0] = address(SIMON);
+        startingAgents[1] = address(bucketDelayHandler);
         vetoCouncil = new VetoCouncil(governance, address(glow),startingAgents);
         vetoCouncilAddress = address(vetoCouncil);
         minerPoolAndGCA =
         new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress);
+        addGCA(address(bucketDelayHandler));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
+        bucketDelayHandler.setMinerPool(address(minerPoolAndGCA));
         // handler = new Handler(address(gca));
         // addGCA(address(handler));
-        // bytes4[] memory selectors = new bytes4[](4);
-        // selectors[0] = Handler.issueWeeklyReport.selector;
-        // selectors[1] = Handler.issueWeeklyReportCurrentBucket.selector;
-        // selectors[2] = Handler.incrementSlashNonce.selector;
-        // selectors[3] = Handler.warp.selector;
+        bytes4[] memory selectors = new bytes4[](2);
+        selectors[0] = BucketDelayHandler.delayBucket.selector;
+        selectors[1] = BucketDelayHandler.preventBucketDelay.selector;
 
-        // FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
+        FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(bucketDelayHandler)});
+
         // targetSender(SIMON);
         // targetSender(OTHER_GCA);
         // targetSender(OTHER_GCA_2);
         // targetSender(OTHER_GCA_3);
         // targetSender(OTHER_GCA_4);
-        // targetContract(address(handler));
+        targetContract(address(bucketDelayHandler));
     }
 
     //-------- ISSUING REPORTS ---------//
@@ -183,7 +187,7 @@ contract MinerPoolAndGCATest is Test {
         }
         str = string(abi.encodePacked(str, "]"));
     }
-
+    
     function test_CreateClaimLeafProof() public {
         ClaimLeaf[] memory leaves = new ClaimLeaf[](5);
         for (uint256 i; i < leaves.length; ++i) {
@@ -986,6 +990,28 @@ contract MinerPoolAndGCATest is Test {
     //****************  DELAYING BUCKET TESTS   *************** */
     //************************************************************* */
 
+    /**
+        * @notice This test is to ensure that the delay bucket bitmap is correctly set
+        * @dev buckets that have been delayed should return true
+        * @dev buckets that have not been delayed should return false
+        * forge-config: default.invariant.runs = 10
+        * forge-config: default.invariant.depth = 2000
+     */
+    function invariant_delayBucketBitmapShouldCorrectlyAffectBuckets() public {
+        uint256[] memory ids = bucketDelayHandler.delayedBucketIds();
+        unchecked{
+            for(uint i; i<ids.length;++i){
+                assertTrue(minerPoolAndGCA.hasBucketBeenDelayed(ids[i]));
+            }
+        }
+        ids = bucketDelayHandler.nonDelayedBucketIds();
+        unchecked{
+            for(uint i; i<ids.length;++i){
+                assertFalse(minerPoolAndGCA.hasBucketBeenDelayed(ids[i]));
+            }
+        }
+    }
+    
     function test_delayBucketFinalization_bucketNotInitialized_shouldRevert() public {
         vm.expectRevert(IMinerPool.CannotDelayEmptyBucket.selector);
         minerPoolAndGCA.delayBucketFinalization(0);
@@ -1035,6 +1061,94 @@ contract MinerPoolAndGCATest is Test {
             expectedMerkleRoot: root,
             expectedProposingAgent: SIMON
         });
+
+        vm.stopPrank();
+    }
+
+    function test_delayBucketFinalization_twoDelaysShouldRevert() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 101 * 1e15;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.startPrank(SIMON);
+        //simon is a council member in the `setUp` function
+        uint256 finalizationTimestampBefore = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+        minerPoolAndGCA.delayBucketFinalization(0);
+        uint256 finalizationTimestampAfter = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+
+        assertEq(finalizationTimestampBefore + (604800 * 13), finalizationTimestampAfter);
+        checkBucketAndReport({
+            bucketId: bucketId,
+            reportIndex: 0,
+            expectedNonce: 0,
+            expectedReportsLength: 1,
+            expectedLastUpdatedNonce: 0,
+            expectedReportTotalNewGCC: totalNewGCC,
+            expectedReportTotalGLWRewardsWeight: totalGlwWeight,
+            expectedReportTotalGRCRewardsWeight: totalGrcWeight,
+            expectedMerkleRoot: root,
+            expectedProposingAgent: SIMON
+        });
+
+        assertTrue(minerPoolAndGCA.hasBucketBeenDelayed(0));
+
+        vm.expectRevert(IMinerPool.BucketAlreadyDelayed.selector);
+        minerPoolAndGCA.delayBucketFinalization(0);
+
+        vm.stopPrank();
+    }
+
+    function test_delayBucketFinalization_delayingBucketThatNeedsToUpdateSlashNonce_shouldRevert() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 101 * 1e15;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.startPrank(SIMON);
+        //simon is a council member in the `setUp` function
+        uint256 finalizationTimestampBefore = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+        minerPoolAndGCA.incrementSlashNonce();
+        vm.expectRevert(IMinerPool.CannotDelayBucketThatNeedsToUpdateSlashNonce.selector);
+        minerPoolAndGCA.delayBucketFinalization(0);
 
         vm.stopPrank();
     }

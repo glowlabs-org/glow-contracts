@@ -91,6 +91,12 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     mapping(uint256 => uint256) private _mintedToCarbonCreditAuctionBitmap;
 
+    /**
+     * @dev a mapping of (bucketId / 256) -> -user -> bitmap
+     * @dev a bucket can only be delayed once
+     */
+    mapping(uint256 => uint256) private _bucketDelayedBitmap;
+
     //************************************************************* */
     //*****************  CONSTRUCTOR   ************** */
     //************************************************************* */
@@ -308,6 +314,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     //----------------- BUCKET DELAY -----------------//
 
+    function invariant_bucketDelayShouldSetBitmapCorrectly() public {}
     /**
      * @notice allows a veto council member to delay the finalization of a bucket
      * @dev the bucket must already be initialized in order to be delayed
@@ -315,11 +322,24 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @dev the bucket can be delayed multiple times
      * @param bucketId - the id of the bucket to delay
      */
+
     function delayBucketFinalization(uint256 bucketId) external {
         if (isBucketFinalized(bucketId)) {
             _revert(IGCA.BucketAlreadyFinalized.selector);
         }
 
+        if (_buckets[bucketId].lastUpdatedNonce != slashNonce) {
+            _revert(IMinerPool.CannotDelayBucketThatNeedsToUpdateSlashNonce.selector);
+        }
+
+        uint256 key = bucketId / 256;
+        uint256 shift = bucketId % 256;
+        uint256 existingBitmap = _bucketDelayedBitmap[key];
+        uint256 bitmask = 1 << shift;
+        if (existingBitmap & bitmask != 0) {
+            _revert(IMinerPool.BucketAlreadyDelayed.selector);
+        }
+        _bucketDelayedBitmap[key] = existingBitmap | bitmask;
         //If the length is zero that means
         // the bucket has never been initialized
         // therefore, the veto council should not be able
@@ -338,6 +358,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //************************************************************* */
     //*************  PUBLIC/EXTERNAL VIEW FUNCTIONS   ************ */
     //************************************************************* */
+
+    function hasBucketBeenDelayed(uint256 bucketId) external view returns (bool) {
+        return _bucketDelayedBitmap[bucketId / 256] & (1 << (bucketId % 256)) != 0;
+    }
 
     /**
      * @notice the early liquidity contract address

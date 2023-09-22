@@ -67,7 +67,7 @@ contract GCATest is Test {
         targetContract(address(handler));
     }
 
-    // /** 
+    // /**
 
     /**
      * forge-config: default.invariant.runs = 10
@@ -90,31 +90,29 @@ contract GCATest is Test {
         }
     }
 
+    /**
+     * forge-config: default.invariant.runs = 100
+     * forge-config: default.invariant.depth = 100
+     */
     function invariant_bucketGlobalState_shouldMatchSumOfReports() public {
-
         uint256[] memory bucketIds = handler.ghost_bucketIds();
-        for(uint i; i<bucketIds.length;++i){
-            uint bucketId = bucketIds[i];
+        for (uint256 i; i < bucketIds.length; ++i) {
+            uint256 bucketId = bucketIds[i];
             IGCA.BucketGlobalState memory state = gca.bucketGlobalState(bucketId);
-            uint totalNewGCCInBucket;
-            uint totalGlowWeightInBucket;
-            uint totalGRCWeightInBucket;
+            uint256 totalNewGCCInBucket;
+            uint256 totalGlowWeightInBucket;
+            uint256 totalGRCWeightInBucket;
             IGCA.Report[] memory reports = gca.bucket(bucketId).reports;
-            for(uint j; j<reports.length;++j){ 
-                totalNewGCCInBucket += reports[i].totalNewGCC;
-                totalGlowWeightInBucket += reports[i].totalGLWRewardsWeight;
-                totalGRCWeightInBucket += reports[i].totalGRCRewardsWeight;
-
+            for (uint256 j; j < reports.length; ++j) {
+                totalNewGCCInBucket += reports[j].totalNewGCC;
+                totalGlowWeightInBucket += reports[j].totalGLWRewardsWeight;
+                totalGRCWeightInBucket += reports[j].totalGRCRewardsWeight;
             }
-            
-            assertEq(totalNewGCCInBucket,state.totalNewGCC);
-            assertEq(totalNewGCCInBucket,state.totalNewGCC);
-            assertEq(totalNewGCCInBucket,state.totalNewGCC);
 
-
+            assertEq(totalNewGCCInBucket, state.totalNewGCC);
+            assertEq(totalNewGCCInBucket, state.totalNewGCC);
+            assertEq(totalNewGCCInBucket, state.totalNewGCC);
         }
-
-
     }
 
     function testFuzz_invalidBucketSubmission_shouldAlwaysRevert(uint256 bucketId) public {
@@ -786,7 +784,7 @@ contract GCATest is Test {
     }
 
     /**
-     * note: the arithmetic checks for sending correct amounts is done 
+     * note: the arithmetic checks for sending correct amounts is done
      *             - in the glow tests
      */
     function test_claimGlwFromInflation() public {

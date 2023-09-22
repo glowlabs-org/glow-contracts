@@ -14,6 +14,8 @@ interface IMinerPool {
     error BucketNotFinalized();
     error CallerNotVetoCouncilMember();
     error CannotDelayEmptyBucket();
+    error CannotDelayBucketThatNeedsToUpdateSlashNonce();
+    error BucketAlreadyDelayed();
     error SignerNotGCA();
 
     /**
