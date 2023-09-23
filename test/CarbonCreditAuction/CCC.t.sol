@@ -92,6 +92,14 @@ contract CCCTest is Test {
         // printListLinear();
     }
 
+    function test_bidClosingPrice() public {
+        auction.bid(10 * 1e18, 0, 0);
+        auction.bid(20 * 1e18, 0, 0);
+
+        auction.close();
+        console.log("auction close price = ", auction.closingPrice());
+    }
+
     function printPointers() public {
         CCC.Pointers memory pointers = auction.pointers();
         console.log("head %s", pointers.head);

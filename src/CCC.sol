@@ -14,10 +14,10 @@ contract CCC is ICarbonCreditAuction {
     uint256 public constant GCC_IN_AUCTION = 1000 ether;
 
     uint256 public bidCount;
-    uint256 public currentHighestBid = MIN_BID;
+    uint256 public currentHighestBid;
     Pointers private _pointers;
 
-    uint256 closingPrice;
+    uint256 public closingPrice;
 
     struct Pointers {
         uint32 head;
@@ -29,6 +29,7 @@ contract CCC is ICarbonCreditAuction {
         uint96 maxPrice;
         uint32 prev;
         uint32 next;
+        uint96 bidAmount;
     }
 
     mapping(uint256 => Bid) private _bids;
@@ -43,18 +44,47 @@ contract CCC is ICarbonCreditAuction {
         return;
     }
 
-    function closeAuction() external {
-        uint amountAllocated;
-        uint head = _pointers.head;
-        while(head != _NULL) {
+
+    //TODO: finish calculating the closing price
+    // take into account partial fills  and how to handle those
+    // take into account the other edge cases where there are not enough bids
+    // also remember to make sure that the bid is a minimum bid sothat users can bid as much glow as they want
+    // include rfunds
+    function close() external {
+        uint256 gccSoldCounter;
+        uint256 head = _pointers.head;
+        Bid memory highestBid = _bids[head];
+        uint256 price = highestBid.maxPrice;
+        //1e18 / 1000 * 1e18 = 1e33
+        //
+        uint256 amount = (uint256(highestBid.bidAmount) * 1e18) / uint256(highestBid.maxPrice);
+        console.log("max price first:", price);
+        console.log("highest amount:", highestBid.bidAmount);
+        gccSoldCounter = amount;
+        console.log("gcc first", amount);
+        head = highestBid.prev;
+
+        while (head != _NULL) {
             Bid memory bid = _bids[head];
-            uint amountToAllocate = GCC_IN_AUCTION * bid.maxPrice / _DENOMINATOR;
-            amountAllocated += amountToAllocate;
-            // SafeERC20.safeTra
+            uint256 amount = (uint256(bid.bidAmount) * 1e18) / uint256(bid.maxPrice);
+            console.log("amount - ", amount);
+            gccSoldCounter = (uint256(gccSoldCounter) * uint256(price)) / bid.maxPrice;
+            gccSoldCounter += amount;
+            // gccSoldCounter += amount;
+            price = bid.maxPrice;
+            if (gccSoldCounter >= GCC_IN_AUCTION) {
+                break;
+            }
+            head = bid.prev;
+        }
+        console.log("gcc sold counter = %s", gccSoldCounter);
+        closingPrice = price;
     }
 
     function getNextBidPrice() public view returns (uint256) {
-        return currentHighestBid * (100 + INCREASE_BID_PERCENTAGE) / _DENOMINATOR;
+        uint256 _currentHighestBid = currentHighestBid;
+        if (_currentHighestBid == 0) return MIN_BID;
+        return _currentHighestBid * (100 + INCREASE_BID_PERCENTAGE) / _DENOMINATOR;
     }
 
     function bid(uint256 maxPrice, uint32 prev, uint32 next) external payable {
@@ -67,7 +97,13 @@ contract CCC is ICarbonCreditAuction {
 
         if (_bidCount == 0) {
             // If no bids have been placed yet
-            _bids[0] = Bid({bidder: msg.sender, maxPrice: uint96(maxPrice), prev: _NULL, next: _NULL});
+            _bids[0] = Bid({
+                bidder: msg.sender,
+                maxPrice: uint96(maxPrice),
+                prev: _NULL,
+                next: _NULL,
+                bidAmount: uint96(amountRequired)
+            });
             _pointers.head = 0;
             _pointers.tail = 0;
         } else {
@@ -101,8 +137,13 @@ contract CCC is ICarbonCreditAuction {
                         if (lastBid.prev == _NULL) {
                             _pointers.tail = uint32(_bidCount);
                             _bids[prev].prev = uint32(_bidCount);
-                            _bids[_bidCount] =
-                                Bid({bidder: msg.sender, maxPrice: uint96(maxPrice), prev: _NULL, next: prev});
+                            _bids[_bidCount] = Bid({
+                                bidder: msg.sender,
+                                maxPrice: uint96(maxPrice),
+                                prev: _NULL,
+                                next: prev,
+                                bidAmount: uint96(amountRequired)
+                            });
                             return;
                         }
                         // console.log("prev = ", )
@@ -119,7 +160,13 @@ contract CCC is ICarbonCreditAuction {
                 if (nextBid.next == _NULL) {
                     _bids[next].next = uint32(_bidCount);
                     _pointers.head = uint32(_bidCount);
-                    _bids[_bidCount] = Bid({bidder: msg.sender, maxPrice: uint96(maxPrice), prev: next, next: _NULL});
+                    _bids[_bidCount] = Bid({
+                        bidder: msg.sender,
+                        maxPrice: uint96(maxPrice),
+                        prev: next,
+                        next: _NULL,
+                        bidAmount: uint96(amountRequired)
+                    });
                     return;
                 }
 
@@ -133,7 +180,13 @@ contract CCC is ICarbonCreditAuction {
 
             _bids[next].prev = uint32(_bidCount);
             _bids[prev].next = uint32(_bidCount);
-            _bids[_bidCount] = Bid({bidder: msg.sender, maxPrice: uint96(maxPrice), prev: prev, next: next});
+            _bids[_bidCount] = Bid({
+                bidder: msg.sender,
+                maxPrice: uint96(maxPrice),
+                prev: prev,
+                next: next,
+                bidAmount: uint96(amountRequired)
+            });
             //
         }
     }
