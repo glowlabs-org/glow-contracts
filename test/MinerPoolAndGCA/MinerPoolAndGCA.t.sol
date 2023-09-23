@@ -187,7 +187,7 @@ contract MinerPoolAndGCATest is Test {
         }
         str = string(abi.encodePacked(str, "]"));
     }
-    
+
     function test_CreateClaimLeafProof() public {
         ClaimLeaf[] memory leaves = new ClaimLeaf[](5);
         for (uint256 i; i < leaves.length; ++i) {
@@ -991,27 +991,27 @@ contract MinerPoolAndGCATest is Test {
     //************************************************************* */
 
     /**
-        * @notice This test is to ensure that the delay bucket bitmap is correctly set
-        * @dev buckets that have been delayed should return true
-        * @dev buckets that have not been delayed should return false
-        * forge-config: default.invariant.runs = 10
-        * forge-config: default.invariant.depth = 2000
+     * @notice This test is to ensure that the delay bucket bitmap is correctly set
+     * @dev buckets that have been delayed should return true
+     * @dev buckets that have not been delayed should return false
+     * forge-config: default.invariant.runs = 10
+     * forge-config: default.invariant.depth = 2000
      */
     function invariant_delayBucketBitmapShouldCorrectlyAffectBuckets() public {
         uint256[] memory ids = bucketDelayHandler.delayedBucketIds();
-        unchecked{
-            for(uint i; i<ids.length;++i){
+        unchecked {
+            for (uint256 i; i < ids.length; ++i) {
                 assertTrue(minerPoolAndGCA.hasBucketBeenDelayed(ids[i]));
             }
         }
         ids = bucketDelayHandler.nonDelayedBucketIds();
-        unchecked{
-            for(uint i; i<ids.length;++i){
+        unchecked {
+            for (uint256 i; i < ids.length; ++i) {
                 assertFalse(minerPoolAndGCA.hasBucketBeenDelayed(ids[i]));
             }
         }
     }
-    
+
     function test_delayBucketFinalization_bucketNotInitialized_shouldRevert() public {
         vm.expectRevert(IMinerPool.CannotDelayEmptyBucket.selector);
         minerPoolAndGCA.delayBucketFinalization(0);

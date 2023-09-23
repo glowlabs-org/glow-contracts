@@ -24,6 +24,7 @@ import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
  * make sure that veto council agents can delay a bucket
  * make sure to check for finalization around bucket submission
  * add tests for withdrawing from reinstated buckets
+ * add 1 week delay on grc withdrawals :)
  */
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
