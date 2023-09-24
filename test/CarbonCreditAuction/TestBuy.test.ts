@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import { CCC } from '../../typechain-types';
 
 //-------- ENVIRONMENT VARIABLES ------------
-const FUZZ_RUNS: number = parseInt(process.env.CARBON_CREDIT_AUCTION_NUM_RUNS || "1");
+const FUZZ_RUNS: number = parseInt(process.env.CARBON_CREDIT_AUCTION_NUM_RUNS || "2");
 const DEPTH_PER_RUN = parseInt(process.env.CARBON_CREDIT_AUCTION_DEPTH_PER_RUN || "1");
 const SAVE_EARLY_LIQUIDITY_RUNS =
   (process.env.SAVE_CARBON_CREDIT_RUNS || "false").toLowerCase() === 'true';

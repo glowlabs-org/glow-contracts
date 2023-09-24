@@ -1,6 +1,8 @@
 Maybe?
 --Make claimFromInflation a different function for miner pool and gcas even though they're in the same contract.
 
+-----AUCTION----
+1. Add refunds
 
 ----- GCC -----
 1. Remove (to) in docs on retire functions 
