@@ -17,6 +17,8 @@ contract CCC is ICarbonCreditAuction {
     uint256 public currentHighestBid;
     Pointers private _pointers;
 
+    uint256 public lastPointerLegibleForClaim;
+
     uint256 public closingPrice;
 
     struct Pointers {
@@ -37,6 +39,7 @@ contract CCC is ICarbonCreditAuction {
     constructor() {
         _pointers.head = _NULL;
         _pointers.tail = _NULL;
+        lastPointerLegibleForClaim = type(uint256).max;
     }
 
     /// @inheritdoc ICarbonCreditAuction
@@ -52,6 +55,7 @@ contract CCC is ICarbonCreditAuction {
     function close() external {
         uint256 gccSoldCounter;
         uint256 head = _pointers.head;
+        if (head == _NULL) revert("Head Null");
         Bid memory highestBid = _bids[head];
         uint256 price = highestBid.maxPrice;
 
@@ -67,9 +71,9 @@ contract CCC is ICarbonCreditAuction {
             gccSoldCounter = (uint256(gccSoldCounter) * uint256(price)) / bid.maxPrice;
 
             if (gccSoldCounter > GCC_IN_AUCTION) {
-                console.log("gcc sold counter inside loop", gccSoldCounter);
-                console.log("gcc in auction inside loop", GCC_IN_AUCTION);
-                console.log("should be here");
+                // console.log("gcc sold counter inside loop", gccSoldCounter);
+                // console.log("gcc in auction inside loop", GCC_IN_AUCTION);
+                // console.log("should be here");
 
                 //If the next lowest price causes an overflow in the total gcc we will sell
                 //that means that the current bid we're iterating on doesen't fit in the winning bids
@@ -91,6 +95,7 @@ contract CCC is ICarbonCreditAuction {
                 //600 * 2 / 1.2 = 1000
                 price = gccSoldCounter * price / GCC_IN_AUCTION;
                 gccSoldCounter = GCC_IN_AUCTION;
+                console.log("First");
                 break;
             }
             uint256 amount = (uint256(bid.bidAmount) * 1e18) / uint256(bid.maxPrice);
@@ -142,10 +147,12 @@ contract CCC is ICarbonCreditAuction {
                 //Send glow back to user
                 _bids[head].bidAmount = uint96(newBidAmount);
                 gccSoldCounter = GCC_IN_AUCTION;
+                // console.log("2nd");
                 break;
             }
 
             if (gccSoldCounter == GCC_IN_AUCTION) {
+                // console.log("3rd");
                 break;
             }
             head = bid.prev;
@@ -154,6 +161,13 @@ contract CCC is ICarbonCreditAuction {
         if (gccSoldCounter < GCC_IN_AUCTION) {
             price = (price * gccSoldCounter) / GCC_IN_AUCTION;
         }
+        if (head == _NULL) {
+            lastPointerLegibleForClaim = _pointers.tail;
+        } else {
+            lastPointerLegibleForClaim = head;
+        }
+
+        // console.log("last pointer legibile for claim)
 
         closingPrice = price;
     }
@@ -165,15 +179,53 @@ contract CCC is ICarbonCreditAuction {
     }
 
     function amountOwed(uint256 bidId) public view returns (uint256) {
+        // uint startingBidId = bidId;
+        uint256 _closingPrice = closingPrice;
         uint256 amountInBid = _bids[bidId].bidAmount;
+        uint256 maxPriceInBid = _bids[bidId].maxPrice;
+        if (_closingPrice > maxPriceInBid) return 0;
+
+        if (_closingPrice == maxPriceInBid) {
+            //We need to make sure that
+            uint256 _lastAcceptableBidId = lastPointerLegibleForClaim;
+            //so let's  load in id 247
+            if (bidId != _lastAcceptableBidId) {
+                bidId = _bids[bidId].next;
+                if (bidId == _lastAcceptableBidId) {
+                    return 0;
+                }
+
+                while (maxPriceInBid == _bids[bidId].maxPrice) {
+                    uint256 next = _bids[bidId].next;
+                    if (next == _lastAcceptableBidId) {
+                        return 0;
+                    }
+                    bidId = next;
+                }
+            }
+        }
         return amountInBid * 1e18 / closingPrice;
+    }
+
+    function maxAmountToBidForPrice(uint256 price, uint256 timesSmallerMustBe) external view returns (uint256) {
+        /**
+         * amountToBid * 1e18 / maxPrice = total sold
+         *     total sold = 1000, find amountToBid
+         *     totalSold * maxPrice / 1e18 = amountToBid
+         */
+        uint256 amountToBid = GCC_IN_AUCTION * price / 1e18;
+        return amountToBid / timesSmallerMustBe;
     }
 
     function bid(uint256 maxPrice, uint32 prev, uint32 next, uint256 amountToBid) external payable {
         uint256 _bidCount = bidCount++;
+        if (maxPrice == 0) revert("price must be > 0");
+        if (amountToBid * 1e18 / maxPrice > GCC_IN_AUCTION) revert("Oversell Auction Individually");
 
         // Ensure the provided bid amount meets the required minimum
         uint256 amountRequired = getNextBidPrice();
+        // console.log("amount required = ", amountRequired);
+        // console.log("amount to bid   = " , amountToBid);
         if (amountToBid < amountRequired) revert("Amount Required");
         currentHighestBid = amountRequired;
         // require(msg.value == amountRequired, "Bid amount is too low.");
@@ -294,7 +346,8 @@ contract CCC is ICarbonCreditAuction {
 
     struct ListResponse {
         uint256 id;
-        uint256 value;
+        uint256 maxPrice;
+        uint256 amount;
     }
 
     function constructSortedList() external view returns (ListResponse[] memory) {
@@ -304,7 +357,7 @@ contract CCC is ICarbonCreditAuction {
         uint32 i = 0;
         while (next != _NULL) {
             Bid memory bid = _bids[next];
-            list[i] = ListResponse({id: next, value: bid.maxPrice});
+            list[i] = ListResponse({id: next, amount: bid.bidAmount, maxPrice: bid.maxPrice});
             next = bid.next;
             ++i;
         }

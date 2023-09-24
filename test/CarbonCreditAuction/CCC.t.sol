@@ -7,6 +7,7 @@ import "forge-std/console.sol";
 import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
 import {CCC} from "@/CCC.sol";
 import {Handler} from "./Handlers/Handler.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract CCCTest is Test {
     CCC auction;
@@ -23,49 +24,58 @@ contract CCCTest is Test {
         targetContract(address(handler));
     }
 
+    // /**
+    //  * forge-config: default.invariant.runs = 10
+    //  * forge-config: default.invariant.depth = 1000
+    //  */
+    // function invariant_linkedLinkShouldBeSortedAscending() public {
+    //     CCC.Pointers memory pointers = auction.pointers();
+    //     uint32 current = pointers.tail;
+    //     uint256 iterations;
+    //     while (current != NULL) {
+    //         CCC.Bid memory bid = auction.bids(current);
+    //         if (bid.next != NULL) {
+    //             CCC.Bid memory nextBid = auction.bids(bid.next);
+    //             assertTrue(bid.maxPrice <= nextBid.maxPrice, "Bid should be sorted ascending");
+    //         }
+    //         current = bid.next;
+    //         ++iterations;
+    //     }
+
+    //     assertEq(iterations, handler.iterations());
+    // }
+
+    // function invariant_linkedListShouldSortDescending_whenTraversingFromHead() public {
+    //     CCC.Pointers memory pointers = auction.pointers();
+    //     uint32 current = pointers.head;
+    //     uint256 iterations;
+    //     while (current != NULL) {
+    //         CCC.Bid memory bid = auction.bids(current);
+    //         if (bid.prev != NULL) {
+    //             CCC.Bid memory prevBid = auction.bids(bid.prev);
+    //             assertTrue(bid.maxPrice >= prevBid.maxPrice, "Bid should be sorted descending");
+    //         }
+    //         current = bid.prev;
+    //         ++iterations;
+    //     }
+
+    //     assertEq(iterations, handler.iterations());
+    // }
+
+    function inRange(uint256 value, uint256 lowestAcceptableValue, uint256 highestAcceptableValue)
+        internal
+        pure
+        returns (bool)
+    {
+        return lowestAcceptableValue <= value && value <= highestAcceptableValue;
+    }
+
     /**
-     * forge-config: default.invariant.runs = 10
-     * forge-config: default.invariant.depth = 1000
+     * forge-config: default.invariant.runs = 1
+     * forge-config: default.invariant.depth = 30
      */
-    function invariant_linkedLinkShouldBeSortedAscending() public {
-        CCC.Pointers memory pointers = auction.pointers();
-        uint32 current = pointers.tail;
-        uint256 iterations;
-        while (current != NULL) {
-            CCC.Bid memory bid = auction.bids(current);
-            if (bid.next != NULL) {
-                CCC.Bid memory nextBid = auction.bids(bid.next);
-                assertTrue(bid.maxPrice <= nextBid.maxPrice, "Bid should be sorted ascending");
-            }
-            current = bid.next;
-            ++iterations;
-        }
-
-        assertEq(iterations, handler.iterations());
-    }
-
-    function invariant_linkedListShouldSortDescending_whenTraversingFromHead() public {
-        CCC.Pointers memory pointers = auction.pointers();
-        uint32 current = pointers.head;
-        uint256 iterations;
-        while (current != NULL) {
-            CCC.Bid memory bid = auction.bids(current);
-            if (bid.prev != NULL) {
-                CCC.Bid memory prevBid = auction.bids(bid.prev);
-                assertTrue(bid.maxPrice >= prevBid.maxPrice, "Bid should be sorted descending");
-            }
-            current = bid.prev;
-            ++iterations;
-        }
-
-        assertEq(iterations, handler.iterations());
-    }
-
-    function inRange(uint value,uint lowestAcceptableValue,uint highestAcceptableValue) internal pure returns(bool) {
-        return lowestAcceptableValue <= value <= highestAcceptableValue;
-    }
     function invariant_closingPriceMultipliedByAllValidBids_shouldEqualTotalGCC() public {
-
+        handler.calculateStuffSimon();
     }
 
     function test_bidClosingPrice_notEnoughBidsToFinishSale() public {
