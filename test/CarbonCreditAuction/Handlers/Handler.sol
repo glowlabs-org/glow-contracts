@@ -16,8 +16,10 @@ contract Handler is Test {
         auction = CCC(_auction);
     }
 
-    function bid(uint96 bid) external {
-        auction.bid(bid, 0, 0);
+    function bid(uint96 bid, uint96 bidAmount) external {
+        uint256 nextMinimumBid = auction.getNextBidPrice();
+        bidAmount = uint96(bound(bidAmount, nextMinimumBid, bidAmount));
+        auction.bid(bid, 0, 0, bidAmount);
         ++iterations;
     }
 }
