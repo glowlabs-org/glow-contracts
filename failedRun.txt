@@ -1,0 +1,18 @@
+[FAIL. Reason: Assertion failed.]
+        [Sequence]
+sender=0x00000000000000000000000cd948ad93df81e519 addr=[test/CarbonCreditAuction/Handlers/Handler.sol:Handler]0x2e234dae75c793f67a35089c9d99245e1c58470b calldata=failed():(bool), args=[]
+sender=0x2e234dae75c793f67a35089c9d99245e1c58470a addr=[test/CarbonCreditAuction/Handlers/Handler.sol:Handler]0x2e234dae75c793f67a35089c9d99245e1c58470b 
+
+calldata=bid(uint96,uint96), args=[4640999999999999 [4.64e15], 1613665742253347 [1.613e15]]
+
+sender=0x2e234dae75c793f67a35089c9d99245e1c58470c addr=[test/CarbonCreditAuction/Handlers/Handler.sol:Handler]0x2e234dae75c793f67a35089c9d99245e1c58470b 
+
+calldata=bid(uint96,uint96), args=[14920794824849408920393431096 [1.492e28], 37821284934623760108546967307 [3.782e28]]
+
+sender=0x2e234dae75c793f67a35089c9d99245e1c58470c addr=[test/CarbonCreditAuction/Handlers/Handler.sol:Handler]0x2e234dae75c793f67a35089c9d99245e1c58470b 
+
+calldata=bid(uint96,uint96), args=[64623653177194096892740 [6.462e22], 79228162514264337593543950335 [7.922e28]]
+
+sender=0x2e234dae75c793f67a35089c9d99245e1c58470a addr=[test/CarbonCreditAuction/Handlers/Handler.sol:Handler]0x2e234dae75c793f67a35089c9d99245e1c58470b 
+
+calldata=bid(uint96,uint96), args=[3258814307949848017058316 [3.258e24], 1132459562 [1.132e9]]

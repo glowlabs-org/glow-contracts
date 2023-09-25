@@ -21,46 +21,13 @@ contract Handler is Test {
 
     function bid(uint96 bid, uint96 bidAmount) external {
         uint256 nextMinimumBid = auction.getNextBidPrice();
-        bidAmount = uint96(bound(bidAmount, nextMinimumBid, type(uint96).max / 2));
-
+        bidAmount = uint96(bound(bidAmount, nextMinimumBid, nextMinimumBid));
         while (bidAmountTaken[bidAmount]) {
             ++bidAmount;
         }
         bidAmountTaken[bidAmount] = true;
-        // vm.writeLine(
-        //     "./test/CarbonCreditAuction/data.txt",
-        //     string(abi.encodePacked("maxPrice =  ", Strings.toString(uint256(bidAmount))))
-        // );
-        // vm.writeLine(
-        //     "./test/CarbonCreditAuction/data.txt",
-        //     string(abi.encodePacked("iteration =  ", Strings.toString(uint256(iterations))))
-        // );
+        bid = uint96(bound(bid, 1, 1000 * 1e18));
         auction.bid(bid, 0, 0, bidAmount);
         ++iterations;
-    }
-
-    function calculateStuffSimon() public {
-        uint256 head = auction.pointers().head;
-        if (head == NULL) return;
-        auction.close();
-        uint256 closingPrice = auction.closingPrice();
-        uint256 totalOwed;
-        // vm.writeLine("./test/CarbonCreditAuction/data.txt",
-        // string(abi.encodePacked("closing price: ",Strings.toString(closingPrice))));
-
-        while (head != NULL) {
-            CCC.Bid memory bid = auction.bids(head);
-            if (bid.maxPrice < closingPrice) break;
-            totalOwed += auction.amountOwed(head);
-            head = bid.prev;
-        }
-
-        string memory strToWrite = string(abi.encodePacked("total to close at =", Strings.toString(uint256(totalOwed))));
-        vm.writeLine("./test/CarbonCreditAuction/data.txt", strToWrite);
-
-        vm.writeLine(
-            "./test/CarbonCreditAuction/data.txt",
-            string(abi.encodePacked("iteration =  ", Strings.toString(uint256(iterations))))
-        );
     }
 }

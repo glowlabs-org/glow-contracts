@@ -18,6 +18,7 @@ contract CCC is ICarbonCreditAuction {
     Pointers private _pointers;
 
     uint256 public lastPointerLegibleForClaim;
+    uint256 public totalGlowSold;
 
     uint256 public closingPrice;
 
@@ -54,6 +55,7 @@ contract CCC is ICarbonCreditAuction {
     // include rfunds
     function close() external {
         uint256 gccSoldCounter;
+        uint256 totalGlowSpent;
         uint256 head = _pointers.head;
         if (head == _NULL) revert("Head Null");
         Bid memory highestBid = _bids[head];
@@ -63,13 +65,20 @@ contract CCC is ICarbonCreditAuction {
         //10 GLOW / (.5 GLOW / GCC) = 20
         uint256 amount = (uint256(highestBid.bidAmount) * 1e18) / uint256(highestBid.maxPrice);
         gccSoldCounter = amount;
-        head = highestBid.prev;
+        totalGlowSpent = highestBid.bidAmount;
 
+        // console.log("gcc sold counter =  top level", gccSoldCounter);
+
+        head = highestBid.prev;
         while (head != _NULL) {
             Bid memory bid = _bids[head];
-
+            uint256 prevCounter = gccSoldCounter;
             gccSoldCounter = (uint256(gccSoldCounter) * uint256(price)) / bid.maxPrice;
-
+            // console.log("-------------------");
+            // console.log("gcc.c.top level =", gccSoldCounter);
+            // console.log("price coming up =", uint256(bid.maxPrice));
+            // console.log("price           =", price);
+            // console.log("------------------");
             if (gccSoldCounter > GCC_IN_AUCTION) {
                 // console.log("gcc sold counter inside loop", gccSoldCounter);
                 // console.log("gcc in auction inside loop", GCC_IN_AUCTION);
@@ -88,14 +97,23 @@ contract CCC is ICarbonCreditAuction {
                 //newPrice = gccSoldCounter * price / Total GCC In Auction
                 //In the example above, we want totalGCCSoldReservedInIterations = Total GCC In Auction = 1000
                 //So if we hae sold 600, and we want
-                //1000 = 600 * 2 / newPrice
-                //newPrice = (600*2)/1000
-                //newPrice = 1.2
-                //Let's double verify
-                //600 * 2 / 1.2 = 1000
-                price = gccSoldCounter * price / GCC_IN_AUCTION;
+                //to find the value where all the glow we've spent so far clears the auction
+                //newPrice = totalGlowSpent * 1e18 / total gcc in auction
+                // console.log("price before = ", price);
+                // console.log("gcc sold counter = ", gccSoldCounter);
+                price = totalGlowSpent * 1e18 / GCC_IN_AUCTION;
+                // uint iter;
+                while (totalGlowSpent * 1e18 / price > GCC_IN_AUCTION) {
+                    price = price * 1_000_000_000 / 999_999_999;
+                    // console.log("iter",iter++);
+                }
+
+                // console.log("total glow spent = ",totalGlowSpent);
+                // console.log("price after = ", price);
+                // console.log("prev counter = ", prevCounter);
                 gccSoldCounter = GCC_IN_AUCTION;
-                console.log("First");
+                totalGlowSpent += bid.bidAmount;
+                // console.log("First");
                 break;
             }
             uint256 amount = (uint256(bid.bidAmount) * 1e18) / uint256(bid.maxPrice);
@@ -116,50 +134,52 @@ contract CCC is ICarbonCreditAuction {
              */
 
             if (gccSoldCounter > GCC_IN_AUCTION) {
-                //gcc sold counter is 1100
-                //our bid gets us 300 glow at let's say price = 1
-                //so we need to find what amount at current price gets us down
-                //to 1000
-                //so we solve for teh equation
-                //gccSoldCounter (GCC) - price(GLW/GCC) * x = total gcc in auction
-                //let's say finishing price is .5
-                //100 = x / .5
-                //x = 200
-                //because 200 glw gets us 100 gcc
-
                 // amountOverflow is in terms of GCC
                 uint256 amountOverflow = gccSoldCounter - GCC_IN_AUCTION;
+                //our current bid get's us `amount`
+                //so we need `amount - `amountOverflow`
+                uint256 amountGccNeededInBid = amount - amountOverflow;
+                //Now we need to find how much glow is needed to get there.
+                //amount needed = glow amount * 1e18 / price
+                //glow amount = amount needed * price / 1e18
+                uint256 newBidAmount = amountGccNeededInBid * price / 1e18;
 
-                // Now, you need to adjust the last bid's amount to reduce this overflow.
-                // Suppose the last bid was at a price of `price` GLOW/GCC.
-                // The bid amount in terms of GCC can be calculated as: bidAmountGcc = bidAmountGlow / price
-                // We need to reduce this bidAmountGcc by amountOverflow, so:
-                // newBidAmountGcc = bidAmountGcc - amountOverflow
-                // Converting this back to GLOW: newBidAmountGlow = newBidAmountGcc * price
-
-                // Calculate the new bid amount in terms of GCC.
-                uint256 bidAmountGcc = (uint256(bid.bidAmount) * 1e18) / price; // assuming bid.bidAmount is in GLOW and price is in GLOW/GCC
-                uint256 newBidAmountGcc = bidAmountGcc > amountOverflow ? bidAmountGcc - amountOverflow : 0;
-
-                // Convert the new bid amount back to GLOW.
-                uint256 newBidAmount = (newBidAmountGcc * price) / 1e18; // converting back to GLOW
+                console.log("prev bid amount = ", uint256(bid.bidAmount));
+                console.log("new bid amount  =", newBidAmount);
 
                 //Send glow back to user
                 _bids[head].bidAmount = uint96(newBidAmount);
                 gccSoldCounter = GCC_IN_AUCTION;
-                // console.log("2nd");
+
+                totalGlowSpent += newBidAmount;
                 break;
             }
 
             if (gccSoldCounter == GCC_IN_AUCTION) {
                 // console.log("3rd");
+                totalGlowSpent += bid.bidAmount;
                 break;
             }
+
+            totalGlowSpent += bid.bidAmount;
             head = bid.prev;
         }
         //Handle not enough bids case.
         if (gccSoldCounter < GCC_IN_AUCTION) {
             price = (price * gccSoldCounter) / GCC_IN_AUCTION;
+            //we need totalGlowSpent * 1e18 / price = GCC_IN_AUCTION
+            //so price = totalGlowSpent * 1e18 / GCC_IN_AUCTIOn
+            price = totalGlowSpent * 1e18 / GCC_IN_AUCTION;
+
+            //There's a chance we overshoot because of precision
+            uint256 iter;
+            while (totalGlowSpent * 1e18 / price > GCC_IN_AUCTION) {
+                console.log("iter ", iter++);
+
+                price = price * 1_000_000_000 / 999_999_999;
+            }
+            // console.log("third");
+            // console.log("price from here = ", price);
         }
         if (head == _NULL) {
             lastPointerLegibleForClaim = _pointers.tail;
@@ -170,6 +190,7 @@ contract CCC is ICarbonCreditAuction {
         // console.log("last pointer legibile for claim)
 
         closingPrice = price;
+        totalGlowSold = totalGlowSpent;
     }
 
     function getNextBidPrice() public view returns (uint256) {
@@ -183,28 +204,57 @@ contract CCC is ICarbonCreditAuction {
         uint256 _closingPrice = closingPrice;
         uint256 amountInBid = _bids[bidId].bidAmount;
         uint256 maxPriceInBid = _bids[bidId].maxPrice;
-        if (_closingPrice > maxPriceInBid) return 0;
+
+        if (_closingPrice > maxPriceInBid) {
+            return 0;
+        }
 
         if (_closingPrice == maxPriceInBid) {
             //We need to make sure that
             uint256 _lastAcceptableBidId = lastPointerLegibleForClaim;
             //so let's  load in id 247
-            if (bidId != _lastAcceptableBidId) {
-                bidId = _bids[bidId].next;
+            uint256 tempId = bidId;
+            if (tempId != _lastAcceptableBidId) {
+                tempId = _bids[tempId].next;
                 if (bidId == _lastAcceptableBidId) {
                     return 0;
                 }
 
-                while (maxPriceInBid == _bids[bidId].maxPrice) {
-                    uint256 next = _bids[bidId].next;
+                while (maxPriceInBid == _bids[tempId].maxPrice) {
+                    uint256 next = _bids[tempId].next;
                     if (next == _lastAcceptableBidId) {
                         return 0;
                     }
-                    bidId = next;
+                    tempId = next;
+                }
+            }
+            if (bidId == _lastAcceptableBidId) {
+                uint256 totalGccSold = totalGlowSold * 1e18 / _closingPrice;
+                uint256 owed = amountInBid * 1e18 / _closingPrice;
+                if (totalGccSold > GCC_IN_AUCTION) {
+                    uint256 overflow = totalGccSold - GCC_IN_AUCTION;
+                    console.log("------------------");
+                    console.log("partial bid id = ", bidId);
+                    console.log("amountGCCToReceive partial bid =", owed - overflow);
+                    console.log("amountGlowBid = ", amountInBid);
+                    console.log("max price chosen", maxPriceInBid);
+
+                    console.log("------------------");
+
+                    return owed - overflow;
                 }
             }
         }
-        return amountInBid * 1e18 / closingPrice;
+        uint256 amount = amountInBid * 1e18 / closingPrice;
+        console.log("------------------");
+
+        console.log("bid id = ", bidId);
+        console.log("amountGCCToReceive =", amount);
+        console.log("amountGlowBid = ", amountInBid);
+        console.log("max price chosen", maxPriceInBid);
+        console.log("------------------");
+
+        return amount;
     }
 
     function maxAmountToBidForPrice(uint256 price, uint256 timesSmallerMustBe) external view returns (uint256) {
