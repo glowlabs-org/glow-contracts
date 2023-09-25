@@ -92,15 +92,8 @@ contract CCC is ICarbonCreditAuction {
                 //That means that there can be no partial fill for the current bid that's getting iterated
                 //Therefore, we need to find the price that would close the auction at 1000
                 //We can derive the price by reconstructing the formula
-                //totalGCCSoldReservedInIterations = gccSoldCounter * price / newPrice
-                //Restructure this and the new price that sells all the gcc in the auction is
-                //newPrice = gccSoldCounter * price / Total GCC In Auction
-                //In the example above, we want totalGCCSoldReservedInIterations = Total GCC In Auction = 1000
-                //So if we hae sold 600, and we want
-                //to find the value where all the glow we've spent so far clears the auction
-                //newPrice = totalGlowSpent * 1e18 / total gcc in auction
-                // console.log("price before = ", price);
-                // console.log("gcc sold counter = ", gccSoldCounter);
+                //newPrice = totalGlowSpent * 1e18 / total gcc in auction 
+                // and solve for newPrice
                 price = totalGlowSpent * 1e18 / GCC_IN_AUCTION;
                 // uint iter;
                 while (totalGlowSpent * 1e18 / price > GCC_IN_AUCTION) {
@@ -129,8 +122,11 @@ contract CCC is ICarbonCreditAuction {
              *             Now, let's say the current bid was for 300 GLOW Tokens
              *             That would mean that we sold 1100 / 1000 tokens.
              *             We can't do that, we need to partial fill so that we sell exactly 1000 tokens.
-             *             That means we need to make the following changes
-             *             currentBidAmount = originalBidAmount / price
+             *             That means we need to adjust so that we can finish the auction
+                            - at the current price but with a partial bid on the bid that is iterating
+             *             we can reverse engineer by finding how much we've overflowed
+                            - and then we find the amount of glow at the current price needed to fulfill that much gcc
+
              */
 
             if (gccSoldCounter > GCC_IN_AUCTION) {
@@ -144,8 +140,8 @@ contract CCC is ICarbonCreditAuction {
                 //glow amount = amount needed * price / 1e18
                 uint256 newBidAmount = amountGccNeededInBid * price / 1e18;
 
-                console.log("prev bid amount = ", uint256(bid.bidAmount));
-                console.log("new bid amount  =", newBidAmount);
+                // console.log("prev bid amount = ", uint256(bid.bidAmount));
+                // console.log("new bid amount  =", newBidAmount);
 
                 //Send glow back to user
                 _bids[head].bidAmount = uint96(newBidAmount);
@@ -172,9 +168,9 @@ contract CCC is ICarbonCreditAuction {
             price = totalGlowSpent * 1e18 / GCC_IN_AUCTION;
 
             //There's a chance we overshoot because of precision
-            uint256 iter;
+            // uint256 iter;
             while (totalGlowSpent * 1e18 / price > GCC_IN_AUCTION) {
-                console.log("iter ", iter++);
+                // console.log("iter ", iter++);
 
                 price = price * 1_000_000_000 / 999_999_999;
             }
@@ -233,26 +229,26 @@ contract CCC is ICarbonCreditAuction {
                 uint256 owed = amountInBid * 1e18 / _closingPrice;
                 if (totalGccSold > GCC_IN_AUCTION) {
                     uint256 overflow = totalGccSold - GCC_IN_AUCTION;
-                    console.log("------------------");
-                    console.log("partial bid id = ", bidId);
-                    console.log("amountGCCToReceive partial bid =", owed - overflow);
-                    console.log("amountGlowBid = ", amountInBid);
-                    console.log("max price chosen", maxPriceInBid);
+                    // console.log("------------------");
+                    // console.log("partial bid id = ", bidId);
+                    // console.log("amountGCCToReceive partial bid =", owed - overflow);
+                    // console.log("amountGlowBid = ", amountInBid);
+                    // console.log("max price chosen", maxPriceInBid);
 
-                    console.log("------------------");
+                    // console.log("------------------");
 
                     return owed - overflow;
                 }
             }
         }
         uint256 amount = amountInBid * 1e18 / closingPrice;
-        console.log("------------------");
+        // console.log("------------------");
 
-        console.log("bid id = ", bidId);
-        console.log("amountGCCToReceive =", amount);
-        console.log("amountGlowBid = ", amountInBid);
-        console.log("max price chosen", maxPriceInBid);
-        console.log("------------------");
+        // console.log("bid id = ", bidId);
+        // console.log("amountGCCToReceive =", amount);
+        // console.log("amountGlowBid = ", amountInBid);
+        // console.log("max price chosen", maxPriceInBid);
+        // console.log("------------------");
 
         return amount;
     }

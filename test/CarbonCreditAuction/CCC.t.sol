@@ -24,43 +24,43 @@ contract CCCTest is Test {
         targetContract(address(handler));
     }
 
-    // /**
-    //  * forge-config: default.invariant.runs = 10
-    //  * forge-config: default.invariant.depth = 1000
-    //  */
-    // function invariant_linkedLinkShouldBeSortedAscending() public {
-    //     CCC.Pointers memory pointers = auction.pointers();
-    //     uint32 current = pointers.tail;
-    //     uint256 iterations;
-    //     while (current != NULL) {
-    //         CCC.Bid memory bid = auction.bids(current);
-    //         if (bid.next != NULL) {
-    //             CCC.Bid memory nextBid = auction.bids(bid.next);
-    //             assertTrue(bid.maxPrice <= nextBid.maxPrice, "Bid should be sorted ascending");
-    //         }
-    //         current = bid.next;
-    //         ++iterations;
-    //     }
+    /**
+     * forge-config: default.invariant.runs = 10
+     * forge-config: default.invariant.depth = 1000
+     */
+    function invariant_linkedLinkShouldBeSortedAscending() public {
+        CCC.Pointers memory pointers = auction.pointers();
+        uint32 current = pointers.tail;
+        uint256 iterations;
+        while (current != NULL) {
+            CCC.Bid memory bid = auction.bids(current);
+            if (bid.next != NULL) {
+                CCC.Bid memory nextBid = auction.bids(bid.next);
+                assertTrue(bid.maxPrice <= nextBid.maxPrice, "Bid should be sorted ascending");
+            }
+            current = bid.next;
+            ++iterations;
+        }
 
-    //     assertEq(iterations, handler.iterations());
+        assertEq(iterations, handler.iterations());
     // }
 
-    // function invariant_linkedListShouldSortDescending_whenTraversingFromHead() public {
-    //     CCC.Pointers memory pointers = auction.pointers();
-    //     uint32 current = pointers.head;
-    //     uint256 iterations;
-    //     while (current != NULL) {
-    //         CCC.Bid memory bid = auction.bids(current);
-    //         if (bid.prev != NULL) {
-    //             CCC.Bid memory prevBid = auction.bids(bid.prev);
-    //             assertTrue(bid.maxPrice >= prevBid.maxPrice, "Bid should be sorted descending");
-    //         }
-    //         current = bid.prev;
-    //         ++iterations;
-    //     }
+    function invariant_linkedListShouldSortDescending_whenTraversingFromHead() public {
+        CCC.Pointers memory pointers = auction.pointers();
+        uint32 current = pointers.head;
+        uint256 iterations;
+        while (current != NULL) {
+            CCC.Bid memory bid = auction.bids(current);
+            if (bid.prev != NULL) {
+                CCC.Bid memory prevBid = auction.bids(bid.prev);
+                assertTrue(bid.maxPrice >= prevBid.maxPrice, "Bid should be sorted descending");
+            }
+            current = bid.prev;
+            ++iterations;
+        }
 
-    //     assertEq(iterations, handler.iterations());
-    // }
+        assertEq(iterations, handler.iterations());
+    }
 
     function inRange(uint256 value, uint256 lowestAcceptableValue, uint256 highestAcceptableValue)
         internal
@@ -68,13 +68,6 @@ contract CCCTest is Test {
         returns (bool)
     {
         bool valid = lowestAcceptableValue <= value && value <= highestAcceptableValue;
-
-        if (value < lowestAcceptableValue) {
-            console.log("lowest");
-        }
-        if (value > highestAcceptableValue) {
-            console.log("higher");
-        }
         return valid;
     }
 
@@ -109,12 +102,12 @@ contract CCCTest is Test {
         uint256 amountExpected = auction.GCC_IN_AUCTION();
         uint256 minimumExpected = amountExpected * 9_999_999 / 10_000_000;
         //we need .0001% precision
-        console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        // console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         uint256 totalOwed = findTotalOwed(false);
-        console.log("sum           =", totalOwed);
-        console.log("closing price = ", auction.closingPrice());
+        // console.log("sum           =", totalOwed);
+        // console.log("closing price = ", auction.closingPrice());
         bool _inRange = inRange(totalOwed, minimumExpected, amountExpected);
-        console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        // console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
         assertTrue(_inRange);
     }
