@@ -43,7 +43,7 @@ contract CCCTest is Test {
         }
 
         assertEq(iterations, handler.iterations());
-    // }
+    }
 
     function invariant_linkedListShouldSortDescending_whenTraversingFromHead() public {
         CCC.Pointers memory pointers = auction.pointers();
