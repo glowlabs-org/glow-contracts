@@ -22,6 +22,8 @@ import {VetoCouncil} from "@/VetoCouncil.sol";
 import {Governance} from "@/Governance.sol";
 import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {TestGCC} from "@/testing/TestGCC.sol";
+import {HalfLife} from "@/libraries/HalfLife.sol";
+import {DivergenceHandler} from "./Handlers/DivergenceHandler.sol";
 /*
 TODO:
 1. Add tests for also claiming GRC tokens
@@ -37,6 +39,7 @@ contract GovernanceTest is Test {
     MockUSDC grc2;
     Governance governance;
     TestGCC gcc;
+    DivergenceHandler divergenceHandler;
 
     //--------  ADDRESSES ---------//
     address earlyLiquidity = address(0x2);
@@ -60,7 +63,6 @@ contract GovernanceTest is Test {
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
     uint256 ONE_YEAR = 365 * uint256(1 days);
 
-
     function setUp() public {
         //Make sure we don't start at 0
         governance = new Governance();
@@ -82,6 +84,29 @@ contract GovernanceTest is Test {
         governance.setContractAddresses(
             address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
         );
+
+        divergenceHandler = new DivergenceHandler();
+
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = DivergenceHandler.runSims.selector;
+        FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(divergenceHandler)});
+        targetContract(address(divergenceHandler));
+    }
+
+    /**
+        * forge-config: default.invariant.runs = 100
+        * forge-config: default.invariant.depth = 10
+        * @dev cannot divert more than .001%'
+
+     */
+    function invariant_halfLifeCalculations_shouldNotDivergeGreatly() public {
+        uint256 iters = divergenceHandler.iterations();
+        for (uint256 i; i < iters; i++) {
+            uint128 solidityRes = divergenceHandler.amountFromSolidity(i);
+            uint128 rustRes = divergenceHandler.amountFromRust(i);
+            bool diverged = divergenceCheck(solidityRes, rustRes);
+            assert(!diverged);
+        }
     }
 
     function test_grantNomination_shouldRevertCallerNotGCC() public {
@@ -100,11 +125,34 @@ contract GovernanceTest is Test {
         vm.stopPrank();
     }
 
+    function divergenceCheck(uint128 a, uint128 b) internal  returns (bool) {
+        string[] memory inputsForDivergenceCheck = new string[](3);
+
+        inputsForDivergenceCheck[0] = "./test/Governance/divergence_check";
+        inputsForDivergenceCheck[1] = Strings.toString(a);
+        inputsForDivergenceCheck[2] = Strings.toString(b);
+
+        bytes memory divergenceFFI = vm.ffi(inputsForDivergenceCheck);
+        bool diverged = abi.decode(divergenceFFI, (bool));
+    }
+
+    // function maxDiffCheck(uint256 a,uint256 b) internal {
+    //     //First we need to check if a is less than 1000,
+    //     if(a < 10000){
+    //        uint maxDiff = 10;
+    //     }
+    //     int diff = int(a) - int(b);
+    //     uint divisor = 10000; //max dif is .01%
+    //     if(diff < 0){
+    //         diff = diff * -1;
+    //     }
+    //     assert(diff < maxDiff);
+    // }
+
     function test_grantNomination_halfLifeShouldCorrectlyCalculate() public {
         test_grantNominations_fromGCA_shouldWork();
         vm.warp(block.timestamp + ONE_YEAR);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        console.log("nominationsOfSimon", nominationsOfSimon);
     }
 
     function _createAccount(uint256 privateKey, uint256 amount)
