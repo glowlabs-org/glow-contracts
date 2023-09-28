@@ -5,12 +5,19 @@ interface IGovernance {
     //---------- ERRORS -----------------//
     error ProposalNotInitialized(uint256 proposalId);
     error ProposalHasNotExpired(uint256 proposalId);
+    error ProposalExpired();
+    error InsufficientNominations();
+    error GCAContractAlreadySet();
+    error CallerNotGCA();
+    error CallerNotGCC();
+    error ZeroAddressNotAllowed();
+    error ContractsAlreadySet();
 
     enum ProposalType {
         NONE, //default value for unset proposals
         VETO_COUNCIL_ELECTION_OR_SLASH,
         GCA_COUNCIL_ELECTION_OR_SLASH,
-        ADD_RESERVE_CURRENCIES,
+        CHANGE_RESERVE_CURRENCIES,
         GRANTS_PROPOSAL,
         CHANGE_GCA_REQUIREMENTS,
         REQUEST_FOR_COMMENT
@@ -35,6 +42,7 @@ interface IGovernance {
     struct Proposal {
         ProposalType proposalType;
         uint64 expirationTimestamp;
+        uint184 votes;
         bytes data;
     }
 
@@ -89,11 +97,13 @@ interface IGovernance {
      * @notice emitted when a proposal to change the reserve currencies is created
      * @param proposalId the id of the proposal
      * @param proposer the address of the proposer
-     * @param newReserveCurrencies the new reserve currencies
-     *         - max length 3
+     * @param currencyToRemove  the address of the currency to remove
+     * @param newReserveCurrency the address of the new reserve currency
+     * @dev currencyToRemove can be address(0) to add a new reserve currency
+     * @dev there should never be more than 3 active reserve currencies
      */
     event ChangeReserveCurrenciesProposal(
-        uint256 indexed proposalId, address indexed proposer, address[] newReserveCurrencies
+        uint256 indexed proposalId, address indexed proposer, address currencyToRemove, address newReserveCurrency
     );
 
     /**
