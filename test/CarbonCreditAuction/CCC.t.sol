@@ -7,6 +7,7 @@ import "forge-std/console.sol";
 import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
 import {CCC} from "@/CCC.sol";
 import {Handler} from "./Handlers/Handler.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract CCCTest is Test {
     CCC auction;
@@ -61,37 +62,156 @@ contract CCCTest is Test {
         assertEq(iterations, handler.iterations());
     }
 
-    function test_bid2() public {
-        auction.bid(3281, 0, 0);
-        auction.bid(79228162514264337593543950335, 0, 0);
-        printList();
+    function inRange(uint256 value, uint256 lowestAcceptableValue, uint256 highestAcceptableValue)
+        internal
+        view
+        returns (bool)
+    {
+        bool valid = lowestAcceptableValue <= value && value <= highestAcceptableValue;
+        return valid;
     }
 
-    function test_Bid() public {
-        auction.bid(2, 1, 1); //0
-        auction.bid(10, 0, 0); //1
-        auction.bid(20, 1, NULL); //2
-
-        auction.bid(11, 1, 2); //3
-        auction.bid(13, 0, 0); //4
-        auction.bid(15, 0, 0); //5
-        auction.bid(1, NULL, 0); //6
-        auction.bid(1, 0, 0); //7
-        auction.bid(12, 0, 2); //8
-
-        // auction.bid(12, 0, 2); //6
-
-        //Order should be
-        //0,3,4,1,2
-
-        printPointers();
-        // printBid(0);
-        // printBid(1);
-        // printBid(2);
-        printList();
-        // printListLinear();
+    /**
+     * forge-config: default.invariant.runs = 100
+     * forge-config: default.invariant.depth = 200
+     */
+    function invariant_closingPriceMultipliedByAllValidBids_shouldEqualTotalGCC_largeDepth() public {
+        checkerInvariantForTotalGCCSold();
     }
 
+    /**
+     * forge-config: default.invariant.runs = 10000
+     * forge-config: default.invariant.depth = 5
+     */
+    function invariant_closingPriceMultipliedByAllValidBids_shouldEqualTotalGCC_smallDepth() public {
+        checkerInvariantForTotalGCCSold();
+    }
+
+    /**
+     * forge-config: default.invariant.runs = 1000
+     * forge-config: default.invariant.depth = 50
+     */
+    function invariant_closingPriceMultipliedByAllValidBids_shouldEqualTotalGCC_mediumDepth() public {
+        checkerInvariantForTotalGCCSold();
+    }
+
+    function checkerInvariantForTotalGCCSold() public {
+        uint256 head = auction.pointers().head;
+        if (head == NULL) return;
+        auction.close();
+        uint256 amountExpected = auction.GCC_IN_AUCTION();
+        uint256 minimumExpected = amountExpected * 9_999_999 / 10_000_000;
+        //we need .0001% precision
+        // console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        uint256 totalOwed = findTotalOwed(false);
+        // console.log("sum           =", totalOwed);
+        // console.log("closing price = ", auction.closingPrice());
+        bool _inRange = inRange(totalOwed, minimumExpected, amountExpected);
+        // console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+
+        assertTrue(_inRange);
+    }
+
+    function test_bidClosingPrice_notEnoughBidsToFinishSale() public {
+        //maxPrice,prev,next,amount to bid
+        auction.bid(10 * 1e18, 0, 0, 1e18);
+        auction.bid(20 * 1e18, 0, 0, 11 * 1e17);
+
+        uint256 totalGlowInBids = 1e18 + 11 * 1e17;
+
+        //price will finish at 10 glw / gcc which means
+        //we will have sold .21 gcc
+        //so
+
+        auction.close();
+        uint256 closingPrice = auction.closingPrice();
+
+        uint256 totalOwed = findTotalOwed(false);
+
+        console.log("sum  = ", totalOwed);
+    }
+
+    function test_randomBids() public {
+        //maxPrice,prev,next,amount to bid
+        auction.bid(10 * 1e18, 0, 0, 1e18);
+        auction.bid(20 * 1e18, 0, 0, 11 * 1e17);
+        //maxPrice,prev,next,amount to bid
+        auction.bid(1e17, 0, 0, 20 * 1e18);
+        auction.bid(1e16, 0, 0, 10 * 1e18);
+        //20 + 1 + 1.1 = 22.2
+        uint256 valToLog = 210 ether / 1000;
+        // 210 GLOW / x(GLOW /GCC) = 1000 GCC
+        // 210 GLOW / 1000 GCC
+
+        console.log("val to log = ", valToLog);
+        /**
+         * In Order:
+         *     20 GLW / GCC : 1.1 GLOW
+         *     10 GLOW / GCC: 1 GLOW
+         *     .1 GLW / GCC, 20 GLOW
+         *     .01 GLW / GCC: 10 GLOW
+         *
+         *     If at .1:
+         *     200 GCC +
+         *
+         *     Closing Price = 221000000000000000
+         */
+
+        auction.close();
+        uint256 closingPrice = auction.closingPrice();
+        console.log("closing pric = ", closingPrice);
+
+        uint256 totalOwed = findTotalOwed(false);
+
+        console.log("sum  = ", totalOwed);
+    }
+
+    function findTotalOwed(bool logIndividual) internal view returns (uint256) {
+        uint256 totalOwed;
+        uint256 head = auction.pointers().head;
+        while (head != NULL) {
+            uint256 amount = auction.amountOwed(head);
+            if (logIndividual) {
+                console.log("-----------------");
+                console.log("@head", head);
+                console.log("@amount=", amount);
+                console.log("-----------------");
+            }
+            if (amount == 0) break;
+            totalOwed += amount;
+            head = auction.bids(head).prev;
+        }
+
+        return totalOwed;
+    }
+
+    function test_bidClosingPrice_partialBidMustFill() public {
+        auction.bid(1 * 1e18, 0, 0, 400 * 1e18);
+        auction.bid(5 * 1e17, 0, 0, 150 * 1e18);
+        auction.close();
+        //Price finishes at 1 glow / gcc
+        //First bid was 2 glow / gcc and 800 glw
+        //Second bid was 300 glow
+        //That means we oversell by 100 (1000 - 800 + 300  = 100) glow and we need to partial fill.
+
+        uint256 closingPrice = auction.closingPrice();
+
+        uint256 amountOwedFromZero = auction.amountOwed(0);
+        uint256 amountOwedFromOne = auction.amountOwed(1);
+        console.log("closing price = ", closingPrice);
+        console.log("owed zero = ", amountOwedFromZero);
+        console.log("owed one = ", amountOwedFromOne);
+
+        console.log("sum  = ", amountOwedFromZero + amountOwedFromOne);
+    }
+
+    function test_closeOversell() public {
+        auction.bid(2 * 1e18, 0, 0, 800 * 1e18);
+        auction.bid(1e18, 0, 0, 300 * 1e18);
+        auction.close();
+    }
+
+    //PRINT FUNCTIONS
     function printPointers() public {
         CCC.Pointers memory pointers = auction.pointers();
         console.log("head %s", pointers.head);
