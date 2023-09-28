@@ -92,7 +92,7 @@ contract CCC is ICarbonCreditAuction {
                 //That means that there can be no partial fill for the current bid that's getting iterated
                 //Therefore, we need to find the price that would close the auction at 1000
                 //We can derive the price by reconstructing the formula
-                //newPrice = totalGlowSpent * 1e18 / total gcc in auction 
+                //newPrice = totalGlowSpent * 1e18 / total gcc in auction
                 // and solve for newPrice
                 price = totalGlowSpent * 1e18 / GCC_IN_AUCTION;
                 // uint iter;
@@ -123,10 +123,9 @@ contract CCC is ICarbonCreditAuction {
              *             That would mean that we sold 1100 / 1000 tokens.
              *             We can't do that, we need to partial fill so that we sell exactly 1000 tokens.
              *             That means we need to adjust so that we can finish the auction
-                            - at the current price but with a partial bid on the bid that is iterating
+             *                         - at the current price but with a partial bid on the bid that is iterating
              *             we can reverse engineer by finding how much we've overflowed
-                            - and then we find the amount of glow at the current price needed to fulfill that much gcc
-
+             *                         - and then we find the amount of glow at the current price needed to fulfill that much gcc
              */
 
             if (gccSoldCounter > GCC_IN_AUCTION) {
