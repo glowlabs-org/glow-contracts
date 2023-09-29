@@ -94,10 +94,9 @@ contract GovernanceTest is Test {
     }
 
     /**
-        * forge-config: default.invariant.runs = 100
-        * forge-config: default.invariant.depth = 10
-        * @dev cannot divert more than .001%'
-
+     * forge-config: default.invariant.runs = 100
+     * forge-config: default.invariant.depth = 10
+     * @dev cannot divert more than .001%'
      */
     function invariant_halfLifeCalculations_shouldNotDivergeGreatly() public {
         uint256 iters = divergenceHandler.iterations();
@@ -125,7 +124,69 @@ contract GovernanceTest is Test {
         vm.stopPrank();
     }
 
-    function divergenceCheck(uint128 a, uint128 b) internal  returns (bool) {
+    function test_createGrantsProposal() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+
+        address grantsRecipient = address(0x4123141);
+        uint256 amount = 10 ether; //10 glow
+        bytes32 hash = keccak256("test info");
+
+        uint256 creationTimestamp = block.timestamp;
+
+        uint256 nominationsToUse = governance.costForNewProposal();
+        governance.createGrantsProposal(grantsRecipient, amount, hash, nominationsToUse);
+        IGovernance.Proposal memory proposal = governance.proposals(0);
+        (address recipient, uint256 amount_, bytes32 hash_) = abi.decode(proposal.data, (address, uint256, bytes32));
+        assertEq(recipient, grantsRecipient);
+        assertEq(amount_, amount);
+        assertEq(hash_, hash);
+        assertEq(governance.proposalCount(), 1);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+        vm.stopPrank();
+    }
+
+    // function test_createGrantsProposal_notEnoughNominationsShouldRevert() public {
+    //     vm.startPrank(SIMON);
+    //     gcc.mint(SIMON, .5 ether);
+    //     gcc.retireGCC(.5 ether, SIMON);
+    //     uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+
+    //     address grantsRecipient = address(0x4123141);
+    //     uint256 amount = 10 ether; //10 glow
+    //     bytes32 hash = keccak256("test info");
+
+    //     uint256 creationTimestamp = block.timestamp;
+
+    //     uint256 nominationsToUse = governance.costForNewProposal();
+    //     governance.createGrantsProposal(grantsRecipient, amount, hash, nominationsToUse);
+    //     IGovernance.Proposal memory proposal = governance.proposals(0);
+    //     (address recipient, uint256 amount_, bytes32 hash_) = abi.decode(proposal.data, (address, uint256, bytes32));
+    //     assertEq(recipient, grantsRecipient);
+    //     assertEq(amount_, amount);
+    //     assertEq(hash_, hash);
+    //     assertEq(governance.proposalCount(), 1);
+    //     assertTrue(proposal.proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL);
+    //     assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+    //     assertEq(proposal.votes, nominationsToUse);
+    //     vm.stopPrank();
+    // }
+
+    function test_balls() public {
+        uint a = governance._getNominationCostForProposalCreation(0);
+        uint b = governance._getNominationCostForProposalCreation(1);
+        uint c = governance._getNominationCostForProposalCreation(400);
+
+        console.log("a: %s", Strings.toString(a));
+        console.log("b: %s", Strings.toString(b));
+        console.log("c: %s", Strings.toString(c));
+    }
+
+    function divergenceCheck(uint128 a, uint128 b) internal returns (bool) {
         string[] memory inputsForDivergenceCheck = new string[](3);
 
         inputsForDivergenceCheck[0] = "./test/Governance/divergence_check";

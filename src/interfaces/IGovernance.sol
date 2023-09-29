@@ -12,6 +12,7 @@ interface IGovernance {
     error CallerNotGCC();
     error ZeroAddressNotAllowed();
     error ContractsAlreadySet();
+    error NominationCostGreaterThanAllowance();
 
     enum ProposalType {
         NONE, //default value for unset proposals

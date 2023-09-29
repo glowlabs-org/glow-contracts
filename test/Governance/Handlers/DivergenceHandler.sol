@@ -23,7 +23,7 @@ contract DivergenceHandler is Test {
         bytes memory res = vm.ffi(inputs);
         uint256 resi = abi.decode(res, (uint256));
 
-        uint halfLifeLibRes = HalfLife.calculateHalfLifeValue(initialAmount, secondsElapsed);
+        uint256 halfLifeLibRes = HalfLife.calculateHalfLifeValue(initialAmount, secondsElapsed);
 
         amountFromSolidity[iterations] = uint128(halfLifeLibRes);
         amountFromRust[iterations] = uint128(resi);

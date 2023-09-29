@@ -122,14 +122,21 @@ contract Governance is IGovernance {
      * @param amount the amount of the grant
      * @param hash the hash of the proposal
      *             - the pre-image should be made public off-chain
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
      */
 
-    function createGrantsProposal(address grantsRecipient, uint256 amount, bytes32 hash) external {
+    function createGrantsProposal(address grantsRecipient, uint256 amount, bytes32 hash, uint256 maxNominations)
+        external
+    {
         uint256 proposalId = _proposalCount;
+        uint256 nominationCost = costForNewProposal();
+        if (maxNominations < nominationCost) {
+            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
+        }
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.GRANTS_PROPOSAL,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
-            0,
+            uint184(nominationCost),
             abi.encode(grantsRecipient, amount, hash)
         );
 
@@ -137,20 +144,25 @@ contract Governance is IGovernance {
 
         emit IGovernance.GrantsProposalCreation(proposalId, msg.sender, grantsRecipient, amount, hash);
 
-        _spendNominations(msg.sender, costForNewProposal());
+        _spendNominations(msg.sender, nominationCost);
     }
 
     /**
      * @notice Creates a proposal to change the GCA requirements
      * @param newRequirementsHash the new requirements hash
      *             - the pre-image should be made public off-chain
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
      */
-    function createChangeGCARequirementsProposal(bytes32 newRequirementsHash) external {
+    function createChangeGCARequirementsProposal(bytes32 newRequirementsHash, uint256 maxNominations) external {
         uint256 proposalId = _proposalCount;
+        uint256 nominationCost = costForNewProposal();
+        if (maxNominations < nominationCost) {
+            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
+        }
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
-            0,
+            uint184(nominationCost),
             abi.encode(newRequirementsHash)
         );
 
@@ -158,7 +170,7 @@ contract Governance is IGovernance {
 
         emit IGovernance.ChangeGCARequirementsProposalCreation(proposalId, msg.sender, newRequirementsHash);
 
-        _spendNominations(msg.sender, costForNewProposal());
+        _spendNominations(msg.sender, nominationCost);
     }
 
     /**
@@ -167,13 +179,18 @@ contract Governance is IGovernance {
      *     - if accepted, veto council members must read the RFC (up to 10k Words) and provide a written statement on their thoughts
      *
      * @param hash the hash of the proposal
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
      */
-    function createRFCProposal(bytes32 hash) external {
+    function createRFCProposal(bytes32 hash, uint256 maxNominations) external {
         uint256 proposalId = _proposalCount;
+        uint256 nominationCost = costForNewProposal();
+        if (maxNominations < nominationCost) {
+            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
+        }
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.REQUEST_FOR_COMMENT,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
-            0,
+            uint184(nominationCost),
             abi.encode(hash)
         );
 
@@ -181,19 +198,25 @@ contract Governance is IGovernance {
 
         emit IGovernance.RFCProposalCreation(proposalId, msg.sender, hash);
 
-        _spendNominations(msg.sender, costForNewProposal());
+        _spendNominations(msg.sender, nominationCost);
     }
 
-    function createGCACouncilElectionOrSlashProposal(address[] calldata agentsToSlash, address[] calldata newGCAs)
-        external
-    {
+    function createGCACouncilElectionOrSlashProposal(
+        address[] calldata agentsToSlash,
+        address[] calldata newGCAs,
+        uint256 maxNominations
+    ) external {
         //[agentsToSlash,newGCAs,proposalCreationTimestamp]
         bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
         uint256 proposalId = _proposalCount;
+        uint256 nominationCost = costForNewProposal();
+        if (maxNominations < nominationCost) {
+            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
+        }
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
-            0,
+            uint184(nominationCost),
             abi.encode(hash)
         );
 
@@ -203,15 +226,24 @@ contract Governance is IGovernance {
             proposalId, msg.sender, agentsToSlash, newGCAs, block.timestamp
         );
 
-        _spendNominations(msg.sender, costForNewProposal());
+        _spendNominations(msg.sender, nominationCost);
     }
 
-    function createVetoCouncilElectionOrSlash(address oldAgent, address newAgent, bool slashOldAgent) external {
+    function createVetoCouncilElectionOrSlash(
+        address oldAgent,
+        address newAgent,
+        bool slashOldAgent,
+        uint256 maxNominations
+    ) external {
         uint256 proposalId = _proposalCount;
+        uint256 nominationCost = costForNewProposal();
+        if (maxNominations < nominationCost) {
+            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
+        }
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
-            0,
+            uint184(nominationCost),
             abi.encode(oldAgent, newAgent, slashOldAgent)
         );
 
@@ -219,15 +251,23 @@ contract Governance is IGovernance {
 
         emit IGovernance.VetoCouncilElectionOrSlash(proposalId, msg.sender, oldAgent, newAgent, slashOldAgent);
 
-        _spendNominations(msg.sender, costForNewProposal());
+        _spendNominations(msg.sender, nominationCost);
     }
 
-    function createChangeReserveCurrencyProposal(address currencyToRemove, address newReserveCurrency) external {
+    function createChangeReserveCurrencyProposal(
+        address currencyToRemove,
+        address newReserveCurrency,
+        uint256 maxNominations
+    ) external {
         uint256 proposalId = _proposalCount;
+        uint256 nominationCost = costForNewProposal();
+        if (maxNominations < nominationCost) {
+            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
+        }
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
-            0,
+            uint184(nominationCost),
             abi.encode(currencyToRemove, newReserveCurrency)
         );
 
@@ -235,7 +275,7 @@ contract Governance is IGovernance {
 
         emit IGovernance.ChangeReserveCurrenciesProposal(proposalId, msg.sender, currencyToRemove, newReserveCurrency);
 
-        _spendNominations(msg.sender, costForNewProposal());
+        _spendNominations(msg.sender, nominationCost);
     }
 
     function _spendNominations(address account, uint256 amount) private {
@@ -247,7 +287,9 @@ contract Governance is IGovernance {
     }
 
     function costForNewProposal() public view returns (uint256) {
-        return 0;
+        uint256 numActiveProposals;
+        (numActiveProposals,) = _numActiveProposalsAndLastExpiredProposalId();
+        return _getNominationCostForProposalCreation(numActiveProposals);
     }
 
     function updateLastExpiredProposalIdAndGetNominationsRequired() public {
@@ -275,16 +317,18 @@ contract Governance is IGovernance {
         _lastExpiredProposalId = _lastExpiredProposalId;
     }
 
-    function getNominationCostForProposalCreation() external view returns (uint256) {
-        uint256 numActiveProposals;
-        (numActiveProposals,) = _numActiveProposalsAndLastExpiredProposalId();
-        return _getNominationCostForProposalCreation(numActiveProposals);
+    function proposalCount() external view returns (uint256) {
+        return _proposalCount;
+    }
+
+    function proposals(uint256 proposalId) external view returns (IGovernance.Proposal memory) {
+        return _proposals[proposalId];
     }
 
     function _getNominationCostForProposalCreation(uint256 numActiveProposals) public pure returns (uint256) {
-        int128 res = _ONE_64x64.mul(ABDKMath64x64.pow(_ONE_POINT_ONE_128, numActiveProposals));
-        uint256 resInt = res.toUInt();
-        return resInt * 1e14;
+        uint res = _ONE_64x64.mul(ABDKMath64x64.pow(_ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
+        // uint256 resInt = res.toUInt();
+        return res  * 1e14;
     }
     /**
      * @notice More efficiently reverts with a bytes4 selector
