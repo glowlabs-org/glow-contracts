@@ -215,10 +215,14 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
     function _getFirstTermInSeries(uint256 totalSold) private pure returns (int128) {
         int128 scaledTotalSold = ABDKMath64x64.fromUInt(totalSold);
+        //Essentially, the first term is .6 * 2^(total_sold/ 1_000_000)
+        //The power rule says: 2^x = e^(ln(2) * x)
+        //So, we can rewrite the first term as .6 * e^((ln(2) * total_sold)/ 1_000_000)
+        //We need to do this since ABDK does not have floating point exponentiation
         // Calculate the exponent: (ln(2) * totalSold) / 1,000,000
         int128 exponent = _LN_2.mul(scaledTotalSold).div(_DIVISOR);
 
-        // Now, compute 2^(exponent)
+        // Now, e^exponent
         int128 baseResult = ABDKMath64x64.exp(exponent);
 
         // Finally, multiply by 0.6
