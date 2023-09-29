@@ -19,25 +19,76 @@ contract Governance is IGovernance {
      */
     uint256 private constant _MAX_PROPOSAL_DURATION = 9676800;
 
+    /**
+     * @param amount the amount of nominations that an account has
+     * @param lastUpdate the last time that the account's balance was updated
+     *         -   {lastUpdate} is used to calculate the user's balance according to the half-life formula
+     *         -   Check {HalfLife.calculateHalfLifeValue} for more details
+     */
     struct Nominations {
         uint192 amount;
         uint64 lastUpdate;
     }
 
+    /**
+     * @dev The nominations of each account
+     */
     mapping(address => Nominations) private _nominations;
+
+    /**
+     * @dev The proposals
+     */
     mapping(uint256 => IGovernance.Proposal) private _proposals;
 
+    /**
+     * @dev The proposals that need to be executed
+     */
     uint256[] private _proposalsThatNeedExecution;
 
+    /**
+     * @dev The total number of proposals created
+     */
     uint256 private _proposalCount;
 
+    /**
+     * @dev The GCC contract
+     */
     address private _gcc;
+
+    /**
+     * @dev The GCA contract
+     */
     address private _gca;
+
+    /**
+     * @dev The Veto Council contract
+     */
     address private _vetoCouncil;
+
+    /**
+     * @dev The Grants Treasury contract
+     */
     address private _grantsTreasury;
+
+    /**
+     * @dev The GLW contract
+     */
     address private _glw;
 
+    /**
+     * @notice The last updated proposal id (should not be used for anything other than caching)
+     * @dev The last proposal that expired (in storage)
+     * @dev this may be out of sync with the actual last expired proposal id
+     *      -  it's used as a cache to make _numActiveProposalsAndLastExpiredProposalId() more efficient
+     * @return lastExpiredProposalId the last expired proposal id
+     */
     uint256 public lastExpiredProposalId;
+
+    /**
+     * @notice the last executed proposal id (should not be used for anything other than caching)
+     * @dev The last proposal that was executed
+     * @dev this may be out of sync with the actual last executed proposal id
+     */
     uint256 public lastExecutedProposalId;
 
     /**
@@ -394,6 +445,7 @@ contract Governance is IGovernance {
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
      */
+
     function _revert(bytes4 selector) private pure {
         assembly {
             mstore(0x0, selector)
