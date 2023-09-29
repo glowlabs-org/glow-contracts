@@ -16,7 +16,7 @@ contract DivergenceHandler is Test {
     function runSims(uint64 initialAmount, uint32 secondsElapsed) external {
         string[] memory inputs = new string[](3);
         //can be max u64
-        inputs[0] = "./test/Governance/half_life";
+        inputs[0] = "./test/Governance/ffi/half_life";
         inputs[1] = Strings.toString(initialAmount);
         inputs[2] = Strings.toString(secondsElapsed);
 

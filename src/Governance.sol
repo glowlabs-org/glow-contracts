@@ -133,6 +133,7 @@ contract Governance is IGovernance {
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
+        _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.GRANTS_PROPOSAL,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
@@ -143,8 +144,6 @@ contract Governance is IGovernance {
         _proposalCount = proposalId + 1;
 
         emit IGovernance.GrantsProposalCreation(proposalId, msg.sender, grantsRecipient, amount, hash);
-
-        _spendNominations(msg.sender, nominationCost);
     }
 
     /**
@@ -159,6 +158,7 @@ contract Governance is IGovernance {
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
+        _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
@@ -169,8 +169,6 @@ contract Governance is IGovernance {
         _proposalCount = proposalId + 1;
 
         emit IGovernance.ChangeGCARequirementsProposalCreation(proposalId, msg.sender, newRequirementsHash);
-
-        _spendNominations(msg.sender, nominationCost);
     }
 
     /**
@@ -187,6 +185,8 @@ contract Governance is IGovernance {
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
+        _spendNominations(msg.sender, nominationCost);
+
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.REQUEST_FOR_COMMENT,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
@@ -197,10 +197,18 @@ contract Governance is IGovernance {
         _proposalCount = proposalId + 1;
 
         emit IGovernance.RFCProposalCreation(proposalId, msg.sender, hash);
-
-        _spendNominations(msg.sender, nominationCost);
     }
 
+    /**
+     * @notice Creates a proposal to add, replace, or slash GCA council members
+     * @param agentsToSlash an array of all gca's that are to be slashed
+     *         - could be empty
+     *         - could be a subset of the current GCAs
+     *         - could be any address [in order to account for previous GCA's]
+     * @param newGCAs the new GCAs
+     *     -   can be empty if all GCA's are bad actors
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     */
     function createGCACouncilElectionOrSlashProposal(
         address[] calldata agentsToSlash,
         address[] calldata newGCAs,
@@ -213,6 +221,7 @@ contract Governance is IGovernance {
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
+        _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
@@ -225,10 +234,17 @@ contract Governance is IGovernance {
         emit IGovernance.GCACouncilElectionOrSlashCreation(
             proposalId, msg.sender, agentsToSlash, newGCAs, block.timestamp
         );
-
-        _spendNominations(msg.sender, nominationCost);
     }
 
+    /**
+     * @notice Creates a proposal to add, replace, or slash Veto a single veto council member
+     * @param oldAgent the old agent to be replaced
+     *         -   If the agent is address(0), it means we are simply adding a new agent
+     * @param newAgent the new agent to replace the old agent
+     *         -   If the agent is address(0), it means we are simply removing an agent
+     * @param slashOldAgent whether or not to slash the old agent
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     */
     function createVetoCouncilElectionOrSlash(
         address oldAgent,
         address newAgent,
@@ -240,20 +256,27 @@ contract Governance is IGovernance {
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
+        _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
             uint184(nominationCost),
-            abi.encode(oldAgent, newAgent, slashOldAgent)
+            abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp)
         );
 
         _proposalCount = proposalId + 1;
 
         emit IGovernance.VetoCouncilElectionOrSlash(proposalId, msg.sender, oldAgent, newAgent, slashOldAgent);
-
-        _spendNominations(msg.sender, nominationCost);
     }
 
+    /**
+     * @notice Creates a proposal to change a reserve currency
+     * @param currencyToRemove the currency to remove
+     *     -   If the currency is address(0), it means we are simply adding a new reserve currency
+     * @param newReserveCurrency the new reserve currency
+     *     -   If the currency is address(0), it means we are simply removing a reserve currency
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     */
     function createChangeReserveCurrencyProposal(
         address currencyToRemove,
         address newReserveCurrency,
@@ -278,6 +301,12 @@ contract Governance is IGovernance {
         _spendNominations(msg.sender, nominationCost);
     }
 
+    /**
+     * @dev helper func to spend nominations from an account
+     *         -   should never be public
+     * @param account the account to spend nominations from
+     * @param amount the amount of nominations to spend
+     */
     function _spendNominations(address account, uint256 amount) private {
         uint256 currentBalance = nominationsOf(account);
         if (currentBalance < amount) {
@@ -286,17 +315,32 @@ contract Governance is IGovernance {
         _nominations[account] = Nominations(uint192(currentBalance - amount), uint64(block.timestamp));
     }
 
+    /**
+     * @notice Gets the cost for a new proposal
+     * @return cost the cost for a new proposal
+     * @dev calculates cost as 1 * 1.1^numActiveProposals
+     */
     function costForNewProposal() public view returns (uint256) {
         uint256 numActiveProposals;
         (numActiveProposals,) = _numActiveProposalsAndLastExpiredProposalId();
         return _getNominationCostForProposalCreation(numActiveProposals);
     }
 
-    function updateLastExpiredProposalIdAndGetNominationsRequired() public {
+    /**
+     * @notice Updates the last expired proposal id
+     *         - could be called by a good actor to update the last expired proposal id
+     *         - so that _numActiveProposalsAndLastExpiredProposalId() is more efficient
+     */
+    function updateLastExpiredProposalId() public {
         (, uint256 _lastExpiredProposalId) = _numActiveProposalsAndLastExpiredProposalId();
         lastExpiredProposalId = _lastExpiredProposalId;
     }
 
+    /**
+     * @notice Gets the number of active proposals and the last expired proposal id
+     * @return numActiveProposals the number of active proposals
+     * @return _lastExpiredProposalId the last expired proposal id
+     */
     function _numActiveProposalsAndLastExpiredProposalId()
         public
         view
@@ -317,24 +361,39 @@ contract Governance is IGovernance {
         _lastExpiredProposalId = _lastExpiredProposalId;
     }
 
+    /**
+     * @notice Gets the total number of proposals created
+     * @return proposalCount - the total number of proposals created
+     */
     function proposalCount() external view returns (uint256) {
         return _proposalCount;
     }
 
+    /**
+     * @notice Gets the proposal at a given id
+     * @param proposalId the id of the proposal
+     * @return proposal the proposal at the given id
+     */
     function proposals(uint256 proposalId) external view returns (IGovernance.Proposal memory) {
         return _proposals[proposalId];
     }
 
+    /**
+     * @notice Gets the nomination cost for proposal creation based on {numActiveProposals}
+     * @param numActiveProposals the number of active proposals
+     * @return res the nomination cost for proposal creation
+     * @dev calculates cost as 1 * 1.1^numActiveProposals
+     * @dev we only use 4 decimals of precision
+     */
     function _getNominationCostForProposalCreation(uint256 numActiveProposals) public pure returns (uint256) {
-        uint res = _ONE_64x64.mul(ABDKMath64x64.pow(_ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
+        uint256 res = _ONE_64x64.mul(ABDKMath64x64.pow(_ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
         // uint256 resInt = res.toUInt();
-        return res  * 1e14;
+        return res * 1e14;
     }
     /**
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
      */
-
     function _revert(bytes4 selector) private pure {
         assembly {
             mstore(0x0, selector)

@@ -22,6 +22,10 @@ contract GCC_Test is Test {
     address public SIMON;
     uint256 public SIMON_PK;
     Handler public handler;
+    address gca = address(0x155);
+    address vetoCouncil = address(0x156);
+    address grantsTreasury = address(0x157);
+    address glw = address(0x158);
     address other = address(0xdead);
 
     function setUp() public {
@@ -32,6 +36,7 @@ contract GCC_Test is Test {
         auction = new CarbonCreditAuction();
         gcc = new TestGCC(address(auction), GCA_AND_MINER_POOL_CONTRACT, address(gov));
         handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
+        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = Handler.mintToCarbonCreditAuction.selector;
