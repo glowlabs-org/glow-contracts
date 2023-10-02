@@ -33,8 +33,6 @@ contract GCC_Test is Test {
     address other = address(0xdead);
 
     function setUp() public {
-        // uint localFork = vm.createFork("http://127.0.0.1:8545/");
-        // vm.selectFork(localFork);
         glwContract = new TestGLOW(earlyLiquidity,vestingContract);
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);

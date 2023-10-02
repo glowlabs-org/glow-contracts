@@ -19,11 +19,12 @@ import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
-import {Governance} from "@/Governance.sol";
+import {MockGovernance} from "@/testing/MockGovernance.sol";
 import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {TestGCC} from "@/testing/TestGCC.sol";
 import {HalfLife} from "@/libraries/HalfLife.sol";
 import {DivergenceHandler} from "./Handlers/DivergenceHandler.sol";
+
 /*
 TODO:
 1. Add tests for also claiming GRC tokens
@@ -37,7 +38,7 @@ contract GovernanceTest is Test {
     TestGLOW glow;
     MockUSDC usdc;
     MockUSDC grc2;
-    Governance governance;
+    MockGovernance governance;
     TestGCC gcc;
     DivergenceHandler divergenceHandler;
 
@@ -65,7 +66,7 @@ contract GovernanceTest is Test {
 
     function setUp() public {
         //Make sure we don't start at 0
-        governance = new Governance();
+        governance = new MockGovernance();
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
         vm.warp(10);
         usdc = new MockUSDC();
@@ -1000,6 +1001,71 @@ contract GovernanceTest is Test {
         governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 40 ether});
         vm.expectRevert(IGovernance.InsufficientRatifyOrRejectVotes.selector);
         governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 61 ether});
+        vm.stopPrank();
+    }
+
+    function test_ratifyOrReject_vetoedProposal_shouldRevert() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        // and the week should be finalized
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+
+        governance.vetoProposal(0);
+
+        IGovernance.ProposalStatus status = governance.getMostPopularProposalStatus(0);
+        assertEq(uint256(status), uint256(IGovernance.ProposalStatus.VETOED));
+        vm.expectRevert(IGovernance.ProposalAlreadyVetoed.selector);
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: true, numVotes: 100 ether});
+        vm.stopPrank();
+    }
+
+    function test_vetoProposal_callerNotVetoCouncilMember() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        // and the week should be finalized
+        address notSimon = address(0x124214125);
+        vm.startPrank(notSimon);
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+
+        vm.expectRevert(IGovernance.CallerNotVetoCouncilMember.selector);
+        governance.vetoProposal(0);
+        vm.stopPrank();
+    }
+
+    function test_vetoProposal_sameWeekNotFinalized_shouldRevert() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        governance.vetoProposal(0);
+        vm.stopPrank();
+    }
+
+    function test_vetoProposal_futureWeek_shouldRevert() public {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        governance.vetoProposal(1);
+        vm.stopPrank();
+    }
+
+    function test_vetoProposal_ratifyOrRejectionPeriodEnded_shouldRevert() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + (ONE_WEEK * 5) + 1);
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodEnded.selector);
+        governance.vetoProposal(0);
         vm.stopPrank();
     }
 

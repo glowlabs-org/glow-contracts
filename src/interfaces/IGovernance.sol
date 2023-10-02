@@ -10,6 +10,7 @@ interface IGovernance {
     error GCAContractAlreadySet();
     error CallerNotGCA();
     error CallerNotGCC();
+    error CallerNotVetoCouncilMember();
     error ZeroAddressNotAllowed();
     error ContractsAlreadySet();
     error NominationCostGreaterThanAllowance();
@@ -18,6 +19,7 @@ interface IGovernance {
     error InsufficientRatifyOrRejectVotes();
     error RatifyOrRejectPeriodEnded();
     error MostPopularProposalNotSelected();
+    error ProposalAlreadyVetoed();
 
     enum ProposalType {
         NONE, //default value for unset proposals
@@ -28,6 +30,15 @@ interface IGovernance {
         CHANGE_GCA_REQUIREMENTS,
         REQUEST_FOR_COMMENT
     }
+
+    // uint256 constant PENDING_MASK = 0x1;
+    // uint256 constant UNDER_REVIEW_FOR_APPROVAL_MASK = 0x2;
+    // uint256 constant REJECTED_BY_STAKERS_MASK = 0x4;
+    // uint256 constant APPROVED_MASK = 0x8;
+    // uint256 constant EXECUTED_WITH_ERROR_MASK = 0x10;
+    // uint256 constant EXECUTED_SUCCESSFULLY_MASK = 0x20;
+    // uint256 constant EXPIRED_MASK = 0x40;
+    // uint256 constant VETOED_MASK = 0x80;
 
     enum ProposalStatus {
         PENDING,
@@ -172,4 +183,13 @@ interface IGovernance {
      * @param amount the amount of nominations used
      */
     event NominationsUsedOnProposal(uint256 indexed proposalId, address indexed spender, uint256 amount);
+
+    /**
+     * @notice emitted when a proposal is ratified
+     * @param weekId - the weekId in which the proposal to be vetoed was selected as the most popular proposal
+     * @param vetoer - the address of the veto council member who vetoed the proposal
+     * @param proposalId - the id of the proposal that was vetoed
+     *  TODO: see if we can remove the last param for gas savings
+     */
+    event ProposalVetoed(uint256 indexed weekId, address indexed vetoer, uint256 proposalId);
 }

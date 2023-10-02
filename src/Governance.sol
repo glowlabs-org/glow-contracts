@@ -5,6 +5,7 @@ import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {HalfLife} from "@/libraries/HalfLife.sol";
 import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
+import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 //TEMP!
 
 //TODO: make sure to put max nominations to spend so it reverts
@@ -31,6 +32,8 @@ contract Governance is IGovernance {
     ///      - from the time it it has been finalized (i.e. the week has passed)
     /// For example: If proposal 1 is the most popular proposal for week 2, then it can be ratified or rejected until the end of week 6
     uint256 private constant _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL = 4;
+
+    uint256 private constant _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL = 60; //60%
 
     /**
      * @dev The proposals that need to be executed
@@ -147,6 +150,62 @@ contract Governance is IGovernance {
      */
     mapping(uint256 => uint256) public mostPopularProposal;
 
+    /// @dev The most popular proposal status at a given week
+    /// @dev for example, if the most popular proposal at week 0 is 5,
+    ///     -   then mostPopularProposalStatusByWeek[0] =  Proposal 5 Status
+    /// @dev since there are only 8 proposal statuses, we can use a uint256 to store the status
+    /// @dev each uint256 is 32 bytes, so we can store 32 statuses in a single uint256
+    mapping(uint256 => uint256) private _packedMostPopularProposalStatusByWeek;
+
+    function vetoProposal(uint256 weekId) external {
+        if (!IVetoCouncil(_vetoCouncil).isCouncilMember(msg.sender)) {
+            _revert(IGovernance.CallerNotVetoCouncilMember.selector);
+        }
+
+        uint256 _currentWeek = currentWeek();
+        if (weekId >= _currentWeek) {
+            _revert(IGovernance.WeekNotFinalized.selector);
+        }
+        //Also make sure it's not already finalized
+        uint256 _weekEndTime = _weekEndTime(weekId + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL);
+        if (block.timestamp > _weekEndTime) {
+            _revert(IGovernance.RatifyOrRejectPeriodEnded.selector);
+        }
+
+        _setMostPopularProposalStatus(weekId, IGovernance.ProposalStatus.VETOED);
+        emit IGovernance.ProposalVetoed(weekId, msg.sender, mostPopularProposal[weekId]);
+    }
+
+    /**
+     * @dev sets the proposal status for the most popular proposal at a given week
+     * @param weekId the week id
+     * @param status the status of the proposal
+     */
+    function _setMostPopularProposalStatus(uint256 weekId, IGovernance.ProposalStatus status) internal {
+        //Each uint256 is 32 bytes, and can hold 32 uint8 statuses
+        uint256 key = weekId / 32;
+        //Each enum takes up 8 bits
+        uint256 shift = (weekId % 32) * 8;
+        //8 bits << shift
+        uint256 mask = uint256(0xff) << shift;
+        //the status bitshifted
+        uint256 value = uint256(status) << shift;
+        _packedMostPopularProposalStatusByWeek[key] = (_packedMostPopularProposalStatusByWeek[key] & ~mask) | value;
+    }
+
+    /**
+     * @notice Gets the status of the most popular proposal at a given week
+     * @param weekId the week id
+     * @return status the status of the proposal
+     */
+    function getMostPopularProposalStatus(uint256 weekId) public view returns (IGovernance.ProposalStatus) {
+        uint256 key = weekId / 32;
+        uint256 shift = (weekId % 32) * 8;
+        uint256 mask = uint256(0xff) << shift;
+        uint256 value = (_packedMostPopularProposalStatusByWeek[key] & mask) >> shift;
+        return IGovernance.ProposalStatus(value);
+    }
+
     /**
      * @notice Entry point for GCC contract to grant nominations to {to} when they retire GCC
      * @param to the address to grant nominations to
@@ -154,6 +213,7 @@ contract Governance is IGovernance {
      * @dev this function is only callable by the GCC contract
      * @dev nominations decay according to the half-life formula
      */
+
     function grantNominations(address to, uint256 amount) external override {
         if (msg.sender != _gcc) {
             _revert(IGovernance.CallerNotGCC.selector);
@@ -214,6 +274,9 @@ contract Governance is IGovernance {
     function ratifyOrReject(uint256 weekOfMostPopularProposal, bool trueForRatify, uint256 numVotes) external {
         uint256 currentWeek = currentWeek();
         //Week needs to finalize.
+        if (getMostPopularProposalStatus(weekOfMostPopularProposal) == IGovernance.ProposalStatus.VETOED) {
+            _revert(IGovernance.ProposalAlreadyVetoed.selector);
+        }
         if (weekOfMostPopularProposal >= currentWeek) {
             _revert(IGovernance.WeekNotFinalized.selector);
         }
