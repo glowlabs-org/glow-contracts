@@ -13,6 +13,11 @@ interface IGovernance {
     error ZeroAddressNotAllowed();
     error ContractsAlreadySet();
     error NominationCostGreaterThanAllowance();
+    error ProposalDoesNotExist();
+    error WeekNotFinalized();
+    error InsufficientRatifyOrRejectVotes();
+    error RatifyOrRejectPeriodEnded();
+    error MostPopularProposalNotSelected();
 
     enum ProposalType {
         NONE, //default value for unset proposals
@@ -72,9 +77,15 @@ interface IGovernance {
      * @param oldAgent the address of the old agent
      * @param newAgent the address of the new agent
      * @param slashOldAgent whether or not to slash the old agent
+     * @param nominationsUsed the amount of nominations used
      */
     event VetoCouncilElectionOrSlash(
-        uint256 indexed proposalId, address indexed proposer, address oldAgent, address newAgent, bool slashOldAgent
+        uint256 indexed proposalId,
+        address indexed proposer,
+        address oldAgent,
+        address newAgent,
+        bool slashOldAgent,
+        uint256 nominationsUsed
     );
 
     /**
@@ -85,13 +96,15 @@ interface IGovernance {
      * @param newGCAs the addresses of the new GCAs
      * @param proposalCreationTimestamp the timestamp at which the proposal was created
      *         -   This is necessary due to the proposalHashes logic in GCA
+     * @param nominationsUsed the amount of nominations used
      */
     event GCACouncilElectionOrSlashCreation(
         uint256 indexed proposalId,
         address indexed proposer,
         address[] agentsToSlash,
         address[] newGCAs,
-        uint256 proposalCreationTimestamp
+        uint256 proposalCreationTimestamp,
+        uint256 nominationsUsed
     );
 
     /**
@@ -100,11 +113,16 @@ interface IGovernance {
      * @param proposer the address of the proposer
      * @param currencyToRemove  the address of the currency to remove
      * @param newReserveCurrency the address of the new reserve currency
+     * @param nominationsUsed the amount of nominations used
      * @dev currencyToRemove can be address(0) to add a new reserve currency
      * @dev there should never be more than 3 active reserve currencies
      */
     event ChangeReserveCurrenciesProposal(
-        uint256 indexed proposalId, address indexed proposer, address currencyToRemove, address newReserveCurrency
+        uint256 indexed proposalId,
+        address indexed proposer,
+        address currencyToRemove,
+        address newReserveCurrency,
+        uint256 nominationsUsed
     );
 
     /**
@@ -114,9 +132,15 @@ interface IGovernance {
      * @param recipient the address of the recipient
      * @param amount the amount of tokens to send
      * @param hash the hash of the proposal contents
+     * @param nominationsUsed the amount of nominations used
      */
     event GrantsProposalCreation(
-        uint256 indexed proposalId, address indexed proposer, address recipient, uint256 amount, bytes32 hash
+        uint256 indexed proposalId,
+        address indexed proposer,
+        address recipient,
+        uint256 amount,
+        bytes32 hash,
+        uint256 nominationsUsed
     );
 
     /**
@@ -124,9 +148,10 @@ interface IGovernance {
      * @param proposalId the id of the proposal
      * @param proposer the address of the proposer
      * @param requirementsHash the hash of the requirements
+     * @param nominationsUsed the amount of nominations used
      */
     event ChangeGCARequirementsProposalCreation(
-        uint256 indexed proposalId, address indexed proposer, bytes32 requirementsHash
+        uint256 indexed proposalId, address indexed proposer, bytes32 requirementsHash, uint256 nominationsUsed
     );
 
     /**
@@ -134,6 +159,17 @@ interface IGovernance {
      * @param proposalId the id of the proposal
      * @param proposer the address of the proposer
      * @param requirementsHash the hash of the requirements string
+     * @param nominationsUsed the amount of nominations used
      */
-    event RFCProposalCreation(uint256 indexed proposalId, address indexed proposer, bytes32 requirementsHash);
+    event RFCProposalCreation(
+        uint256 indexed proposalId, address indexed proposer, bytes32 requirementsHash, uint256 nominationsUsed
+    );
+
+    /**
+     * @notice emitted when nominations are used on a proposal
+     * @param proposalId the id of the proposal
+     * @param spender the address of the spender
+     * @param amount the amount of nominations used
+     */
+    event NominationsUsedOnProposal(uint256 indexed proposalId, address indexed spender, uint256 amount);
 }

@@ -138,4 +138,11 @@ interface IGlow is IERC20 {
      * @return the genesis timestamp
      */
     function GENESIS_TIMESTAMP() external view returns (uint256);
+
+    /**
+     * @notice the total amount of GLW currently staked by {account}
+     * @return numStaked total amount of GLW currently staked by {account}
+     * @param account the address of the account to get the staked balance of
+     */
+    function numStaked(address account) external view returns (uint256);
 }

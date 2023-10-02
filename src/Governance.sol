@@ -4,6 +4,7 @@ pragma solidity 0.8.21;
 import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {HalfLife} from "@/libraries/HalfLife.sol";
 import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
+import {IGlow} from "@/interfaces/IGlow.sol";
 //TEMP!
 
 //TODO: make sure to put max nominations to spend so it reverts
@@ -12,33 +13,24 @@ import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
 contract Governance is IGovernance {
     using ABDKMath64x64 for int128;
 
+    /// @dev one in 64x64 fixed point
     int128 private constant _ONE_64x64 = (1 << 64);
+
+    /// @dev one point one in 64x64 fixed point
     int128 private constant _ONE_POINT_ONE_128 = (1 << 64) + 0x1999999999999a00;
+
+    /// @dev The duration of a bucket: 1 week
+    uint256 private constant _ONE_WEEK = uint256(7 days);
+
     /**
      * @dev The maximum duration of a proposal: 16 weeks
      */
     uint256 private constant _MAX_PROPOSAL_DURATION = 9676800;
 
-    /**
-     * @param amount the amount of nominations that an account has
-     * @param lastUpdate the last time that the account's balance was updated
-     *         -   {lastUpdate} is used to calculate the user's balance according to the half-life formula
-     *         -   Check {HalfLife.calculateHalfLifeValue} for more details
-     */
-    struct Nominations {
-        uint192 amount;
-        uint64 lastUpdate;
-    }
-
-    /**
-     * @dev The nominations of each account
-     */
-    mapping(address => Nominations) private _nominations;
-
-    /**
-     * @dev The proposals
-     */
-    mapping(uint256 => IGovernance.Proposal) private _proposals;
+    /// @dev the maximum number of weeks a proposal can be ratified or rejected
+    ///      - from the time it it has been finalized (i.e. the week has passed)
+    /// For example: If proposal 1 is the most popular proposal for week 2, then it can be ratified or rejected until the end of week 6
+    uint256 private constant _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL = 4;
 
     /**
      * @dev The proposals that need to be executed
@@ -47,8 +39,9 @@ contract Governance is IGovernance {
 
     /**
      * @dev The total number of proposals created
+     * @dev we start at one to ensure that a proposal with id 0 is invalid
      */
-    uint256 private _proposalCount;
+    uint256 private _proposalCount = 1;
 
     /**
      * @dev The GCC contract
@@ -59,6 +52,11 @@ contract Governance is IGovernance {
      * @dev The GCA contract
      */
     address private _gca;
+
+    /**
+     * @dev The Genesis Timestamp of the protocol from GLW
+     */
+    uint256 private _genesisTimestamp;
 
     /**
      * @dev The Veto Council contract
@@ -89,7 +87,7 @@ contract Governance is IGovernance {
      * @dev The last proposal that was executed
      * @dev this may be out of sync with the actual last executed proposal id
      */
-    uint256 public lastExecutedProposalId;
+    uint256 public lastExecutedProposalId = type(uint256).max;
 
     /**
      * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC
@@ -97,6 +95,65 @@ contract Governance is IGovernance {
      * @param amount the amount of nominations to grant
      */
 
+    /**
+     * @param amount the amount of nominations that an account has
+     * @param lastUpdate the last time that the account's balance was updated
+     *         -   {lastUpdate} is used to calculate the user's balance according to the half-life formula
+     *         -   Check {HalfLife.calculateHalfLifeValue} for more details
+     */
+    struct Nominations {
+        uint192 amount;
+        uint64 lastUpdate;
+    }
+
+    struct ProposalLongStakerVotes {
+        uint128 ratifyVotes;
+        uint128 rejectionVotes;
+    }
+
+    /**
+     * @dev proposalId -> _proposalLongStakerVotes
+     * @dev long stakers can only vote on proposals that are the most popular proposal for their respective week
+     *             - The week must have already passed
+     */
+    mapping(uint256 => ProposalLongStakerVotes) private _proposalLongStakerVotes;
+
+    /**
+     * @dev address -> proposalId -> numVotes
+     * @dev long stakers can only vote on proposals that are the most popular proposal for their respective week
+     *             - The week must have already passed
+     * @dev Users can have as many votes as number of glow staked they have.
+     *         -   we need this mapping to prevent double spend.
+     *         -   the protocol does not worry about adjusting for unstaked glow
+     *             - for example, a user is allowed to stake 100 glw , vote on a proposal, and then unstake 100 glw
+     *             - the protocol will not adjust for the unstaked glw
+     *             - there is a 5 year cooldown for unstaking glw so this should not be a problem
+     */
+    mapping(address => mapping(uint256 => uint256)) public longStakerVotesForProposal;
+
+    /**
+     * @dev The nominations of each account
+     */
+    mapping(address => Nominations) private _nominations;
+
+    /**
+     * @dev The proposals
+     */
+    mapping(uint256 => IGovernance.Proposal) private _proposals;
+
+    /**
+     * @notice the most popular proposal at a given week
+     * @dev It is manually updated whenever an action is triggered
+     */
+    mapping(uint256 => uint256) public mostPopularProposal;
+
+    /**
+     * @notice Entry point for GCC contract to grant nominations to {to} when they retire GCC
+     * @param to the address to grant nominations to
+     * @param amount the amount of nominations to grant
+     * @dev this function is only callable by the GCC contract
+     * @dev nominations decay according to the half-life formula
+     */
     function grantNominations(address to, uint256 amount) external override {
         if (msg.sender != _gcc) {
             _revert(IGovernance.CallerNotGCC.selector);
@@ -131,15 +188,55 @@ contract Governance is IGovernance {
      */
     function useNominationsOnProposal(uint256 proposalId, uint256 amount) public {
         uint256 currentBalance = nominationsOf(msg.sender);
-        uint256 nominationEndTimestamp = _proposals[_proposalCount].expirationTimestamp;
+        uint256 nominationEndTimestamp = _proposals[proposalId].expirationTimestamp;
+
+        /// @dev we don't need this check, but we add it for clarity on the revert reason
+        if (nominationEndTimestamp == 0) {
+            _revert(IGovernance.ProposalDoesNotExist.selector);
+        }
         if (block.timestamp > nominationEndTimestamp) {
             _revert(IGovernance.ProposalExpired.selector);
         }
-        if (currentBalance < amount) {
-            _revert(IGovernance.InsufficientNominations.selector);
-        }
+
+        _spendNominations(msg.sender, amount);
         _proposals[proposalId].votes += uint184(amount);
-        _nominations[msg.sender] = Nominations(uint192(currentBalance - amount), uint64(block.timestamp));
+        uint256 currentWeek = currentWeek();
+        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
+        if (proposalId != _mostPopularProposal) {
+            if (_proposals[proposalId].votes > _proposals[_mostPopularProposal].votes) {
+                mostPopularProposal[currentWeek] = proposalId;
+            }
+        }
+
+        emit IGovernance.NominationsUsedOnProposal(proposalId, msg.sender, amount);
+    }
+
+    function ratifyOrReject(uint256 weekOfMostPopularProposal, bool trueForRatify, uint256 numVotes) external {
+        uint256 currentWeek = currentWeek();
+        //Week needs to finalize.
+        if (weekOfMostPopularProposal >= currentWeek) {
+            _revert(IGovernance.WeekNotFinalized.selector);
+        }
+
+        if (block.timestamp > _weekEndTime(weekOfMostPopularProposal + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
+            _revert(IGovernance.RatifyOrRejectPeriodEnded.selector);
+        }
+        //We also need to check to make sure that the proposal was created.
+        uint256 userNumStakedGlow = IGlow(_glw).numStaked(msg.sender);
+        uint256 _mostPopularProposal = mostPopularProposal[weekOfMostPopularProposal];
+        if (_mostPopularProposal == 0) {
+            _revert(IGovernance.MostPopularProposalNotSelected.selector);
+        }
+        uint256 amountVotesUsed = longStakerVotesForProposal[msg.sender][_mostPopularProposal];
+        if (amountVotesUsed + numVotes > userNumStakedGlow) {
+            _revert(IGovernance.InsufficientRatifyOrRejectVotes.selector);
+        }
+        if (trueForRatify) {
+            _proposalLongStakerVotes[_mostPopularProposal].ratifyVotes += uint128(numVotes);
+        } else {
+            _proposalLongStakerVotes[_mostPopularProposal].rejectionVotes += uint128(numVotes);
+        }
+        longStakerVotesForProposal[msg.sender][_mostPopularProposal] = amountVotesUsed + numVotes;
     }
 
     /// @inheritdoc IGovernance
@@ -149,6 +246,15 @@ contract Governance is IGovernance {
         returns (Proposal memory proposal, IGovernance.ProposalStatus)
     {}
 
+    /**
+     * @notice A one time setter to set the contract addresses
+     * @param gcc the GCC contract address
+     * @param gca the GCA contract address
+     * @param vetoCouncil the Veto Council contract address
+     * @param grantsTreasury the Grants Treasury contract address
+     * @param glw the GLW contract address
+     * @dev also sets the genesis timestamp
+     */
     function setContractAddresses(address gcc, address gca, address vetoCouncil, address grantsTreasury, address glw)
         external
     {
@@ -163,6 +269,7 @@ contract Governance is IGovernance {
 
         _gcc = gcc;
         _gca = gca;
+        _genesisTimestamp = IGlow(glw).GENESIS_TIMESTAMP();
         _vetoCouncil = vetoCouncil;
         _grantsTreasury = grantsTreasury;
         _glw = glw;
@@ -192,9 +299,15 @@ contract Governance is IGovernance {
             abi.encode(grantsRecipient, amount, hash)
         );
 
+        uint256 currentWeek = currentWeek();
+        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposal].votes) {
+            mostPopularProposal[currentWeek] = proposalId;
+        }
+
         _proposalCount = proposalId + 1;
 
-        emit IGovernance.GrantsProposalCreation(proposalId, msg.sender, grantsRecipient, amount, hash);
+        emit IGovernance.GrantsProposalCreation(proposalId, msg.sender, grantsRecipient, amount, hash, nominationCost);
     }
 
     /**
@@ -217,9 +330,17 @@ contract Governance is IGovernance {
             abi.encode(newRequirementsHash)
         );
 
+        uint256 currentWeek = currentWeek();
+        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposal].votes) {
+            mostPopularProposal[currentWeek] = proposalId;
+        }
+
         _proposalCount = proposalId + 1;
 
-        emit IGovernance.ChangeGCARequirementsProposalCreation(proposalId, msg.sender, newRequirementsHash);
+        emit IGovernance.ChangeGCARequirementsProposalCreation(
+            proposalId, msg.sender, newRequirementsHash, nominationCost
+        );
     }
 
     /**
@@ -245,9 +366,15 @@ contract Governance is IGovernance {
             abi.encode(hash)
         );
 
+        uint256 currentWeek = currentWeek();
+        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposal].votes) {
+            mostPopularProposal[currentWeek] = proposalId;
+        }
+
         _proposalCount = proposalId + 1;
 
-        emit IGovernance.RFCProposalCreation(proposalId, msg.sender, hash);
+        emit IGovernance.RFCProposalCreation(proposalId, msg.sender, hash, nominationCost);
     }
 
     /**
@@ -280,10 +407,16 @@ contract Governance is IGovernance {
             abi.encode(hash)
         );
 
+        uint256 currentWeek = currentWeek();
+        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposal].votes) {
+            mostPopularProposal[currentWeek] = proposalId;
+        }
+
         _proposalCount = proposalId + 1;
 
         emit IGovernance.GCACouncilElectionOrSlashCreation(
-            proposalId, msg.sender, agentsToSlash, newGCAs, block.timestamp
+            proposalId, msg.sender, agentsToSlash, newGCAs, block.timestamp, nominationCost
         );
     }
 
@@ -314,10 +447,17 @@ contract Governance is IGovernance {
             uint184(nominationCost),
             abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp)
         );
+        uint256 currentWeek = currentWeek();
+        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposal].votes) {
+            mostPopularProposal[currentWeek] = proposalId;
+        }
 
         _proposalCount = proposalId + 1;
 
-        emit IGovernance.VetoCouncilElectionOrSlash(proposalId, msg.sender, oldAgent, newAgent, slashOldAgent);
+        emit IGovernance.VetoCouncilElectionOrSlash(
+            proposalId, msg.sender, oldAgent, newAgent, slashOldAgent, nominationCost
+        );
     }
 
     /**
@@ -344,10 +484,16 @@ contract Governance is IGovernance {
             uint184(nominationCost),
             abi.encode(currencyToRemove, newReserveCurrency)
         );
-
+        uint256 currentWeek = currentWeek();
+        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposal].votes) {
+            mostPopularProposal[currentWeek] = proposalId;
+        }
         _proposalCount = proposalId + 1;
 
-        emit IGovernance.ChangeReserveCurrenciesProposal(proposalId, msg.sender, currencyToRemove, newReserveCurrency);
+        emit IGovernance.ChangeReserveCurrenciesProposal(
+            proposalId, msg.sender, currencyToRemove, newReserveCurrency, nominationCost
+        );
 
         _spendNominations(msg.sender, nominationCost);
     }
@@ -375,6 +521,14 @@ contract Governance is IGovernance {
         uint256 numActiveProposals;
         (numActiveProposals,) = _numActiveProposalsAndLastExpiredProposalId();
         return _getNominationCostForProposalCreation(numActiveProposals);
+    }
+
+    /**
+     * @notice Gets the current week (since genesis)
+     * @return currentWeek - the current week (since genesis)
+     */
+    function currentWeek() public view returns (uint256) {
+        return (block.timestamp - _genesisTimestamp) / _ONE_WEEK;
     }
 
     /**
@@ -415,9 +569,10 @@ contract Governance is IGovernance {
     /**
      * @notice Gets the total number of proposals created
      * @return proposalCount - the total number of proposals created
+     * @dev we have to subtract 1 because we start at 1
      */
     function proposalCount() external view returns (uint256) {
-        return _proposalCount;
+        return _proposalCount - 1;
     }
 
     /**
@@ -427,6 +582,10 @@ contract Governance is IGovernance {
      */
     function proposals(uint256 proposalId) external view returns (IGovernance.Proposal memory) {
         return _proposals[proposalId];
+    }
+
+    function proposalLongStakerVotes(uint256 proposalId) external view returns (ProposalLongStakerVotes memory) {
+        return _proposalLongStakerVotes[proposalId];
     }
 
     /**
@@ -451,6 +610,10 @@ contract Governance is IGovernance {
             mstore(0x0, selector)
             revert(0x0, 0x04)
         }
+    }
+
+    function _weekEndTime(uint256 weekNumber) internal view returns (uint256) {
+        return _genesisTimestamp + ((weekNumber + 1) * _ONE_WEEK);
     }
 
     /**

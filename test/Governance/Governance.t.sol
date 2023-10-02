@@ -182,14 +182,14 @@ contract GovernanceTest is Test {
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         address grantsRecipient = address(0x4123141);
-        uint256 amount = 10 ether; //10 glow
+        uint256 amount = 10 ether; //10 gcc
         bytes32 hash = keccak256("test info");
 
         uint256 creationTimestamp = block.timestamp;
 
         uint256 nominationsToUse = governance.costForNewProposal();
         governance.createGrantsProposal(grantsRecipient, amount, hash, nominationsToUse);
-        IGovernance.Proposal memory proposal = governance.proposals(0);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
         (address recipient, uint256 amount_, bytes32 hash_) = abi.decode(proposal.data, (address, uint256, bytes32));
         assertEq(recipient, grantsRecipient);
         assertEq(amount_, amount);
@@ -198,6 +198,47 @@ contract GovernanceTest is Test {
         assertTrue(proposal.proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL);
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
         assertEq(proposal.votes, nominationsToUse);
+        vm.stopPrank();
+    }
+
+    function test_createGrantsProposal_secondOneShouldBecomeMostPopularProposal() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+
+        address grantsRecipient = address(0x4123141);
+        uint256 amount = 10 ether; //10 gcc
+        bytes32 hash = keccak256("test info");
+
+        uint256 creationTimestamp = block.timestamp;
+
+        uint256 nominationsToUse = governance.costForNewProposal();
+        governance.createGrantsProposal(grantsRecipient, amount, hash, nominationsToUse);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
+        (address recipient, uint256 amount_, bytes32 hash_) = abi.decode(proposal.data, (address, uint256, bytes32));
+        assertEq(recipient, grantsRecipient);
+        assertEq(amount_, amount);
+        assertEq(hash_, hash);
+        assertEq(governance.proposalCount(), 1);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+
+        //Create another one and make sure it becomes the most popular
+        nominationsToUse = governance.costForNewProposal();
+        governance.createGrantsProposal(grantsRecipient, amount, hash, nominationsToUse);
+        proposal = governance.proposals(2);
+        (recipient, amount_, hash_) = abi.decode(proposal.data, (address, uint256, bytes32));
+        assertEq(recipient, grantsRecipient);
+        assertEq(amount_, amount);
+        assertEq(hash_, hash);
+        assertEq(governance.proposalCount(), 2);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+
+        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
         vm.stopPrank();
     }
 
@@ -242,20 +283,58 @@ contract GovernanceTest is Test {
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         address grantsRecipient = address(0x4123141);
-        uint256 amount = 10 ether; //10 glow
+        uint256 amount = 10 ether; //10 gcc
         bytes32 hash = keccak256("new requirements hash");
 
         uint256 creationTimestamp = block.timestamp;
 
         uint256 nominationsToUse = governance.costForNewProposal();
         governance.createChangeGCARequirementsProposal(hash, nominationsToUse);
-        IGovernance.Proposal memory proposal = governance.proposals(0);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
         (bytes32 hash_) = abi.decode(proposal.data, (bytes32));
         assertEq(hash_, hash);
         assertEq(governance.proposalCount(), 1);
         assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS);
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
         assertEq(proposal.votes, nominationsToUse);
+        vm.stopPrank();
+    }
+
+    function test_createChangeGCARequirementsProposal_secondOneShouldBecomeMostPopularProposal() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+
+        address grantsRecipient = address(0x4123141);
+        uint256 amount = 10 ether; //10 gcc
+        bytes32 hash = keccak256("new requirements hash");
+
+        uint256 creationTimestamp = block.timestamp;
+
+        uint256 nominationsToUse = governance.costForNewProposal();
+        governance.createChangeGCARequirementsProposal(hash, nominationsToUse);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
+        (bytes32 hash_) = abi.decode(proposal.data, (bytes32));
+        assertEq(hash_, hash);
+        assertEq(governance.proposalCount(), 1);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+
+        //Create another one and make sure it becomes the most popular
+        nominationsToUse = governance.costForNewProposal();
+        governance.createChangeGCARequirementsProposal(hash, nominationsToUse);
+        proposal = governance.proposals(2);
+        (hash_) = abi.decode(proposal.data, (bytes32));
+        assertEq(hash_, hash);
+        assertEq(governance.proposalCount(), 2);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+
+        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+
         vm.stopPrank();
     }
 
@@ -266,7 +345,7 @@ contract GovernanceTest is Test {
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         address grantsRecipient = address(0x4123141);
-        uint256 amount = 10 ether; //10 glow
+        uint256 amount = 10 ether; //10 gcc
         bytes32 hash = keccak256("new requirements hash");
 
         uint256 creationTimestamp = block.timestamp;
@@ -283,7 +362,7 @@ contract GovernanceTest is Test {
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         address grantsRecipient = address(0x4123141);
-        uint256 amount = 10 ether; //10 glow
+        uint256 amount = 10 ether; //10 gcc
         bytes32 hash = keccak256("new requirements hash");
 
         uint256 creationTimestamp = block.timestamp;
@@ -299,12 +378,12 @@ contract GovernanceTest is Test {
         gcc.retireGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address grantsRecipient = address(0x4123141);
-        uint256 amount = 10 ether; //10 glow
+        uint256 amount = 10 ether; //10 gcc
         bytes32 hash = keccak256("rfc hash");
         uint256 creationTimestamp = block.timestamp;
         uint256 nominationsToUse = governance.costForNewProposal();
         governance.createRFCProposal(hash, nominationsToUse);
-        IGovernance.Proposal memory proposal = governance.proposals(0);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
         (bytes32 hash_) = abi.decode(proposal.data, (bytes32));
         assertEq(hash_, hash);
         assertEq(governance.proposalCount(), 1);
@@ -314,13 +393,48 @@ contract GovernanceTest is Test {
         vm.stopPrank();
     }
 
+    function test_createRFCProposal_secondOneShouldBecomeMostPopular() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+        address grantsRecipient = address(0x4123141);
+        uint256 amount = 10 ether; //10 gcc
+        bytes32 hash = keccak256("rfc hash");
+        uint256 creationTimestamp = block.timestamp;
+        uint256 nominationsToUse = governance.costForNewProposal();
+        governance.createRFCProposal(hash, nominationsToUse);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
+        (bytes32 hash_) = abi.decode(proposal.data, (bytes32));
+        assertEq(hash_, hash);
+        assertEq(governance.proposalCount(), 1);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.REQUEST_FOR_COMMENT);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+
+        //Create another one and make sure it becomes the most popular
+        nominationsToUse = governance.costForNewProposal();
+        governance.createRFCProposal(hash, nominationsToUse);
+        proposal = governance.proposals(2);
+        (hash_) = abi.decode(proposal.data, (bytes32));
+        assertEq(hash_, hash);
+        assertEq(governance.proposalCount(), 2);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.REQUEST_FOR_COMMENT);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+
+        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+
+        vm.stopPrank();
+    }
+
     function test_createRFCProposal_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.5 ether);
         gcc.retireGCC(0.5 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address grantsRecipient = address(0x4123141);
-        uint256 amount = 10 ether; //10 glow
+        uint256 amount = 10 ether; //10 gcc
         bytes32 hash = keccak256("rc hash");
         uint256 creationTimestamp = block.timestamp;
         uint256 nominationsToUse = governance.costForNewProposal();
@@ -334,7 +448,7 @@ contract GovernanceTest is Test {
         gcc.retireGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address grantsRecipient = address(0x4123141);
-        uint256 amount = 10 ether; //10 glow
+        uint256 amount = 10 ether; //10 gcc
         bytes32 hash = keccak256("rfc hash");
         uint256 creationTimestamp = block.timestamp;
         uint256 nominationsToUse = governance.costForNewProposal() - 1;
@@ -363,7 +477,7 @@ contract GovernanceTest is Test {
         uint256 creationTimestamp = block.timestamp;
         uint256 nominationsToUse = governance.costForNewProposal();
         governance.createGCACouncilElectionOrSlashProposal(agentsToSlash, newGCAs, nominationsToUse);
-        IGovernance.Proposal memory proposal = governance.proposals(0);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
         bytes32 expectedHash = keccak256(abi.encode(agentsToSlash, newGCAs, creationTimestamp));
         bytes32 actualHash = abi.decode(proposal.data, (bytes32));
         assertEq(actualHash, expectedHash);
@@ -371,6 +485,45 @@ contract GovernanceTest is Test {
         assertTrue(proposal.proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH);
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
         assertEq(proposal.votes, nominationsToUse);
+        vm.stopPrank();
+    }
+
+    function test_createGCAElectionOrSlashProposal_secondOneShouldBecomeMostPopular() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+        address[] memory agentsToSlash = new address[](1);
+        agentsToSlash[0] = address(0x1);
+        address[] memory newGCAs = new address[](1);
+        newGCAs[0] = address(0x2);
+        uint256 maxNominations = nominationsOfSimon;
+        uint256 creationTimestamp = block.timestamp;
+        uint256 nominationsToUse = governance.costForNewProposal();
+        governance.createGCACouncilElectionOrSlashProposal(agentsToSlash, newGCAs, nominationsToUse);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
+        bytes32 expectedHash = keccak256(abi.encode(agentsToSlash, newGCAs, creationTimestamp));
+        bytes32 actualHash = abi.decode(proposal.data, (bytes32));
+        assertEq(actualHash, expectedHash);
+        assertEq(governance.proposalCount(), 1);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+
+        //Create another one and make sure it becomes the most popular
+        nominationsToUse = governance.costForNewProposal();
+        governance.createGCACouncilElectionOrSlashProposal(agentsToSlash, newGCAs, nominationsToUse);
+        proposal = governance.proposals(2);
+        expectedHash = keccak256(abi.encode(agentsToSlash, newGCAs, creationTimestamp));
+        actualHash = abi.decode(proposal.data, (bytes32));
+        assertEq(actualHash, expectedHash);
+        assertEq(governance.proposalCount(), 2);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+
+        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+        vm.stopPrank();
     }
 
     function test_createGCAElectionOrSlashProposal_notEnoughNominationsShouldRevert() public {
@@ -426,7 +579,7 @@ contract GovernanceTest is Test {
         uint256 creationTimestamp = block.timestamp;
         uint256 nominationsToUse = governance.costForNewProposal();
         governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
-        IGovernance.Proposal memory proposal = governance.proposals(0);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
         (address oldAgent_, address newAgent_, bool slashOldAgent_, uint256 creationTimestamp_) =
             abi.decode(proposal.data, (address, address, bool, uint256));
         assertEq(governance.proposalCount(), 1);
@@ -437,6 +590,51 @@ contract GovernanceTest is Test {
         assertEq(newAgent_, newAgent);
         assertEq(slashOldAgent_, slashOldAgent);
         assertEq(creationTimestamp_, creationTimestamp);
+        vm.stopPrank();
+    }
+
+    function test_createVetoCouncilElectionOrSlash_secondOneShouldBecomeMostPopular() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+        address oldAgent = address(0x1);
+        address newAgent = address(0x2);
+        bool slashOldAgent = true;
+        uint256 maxNominations = nominationsOfSimon;
+        uint256 creationTimestamp = block.timestamp;
+        uint256 nominationsToUse = governance.costForNewProposal();
+        governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
+        (address oldAgent_, address newAgent_, bool slashOldAgent_, uint256 creationTimestamp_) =
+            abi.decode(proposal.data, (address, address, bool, uint256));
+        assertEq(governance.proposalCount(), 1);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+        assertEq(oldAgent_, oldAgent);
+        assertEq(newAgent_, newAgent);
+        assertEq(slashOldAgent_, slashOldAgent);
+        assertEq(creationTimestamp_, creationTimestamp);
+
+        //Create another one and make sure it becomes the most popular
+        nominationsToUse = governance.costForNewProposal();
+        governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
+        proposal = governance.proposals(2);
+        (oldAgent_, newAgent_, slashOldAgent_, creationTimestamp_) =
+            abi.decode(proposal.data, (address, address, bool, uint256));
+        assertEq(governance.proposalCount(), 2);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+        assertEq(oldAgent_, oldAgent);
+        assertEq(newAgent_, newAgent);
+        assertEq(slashOldAgent_, slashOldAgent);
+        assertEq(creationTimestamp_, creationTimestamp);
+
+        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+
+        vm.stopPrank();
     }
 
     function test_createVetoCouncilElectionOrSlash_notEnoughNominationsShouldRevert() public {
@@ -467,6 +665,8 @@ contract GovernanceTest is Test {
         uint256 nominationsToUse = governance.costForNewProposal() - 1;
         vm.expectRevert(IGovernance.NominationCostGreaterThanAllowance.selector);
         governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
+
+        vm.stopPrank();
     }
 
     /*
@@ -476,6 +676,44 @@ contract GovernanceTest is Test {
         uint256 maxNominations
     ) 
     */
+
+    function test_createChangeReserveCurrencyProposal_secondOneShouldBecomeMostPopular() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+        address currencyToRemove = address(0x1);
+        address newReserveCurrency = address(0x2);
+        uint256 maxNominations = nominationsOfSimon;
+        uint256 creationTimestamp = block.timestamp;
+        uint256 nominationsToUse = governance.costForNewProposal();
+        governance.createChangeReserveCurrencyProposal(currencyToRemove, newReserveCurrency, nominationsToUse);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
+        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(proposal.data, (address, address));
+        assertEq(governance.proposalCount(), 1);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+        assertEq(currencyToRemove_, currencyToRemove);
+        assertEq(newReserveCurrency_, newReserveCurrency);
+
+        //Create another one and make sure it becomes the most popular
+        nominationsToUse = governance.costForNewProposal();
+        governance.createChangeReserveCurrencyProposal(currencyToRemove, newReserveCurrency, nominationsToUse);
+        proposal = governance.proposals(2);
+        (currencyToRemove_, newReserveCurrency_) = abi.decode(proposal.data, (address, address));
+        assertEq(governance.proposalCount(), 2);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+        assertEq(currencyToRemove_, currencyToRemove);
+        assertEq(newReserveCurrency_, newReserveCurrency);
+
+        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+
+        vm.stopPrank();
+    }
 
     function test_createChangeReserveCurrencyProposal() public {
         vm.startPrank(SIMON);
@@ -489,7 +727,7 @@ contract GovernanceTest is Test {
         uint256 creationTimestamp = block.timestamp;
         uint256 nominationsToUse = governance.costForNewProposal();
         governance.createChangeReserveCurrencyProposal(currencyToRemove, newReserveCurrency, nominationsToUse);
-        IGovernance.Proposal memory proposal = governance.proposals(0);
+        IGovernance.Proposal memory proposal = governance.proposals(1);
         (address currencyToRemove_, address newReserveCurrency_) = abi.decode(proposal.data, (address, address));
         assertEq(governance.proposalCount(), 1);
         assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES);
@@ -529,39 +767,241 @@ contract GovernanceTest is Test {
         governance.createChangeReserveCurrencyProposal(currencyToRemove, newReserveCurrency, nominationsToUse);
     }
 
-    // function test_createGrantsProposal_notEnoughNominationsShouldRevert() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 0.5 ether);
-    //     gcc.retireGCC(0.5 ether, SIMON);
-    //     uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+    //----------------------------------------------------//
+    //----------------  USING NOMINATIONS -----------------//
+    //----------------------------------------------------//
 
-    //     address grantsRecipient = address(0x4123141);
-    //     uint256 amount = 10 ether; //10 gcc
-    //     bytes32 hash = keccak256("test info");
+    function test_useNominationsOnProposal() public {
+        test_createChangeGCARequirementsProposal();
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
 
-    //     uint256 creationTimestamp = block.timestamp;
+        //I should be able to use my nominations on the proposal
+        uint256 nominationsToUse = 10 ether;
+        uint256 simonNominationsBefore = governance.nominationsOf(SIMON);
+        uint256 numVotesBefore = governance.proposals(1).votes;
+        governance.useNominationsOnProposal(1, nominationsToUse);
+        uint256 simonNominationsAfter = governance.nominationsOf(SIMON);
+        uint256 numVotesAfter = governance.proposals(1).votes;
 
-    //     uint256 nominationsToUse = governance.costForNewProposal();
-    //     vm.expectRevert(IGovernance.InsufficientNominations.selector);
-    //     governance.createGrantsProposal(grantsRecipient, amount, hash, nominationsToUse);
-    // }
+        assertEq(simonNominationsBefore - nominationsToUse, simonNominationsAfter);
+        assertEq(numVotesBefore + nominationsToUse, numVotesAfter);
 
-    // function test_createGrantsProposal_nominationsGreaterThanAllowance_shouldRevert() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 100 ether);
-    //     gcc.retireGCC(100 ether, SIMON);
-    //     uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+        vm.stopPrank();
+    }
 
-    //     address grantsRecipient = address(0x4123141);
-    //     uint256 amount = 10 ether; //10 gcc
-    //     bytes32 hash = keccak256("test info");
+    function test_useNominationsOnProposal_shouldRevertIfProposalDoesNotExist() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
 
-    //     uint256 creationTimestamp = block.timestamp;
+        //I should be able to use my nominations on the proposal
+        uint256 nominationsToUse = 10 ether;
+        vm.expectRevert(IGovernance.ProposalDoesNotExist.selector);
+        governance.useNominationsOnProposal(1, nominationsToUse);
+    }
 
-    //     uint256 nominationsToUse = governance.costForNewProposal() - 1;
-    //     vm.expectRevert(IGovernance.NominationCostGreaterThanAllowance.selector);
-    //     governance.createGrantsProposal(grantsRecipient, amount, hash, nominationsToUse);
-    // }
+    function test_useNominationsOnProposal_proposalExpiredShouldRevert() public {
+        test_createChangeGCARequirementsProposal();
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+
+        //I should be able to use my nominations on the proposal
+        uint256 nominationsToUse = 10 ether;
+        uint256 expirationTime = governance.proposals(1).expirationTimestamp;
+        vm.warp(expirationTime + 1);
+        vm.expectRevert(IGovernance.ProposalExpired.selector);
+        governance.useNominationsOnProposal(1, nominationsToUse);
+    }
+
+    function test_useNominationsOnProposal_notEnoughNominations_shouldRevert() public {
+        test_createChangeGCARequirementsProposal();
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+
+        //I should be able to use my nominations on the proposal
+        uint256 nominationsToUse = 1000 ether;
+        vm.expectRevert(IGovernance.InsufficientNominations.selector);
+        governance.useNominationsOnProposal(1, nominationsToUse);
+    }
+
+    function test_useNominationsOnProposal_shouldUpdateMostPopularProposal() public {
+        /// @dev should now have 2 proposals
+        test_createChangeGCARequirementsProposal_secondOneShouldBecomeMostPopularProposal();
+
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+
+        //I should be able to use my nominations on the proposal
+        uint256 nominationsToUse = 10 ether;
+        uint256 simonNominationsBefore = governance.nominationsOf(SIMON);
+        uint256 numVotesBefore = governance.proposals(1).votes;
+        assertTrue(numVotesBefore < governance.proposals(2).votes);
+        governance.useNominationsOnProposal(1, nominationsToUse);
+
+        uint256 simonNominationsAfter = governance.nominationsOf(SIMON);
+        uint256 numVotesAfter = governance.proposals(1).votes;
+
+        assertEq(simonNominationsBefore - nominationsToUse, simonNominationsAfter);
+        assertEq(numVotesBefore + nominationsToUse, numVotesAfter);
+        assertTrue(numVotesAfter > governance.proposals(2).votes);
+        assertEq(governance.mostPopularProposal(governance.currentWeek()), 1);
+    }
+
+    //----------------------------------------------------//
+    //----------------  RATIFY/REJECT VOTING -----------------//
+    //----------------------------------------------------//
+
+    function test_ratifyProposal() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        // and the week should be finalized
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: true, numVotes: 100 ether});
+
+        assertEq(uint256(governance.proposalLongStakerVotes(1).ratifyVotes), 100 ether);
+        assertEq(uint256(governance.proposalLongStakerVotes(1).rejectionVotes), 0);
+        assertEq(governance.longStakerVotesForProposal(SIMON, 1), 100 ether);
+
+        vm.stopPrank();
+    }
+
+    function test_rejectProposal() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        // and the week should be finalized
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 100 ether});
+
+        assertEq(uint256(governance.proposalLongStakerVotes(1).ratifyVotes), 0);
+        assertEq(uint256(governance.proposalLongStakerVotes(1).rejectionVotes), 100 ether);
+        assertEq(governance.longStakerVotesForProposal(SIMON, 1), 100 ether);
+
+        vm.stopPrank();
+    }
+
+    function test_ratifyOrReject_ratifyCurrentWeek_shouldRevert() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        // and the week should be finalized
+
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+
+        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 100 ether});
+
+        vm.stopPrank();
+    }
+
+    function test_ratifyOrReject_ratifyFutureWeek_shouldRevert() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        // and the week should be finalized
+
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+
+        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        governance.ratifyOrReject({weekOfMostPopularProposal: 1, trueForRatify: false, numVotes: 100 ether});
+
+        vm.stopPrank();
+    }
+
+    function test_ratifyOrReject_mostPopularProposalNotSet_shouldRevert() public {
+        //Create one proposal
+
+        //Should be the most popular proposal now
+        // and the week should be finalized
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+
+        vm.expectRevert(IGovernance.MostPopularProposalNotSelected.selector);
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 101 ether});
+
+        vm.stopPrank();
+    }
+
+    function test_ratifyOrReject_notEnoughStakedGlow_shouldRevert() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        // and the week should be finalized
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+
+        vm.expectRevert(IGovernance.InsufficientRatifyOrRejectVotes.selector);
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 101 ether});
+
+        vm.stopPrank();
+    }
+
+    function test_ratifyOrReject_twoStakeActions_shouldWork() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        // and the week should be finalized
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 40 ether});
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 60 ether});
+
+        assertEq(uint256(governance.proposalLongStakerVotes(1).ratifyVotes), 0);
+        assertEq(uint256(governance.proposalLongStakerVotes(1).rejectionVotes), 100 ether);
+        assertEq(governance.longStakerVotesForProposal(SIMON, 1), 100 ether);
+
+        vm.stopPrank();
+    }
+
+    function test_ratifyOrReject_twoStakeActions_moreThanAmountStaked_shouldRevert() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        // and the week should be finalized
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 40 ether});
+        vm.expectRevert(IGovernance.InsufficientRatifyOrRejectVotes.selector);
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 61 ether});
+        vm.stopPrank();
+    }
 
     //-----------------  HELPERS -----------------//
     function divergenceCheck(uint128 a, uint128 b) internal returns (bool) {
@@ -587,19 +1027,6 @@ contract GovernanceTest is Test {
 
         return diverged;
     }
-
-    // function maxDiffCheck(uint256 a,uint256 b) internal {
-    //     //First we need to check if a is less than 1000,
-    //     if(a < 10000){
-    //        uint maxDiff = 10;
-    //     }
-    //     int diff = int(a) - int(b);
-    //     uint divisor = 10000; //max dif is .01%
-    //     if(diff < 0){
-    //         diff = diff * -1;
-    //     }
-    //     assert(diff < maxDiff);
-    // }
 
     function _createAccount(uint256 privateKey, uint256 amount)
         internal
