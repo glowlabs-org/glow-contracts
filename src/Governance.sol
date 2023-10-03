@@ -201,7 +201,6 @@ contract Governance is IGovernance {
         return;
     }
 
-    //TODO: Make sure it updates the most popular proposal
     //TODO: make sure it executes proposals
 
     /**
@@ -222,11 +221,12 @@ contract Governance is IGovernance {
         }
 
         _spendNominations(msg.sender, amount);
-        _proposals[proposalId].votes += uint184(amount);
+        uint184 newTotalVotes = uint184(_proposals[proposalId].votes + amount);
+        _proposals[proposalId].votes = newTotalVotes;
         uint256 currentWeek = currentWeek();
         uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
         if (proposalId != _mostPopularProposal) {
-            if (_proposals[proposalId].votes > _proposals[_mostPopularProposal].votes) {
+            if (newTotalVotes > _proposals[_mostPopularProposal].votes) {
                 mostPopularProposal[currentWeek] = proposalId;
             }
         }
