@@ -30,6 +30,7 @@ contract Governance is IGovernance {
     uint256 private constant _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL = 4;
 
     uint256 private constant _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL = 60; //60%
+    uint256 private constant _MAX_ENDORSEMENTS_ON_GCA_PROPOSALS = 5;
 
     /**
      * @dev The proposals that need to be executed
@@ -153,6 +154,59 @@ contract Governance is IGovernance {
     /// @dev each uint256 is 32 bytes, so we can store 32 statuses in a single uint256
     mapping(uint256 => uint256) private _packedMostPopularProposalStatusByWeek;
 
+    mapping(uint256 => uint256) public numEndorsementsOnWeek;
+    mapping(address => mapping(uint256 => uint256)) private _hasEndorsedProposalBitmap;
+
+    //TODO: make sure that the same proposal can't be executed twice :)
+    // we cant enforce that the same proposal cant become the most popular proposal twice
+    // but we can enforce it doesent
+    //or can we add it in the struct -- tbd
+
+    function endorseGCAProposal(uint256 weekId) external {
+        if (!IVetoCouncil(_vetoCouncil).isCouncilMember(msg.sender)) {
+            _revert(IGovernance.CallerNotVetoCouncilMember.selector);
+        }
+
+        uint256 _currentWeek = currentWeek();
+        if (weekId >= _currentWeek) {
+            _revert(IGovernance.WeekNotFinalized.selector);
+        }
+        //Also make sure it's not already finalized
+        uint256 _weekEndTime = _weekEndTime(weekId + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL);
+        if (block.timestamp > _weekEndTime) {
+            _revert(IGovernance.RatifyOrRejectPeriodEnded.selector);
+        }
+
+        uint256 key = weekId / 256;
+        uint256 shift = weekId % 256;
+        uint256 existingEndorsementBitmap = _hasEndorsedProposalBitmap[msg.sender][key];
+        uint256 bitVal = (1 << shift);
+        if (existingEndorsementBitmap & bitVal != 0) {
+            _revert(IGovernance.AlreadyEndorsedWeek.selector);
+        }
+        _hasEndorsedProposalBitmap[msg.sender][key] = existingEndorsementBitmap | bitVal;
+        uint256 numEndorsements = numEndorsementsOnWeek[weekId];
+        uint256 proposalId = mostPopularProposal[weekId];
+        IGovernance.ProposalType proposalType = _proposals[proposalId].proposalType;
+        if (proposalType != IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
+            _revert(IGovernance.OnlyGCAElectionsCanBeEndorsed.selector);
+        }
+
+        numEndorsements += 1;
+        if (numEndorsements > _MAX_ENDORSEMENTS_ON_GCA_PROPOSALS) {
+            _revert(IGovernance.MaxGCAEndorsementsReached.selector);
+        }
+
+        //todo: add an invariant to test the bitsettings
+        numEndorsementsOnWeek[weekId] = numEndorsements;
+    }
+
+    function hasEndorsedProposal(address gca, uint256 weekId) external view returns (bool) {
+        uint256 key = weekId / 256;
+        uint256 shift = weekId % 256;
+        return _hasEndorsedProposalBitmap[gca][key] & (1 << shift) != 0;
+    }
+
     //************************************************************* */
     //************  EXTERNAL/STATE CHANGING FUNCS    ************* */
     //************************************************************* */
@@ -175,6 +229,16 @@ contract Governance is IGovernance {
         uint256 _weekEndTime = _weekEndTime(weekId + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL);
         if (block.timestamp > _weekEndTime) {
             _revert(IGovernance.RatifyOrRejectPeriodEnded.selector);
+        }
+
+        ProposalType proposalType = _proposals[mostPopularProposal[weekId]].proposalType;
+        //Elections can't be vetoed
+        if (proposalType == ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
+            _revert(IGovernance.VetoCouncilElectionsCannotBeVetoed.selector);
+        }
+
+        if (proposalType == ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
+            _revert(IGovernance.GCACouncilElectionsCannotBeVetoed.selector);
         }
 
         _setMostPopularProposalStatus(weekId, IGovernance.ProposalStatus.VETOED);
@@ -234,6 +298,15 @@ contract Governance is IGovernance {
         emit IGovernance.NominationsUsedOnProposal(proposalId, msg.sender, amount);
     }
 
+    /**
+     * @notice entrypoint for long staked glow holders to vote on proposals
+     * @param weekOfMostPopularProposal - the week that the proposal got selected as the most popular proposal for
+     * @param trueForRatify  - if true the stakers are ratifying the proposal
+     *                             - if false they are rejecting it
+     * @param numVotes - the number of ratify/reject votes they want to apply on this proposal
+     *                       - the total number of ratify/reject votes must always be lte than
+     *                             - the total glw they have staked
+     */
     function ratifyOrReject(uint256 weekOfMostPopularProposal, bool trueForRatify, uint256 numVotes) external {
         uint256 currentWeek = currentWeek();
         //Week needs to finalize.

@@ -20,6 +20,11 @@ interface IGovernance {
     error RatifyOrRejectPeriodEnded();
     error MostPopularProposalNotSelected();
     error ProposalAlreadyVetoed();
+    error AlreadyEndorsedWeek();
+    error OnlyGCAElectionsCanBeEndorsed();
+    error MaxGCAEndorsementsReached();
+    error VetoCouncilElectionsCannotBeVetoed();
+    error GCACouncilElectionsCannotBeVetoed();
 
     enum ProposalType {
         NONE, //default value for unset proposals

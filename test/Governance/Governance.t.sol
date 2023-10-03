@@ -50,6 +50,11 @@ contract GovernanceTest is Test {
     address grantsTreasuryAddress = address(0x5);
     address SIMON;
     uint256 SIMON_PRIVATE_KEY;
+    address OTHER_VETO_1 = address(0x991);
+    address OTHER_VETO_2 = address(0x992);
+    address OTHER_VETO_3 = address(0x993);
+    address OTHER_VETO_4 = address(0x994);
+    address OTHER_VETO_5 = address(0x995);
 
     address OTHER_GCA = address(0x7);
     address OTHER_GCA_2 = address(0x8);
@@ -72,8 +77,13 @@ contract GovernanceTest is Test {
         usdc = new MockUSDC();
         glow = new TestGLOW(earlyLiquidity,vestingContract);
         address[] memory temp = new address[](0);
-        address[] memory startingAgents = new address[](1);
+        address[] memory startingAgents = new address[](6);
         startingAgents[0] = address(SIMON);
+        startingAgents[1] = OTHER_VETO_1;
+        startingAgents[2] = OTHER_VETO_2;
+        startingAgents[3] = OTHER_VETO_3;
+        startingAgents[4] = OTHER_VETO_4;
+        startingAgents[5] = OTHER_VETO_5;
         vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
         vetoCouncilAddress = address(vetoCouncil);
         minerPoolAndGCA =
@@ -1066,6 +1076,145 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + (ONE_WEEK * 5) + 1);
         vm.expectRevert(IGovernance.RatifyOrRejectPeriodEnded.selector);
         governance.vetoProposal(0);
+        vm.stopPrank();
+    }
+
+    function test_vetoProposal_VetoCouncilElection_shouldRevert() public {
+        test_createVetoCouncilElectionOrSlash();
+        //Should be the most popular proposal now
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + ONE_WEEK);
+        vm.expectRevert(IGovernance.VetoCouncilElectionsCannotBeVetoed.selector);
+        governance.vetoProposal(0);
+        vm.stopPrank();
+    }
+
+        function test_vetoProposal_GCAElection_shouldRevert() public {
+        test_createGCAElectionOrSlashProposal();
+        //Should be the most popular proposal now
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + ONE_WEEK);
+        vm.expectRevert(IGovernance.GCACouncilElectionsCannotBeVetoed.selector);
+        governance.vetoProposal(0);
+        vm.stopPrank();
+    }
+
+    function test_endorseGCAProposal() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + ONE_WEEK);
+        governance.endorseGCAProposal(0);
+
+        uint256 numEndorsements = governance.numEndorsementsOnWeek(0);
+        assertEq(numEndorsements, 1);
+        assertTrue(governance.hasEndorsedProposal(SIMON, 0));
+        vm.stopPrank();
+    }
+
+    function test_endorseGCAProposal_callerNotVetoCouncilMember_shouldRevert() public {
+        test_createGCAElectionOrSlashProposal();
+        address notSimon;
+        assembly {
+            notSimon := not(sload(SIMON.slot))
+            //Clean dirty bits in case
+            notSimon := shr(96, shl(notSimon, 96))
+        }
+
+        vm.startPrank(notSimon);
+        vm.warp(block.timestamp + ONE_WEEK);
+        vm.expectRevert(IGovernance.CallerNotVetoCouncilMember.selector);
+        governance.endorseGCAProposal(0);
+        vm.stopPrank();
+    }
+
+    function test_endorseGCAProposal_currentWeek_shouldRevert() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + ONE_WEEK - 1);
+        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        governance.endorseGCAProposal(0);
+    }
+
+    function test_endorseGCAProposal_futureWeek_shouldRevert() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        governance.endorseGCAProposal(1);
+    }
+
+    function test_endorseGCAProposal_ratifyOrRejectPeriodEnded_shouldRevert() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + (ONE_WEEK * 5) + 1);
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodEnded.selector);
+        governance.endorseGCAProposal(0);
+    }
+
+    function test_endorseGCAProposal_proposalNotGCAElection_shouldRevert() public {
+        test_createChangeGCARequirementsProposal();
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + ONE_WEEK);
+        vm.expectRevert(IGovernance.OnlyGCAElectionsCanBeEndorsed.selector);
+        governance.endorseGCAProposal(0);
+        vm.stopPrank();
+    }
+
+    function test_endorseGCAProposal_cannotEndorseSameWeekTwice() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + ONE_WEEK);
+        governance.endorseGCAProposal(0);
+
+        uint256 numEndorsements = governance.numEndorsementsOnWeek(0);
+        assertEq(numEndorsements, 1);
+        assertTrue(governance.hasEndorsedProposal(SIMON, 0));
+
+        vm.expectRevert(IGovernance.AlreadyEndorsedWeek.selector);
+        governance.endorseGCAProposal(0);
+
+        vm.stopPrank();
+    }
+
+    function test_endorseGCAProposal_cannotEndorseMoreThanMaxEndorsements_shouldRevert() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + ONE_WEEK);
+        governance.endorseGCAProposal(0);
+        vm.stopPrank();
+
+        uint256 numEndorsements = governance.numEndorsementsOnWeek(0);
+        assertEq(numEndorsements, 1);
+        assertTrue(governance.hasEndorsedProposal(SIMON, 0));
+
+        vm.startPrank(OTHER_VETO_1);
+        governance.endorseGCAProposal(0);
+        assertEq(governance.numEndorsementsOnWeek(0), 2);
+        assertTrue(governance.hasEndorsedProposal(OTHER_VETO_1, 0));
+        vm.stopPrank();
+
+        vm.startPrank(OTHER_VETO_2);
+        governance.endorseGCAProposal(0);
+        assertEq(governance.numEndorsementsOnWeek(0), 3);
+        assertTrue(governance.hasEndorsedProposal(OTHER_VETO_2, 0));
+        vm.stopPrank();
+
+        vm.startPrank(OTHER_VETO_3);
+        governance.endorseGCAProposal(0);
+        vm.stopPrank();
+
+        assertEq(governance.numEndorsementsOnWeek(0), 4);
+        assertTrue(governance.hasEndorsedProposal(OTHER_VETO_3, 0));
+
+        vm.startPrank(OTHER_VETO_4);
+        governance.endorseGCAProposal(0);
+        vm.stopPrank();
+
+        assertEq(governance.numEndorsementsOnWeek(0), 5);
+        assertTrue(governance.hasEndorsedProposal(OTHER_VETO_4, 0));
+
+        vm.startPrank(OTHER_VETO_5);
+        vm.expectRevert(IGovernance.MaxGCAEndorsementsReached.selector);
+        governance.endorseGCAProposal(0);
         vm.stopPrank();
     }
 
