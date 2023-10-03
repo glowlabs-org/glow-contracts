@@ -6,11 +6,7 @@ import {HalfLife} from "@/libraries/HalfLife.sol";
 import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
-//TEMP!
 
-//TODO: make sure to put max nominations to spend so it reverts
-//TODO: make sure to calculate  num active proposals correctly for when proposals get selected
-//  -   could add a bool if it got selected.
 contract Governance is IGovernance {
     using ABDKMath64x64 for int128;
 
@@ -157,6 +153,15 @@ contract Governance is IGovernance {
     /// @dev each uint256 is 32 bytes, so we can store 32 statuses in a single uint256
     mapping(uint256 => uint256) private _packedMostPopularProposalStatusByWeek;
 
+    //************************************************************* */
+    //************  EXTERNAL/STATE CHANGING FUNCS    ************* */
+    //************************************************************* */
+    /**
+     * @notice entrypoint for veto council members to veto a most popular proposal
+     * @param weekId - the id of the week to veto the most popular proposal in
+     * @dev be sure not to confuse weekId with proposalId
+     *             - the veto council members veto the most popular proposal at the  week
+     */
     function vetoProposal(uint256 weekId) external {
         if (!IVetoCouncil(_vetoCouncil).isCouncilMember(msg.sender)) {
             _revert(IGovernance.CallerNotVetoCouncilMember.selector);
@@ -177,36 +182,6 @@ contract Governance is IGovernance {
     }
 
     /**
-     * @dev sets the proposal status for the most popular proposal at a given week
-     * @param weekId the week id
-     * @param status the status of the proposal
-     */
-    function _setMostPopularProposalStatus(uint256 weekId, IGovernance.ProposalStatus status) internal {
-        //Each uint256 is 32 bytes, and can hold 32 uint8 statuses
-        uint256 key = weekId / 32;
-        //Each enum takes up 8 bits
-        uint256 shift = (weekId % 32) * 8;
-        //8 bits << shift
-        uint256 mask = uint256(0xff) << shift;
-        //the status bitshifted
-        uint256 value = uint256(status) << shift;
-        _packedMostPopularProposalStatusByWeek[key] = (_packedMostPopularProposalStatusByWeek[key] & ~mask) | value;
-    }
-
-    /**
-     * @notice Gets the status of the most popular proposal at a given week
-     * @param weekId the week id
-     * @return status the status of the proposal
-     */
-    function getMostPopularProposalStatus(uint256 weekId) public view returns (IGovernance.ProposalStatus) {
-        uint256 key = weekId / 32;
-        uint256 shift = (weekId % 32) * 8;
-        uint256 mask = uint256(0xff) << shift;
-        uint256 value = (_packedMostPopularProposalStatusByWeek[key] & mask) >> shift;
-        return IGovernance.ProposalStatus(value);
-    }
-
-    /**
      * @notice Entry point for GCC contract to grant nominations to {to} when they retire GCC
      * @param to the address to grant nominations to
      * @param amount the amount of nominations to grant
@@ -224,18 +199,6 @@ contract Governance is IGovernance {
         //Step 2: update their balance
         _nominations[to] = Nominations(uint192(currentBalance + amount), uint64(block.timestamp));
         return;
-    }
-
-    /**
-     * @notice Gets the amount of nominations that an account has
-     *             - adjusts for half-life of 12 months
-     * @param account the account to get the nominations of
-     * @return amount amount of nominations that the account has
-     */
-    function nominationsOf(address account) public view returns (uint256) {
-        Nominations memory n = _nominations[account];
-        uint256 elapsedSeconds = block.timestamp - n.lastUpdate;
-        return HalfLife.calculateHalfLifeValue(n.amount, elapsedSeconds);
     }
 
     //TODO: Make sure it updates the most popular proposal
@@ -301,13 +264,6 @@ contract Governance is IGovernance {
         }
         longStakerVotesForProposal[msg.sender][_mostPopularProposal] = amountVotesUsed + numVotes;
     }
-
-    /// @inheritdoc IGovernance
-    function getProposalWithStatus(uint256 proposalId)
-        public
-        view
-        returns (Proposal memory proposal, IGovernance.ProposalStatus)
-    {}
 
     /**
      * @notice A one time setter to set the contract addresses
@@ -562,17 +518,29 @@ contract Governance is IGovernance {
     }
 
     /**
-     * @dev helper func to spend nominations from an account
-     *         -   should never be public
-     * @param account the account to spend nominations from
-     * @param amount the amount of nominations to spend
+     * @notice Updates the last expired proposal id
+     *         - could be called by a good actor to update the last expired proposal id
+     *         - so that _numActiveProposalsAndLastExpiredProposalId() is more efficient
      */
-    function _spendNominations(address account, uint256 amount) private {
-        uint256 currentBalance = nominationsOf(account);
-        if (currentBalance < amount) {
-            _revert(IGovernance.InsufficientNominations.selector);
-        }
-        _nominations[account] = Nominations(uint192(currentBalance - amount), uint64(block.timestamp));
+    function updateLastExpiredProposalId() public {
+        (, uint256 _lastExpiredProposalId) = _numActiveProposalsAndLastExpiredProposalId();
+        lastExpiredProposalId = _lastExpiredProposalId;
+    }
+
+    //************************************************************* */
+    //***************  PUBLIC/EXTERNAL VIEW FUNCTIONS    **************** */
+    //************************************************************* */
+
+    /**
+     * @notice Gets the amount of nominations that an account has
+     *             - adjusts for half-life of 12 months
+     * @param account the account to get the nominations of
+     * @return amount amount of nominations that the account has
+     */
+    function nominationsOf(address account) public view returns (uint256) {
+        Nominations memory n = _nominations[account];
+        uint256 elapsedSeconds = block.timestamp - n.lastUpdate;
+        return HalfLife.calculateHalfLifeValue(n.amount, elapsedSeconds);
     }
 
     /**
@@ -595,39 +563,24 @@ contract Governance is IGovernance {
     }
 
     /**
-     * @notice Updates the last expired proposal id
-     *         - could be called by a good actor to update the last expired proposal id
-     *         - so that _numActiveProposalsAndLastExpiredProposalId() is more efficient
+     * @notice Gets the status of the most popular proposal at a given week
+     * @param weekId the week id
+     * @return status the status of the proposal
      */
-    function updateLastExpiredProposalId() public {
-        (, uint256 _lastExpiredProposalId) = _numActiveProposalsAndLastExpiredProposalId();
-        lastExpiredProposalId = _lastExpiredProposalId;
+    function getMostPopularProposalStatus(uint256 weekId) public view returns (IGovernance.ProposalStatus) {
+        uint256 key = weekId / 32;
+        uint256 shift = (weekId % 32) * 8;
+        uint256 mask = uint256(0xff) << shift;
+        uint256 value = (_packedMostPopularProposalStatusByWeek[key] & mask) >> shift;
+        return IGovernance.ProposalStatus(value);
     }
 
-    /**
-     * @notice Gets the number of active proposals and the last expired proposal id
-     * @return numActiveProposals the number of active proposals
-     * @return _lastExpiredProposalId the last expired proposal id
-     */
-    function _numActiveProposalsAndLastExpiredProposalId()
+    /// @inheritdoc IGovernance
+    function getProposalWithStatus(uint256 proposalId)
         public
         view
-        returns (uint256 numActiveProposals, uint256 _lastExpiredProposalId)
-    {
-        uint256 _lastExpiredProposalId = lastExpiredProposalId;
-        uint256 _proposalCount = _proposalCount;
-        unchecked {
-            for (uint256 i = _lastExpiredProposalId; i < _proposalCount; ++i) {
-                if (_proposals[i].expirationTimestamp < block.timestamp) {
-                    _lastExpiredProposalId = i;
-                } else {
-                    break;
-                }
-            }
-        }
-        numActiveProposals = _proposalCount - _lastExpiredProposalId;
-        _lastExpiredProposalId = _lastExpiredProposalId;
-    }
+        returns (Proposal memory proposal, IGovernance.ProposalStatus)
+    {}
 
     /**
      * @notice Gets the total number of proposals created
@@ -647,9 +600,19 @@ contract Governance is IGovernance {
         return _proposals[proposalId];
     }
 
+    /**
+     * @notice returns the number of ratify and reject votes on a given proposal
+     * @param proposalId - the id of the proposal to query for
+     * @dev the proposalId is different than the weekId
+     * @return proposalLongStakerVotes - the {ProposalLongStakerVotes struct} for a proposal
+     */
     function proposalLongStakerVotes(uint256 proposalId) external view returns (ProposalLongStakerVotes memory) {
         return _proposalLongStakerVotes[proposalId];
     }
+
+    //************************************************************* */
+    //*****************  INTERNAL/PRIVATE FUNCS   ****************** */
+    //************************************************************* */
 
     /**
      * @notice Gets the nomination cost for proposal creation based on {numActiveProposals}
@@ -658,23 +621,74 @@ contract Governance is IGovernance {
      * @dev calculates cost as 1 * 1.1^numActiveProposals
      * @dev we only use 4 decimals of precision
      */
-    function _getNominationCostForProposalCreation(uint256 numActiveProposals) public pure returns (uint256) {
+    function _getNominationCostForProposalCreation(uint256 numActiveProposals) internal pure returns (uint256) {
         uint256 res = _ONE_64x64.mul(ABDKMath64x64.pow(_ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
         // uint256 resInt = res.toUInt();
         return res * 1e14;
     }
-    /**
-     * @notice More efficiently reverts with a bytes4 selector
-     * @param selector The selector to revert with
-     */
 
-    function _revert(bytes4 selector) private pure {
-        assembly {
-            mstore(0x0, selector)
-            revert(0x0, 0x04)
-        }
+    /**
+     * @dev sets the proposal status for the most popular proposal at a given week
+     * @param weekId the week id
+     * @param status the status of the proposal
+     */
+    function _setMostPopularProposalStatus(uint256 weekId, IGovernance.ProposalStatus status) internal {
+        //Each uint256 is 32 bytes, and can hold 32 uint8 statuses
+        uint256 key = weekId / 32;
+        //Each enum takes up 8 bits
+        uint256 shift = (weekId % 32) * 8;
+        //8 bits << shift
+        uint256 mask = uint256(0xff) << shift;
+        //the status bitshifted
+        uint256 value = uint256(status) << shift;
+        _packedMostPopularProposalStatusByWeek[key] = (_packedMostPopularProposalStatusByWeek[key] & ~mask) | value;
     }
 
+    /**
+     * @dev helper func to spend nominations from an account
+     *         -   should never be public
+     * @param account the account to spend nominations from
+     * @param amount the amount of nominations to spend
+     */
+    function _spendNominations(address account, uint256 amount) private {
+        uint256 currentBalance = nominationsOf(account);
+        if (currentBalance < amount) {
+            _revert(IGovernance.InsufficientNominations.selector);
+        }
+        _nominations[account] = Nominations(uint192(currentBalance - amount), uint64(block.timestamp));
+    }
+
+    /**
+     * @notice Gets the number of active proposals and the last expired proposal id
+     * @return numActiveProposals the number of active proposals
+     * @return _lastExpiredProposalId the last expired proposal id
+     */
+    function _numActiveProposalsAndLastExpiredProposalId()
+        internal
+        view
+        returns (uint256 numActiveProposals, uint256 _lastExpiredProposalId)
+    {
+        uint256 _lastExpiredProposalId = lastExpiredProposalId;
+        uint256 _proposalCount = _proposalCount;
+        unchecked {
+            for (uint256 i = _lastExpiredProposalId; i < _proposalCount; ++i) {
+                if (_proposals[i].expirationTimestamp < block.timestamp) {
+                    _lastExpiredProposalId = i;
+                } else {
+                    break;
+                }
+            }
+        }
+        numActiveProposals = _proposalCount - _lastExpiredProposalId;
+        _lastExpiredProposalId = _lastExpiredProposalId;
+    }
+
+    /**
+     * @notice finds the time at which the week ends
+     * @dev for example, {weekNumber = 1} would give the timestamp at which week 1 would be over
+     * @param weekNumber - the week number to find the end timestamp for
+     * @return endTimestamp - the end timestamp of the week number
+     */
     function _weekEndTime(uint256 weekNumber) internal view returns (uint256) {
         return _genesisTimestamp + ((weekNumber + 1) * _ONE_WEEK);
     }
@@ -696,6 +710,17 @@ contract Governance is IGovernance {
     function _isZeroAddress(address a) private pure returns (bool isZero) {
         assembly {
             isZero := iszero(a)
+        }
+    }
+
+    /**
+     * @notice More efficiently reverts with a bytes4 selector
+     * @param selector The selector to revert with
+     */
+    function _revert(bytes4 selector) private pure {
+        assembly {
+            mstore(0x0, selector)
+            revert(0x0, 0x04)
         }
     }
 }

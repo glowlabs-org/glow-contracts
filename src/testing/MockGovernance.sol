@@ -8,4 +8,8 @@ contract MockGovernance is Governance {
     function setMostPopularProposalStatus(uint256 weekId, IGovernance.ProposalStatus status) public {
         _setMostPopularProposalStatus(weekId, status);
     }
+
+    function getNominationCostForProposalCreation(uint256 numActiveProposals) public pure returns (uint256) {
+        return super._getNominationCostForProposalCreation(numActiveProposals);
+    }
 }

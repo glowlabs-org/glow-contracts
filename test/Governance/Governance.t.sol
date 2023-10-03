@@ -145,7 +145,7 @@ contract GovernanceTest is Test {
     function testFuzz_proposalCost_shouldNotDivergeGreatly(uint256 numActiveProposals) public {
         vm.assume(numActiveProposals < 300);
         uint256 expectedCost = expectedProposalCost(numActiveProposals);
-        uint256 actualCost = governance._getNominationCostForProposalCreation(numActiveProposals);
+        uint256 actualCost = governance.getNominationCostForProposalCreation(numActiveProposals);
         bool diverged = divergenceCheck(uint128(expectedCost), uint128(actualCost));
         assert(!diverged);
     }
