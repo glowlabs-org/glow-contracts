@@ -201,6 +201,10 @@ contract Governance is IGovernance {
         numEndorsementsOnWeek[weekId] = numEndorsements;
     }
 
+    /** 
+        * @notice returns {true} if a gca has endorsed the proposal at {weekId}
+        
+    */
     function hasEndorsedProposal(address gca, uint256 weekId) external view returns (bool) {
         uint256 key = weekId / 256;
         uint256 shift = weekId % 256;

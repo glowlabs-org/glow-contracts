@@ -1089,7 +1089,7 @@ contract GovernanceTest is Test {
         vm.stopPrank();
     }
 
-        function test_vetoProposal_GCAElection_shouldRevert() public {
+    function test_vetoProposal_GCAElection_shouldRevert() public {
         test_createGCAElectionOrSlashProposal();
         //Should be the most popular proposal now
         vm.startPrank(SIMON);
