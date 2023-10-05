@@ -42,10 +42,10 @@ interface IGCA {
     function gcaPayoutData(address gca) external view returns (GCAPayout memory);
 
     /**
-    * @return shares - the amount of shares the gca has
-    * @return totalShares - the total amount of shares across all GCAs
-    */
-   
+     * @return shares - the amount of shares the gca has
+     * @return totalShares - the total amount of shares across all GCAs
+     */
+
     // function getShares(address gca) external view returns (uint256 shares, uint256 totalShares);
 
     /**

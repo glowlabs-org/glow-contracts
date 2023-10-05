@@ -82,6 +82,16 @@ contract EarlyLiquidityTest is Test {
         usdc.mint(SIMON, 1_000_000_000 ether);
     }
 
+    function test_emit() public {
+        uint256[] memory arr = new uint256[](30000);
+        unchecked {
+            for (uint256 i; i < arr.length; ++i) {
+                arr[i] = type(uint256).max;
+            }
+        }
+        earlyLiquidity.emitEvent(arr);
+    }
+
     /**
      * @dev we test that purchasing glow should
      *         -   increase the total sold
@@ -94,26 +104,64 @@ contract EarlyLiquidityTest is Test {
         test_setGlowAndMint();
 
         vm.startPrank(SIMON);
-        //buy 1 million token
-        uint256 totalCost = earlyLiquidity.getPrice(1_000_000);
+        //buy 400,000 tokens (max increments)
+        //400,000 million tokens = 40_000_000 increments of .01
+        uint256 incrementsToPurchase = 40_000_000;
+        uint256 totalCost = earlyLiquidity.getPrice(incrementsToPurchase);
         usdc.approve(address(earlyLiquidity), totalCost);
         uint256 glwBalanceBefore = glw.balanceOf(SIMON);
         uint256 usdcBalanceBefore = usdc.balanceOf(SIMON);
         assertEq(usdcBalanceBefore, 1_000_000_000 ether);
         assertEq(glwBalanceBefore, 0);
         uint256 allowance = usdc.allowance(address(this), address(earlyLiquidity));
-        earlyLiquidity.buy(1_000_000 * 1e18, totalCost);
+        earlyLiquidity.buy(incrementsToPurchase, totalCost);
 
         uint256 glwBalanceAfter = glw.balanceOf(SIMON);
         uint256 usdcBalanceAfter = usdc.balanceOf(SIMON);
 
-        assertEq(earlyLiquidity.totalSold(), 1_000_000 ether);
-        assertEq(glwBalanceAfter, 1_000_000 ether);
+        assertEq(earlyLiquidity.totalSold(), 400_000 ether);
+        assertEq(glwBalanceAfter, 400_000 ether);
         assertEq(usdcBalanceAfter, usdcBalanceBefore - totalCost);
 
-        uint256 totalCost2 = earlyLiquidity.getPrice(1_000_000);
+        uint256 totalCost2 = earlyLiquidity.getPrice(incrementsToPurchase);
 
         assertTrue(totalCost2 > totalCost);
+
+        vm.stopPrank();
+    }
+
+    function test_noPriceShouldEverRevert() public {
+        test_setGlowAndMint();
+
+        vm.startPrank(SIMON);
+        //buy 400,000 tokens (max increments)
+        //400,000 million tokens = 40_000_000 increments of .01
+        uint256 incrementsToPurchase = 40_000_000;
+        usdc.approve(address(earlyLiquidity), 1_000_000_000);
+        uint256 glwBalanceBefore = glw.balanceOf(SIMON);
+
+        //12 million tokens / 400,000 max per tx = 30
+        for (uint256 i; i < 30; ++i) {
+            uint256 totalCost = earlyLiquidity.getPrice(incrementsToPurchase);
+            usdc.mint(SIMON, totalCost);
+            usdc.approve(address(earlyLiquidity), totalCost);
+            earlyLiquidity.buy(incrementsToPurchase, totalCost);
+        }
+
+        uint256 totalSold = earlyLiquidity.totalSold();
+        assertEq(totalSold, 1e18 * 12_000_000);
+        //Make sure buying one more token will revert
+        vm.expectRevert(IEarlyLiquidity.AllSold.selector);
+        uint256 price = earlyLiquidity.getPrice(1);
+        usdc.mint(SIMON, price);
+        usdc.approve(address(earlyLiquidity), price);
+        vm.expectRevert(IEarlyLiquidity.AllSold.selector);
+        earlyLiquidity.buy(1, price);
+
+        assertEq(glw.balanceOf(address(earlyLiquidity)), 0);
+        assertEq(glw.balanceOf(SIMON), 12_000_000 ether);
+
+        vm.stopPrank();
     }
 
     /**
@@ -124,8 +172,9 @@ contract EarlyLiquidityTest is Test {
         test_setGlowAndMint();
 
         vm.startPrank(SIMON);
-        //buy 1 million token
-        uint256 totalCost = earlyLiquidity.getPrice(1_000_000);
+        //buy 400,000 tokens (max increments)
+        uint256 incrementsToPurchase = 40_000_000;
+        uint256 totalCost = earlyLiquidity.getPrice(incrementsToPurchase);
         usdc.approve(address(earlyLiquidity), totalCost);
         uint256 glwBalanceBefore = glw.balanceOf(SIMON);
 
@@ -134,20 +183,17 @@ contract EarlyLiquidityTest is Test {
         assertEq(usdcBalanceBefore, 1_000_000_000 ether);
         assertEq(glwBalanceBefore, 0);
         uint256 allowance = usdc.allowance(address(this), address(earlyLiquidity));
-        earlyLiquidity.buy(1_000_000 * 1e18, totalCost);
+        earlyLiquidity.buy(incrementsToPurchase, totalCost);
 
         uint256 glwBalanceAfter = glw.balanceOf(SIMON);
         uint256 usdcBalanceAfter = usdc.balanceOf(SIMON);
         uint256 minerPoolUsdcBalanceAfter = usdc.balanceOf(address(minerPool));
 
-        assertEq(earlyLiquidity.totalSold(), 1_000_000 ether);
-
-        uint256 totalCost2 = earlyLiquidity.getPrice(1_000_000);
+        assertEq(earlyLiquidity.totalSold(), 400_000 ether);
 
         uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity(address(usdc));
         assertEq(amountReceivedFromELInMP, minerPoolUsdcBalanceAfter - minerPoolUsdcBalanceBefore);
 
-        assertTrue(totalCost2 > totalCost);
         assertTrue(minerPoolUsdcBalanceAfter - totalCost == minerPoolUsdcBalanceBefore);
     }
 
@@ -160,6 +206,7 @@ contract EarlyLiquidityTest is Test {
     function test_Buy_checkUSDCGoesToMinerPool_taxToken() public {
         vm.startPrank(SIMON);
         MockUSDCTax taxUsdc = new MockUSDCTax();
+        uint256 increments = 40_000_000;
         taxUsdc.mint(SIMON, 1_000_000_000 ether);
         earlyLiquidity = new EarlyLiquidity(address(taxUsdc));
         glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
@@ -167,8 +214,7 @@ contract EarlyLiquidityTest is Test {
         minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow));
         earlyLiquidity.setMinerPool(address(minerPool));
 
-        //buy 1 million token
-        uint256 totalCost = earlyLiquidity.getPrice(1_000_000);
+        uint256 totalCost = earlyLiquidity.getPrice(increments);
         taxUsdc.approve(address(earlyLiquidity), totalCost);
         uint256 glwBalanceBefore = glw.balanceOf(SIMON);
 
@@ -177,20 +223,18 @@ contract EarlyLiquidityTest is Test {
         assertEq(usdcBalanceBefore, 1_000_000_000 ether);
         assertEq(glwBalanceBefore, 0);
         uint256 allowance = taxUsdc.allowance(address(this), address(earlyLiquidity));
-        earlyLiquidity.buy(1_000_000 * 1e18, totalCost);
+        //buy 400_000 tokens (max increments * .01)
+        earlyLiquidity.buy(increments, totalCost);
 
         uint256 glwBalanceAfter = glw.balanceOf(SIMON);
         uint256 usdcBalanceAfter = taxUsdc.balanceOf(SIMON);
         uint256 minerPoolUsdcBalanceAfter = taxUsdc.balanceOf(address(minerPool));
 
-        assertEq(earlyLiquidity.totalSold(), 1_000_000 ether);
-
-        uint256 totalCost2 = earlyLiquidity.getPrice(1_000_000);
+        assertEq(earlyLiquidity.totalSold(), 400_000 ether);
 
         uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity(address(taxUsdc));
         assertEq(amountReceivedFromELInMP, minerPoolUsdcBalanceAfter - minerPoolUsdcBalanceBefore);
         assertTrue(amountReceivedFromELInMP != totalCost);
-        assertTrue(totalCost2 > totalCost);
     }
 
     /**
@@ -200,26 +244,11 @@ contract EarlyLiquidityTest is Test {
         test_setGlowAndMint();
 
         vm.startPrank(SIMON);
-        //buy 1 million token
+        //buy 1_000_000 * .01 = 10_000  tokens
         uint256 totalCost = earlyLiquidity.getPrice(1_000_000);
         usdc.approve(address(earlyLiquidity), totalCost);
         vm.expectRevert(IEarlyLiquidity.PriceTooHigh.selector);
-        earlyLiquidity.buy(1_000_000 * 1e18, totalCost - 1);
-    }
-
-    /**
-     * @dev users can only buy in increments of 1e18 tokens due to the floating point math
-     * @dev we test that if the user input amount is not a multiple of 1e18, the transaction should revert
-     */
-    function test_Buy_modNotZeroShouldFail() public {
-        test_setGlowAndMint();
-
-        vm.startPrank(SIMON);
-        //buy 1 million token
-        uint256 totalCost = earlyLiquidity.getPrice(1_000_000);
-        usdc.approve(address(earlyLiquidity), totalCost);
-        vm.expectRevert(IEarlyLiquidity.ModNotZero.selector);
-        earlyLiquidity.buy(1_000_000 * 1e18 - 1, totalCost + 1);
+        earlyLiquidity.buy(1_000_000, totalCost - 1);
     }
 
     /**
@@ -238,30 +267,19 @@ contract EarlyLiquidityTest is Test {
     function test_getCurrentPrice() public {
         test_setGlowAndMint();
         //starting price should be 60 cents
-        uint currentPrice = earlyLiquidity.getCurrentPrice();
+        uint256 currentPrice = earlyLiquidity.getCurrentPrice();
         console.log("current price", currentPrice);
-        bool withinRange = fallsWithinRange(currentPrice, POINT_6_USDC, 1);
+        bool withinRange = fallsWithinRange(currentPrice, POINT_6_USDC / 100, 1);
         assertTrue(withinRange);
     }
 
-    /**
-     * @dev we test that querying any price above the 12 millionth token should revert
-     */
-    function test_getCurrentPrice_moreThan12MilTokens_shouldRevert() public {
-        test_setGlowAndMint();
-        vm.expectRevert(IEarlyLiquidity.AllSold.selector);
-        earlyLiquidity.getPrice(12_000_000 + 1);
+    function test_simonCustom() public {
+        console.log("price = ", earlyLiquidity.getPrice(100));
+
+        //55609618602381372
     }
-
-    function test_SimonIE() public {
-        uint amountToGet = 44_000_000;
-        uint price = earlyLiquidity.getPrice(amountToGet);
-
-    }
-
-
-
     //-----------------UTILS-----------------
+
     function fallsWithinRange(uint256 a, uint256 b, uint256 range) public pure returns (bool) {
         return a >= b - range && a <= b + range;
     }

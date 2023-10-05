@@ -188,7 +188,7 @@ contract GCA is IGCA {
             uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
             if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
             //Submissions are only open for one week
-            if (block.timestamp >= bucketSubmissionStartTimestamp + BUCKET_LENGTH ) {
+            if (block.timestamp >= bucketSubmissionStartTimestamp + BUCKET_LENGTH) {
                 _revert(IGCA.BucketSubmissionEnded.selector);
             }
         }
@@ -291,11 +291,9 @@ contract GCA is IGCA {
         proposalHashes.push(hash);
     }
 
-
     //************************************************************* */
     //*****************  PUBLIC VIEW FUNCTIONS    ************** */
     //************************************************************* */
-
 
     /// @inheritdoc IGCA
     function compensationPlan(address gca) public view returns (IGCA.ICompensation[] memory) {
@@ -351,37 +349,35 @@ contract GCA is IGCA {
     }
 
     /**
-        * @notice returns the start submission timestamp of a bucket
-        * @param bucketId - the id of the bucket
-        * @return the start submission timestamp of a bucket
-        * @dev should not be used for reinstated buckets or buckets that need to be reinstated
-    */
+     * @notice returns the start submission timestamp of a bucket
+     * @param bucketId - the id of the bucket
+     * @return the start submission timestamp of a bucket
+     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+     */
     function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
         return bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP;
     }
 
     /**
-        * @notice returns the end submission timestamp of a bucket
-            - GCA's wont be able to submit if block.timestamp >= endSubmissionTimestamp
-        * @param bucketId - the id of the bucket
-        * @return the end submission timestamp of a bucket
-        * @dev should not be used for reinstated buckets or buckets that need to be reinstated
-    */
+     * @notice returns the end submission timestamp of a bucket
+     *         - GCA's wont be able to submit if block.timestamp >= endSubmissionTimestamp
+     * @param bucketId - the id of the bucket
+     * @return the end submission timestamp of a bucket
+     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+     */
     function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
         return bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH;
     }
 
-
     /**
-        * @notice returns the finalization timestamp of a bucket
-        * @param bucketId - the id of the bucket
-        * @return the finalization timestamp of a bucket
-        * @dev should not be used for reinstated buckets or buckets that need to be reinstated
-    */
+     * @notice returns the finalization timestamp of a bucket
+     * @param bucketId - the id of the bucket
+     * @return the finalization timestamp of a bucket
+     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+     */
     function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
         return bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH;
     }
-
 
     /**
      * @dev Find total owed now and slashable balance using the summation of an arithmetic series
@@ -473,7 +469,7 @@ contract GCA is IGCA {
         for (uint256 i; i < oldGCAs.length; ++i) {
             delete _compensationPlans[oldGCAs[i]];
         }
-        
+
         gcaAgents = gcaAddresses;
         //log all the gcaAddresses
         for (uint256 i; i < gcaAddresses.length; ++i) {
