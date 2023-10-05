@@ -142,7 +142,7 @@ describe('Test: Early Liquidity', function () {
           }
         })
 
-      
+
         //An increment is .01 tokens, so the tota amount of tokens we are buying is equal to 
         // For example, 100 increments is equal to 1 token
         const tokensToBuy = incrementsToBuy.toNumber() / 100;
