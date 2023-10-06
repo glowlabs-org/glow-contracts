@@ -1321,6 +1321,162 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
+    function test_executeGrantsProposal_rejectionShouldNotUpdateStateInTarget() public {
+        test_createGrantsProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, false, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.executeProposalAtWeek(0);
+        uint256 balance = grantsTreasury.recipientBalance(grantsRecipient);
+        assert(balance == 0);
+        vm.startPrank(grantsRecipient);
+        vm.expectRevert();
+        grantsTreasury.claimGrantReward();
+        vm.stopPrank();
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_executeChangeGCARequirements_rejectionShouldNotUpdateStateInTarget() public {
+        test_createChangeGCARequirementsProposal();
+        bytes32 expectedHash = keccak256("new requirements hash");
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, false, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.executeProposalAtWeek(0);
+        assert(minerPoolAndGCA.requirementsHash() != expectedHash);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    /// @dev The hash is emitted so we can't check state
+    function test_executeRFCProposal_shouldNotRevert() public {
+        test_createRFCProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, false, 1);
+        governance.executeProposalAtWeek(0);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+ // //TODO:! need to add this functionality. This is a placeholder
+    // function test_executeChangeReserveCurrencyProposal() public {
+    //     test_createChangeReserveCurrencyProposal();
+    //     vm.warp(block.timestamp + ONE_WEEK + 1);
+    //     castLongStakedVotes(SIMON, 0, true, 1);
+    //     vm.warp(block.timestamp + ONE_WEEK * 4);
+    //     bytes memory data = governance.proposals(1).data;
+    //     (address currencyToRemove_, address newReserveCurrency_) = abi.decode(data, (address, address));
+    //     governance.executeProposalAtWeek(0);
+    //     // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
+    //     // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
+    //     uint256 lastExecutedWeek = governance.lastExecutedWeek();
+    //     assertEq(lastExecutedWeek, 0);
+    // }
+    
+    function test_executeGCAElectionOrSlashProposal_rejectionShouldNotUpdateStateInTarget() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, false, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (bytes32 hash, bool incrementSlashNonce) = abi.decode(data, (bytes32, bool));
+        governance.executeProposalAtWeek(0);
+
+        //reverts since array should be empty
+        vm.expectRevert();
+        bytes32 hash2 = minerPoolAndGCA.proposalHashes(0);
+
+        assertEq(minerPoolAndGCA.slashNonce(), 0);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_executeVetoCouncilElectionOrSlash_rejectionShouldNotUpdateStateInTarget() public {
+        test_createVetoCouncilElectionOrSlash();
+        bool slashOldAgent = true;
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, false, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (address oldAgent_, address newAgent_, bool slashOldAgent_) = abi.decode(data, (address, address, bool));
+        governance.executeProposalAtWeek(0);
+        assert(!vetoCouncil.isCouncilMember(newAgent_));
+        assert(vetoCouncil.isCouncilMember(oldAgent_));
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function testFuzz_executeChangeGCARequirements_withEndorsement(uint256 numEndorsements) public {
+        vm.assume(numEndorsements <= 6);
+        test_createGCAElectionOrSlashProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+
+        for (uint256 i; i < numEndorsements; i++) {
+            vm.startPrank(startingAgents[i]);
+            if (i == 5) {
+                vm.expectRevert(IGovernance.MaxGCAEndorsementsReached.selector);
+                governance.endorseGCAProposal(0);
+            } else {
+                governance.endorseGCAProposal(0);
+            }
+            vm.stopPrank();
+        }
+        uint256 basePercentageRequired = 60;
+        uint256 weightForEachEndorsement = 5;
+        uint256 newPercentageRequired = basePercentageRequired - (numEndorsements * weightForEachEndorsement);
+        if (newPercentageRequired < 35) {
+            newPercentageRequired = 35;
+        }
+
+        castLongStakedVotes(SIMON, 0, true, newPercentageRequired);
+        castLongStakedVotes(OTHER_VETO_1, 0, false, (100 - newPercentageRequired));
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.executeProposalAtWeek(0);
+
+        //Check slash nonce to make sure it went through
+        uint256 slashNonce = minerPoolAndGCA.slashNonce();
+        assertEq(slashNonce, 1);
+    }
+
+    function testFuzz_executeChangeGCARequirements_withEndorsement_notEnoughVotesShouldResultInNoStateChangesForTarget(
+        uint256 numEndorsements
+    ) public {
+        vm.assume(numEndorsements <= 6);
+        test_createGCAElectionOrSlashProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+
+        for (uint256 i; i < numEndorsements; i++) {
+            vm.startPrank(startingAgents[i]);
+            if (i == 5) {
+                vm.expectRevert(IGovernance.MaxGCAEndorsementsReached.selector);
+                governance.endorseGCAProposal(0);
+            } else {
+                governance.endorseGCAProposal(0);
+            }
+            vm.stopPrank();
+        }
+        uint256 basePercentageRequired = 60;
+        uint256 weightForEachEndorsement = 5;
+        uint256 newPercentageRequired = basePercentageRequired - (numEndorsements * weightForEachEndorsement);
+        if (newPercentageRequired < 35) {
+            newPercentageRequired = 35;
+        }
+
+        //
+        castLongStakedVotes(SIMON, 0, true, newPercentageRequired);
+        uint256 complement = 100 - newPercentageRequired;
+        castLongStakedVotes(OTHER_VETO_1, 0, false, complement + 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.executeProposalAtWeek(0);
+
+        //Check slash nonce to make sure it went through
+        uint256 slashNonce = minerPoolAndGCA.slashNonce();
+        assertEq(slashNonce, 0);
+    }
+
+   
+
     //-----------------  HELPERS -----------------//
     function divergenceCheck(uint128 a, uint128 b) internal returns (bool) {
         string[] memory inputsForDivergenceCheck = new string[](3);

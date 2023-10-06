@@ -108,10 +108,9 @@ contract VetoCouncil is IVetoCouncil {
         IVetoCouncil.MemberData memory oldAgentData = _vetoAgent[oldAgent];
         IVetoCouncil.MemberData memory newAgentData = _vetoAgent[newAgent];
 
-
         //The new agent cannot be an existing veto council member.
         //We check later if the old agent is an existing veto council member
-        //We only need to check if the old agent is an existing veto council member 
+        //We only need to check if the old agent is an existing veto council member
         //  -if the old agent is not the zero address
         // If the old agent is the zero address, we dont need to check if they're active
         if (newAgentData.isActive) {
