@@ -27,6 +27,7 @@ interface IGovernance {
     error GCACouncilElectionsCannotBeVetoed();
     error ProposalsMustBeExecutedSynchonously();
     error ProposalNotInitialized();
+    error RFCPeriodNotEnded();
 
     enum ProposalType {
         NONE, //default value for unset proposals

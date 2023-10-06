@@ -1359,7 +1359,7 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
- // //TODO:! need to add this functionality. This is a placeholder
+    // //TODO:! need to add this functionality. This is a placeholder
     // function test_executeChangeReserveCurrencyProposal() public {
     //     test_createChangeReserveCurrencyProposal();
     //     vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -1373,7 +1373,7 @@ contract GovernanceTest is Test {
     //     uint256 lastExecutedWeek = governance.lastExecutedWeek();
     //     assertEq(lastExecutedWeek, 0);
     // }
-    
+
     function test_executeGCAElectionOrSlashProposal_rejectionShouldNotUpdateStateInTarget() public {
         test_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -1463,7 +1463,6 @@ contract GovernanceTest is Test {
             newPercentageRequired = 35;
         }
 
-        //
         castLongStakedVotes(SIMON, 0, true, newPercentageRequired);
         uint256 complement = 100 - newPercentageRequired;
         castLongStakedVotes(OTHER_VETO_1, 0, false, complement + 1);
@@ -1475,7 +1474,75 @@ contract GovernanceTest is Test {
         assertEq(slashNonce, 0);
     }
 
-   
+    function test_executeNoneProposal() public {
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        vm.warp(block.timestamp + ONE_WEEK * 1);
+        governance.executeProposalAtWeek(0);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    //----------------------------------------------------//
+    //----------------  EXECUTION REVERTS -----------------//
+    //----------------------------------------------------//
+
+    /**
+     * Proposals should only revert if they are not yet ready to be executed,
+     *  All proposals except RFC and None should revert if it hasn't been 4 weeks since the proposal was finalized
+     *         as the most popular proposal
+     */
+
+    function test_executeRFCProposal_shouldRevert_ifNotWeekEnd() public {
+        test_createRFCProposal();
+        vm.warp(block.timestamp + (ONE_WEEK) - 1);
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
+        governance.executeProposalAtWeek(0);
+    }
+
+    //Same rules for timestamping apply to Grants proposals, and to none
+    function test_executeGrantsProposal_shouldRevert_ifNotWeekEnd() public {
+        test_createGrantsProposal();
+        vm.warp(block.timestamp + (ONE_WEEK) - 1);
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
+        governance.executeProposalAtWeek(0);
+    }
+
+    function test_executeChangeGCARequirements_shouldRevert_ifNotWeekEnd() public {
+        vm.warp(block.timestamp + (ONE_WEEK) - 1);
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
+        governance.executeProposalAtWeek(0);
+    }
+
+    //All others need to wait at least 4 weeks until they can be executed
+    function test_executeGCAElectionOrSlash_shouldRevert_ifNotRatifyEnd_shouldRevert() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.warp(block.timestamp + (ONE_WEEK * 4) - 1);
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
+        governance.executeProposalAtWeek(0);
+    }
+
+    function test_executeVetoCouncilElectionOrSlash_shouldRevert_ifNotRatifyEnd_shouldRevert() public {
+        test_createVetoCouncilElectionOrSlash();
+        vm.warp(block.timestamp + (ONE_WEEK * 4) - 1);
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
+        governance.executeProposalAtWeek(0);
+    }
+
+    function test_executeChangeReserveCurrencyProposal_shouldRevert_ifNotRatifyEnd_shouldRevert() public {
+        test_createChangeReserveCurrencyProposal();
+        vm.warp(block.timestamp + (ONE_WEEK * 4) - 1);
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
+        governance.executeProposalAtWeek(0);
+    }
+
+    function test_executeGCAElectionOrSlash_shouldRevert_ifNotWeekEnd_shouldRevert() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.warp(block.timestamp + (ONE_WEEK * 4) - 1);
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
+        governance.executeProposalAtWeek(0);
+    }
+
+    //TODO: add zero tests to make sure we don't get division by zero errors.
 
     //-----------------  HELPERS -----------------//
     function divergenceCheck(uint128 a, uint128 b) internal returns (bool) {
