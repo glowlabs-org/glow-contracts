@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "@/testing/TestGCC.sol";
@@ -24,6 +24,7 @@ import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {TestGCC} from "@/testing/TestGCC.sol";
 import {HalfLife} from "@/libraries/HalfLife.sol";
 import {DivergenceHandler} from "./Handlers/DivergenceHandler.sol";
+import {GrantsTreasury} from "@/GrantsTreasury.sol";
 
 /*
 TODO:
@@ -41,6 +42,7 @@ contract GovernanceTest is Test {
     MockGovernance governance;
     TestGCC gcc;
     DivergenceHandler divergenceHandler;
+    GrantsTreasury grantsTreasury;
 
     //--------  ADDRESSES ---------//
     address earlyLiquidity = address(0x2);
@@ -55,6 +57,7 @@ contract GovernanceTest is Test {
     address OTHER_VETO_3 = address(0x993);
     address OTHER_VETO_4 = address(0x994);
     address OTHER_VETO_5 = address(0x995);
+    address grantsRecipient = address(0x4123141);
 
     address OTHER_GCA = address(0x7);
     address OTHER_GCA_2 = address(0x8);
@@ -64,6 +67,8 @@ contract GovernanceTest is Test {
     address defaultAddressInWithdraw = address(0x555);
     address bidder1 = address(0x12);
     address bidder2 = address(0x13);
+
+    address[] startingAgents;
 
     //--------  CONSTANTS ---------//
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
@@ -77,13 +82,14 @@ contract GovernanceTest is Test {
         usdc = new MockUSDC();
         glow = new TestGLOW(earlyLiquidity,vestingContract);
         address[] memory temp = new address[](0);
-        address[] memory startingAgents = new address[](6);
-        startingAgents[0] = address(SIMON);
-        startingAgents[1] = OTHER_VETO_1;
-        startingAgents[2] = OTHER_VETO_2;
-        startingAgents[3] = OTHER_VETO_3;
-        startingAgents[4] = OTHER_VETO_4;
-        startingAgents[5] = OTHER_VETO_5;
+        startingAgents.push(address(SIMON));
+        startingAgents.push(OTHER_VETO_1);
+        startingAgents.push(OTHER_VETO_2);
+        startingAgents.push(OTHER_VETO_3);
+        startingAgents.push(OTHER_VETO_4);
+        startingAgents.push(OTHER_VETO_5);
+        grantsTreasury = new GrantsTreasury(address(glow), address(governance));
+        grantsTreasuryAddress = address(grantsTreasury);
         vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
         vetoCouncilAddress = address(vetoCouncil);
         minerPoolAndGCA =
@@ -192,7 +198,6 @@ contract GovernanceTest is Test {
         gcc.retireGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
-        address grantsRecipient = address(0x4123141);
         uint256 amount = 10 ether; //10 gcc
         bytes32 hash = keccak256("test info");
 
@@ -583,7 +588,7 @@ contract GovernanceTest is Test {
         gcc.mint(SIMON, 100 ether);
         gcc.retireGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        address oldAgent = address(0x1);
+        address oldAgent = startingAgents[2];
         address newAgent = address(0x2);
         bool slashOldAgent = true;
         uint256 maxNominations = nominationsOfSimon;
@@ -609,7 +614,7 @@ contract GovernanceTest is Test {
         gcc.mint(SIMON, 100 ether);
         gcc.retireGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        address oldAgent = address(0x1);
+        address oldAgent = startingAgents[2];
         address newAgent = address(0x2);
         bool slashOldAgent = true;
         uint256 maxNominations = nominationsOfSimon;
@@ -653,7 +658,7 @@ contract GovernanceTest is Test {
         gcc.mint(SIMON, 0.5 ether);
         gcc.retireGCC(0.5 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        address oldAgent = address(0x1);
+        address oldAgent = startingAgents[2];
         address newAgent = address(0x2);
         bool slashOldAgent = true;
         uint256 maxNominations = nominationsOfSimon;
@@ -668,7 +673,7 @@ contract GovernanceTest is Test {
         gcc.mint(SIMON, 100 ether);
         gcc.retireGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        address oldAgent = address(0x1);
+        address oldAgent = startingAgents[2];
         address newAgent = address(0x2);
         bool slashOldAgent = true;
         uint256 maxNominations = nominationsOfSimon;
@@ -1216,6 +1221,104 @@ contract GovernanceTest is Test {
         vm.expectRevert(IGovernance.MaxGCAEndorsementsReached.selector);
         governance.endorseGCAProposal(0);
         vm.stopPrank();
+    }
+
+    //----------------------------------------------------//
+    //----------------  EXECUTING PROPOSALS -----------------//
+    //----------------------------------------------------//
+
+    function castLongStakedVotes(address voter, uint256 weekOfMostPopularProposal, bool trueForRatify, uint256 numVotes)
+        internal
+    {
+        vm.startPrank(voter);
+        glow.mint(voter, numVotes);
+        glow.stake(numVotes);
+        governance.ratifyOrReject({
+            weekOfMostPopularProposal: weekOfMostPopularProposal,
+            trueForRatify: trueForRatify,
+            numVotes: numVotes
+        });
+        vm.stopPrank();
+    }
+
+    function test_executeGrantsProposal() public {
+        test_createGrantsProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.executeProposalAtWeek(0);
+        uint256 balance = grantsTreasury.recipientBalance(grantsRecipient);
+        assert(balance > 0);
+        vm.startPrank(grantsRecipient);
+        grantsTreasury.claimGrantReward();
+        vm.stopPrank();
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_executeChangeGCARequirements() public {
+        test_createChangeGCARequirementsProposal();
+        bytes32 expectedHash = keccak256("new requirements hash");
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.executeProposalAtWeek(0);
+        assertEq(minerPoolAndGCA.requirementsHash(), expectedHash);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_executeRFCProposal() public {
+        test_createRFCProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        governance.executeProposalAtWeek(0);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_executeGCAElectionOrSlashProposal() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (bytes32 hash, bool incrementSlashNonce) = abi.decode(data, (bytes32, bool));
+        governance.executeProposalAtWeek(0);
+        assertEq(minerPoolAndGCA.proposalHashes(0), hash);
+        assertEq(minerPoolAndGCA.slashNonce(), incrementSlashNonce ? 1 : 0);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_executeVetoCouncilElectionOrSlash() public {
+        test_createVetoCouncilElectionOrSlash();
+        bool slashOldAgent = true;
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (address oldAgent_, address newAgent_, bool slashOldAgent_) = abi.decode(data, (address, address, bool));
+        governance.executeProposalAtWeek(0);
+        assert(vetoCouncil.isCouncilMember(newAgent_));
+        assert(!vetoCouncil.isCouncilMember(oldAgent_));
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    //TODO:! need to add this functionality. This is a placeholder
+    function test_executeChangeReserveCurrencyProposal() public {
+        test_createChangeReserveCurrencyProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(data, (address, address));
+        governance.executeProposalAtWeek(0);
+        // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
+        // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
     }
 
     //-----------------  HELPERS -----------------//

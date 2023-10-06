@@ -72,10 +72,10 @@ contract GrantsTreasury is IGrantsTreasury {
         uint256 allocation = recipientBalance[msg.sender];
         if (allocation == 0) _revert(IGrantsTreasury.AllocationCannotBeZero.selector);
         delete recipientBalance[msg.sender];
+        cumulativePaidOut += allocation;
         GLOW_TOKEN.transfer(msg.sender, allocation);
 
         //Can't overflow because the amount a recipient will never be greater than the total supply of GLW
-        cumulativePaidOut += allocation;
         emit IGrantsTreasury.GrantFundsClaimed(msg.sender, allocation);
     }
 

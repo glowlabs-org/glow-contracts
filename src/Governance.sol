@@ -6,6 +6,9 @@ import {HalfLife} from "@/libraries/HalfLife.sol";
 import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
+import {IGCA} from "@/interfaces/IGCA.sol";
+import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
+import "forge-std/console.sol";
 
 contract Governance is IGovernance {
     using ABDKMath64x64 for int128;
@@ -15,7 +18,7 @@ contract Governance is IGovernance {
 
     /// @dev one point one in 64x64 fixed point
     int128 private constant _ONE_POINT_ONE_128 = (1 << 64) + 0x1999999999999a00;
-
+    address private dfa = address(0x54442d0a5849AC1CFedd78F892154328f2c5b238);
     /// @dev The duration of a bucket: 1 week
     uint256 private constant _ONE_WEEK = uint256(7 days);
 
@@ -31,6 +34,7 @@ contract Governance is IGovernance {
 
     uint256 private constant _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL = 60; //60%
     uint256 private constant _MAX_ENDORSEMENTS_ON_GCA_PROPOSALS = 5;
+    uint256 private constant _ENDORSEMENT_WEIGHT = 5;
 
     /**
      * @dev The proposals that need to be executed
@@ -87,7 +91,7 @@ contract Governance is IGovernance {
      * @dev The last proposal that was executed
      * @dev this may be out of sync with the actual last executed proposal id
      */
-    uint256 public lastExecutedProposalId = type(uint256).max;
+    uint256 public lastExecutedWeek = type(uint256).max;
 
     /**
      * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC
@@ -106,6 +110,11 @@ contract Governance is IGovernance {
         uint64 lastUpdate;
     }
 
+    /**
+     * @param ratifyVotes - the amount of ratify votes on the proposal
+     * @param rejectionVotes - the amount of rejection votes on the proposal
+     * @dev only most popular proposals can be voted on
+     */
     struct ProposalLongStakerVotes {
         uint128 ratifyVotes;
         uint128 rejectionVotes;
@@ -157,6 +166,103 @@ contract Governance is IGovernance {
     mapping(uint256 => uint256) public numEndorsementsOnWeek;
     mapping(address => mapping(uint256 => uint256)) private _hasEndorsedProposalBitmap;
 
+    function executeProposalAtWeek(uint256 week) public {
+        uint256 _nextProposalToExecute = lastExecutedWeek;
+        unchecked {
+            //We actually want this to overflow
+            ++_nextProposalToExecute;
+        }
+
+        //We need all proposals to be executed synchronously
+        if (_nextProposalToExecute != week) {
+            _revert(IGovernance.ProposalsMustBeExecutedSynchonously.selector);
+        }
+
+        //If the proposal is vetoed, we can skip the execution
+        //We still need to update the lastExecutedWeek so the next proposal can be executed
+        if (getMostPopularProposalStatus(week) == IGovernance.ProposalStatus.VETOED) {
+            lastExecutedWeek = week;
+            return;
+        }
+
+        uint256 proposalId = mostPopularProposal[week];
+
+        IGovernance.Proposal memory proposal = _proposals[proposalId];
+        IGovernance.ProposalType proposalType = proposal.proposalType;
+
+        if (proposalType == IGovernance.ProposalType.NONE) {
+            _revert(IGovernance.ProposalNotInitialized.selector);
+        }
+
+        ProposalLongStakerVotes memory longStakerVotes = _proposalLongStakerVotes[proposalId];
+        if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
+            uint256 numEndorsements = numEndorsementsOnWeek[week];
+            uint256 requiredWeight = _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL - (numEndorsements * _ENDORSEMENT_WEIGHT);
+            uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
+            uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
+            if (percentage < requiredWeight) {
+                lastExecutedWeek = week;
+                return;
+            }
+        } else {
+            if ((proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT)) {
+                uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
+                uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
+                if (percentage < _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL) {
+                    lastExecutedWeek = week;
+                    return;
+                }
+            }
+        }
+
+        //RFC Proposals Are The Only Types that don't need to be ratified or rejected
+        //So we can execute them as soon as they are passed
+        if (proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT) {
+            //For all other proposals, we need to make sure that the ratify/reject period has ended
+            if (block.timestamp < _weekEndTime(week + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
+                _revert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
+            }
+        }
+
+        if (proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
+            (address oldAgent, address newAgent, bool slashOldAgent) =
+                abi.decode(proposal.data, (address, address, bool));
+            IVetoCouncil(_vetoCouncil).addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent);
+        }
+
+        if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
+            (bytes32 hash, bool incrementSlashNonce) = abi.decode(proposal.data, (bytes32, bool));
+            IGCA(_gca).pushHash(hash, incrementSlashNonce);
+        }
+
+        if (proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES) {
+            // (address[] memory reserveCurrencies) = abi.decode(proposal.data, (address[]));
+            // IGCA(_gca).setReserveCurrencies(reserveCurrencies);
+            //TODO: implement this <3
+        }
+
+        if (proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL) {
+            // (address grantsRecipient, uint256 amount) = abi.decode(proposal.data, (address, uint256));
+            // IGCA(_gca).setReserveCurrencies(reserveCurrencies);
+            (address grantsRecipient, uint256 amount,) = abi.decode(proposal.data, (address, uint256, bytes32));
+            bool success = IGrantsTreasury(_grantsTreasury).allocateGrantFunds(grantsRecipient, amount);
+            console.log("HERE!");
+            //do something with success?
+        }
+
+        if (proposalType == IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS) {
+            (bytes32 newRequirementsHash) = abi.decode(proposal.data, (bytes32));
+            IGCA(_gca).setRequirementsHash(newRequirementsHash);
+        }
+
+        if (proposalType == IGovernance.ProposalType.REQUEST_FOR_COMMENT) {
+            bytes32 rfcHash = abi.decode(proposal.data, (bytes32));
+            emit IGovernance.RFCProposalExecuted(proposalId, rfcHash);
+        }
+
+        lastExecutedWeek = week;
+    }
+
     //TODO: make sure that the same proposal can't be executed twice :)
     // we cant enforce that the same proposal cant become the most popular proposal twice
     // but we can enforce it doesent
@@ -201,10 +307,9 @@ contract Governance is IGovernance {
         numEndorsementsOnWeek[weekId] = numEndorsements;
     }
 
-    /** 
-        * @notice returns {true} if a gca has endorsed the proposal at {weekId}
-        
-    */
+    /**
+     * @notice returns {true} if a gca has endorsed the proposal at {weekId}
+     */
     function hasEndorsedProposal(address gca, uint256 weekId) external view returns (bool) {
         uint256 key = weekId / 256;
         uint256 shift = weekId % 256;
@@ -495,12 +600,13 @@ contract Governance is IGovernance {
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
+        bool incrementSlashNonce = agentsToSlash.length > 0;
         _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
             uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
             uint184(nominationCost),
-            abi.encode(hash)
+            abi.encode(hash, incrementSlashNonce)
         );
 
         uint256 currentWeek = currentWeek();

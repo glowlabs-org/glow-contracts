@@ -3,7 +3,6 @@ pragma solidity 0.8.21;
 
 interface IGovernance {
     //---------- ERRORS -----------------//
-    error ProposalNotInitialized(uint256 proposalId);
     error ProposalHasNotExpired(uint256 proposalId);
     error ProposalExpired();
     error InsufficientNominations();
@@ -18,6 +17,7 @@ interface IGovernance {
     error WeekNotFinalized();
     error InsufficientRatifyOrRejectVotes();
     error RatifyOrRejectPeriodEnded();
+    error RatifyOrRejectPeriodNotEnded();
     error MostPopularProposalNotSelected();
     error ProposalAlreadyVetoed();
     error AlreadyEndorsedWeek();
@@ -25,6 +25,8 @@ interface IGovernance {
     error MaxGCAEndorsementsReached();
     error VetoCouncilElectionsCannotBeVetoed();
     error GCACouncilElectionsCannotBeVetoed();
+    error ProposalsMustBeExecutedSynchonously();
+    error ProposalNotInitialized();
 
     enum ProposalType {
         NONE, //default value for unset proposals
@@ -197,4 +199,6 @@ interface IGovernance {
      *  TODO: see if we can remove the last param for gas savings
      */
     event ProposalVetoed(uint256 indexed weekId, address indexed vetoer, uint256 proposalId);
+
+    event RFCProposalExecuted(uint256 indexed proposalId, bytes32 requirementsHash);
 }

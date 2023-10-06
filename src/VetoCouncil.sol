@@ -39,8 +39,7 @@ contract VetoCouncil is IVetoCouncil {
     /// @dev the data for a council member , reference IVetoCouncil for more info
     mapping(address => IVetoCouncil.MemberData) private _vetoAgent;
 
-    /// @dev the list of all council members
-    address[] public vetoAgents;
+    uint256 public numberOfCouncilMembers;
 
     //-------------- CONSTRUCTOR -----------------
 
@@ -56,6 +55,8 @@ contract VetoCouncil is IVetoCouncil {
         if (_isZeroAddress(_glowToken)) {
             _revert(IVetoCouncil.ZeroAddressInConstructor.selector);
         }
+
+        numberOfCouncilMembers = _startingAgents.length;
 
         //Impossible to have more than 7 council members
         //No risk of large array allocation
@@ -86,9 +87,9 @@ contract VetoCouncil is IVetoCouncil {
                 });
             }
         }
-        vetoAgents = _startingAgents;
     }
 
+    //TODO: handle payouts + vesting
     /// @inheritdoc IVetoCouncil
     function addAndRemoveCouncilMember(address oldAgent, address newAgent, bool slashOldAgent)
         external
@@ -98,45 +99,71 @@ contract VetoCouncil is IVetoCouncil {
         if (msg.sender != GOVERNANCE) {
             _revert(IVetoCouncil.CallerNotGovernance.selector);
         }
+        uint256 _numCouncilMembers = numberOfCouncilMembers;
+
         if (oldAgent == newAgent) {
             return false;
         }
 
-        if (!isCouncilMember(oldAgent)) {
-            return false;
-        }
+        IVetoCouncil.MemberData memory oldAgentData = _vetoAgent[oldAgent];
+        IVetoCouncil.MemberData memory newAgentData = _vetoAgent[newAgent];
 
-        if (isCouncilMember(newAgent)) {
+
+        //The new agent cannot be an existing veto council member.
+        //We check later if the old agent is an existing veto council member
+        //We only need to check if the old agent is an existing veto council member 
+        //  -if the old agent is not the zero address
+        // If the old agent is the zero address, we dont need to check if they're active
+        if (newAgentData.isActive) {
             return false;
         }
 
         bool isOldAgentZeroAddress = _isZeroAddress(oldAgent);
-        if (!_isZeroAddress(newAgent)) {
-            // we need to figure out if we are replacing or simply adding
-            // if we are simply adding that means the new length of the arr will be 1 more than the old
-            // if we are replacing, the length will be the same
-            // if the old agent is the zero address, we are adding, so we need to add 1 to the length
-            // if it isn't the zero address, we are replacing, so we don't need to add 1
-            // with this logic, we pessimistically check to ensure we don't go over the limit of max council members
-            uint256 amountToAdd = isOldAgentZeroAddress ? 1 : 0;
-            // pessimistic check to ensure we don't go over the limit
-            if ((vetoAgents.length + amountToAdd) > MAX_COUNCIL_MEMBERS) {
+        bool isNewAgentZeroAddress = _isZeroAddress(newAgent);
+        uint256 numAgentsRemoving = isOldAgentZeroAddress ? 1 : 0;
+        uint256 numAgentsAdding = isNewAgentZeroAddress ? 0 : 1;
+        if (_numCouncilMembers == 0) {
+            //If we don't check this, there can be an underflow
+            //and the entire system can freeze;
+            //We should not be able to remove an agent if there are no agents
+            if (numAgentsRemoving > 0) {
                 return false;
             }
-            _vetoAgent[newAgent].isActive = true;
-            vetoAgents.push(newAgent);
+        }
+
+        _numCouncilMembers = _numCouncilMembers - numAgentsRemoving + numAgentsAdding;
+        if (_numCouncilMembers > MAX_COUNCIL_MEMBERS) {
+            return false;
+        }
+
+        if (!isNewAgentZeroAddress) {
+            _vetoAgent[newAgent] = IVetoCouncil.MemberData({
+                isActive: true,
+                vestingAmount: newAgentData.vestingAmount,
+                lastUpdatedTimestamp: uint64(block.timestamp)
+            });
         }
         if (!isOldAgentZeroAddress) {
-            //Remove it
-            _vetoAgent[newAgent].isActive = false;
-            _removeFromVetoCouncilArray(oldAgent);
+            if (!oldAgentData.isActive) {
+                return false;
+            }
+            if (!slashOldAgent) {
+                //TODO: implement Payment algorithm
+                uint184 newVestingAmountForOldAgent = oldAgentData.vestingAmount;
+                _vetoAgent[oldAgent] = IVetoCouncil.MemberData({
+                    isActive: false,
+                    vestingAmount: newVestingAmountForOldAgent,
+                    lastUpdatedTimestamp: uint64(block.timestamp)
+                });
+            }
             if (slashOldAgent) {
                 delete _vetoAgent[oldAgent];
-            } else {
-                _vetoAgent[oldAgent].isActive = false;
             }
         }
+
+        numberOfCouncilMembers = _numCouncilMembers;
         emit IVetoCouncil.VetoCouncilSeatsEdited(oldAgent, newAgent, slashOldAgent);
+        return true;
     }
 
     /// @inheritdoc IVetoCouncil
@@ -159,13 +186,9 @@ contract VetoCouncil is IVetoCouncil {
         return data;
     }
 
-    function allVetoAgents() public view returns (address[] memory) {
-        return vetoAgents;
-    }
-
     /// @inheritdoc IVetoCouncil
     function nextReward(address account) public view returns (uint256 rewardNow, uint256 vestingAmount) {
-        uint256 totalShares = vetoAgents.length;
+        uint256 totalShares = numberOfCouncilMembers;
         uint256 shares = 1;
         //TODO: figure out the seconds since last payout in the comp algo
         uint256 secondsSinceLastPayout = block.timestamp - _vetoAgent[account].lastUpdatedTimestamp;
@@ -176,20 +199,6 @@ contract VetoCouncil is IVetoCouncil {
     }
 
     //----------------- PRIVATE -----------------
-
-    function _removeFromVetoCouncilArray(address agent) private {
-        uint256 index;
-        unchecked {
-            for (uint256 i; i < vetoAgents.length; ++i) {
-                if (vetoAgents[i] == agent) {
-                    index = i;
-                    break;
-                }
-            }
-        }
-        vetoAgents[index] = vetoAgents[vetoAgents.length - 1];
-        vetoAgents.pop();
-    }
 
     /**
      * @dev handles the payout according to the vesting algorithm
