@@ -10,12 +10,16 @@ interface IGCA {
     error CallerNotGovernance();
     error ProposalHashesNotUpdated();
     error ProposalHashDoesNotMatch();
+    error IndexDoesNotMatchNextProposalIndex();
+    error ProposalHashesEmpty();
     error ProposalAlreadyUpdated();
     error BucketAlreadyFinalized();
+    // error BucketNotInitialized();
     error ReportGCCMustBeLT200Billion();
-    error ReportWeightMustBeLTUintMaxDiv5();
+    error ReportWeightMustBeLTUint64MaxDiv5();
     error BucketSubmissionNotOpen();
     error BucketSubmissionEnded();
+    error EmptyRoot();
     // error BucketNotReinitilizable();
 
     /**
@@ -29,7 +33,7 @@ interface IGCA {
     /// @return - returns the compensation plan for a gca by unpacking the packed compensation plan
     function compensationPlan(address gca) external view returns (ICompensation[] memory);
 
-    /// @return - returns all the gcas
+    /// @return - returns all thFe gcas
     function allGcas() external view returns (address[] memory);
 
     /// @dev allows the contrac to pull glow from inflation
@@ -81,24 +85,31 @@ interface IGCA {
      * @param proposingAgent - the address of the gca agent proposing the report
      */
     struct Report {
-        uint256 totalNewGCC;
-        uint256 totalGLWRewardsWeight;
-        uint256 totalGRCRewardsWeight;
+        uint128 totalNewGCC;
+        uint64 totalGLWRewardsWeight;
+        uint64 totalGRCRewardsWeight;
         bytes32 merkleRoot;
         address proposingAgent;
     }
+    //3 slots
 
     /**
-     * @param nonce - the slash nonce in storage at the time of report submission
+     * @param originalNonce - the slash nonce in storage at the time of report submission
+     * @param lastUpdatedNonce - the slash nonce in storage at the time of the last report submission
      * @param finalizationTimestamp - the finalization timestamp for the bucket according to the weekly bucket schedule
      * @param reports - the reports for the bucket
      */
     struct Bucket {
-        uint192 nonce;
-        bool reinstated;
-        //if finalizationTimestamp > 0
-        uint256 finalizationTimestamp;
+        uint64 originalNonce;
+        uint64 lastUpdatedNonce;
+        uint128 finalizationTimestamp;
         Report[] reports;
+    }
+
+    struct BucketGlobalState {
+        uint128 totalNewGCC;
+        uint64 totalGLWRewardsWeight;
+        uint64 totalGRCRewardsWeight;
     }
 
     /**

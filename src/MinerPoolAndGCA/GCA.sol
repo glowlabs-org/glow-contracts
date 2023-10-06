@@ -3,10 +3,14 @@ pragma solidity 0.8.21;
 
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
-import "forge-std/console.sol";
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import "forge-std/console.sol";
-// TODO: note to self -- im brain fried rn, go back to the slashable vesting in your notebook
+
+/**
+ * @title GCA (Glow Certification Agent)
+ * @author @DavidVorick
+ * @author @0xSimon
+ */
 
 contract GCA is IGCA {
     /**
@@ -40,13 +44,19 @@ contract GCA is IGCA {
     /// @dev 200 Billion in 18 decimals
     uint256 private constant _200_BILLION = 200_000_000_000 ether;
 
-    uint256 private constant _UINT256_MAX_DIV5 = type(uint256).max / 5;
+    uint256 private constant _UINT64_MAX_DIV5 = type(uint64).max / 5;
+
+    uint256 internal constant _UINT128_MASK = (1 << 128) - 1;
+    uint256 internal constant _UINT64_MASK = (1 << 64) - 1;
+    uint256 private constant _BOOL_MASK = (1 << 8) - 1;
+    uint256 private constant _UINT184_MASK = (1 << 184) - 1;
+    // uint256 private constant _BOOL_MASK = (1<<8) - 1;
 
     // 1 week
     uint256 private constant BUCKET_LENGTH = 7 * uint256(1 days);
 
     /// @notice the index of the last proposal that was updated + 1
-    uint256 public lastUpdatedProposalIndexPlusOne;
+    uint256 public nextProposalIndexToUpdate;
 
     /// @notice the hashes of the proposals that have been submitted from {GOVERNANCE}
     bytes32[] public proposalHashes;
@@ -68,7 +78,9 @@ contract GCA is IGCA {
     /// @notice the gca payouts
     mapping(address => IGCA.GCAPayout) private _gcaPayouts;
 
-    mapping(uint256 => IGCA.Bucket) private _buckets;
+    mapping(uint256 => IGCA.Bucket) internal _buckets;
+
+    mapping(uint256 => IGCA.BucketGlobalState) private _bucketGlobalState;
 
     /**
      * @notice constructs a new GCA contract
@@ -90,6 +102,7 @@ contract GCA is IGCA {
 
     /// @inheritdoc IGCA
     function isGCA(address account) public view returns (bool) {
+        if (_isFrozen()) return false;
         return _compensationPlans[account] > 0;
     }
 
@@ -141,143 +154,234 @@ contract GCA is IGCA {
         uint256 totalGRCRewardsWeight,
         bytes32 root
     ) external {
+        //GCAs can't submit if the contract is frozen (pending a proposal hash update)
+        _revertIfFrozen();
         if (!isGCA(msg.sender)) _revert(NotGCA.selector);
+        checkBucketSubmissionArithmeticInputs(totalGlwRewardsWeight, totalGRCRewardsWeight, totalNewGCC);
         //Need to check if bucket is slashed
         Bucket storage bucket = _buckets[bucketId];
         //Cache values
-        (uint256 bucketNonce, uint256 bucketFinalizationTimestamp, bool reinstated) =
-            (bucket.nonce, bucket.finalizationTimestamp, bucket.reinstated);
-        uint256 _slashNonce = slashNonce;
-        bool alreadyInitialized = bucketFinalizationTimestamp != 0;
         uint256 len = bucket.reports.length;
-
-        //idea: what if current bucket was not init and then slash nonce happens
-        // so current bucket has a diff slash nonce and is not init, what do we do?
-        // a: not allow the bucket to be written to
-        // b: allow the bucket to be written to
-
-        /**
-         * We don't check the endSubmissionTimestamp when
-         *         the bucket needs to be reinstated.
-         *         When does the bucket need to be reinstated?
-         *         When slashNonce != slashNonce and it's not reinstated
-         */
         {
-            bool reinstatingTx = (bucketNonce != _slashNonce) && !reinstated;
+            uint256 bucketFinalizationTimestamp = bucket.finalizationTimestamp;
 
-            if (reinstatingTx) {
-                bucket.reinstated = true;
-                reinstated = true;
-                if (!alreadyInitialized) {
-                    alreadyInitialized = true;
-                }
-                //Finalizes one week after submission period ends
-                bucketFinalizationTimestamp = (_WCEIL(bucketNonce) + BUCKET_LENGTH);
-                bucket.finalizationTimestamp = bucketFinalizationTimestamp;
-                //conditionally delete all reports in storage
-                if (len > 0) {
-                    len = 0;
-                    delete bucket.reports;
-                }
-            }
-        }
-
-        //If the bucket has not been reinstated, we need to make sure that the submission period is still open
-        //The submission period is open if the current timestamp is less than the endSubmissionTimestamp
-        if (!reinstated) {
+            uint256 lastUpdatedNonce = bucket.lastUpdatedNonce;
+            //The submission start timestamp always remains the same
             uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
             if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
-            //Submissions are only open for one week
-            if (block.timestamp >= bucketSubmissionStartTimestamp + BUCKET_LENGTH) {
-                _revert(IGCA.BucketSubmissionEnded.selector);
-            }
-        }
 
-        if (reinstated) {
-            if (block.timestamp > (bucketFinalizationTimestamp - BUCKET_LENGTH)) {
-                _revert(IGCA.BucketSubmissionNotOpen.selector);
-            }
-        }
-
-        // if(_isBucketFinalized(bucketNonce, bucketFinalizationTimestamp,_slashNonce))
-        //     _revert(IGCA.BucketAlreadyFinalized.selector);
-        // if(bucket.nonce != _slashNonce) revert("simon fill this in");
-        if (totalGlwRewardsWeight > _UINT256_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
-        if (totalGRCRewardsWeight > _UINT256_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUintMaxDiv5.selector);
-        if (totalNewGCC > _200_BILLION) _revert(IGCA.ReportGCCMustBeLT200Billion.selector);
-
-        uint256 foundIndex;
-        unchecked {
-            for (uint256 i; i < len; ++i) {
-                if (bucket.reports[i].proposingAgent == msg.sender) {
-                    foundIndex = i == 0 ? type(uint256).max : i;
-                    break;
+            //Keep in mind, all bucketNonces start with 0
+            //So on the first init, we need to set the bucketNonce to the slashNonce in storage
+            {
+                uint256 _slashNonce = slashNonce;
+                //If not init
+                if (bucketFinalizationTimestamp == 0) {
+                    bucket.originalNonce = uint64(_slashNonce);
+                    bucket.lastUpdatedNonce = uint64(_slashNonce);
+                    bucket.finalizationTimestamp = uint128(bucketFinalizationTimestampNotReinstated(bucketId));
+                    lastUpdatedNonce = _slashNonce;
                 }
-            }
 
-            if (foundIndex == 0) {
-                bucket.reports.push(
-                    IGCA.Report({
-                        proposingAgent: msg.sender,
-                        totalNewGCC: totalNewGCC,
-                        totalGLWRewardsWeight: totalGlwRewardsWeight,
-                        totalGRCRewardsWeight: totalGRCRewardsWeight,
-                        merkleRoot: root
-                    })
-                );
-                if (!reinstated) {
-                    bucket.nonce = uint192(_slashNonce);
-                    if (!alreadyInitialized) {
-                        bucket.finalizationTimestamp = bucketFinalizationTimestampNotReinstated(bucketId);
+                {
+                    /**
+                     * If it is a reinstating tx,
+                     *             we need to set reinstated to true
+                     *             and we need to change the finalization timestamp
+                     *             lastly, we need to delete all reports in storage if there are any
+                     */
+                    uint256 bucketSubmissionEndTimestamp = _calculateBucketSubmissionEndTimestamp(
+                        bucketId, bucket.originalNonce, lastUpdatedNonce, _slashNonce, bucketFinalizationTimestamp
+                    );
+                    if (block.timestamp >= bucketSubmissionEndTimestamp) _revert(IGCA.BucketSubmissionEnded.selector);
+
+                    if (lastUpdatedNonce != _slashNonce) {
+                        bucket.lastUpdatedNonce = uint64(_slashNonce);
+                        //Need to check before storing the finalization timestamp in case
+                        //the bucket was delayed.
+                        if (bucketSubmissionEndTimestamp + BUCKET_LENGTH > bucketFinalizationTimestamp) {
+                            bucket.finalizationTimestamp = uint128(bucketSubmissionEndTimestamp + BUCKET_LENGTH);
+                        }
+                        //conditionally delete all reports in storage
+                        if (len > 0) {
+                            len = 0;
+                            //TODO: figure out if we want to override length with assembly for cheaper gas
+                            // or if we replace with a delete
+                            assembly {
+                                //1 slot offset for buckets length
+                                sstore(add(1, bucket.slot), 0)
+                            }
+                            delete _bucketGlobalState[bucketId];
+                        }
                     }
                 }
-            } else {
-                bucket.reports[foundIndex == type(uint256).max ? 0 : foundIndex] = IGCA.Report({
-                    proposingAgent: msg.sender,
-                    totalNewGCC: totalNewGCC,
-                    totalGLWRewardsWeight: totalGlwRewardsWeight,
-                    totalGRCRewardsWeight: totalGRCRewardsWeight,
-                    merkleRoot: root
-                });
             }
+        }
+        uint256 reportArrayStartSlot;
+        assembly {
+            //add 1 for reports offset
+            mstore(0x0, add(bucket.slot, 1))
+            // hash the reports start slot to get the start of the data
+            reportArrayStartSlot := keccak256(0x0, 0x20)
+        }
+
+        (uint256 foundIndex, uint256 gcaReportStartSlot) = findReportIndexOrUintMax(reportArrayStartSlot, len);
+        handleGlobalBucketStateStore(
+            totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, bucketId, foundIndex, gcaReportStartSlot
+        );
+        handleBucketStore(bucket, foundIndex, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+    }
+
+    function handleGlobalBucketStateStore(
+        uint256 gcaTotalNewGCC,
+        uint256 gcaTotalGlwRewardsWeight,
+        uint256 gcaTotalGRCRewardsWeight,
+        uint256 bucketId,
+        uint256 foundIndex,
+        uint256 gcaReportStartSlot
+    ) internal {
+        uint256 packedGlobalState;
+        uint256 slot;
+        assembly {
+            mstore(0x0, bucketId)
+            mstore(0x20, _bucketGlobalState.slot)
+            slot := keccak256(0x0, 0x40)
+            packedGlobalState := sload(slot)
+        }
+
+        uint256 gccInBucketPlusGcaGcc = (packedGlobalState & _UINT128_MASK) + gcaTotalNewGCC;
+        uint256 glwWeightInBucketPlusGcaGlwWeight = (packedGlobalState >> 128 & _UINT64_MASK) + gcaTotalGlwRewardsWeight;
+        //No need to shift on `grcWeightInBucketPlusGcaGrcWeight` since  the grcWeight is the last 64 bits
+        uint256 grcWeightInBucketPlusGcaGrcWeight = (packedGlobalState >> 192) + gcaTotalGRCRewardsWeight;
+
+        if (foundIndex == 0) {
+            //gcc is uint128, glwWeight is uint64, grcWeight is uint64
+            packedGlobalState = gccInBucketPlusGcaGcc | (glwWeightInBucketPlusGcaGlwWeight << 128)
+                | (grcWeightInBucketPlusGcaGrcWeight << 192);
+            assembly {
+                sstore(slot, packedGlobalState)
+            }
+            return;
+        }
+
+        // foundIndex = foundIndex == type(uint256).max ? 0 : foundIndex;
+
+        uint256 packedDataInReport;
+        assembly {
+            packedDataInReport := sload(gcaReportStartSlot)
+        }
+
+        gccInBucketPlusGcaGcc -= packedDataInReport & _UINT128_MASK;
+        glwWeightInBucketPlusGcaGlwWeight -= (packedDataInReport >> 128) & _UINT64_MASK;
+        //no need to mask since the grcWeight is the last 64 bits
+        grcWeightInBucketPlusGcaGrcWeight -= (packedDataInReport >> 192);
+
+        packedGlobalState = gccInBucketPlusGcaGcc | (glwWeightInBucketPlusGcaGlwWeight << 128)
+            | (grcWeightInBucketPlusGcaGrcWeight << 192);
+        assembly {
+            sstore(slot, packedGlobalState)
+        }
+    }
+
+    function checkBucketSubmissionArithmeticInputs(
+        uint256 totalGlwRewardsWeight,
+        uint256 totalGRCRewardsWeight,
+        uint256 totalNewGCC
+    ) internal {
+        //Arithmetic Checks
+        //To make sure that the weight's dont result in an overflow,
+        // we need to make sure that the total weight is less than 1/5 of the max uint256
+        if (totalGlwRewardsWeight > _UINT64_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
+        if (totalGRCRewardsWeight > _UINT64_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
+        //Max of 1 trillion GCC per week
+        //Since there are a max of 5 GCA's at any point in time,
+        // this means that the max amount of GCC that can be minted per GCA is 200 Billion
+        if (totalNewGCC > _200_BILLION) _revert(IGCA.ReportGCCMustBeLT200Billion.selector);
+    }
+
+    function findReportIndexOrUintMax(uint256 reportArrayStartSlot, uint256 len)
+        internal
+        view
+        returns (uint256 foundIndex, uint256)
+    {
+        unchecked {
+            {
+                for (uint256 i; i < len; ++i) {
+                    address proposingAgent;
+                    assembly {
+                        //the address is stored in the [0,1,2] - 3rd slot
+                        //                                  ^
+                        //that means the slot to read from is i*3 + startSlot + 2
+                        proposingAgent := sload(add(reportArrayStartSlot, 2))
+                        reportArrayStartSlot := add(reportArrayStartSlot, 3)
+                    }
+                    if (proposingAgent == msg.sender) {
+                        foundIndex = i == 0 ? type(uint256).max : i;
+                        assembly {
+                            //since we incremented the slot by 3, we need to decrement it by 3 to get the start of the packed data
+                            reportArrayStartSlot := sub(reportArrayStartSlot, 3)
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        return (foundIndex, reportArrayStartSlot);
+    }
+
+    function handleBucketStore(
+        IGCA.Bucket storage bucket,
+        uint256 foundIndex,
+        uint256 totalNewGCC,
+        uint256 totalGlwRewardsWeight,
+        uint256 totalGRCRewardsWeight,
+        bytes32 root
+    ) internal {
+        //If the array was empty
+        // we need to push
+        if (foundIndex == 0) {
+            {}
+            bucket.reports.push(
+                IGCA.Report({
+                    proposingAgent: msg.sender,
+                    totalNewGCC: uint128(totalNewGCC),
+                    totalGLWRewardsWeight: uint64(totalGlwRewardsWeight),
+                    totalGRCRewardsWeight: uint64(totalGRCRewardsWeight),
+                    merkleRoot: root
+                })
+            );
+            //else we write the the index we found
+        } else {
+            bucket.reports[foundIndex == type(uint256).max ? 0 : foundIndex] = IGCA.Report({
+                //Redundant sstore on {proposingAgent}
+                proposingAgent: msg.sender,
+                totalNewGCC: uint128(totalNewGCC),
+                totalGLWRewardsWeight: uint64(totalGlwRewardsWeight),
+                totalGRCRewardsWeight: uint64(totalGRCRewardsWeight),
+                merkleRoot: root
+            });
         }
     }
 
     function executeAgainstHash(
-        uint256 index,
         address[] calldata gcasToSlash,
         address[] calldata newGCAs,
         uint256 proposalCreationTimestamp
     ) external {
-        uint256 _lastUpdatedProposalIndexPlusOne = lastUpdatedProposalIndexPlusOne;
+        uint256 _nextProposalIndexToUpdate = nextProposalIndexToUpdate;
         uint256 len = proposalHashes.length;
+        if (len == 0) _revert(IGCA.ProposalHashesEmpty.selector);
         bytes32 derivedHash = keccak256(abi.encodePacked(gcasToSlash, newGCAs, proposalCreationTimestamp));
-        //On firt submit
-        if (_lastUpdatedProposalIndexPlusOne == 0) {
-            if (derivedHash != requirementsHash) {
-                _revert(IGCA.ProposalHashDoesNotMatch.selector);
-            }
-            _setGCAs(newGCAs);
-            _slashGCAs(gcasToSlash);
-            //TODO: Insert payment mechanism here
-            lastUpdatedProposalIndexPlusOne = 1;
-            emit IGCA.ProposalHashUpdate(index, derivedHash);
-            return;
-        }
 
-        if (index + 1 < lastUpdatedProposalIndexPlusOne) {
-            _revert(IGCA.ProposalAlreadyUpdated.selector);
-        }
-
-        if (proposalHashes[index] != derivedHash) {
+        if (proposalHashes[_nextProposalIndexToUpdate] != derivedHash) {
             _revert(IGCA.ProposalHashDoesNotMatch.selector);
         }
 
         //TODO: Insert payment mechanism here
         _setGCAs(newGCAs);
         _slashGCAs(gcasToSlash);
-        lastUpdatedProposalIndexPlusOne = index + 1;
-        emit IGCA.ProposalHashUpdate(index, derivedHash);
+        nextProposalIndexToUpdate = _nextProposalIndexToUpdate + 1;
+        emit IGCA.ProposalHashUpdate(_nextProposalIndexToUpdate, derivedHash);
     }
 
     function setRequirementsHash(bytes32 _requirementsHash) external {
@@ -286,8 +390,11 @@ contract GCA is IGCA {
         emit IGCA.RequirementsHashUpdated(_requirementsHash);
     }
 
-    function pushHash(bytes32 hash) external {
+    function pushHash(bytes32 hash, bool incrementSlashNonce) external {
         if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
+        if (incrementSlashNonce) {
+            ++slashNonce;
+        }
         proposalHashes.push(hash);
     }
 
@@ -301,7 +408,7 @@ contract GCA is IGCA {
     }
 
     function _compensationPlan(address gca, address[] memory gcaAddresses)
-        public
+        internal
         view
         returns (IGCA.ICompensation[] memory)
     {
@@ -346,6 +453,7 @@ contract GCA is IGCA {
                 result[i - start] = proposalHashes[i];
             }
         }
+        return result;
     }
 
     /**
@@ -354,8 +462,8 @@ contract GCA is IGCA {
      * @return the start submission timestamp of a bucket
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
-    function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
-        return bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP;
+    function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint184) {
+        return uint184(bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP);
     }
 
     /**
@@ -365,8 +473,8 @@ contract GCA is IGCA {
      * @return the end submission timestamp of a bucket
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
-    function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
-        return bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH;
+    function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint184) {
+        return uint184(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
     }
 
     /**
@@ -375,8 +483,8 @@ contract GCA is IGCA {
      * @return the finalization timestamp of a bucket
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
-    function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint256) {
-        return bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH;
+    function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint184) {
+        return uint184(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
     }
 
     /**
@@ -421,19 +529,66 @@ contract GCA is IGCA {
         //Now we need to calculate how uch
     }
 
-    function bucket(uint256 bucketId) external view returns (IGCA.Bucket memory bucket) {
+    function bucket(uint256 bucketId) public view returns (IGCA.Bucket memory bucket) {
         return _buckets[bucketId];
+    }
+
+    function getBucketRootAtIndexEfficient(uint256 bucketId, uint256 index) internal view returns (bytes32 root) {
+        assembly {
+            //Store the key
+            mstore(0x0, bucketId)
+            //Store the slot
+            mstore(0x20, _buckets.slot)
+            //Find storage slot where bucket starts
+            let slot := keccak256(0x0, 0x40)
+            //Reports start at the second slot so we add 1
+            slot := add(slot, 1)
+            mstore(0x0, slot)
+            //calculate slot for the reports
+            slot := keccak256(0x0, 0x20)
+            //slot is now the start of the reports
+            //each report is 3 slots long
+            //So, our index needs to be multiplied by 3
+            index := mul(index, 3)
+            //the root is the second slot so we need to add 1
+            index := add(index, 1)
+            //Calculate the slot to sload from
+            slot := add(slot, index)
+            //sload the root
+            root := sload(slot)
+        }
+
+        if (uint256(root) == 0) _revert(IGCA.EmptyRoot.selector);
     }
 
     function getShares(address agent) external view returns (uint256 shares, uint256 totalShares) {
         return _getShares(agent, gcaAgents);
     }
 
-    function isBucketFinalized(uint256 bucketId) external view returns (bool) {
-        Bucket storage bucket = _buckets[bucketId];
+    //TODO: Implement from Bucket.py
+    function isBucketFinalized(uint256 bucketId) public view returns (bool) {
+        uint256 packedData;
+        assembly {
+            mstore(0x0, bucketId)
+            mstore(0x20, _buckets.slot)
+            let slot := keccak256(0x0, 0x40)
+            // nonce, reinstated and finalizationTimestamp are all in the first slot
+            packedData := sload(slot)
+        }
+
+        uint256 bucketLastUpdatedNonce = (packedData >> 64) & _UINT64_MASK;
+        //First bit.
+        //first 64 bits are nonce, next 8 bits  are reinstated, next 184 bits are finalizationTimestamp
+        //no need to us to use a mask since finalizationTimestamp takes up the last 184 bits
+        uint256 finalizationTimestamp = packedData >> 128;
+
         uint256 _slashNonce = slashNonce;
-        return _isBucketFinalized(bucket.nonce, bucket.finalizationTimestamp, _slashNonce);
+        return _isBucketFinalized(bucketLastUpdatedNonce, finalizationTimestamp, _slashNonce);
     }
+
+    //************************************************************* */
+    //***************  INTERNAL  ********************** */
+    //************************************************************* */
 
     function _getShares(address agent, address[] memory gcas)
         internal
@@ -492,30 +647,59 @@ contract GCA is IGCA {
     }
 
     function _revertIfFrozen() internal view {
+        if (_isFrozen()) _revert(IGCA.ProposalHashesNotUpdated.selector);
+    }
+
+    function _isFrozen() internal view returns (bool) {
         uint256 len = proposalHashes.length;
         //If no proposals have been submitted, we don't need to check
-        if (len == 0) return;
-        if (len != lastUpdatedProposalIndexPlusOne) {
-            _revert(IGCA.ProposalHashesNotUpdated.selector);
+        if (len == 0) return false;
+        if (len != nextProposalIndexToUpdate) {
+            return true;
         }
+        return false;
     }
 
     /**
      * @dev checks if a bucket is finalized
-     * @param bucketNonce the slash nonce of the bucket
+     * @param bucketLastUpdatedNonce the last updated nonce of the bucket
      * @param bucketFinalizationTimestamp the finalization timestamp of the bucket
      * @return true if the bucket is finalized, false otherwise
+     *  TODO: Revisit this and implement logic from Bucket.py in scratchpad.
      */
-    function _isBucketFinalized(uint256 bucketNonce, uint256 bucketFinalizationTimestamp, uint256 _slashNonce)
-        internal
-        view
-        returns (bool)
-    {
-        if (bucketNonce == _slashNonce && block.timestamp >= bucketFinalizationTimestamp) return true;
-        if (
-            bucketNonce < _slashNonce && bucketFinalizationTimestamp < slashNonceToSlashTimestamp[bucketNonce]
-                && block.timestamp >= bucketFinalizationTimestamp
-        ) return true;
+    function _isBucketFinalized(
+        uint256 bucketLastUpdatedNonce,
+        uint256 bucketFinalizationTimestamp,
+        uint256 _slashNonce
+    ) internal view returns (bool) {
+        //If the bft(bucket finalization timestamp) = 0,
+        // that means that bucket hasn't been initialized yet
+        // so that also means it's not finalized.
+        // this also means that we return false if
+        // the bucket was indeed finalized. but it was never pushed to
+        // in that case, we return a false negative,
+        // but it has no side effects since the bucket is empty
+        // and no one can claim rewards from it.
+        if (bucketFinalizationTimestamp == 0) return false;
+
+        //This checks if the bucket has finalized in regards to the timestamp stored
+        bool finalized = block.timestamp >= bucketFinalizationTimestamp;
+        //If there hasn't been a slash event and the bucket is finalized
+        // then we return true;
+        if (bucketLastUpdatedNonce == _slashNonce) {
+            if (finalized) return true;
+        }
+
+        //If there has been a slash event
+        if (bucketLastUpdatedNonce != slashNonce) {
+            //If the slash event happened after the bucket's finalization timestamp
+            //That means the bucket had already been finalized and we can return true;
+            if (slashNonceToSlashTimestamp[bucketLastUpdatedNonce] >= bucketFinalizationTimestamp) {
+                if (finalized) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -531,9 +715,84 @@ contract GCA is IGCA {
         }
     }
 
-    function _WCEIL(uint256 _slashNonce) private view returns (uint256) {
+    /**
+     * @dev will underflow and revert if slashNonceToSlashTimestamp[_slashNonce] has not yet been written to
+     * @dev returns the WCEIL for the given slash nonce.
+     * @dev WCEIL is equal to the end bucket submission time for the bucket that the slash nonce was slashed in + 2 weeks
+     * @dev it's two weeks instead of one to make sure there is adequate time for GCA's to submit reports
+     * @dev the finalization timestamp is the end of the submission period + 1 week
+     */
+    function _WCEIL(uint256 _slashNonce) internal view returns (uint256) {
+        //This will underflow if slashNonceToSlashTimestamp[_slashNonce] has not yet been written to
         uint256 bucketNonceWasSlashedAt = (slashNonceToSlashTimestamp[_slashNonce] - GENESIS_TIMESTAMP) / BUCKET_LENGTH;
         //the end submission period is the bucket + 2
         return (bucketNonceWasSlashedAt + 2) * BUCKET_LENGTH + GENESIS_TIMESTAMP;
+    }
+
+    function getPackedBucketGlobalState(uint256 bucketId) internal view returns (uint256 packedGlobalState) {
+        assembly {
+            mstore(0x0, bucketId)
+            mstore(0x20, _bucketGlobalState.slot)
+            let slot := keccak256(0x0, 0x40)
+            packedGlobalState := sload(slot)
+        }
+    }
+
+    function bucketGlobalState(uint256 bucketId) external view returns (IGCA.BucketGlobalState memory) {
+        return _bucketGlobalState[bucketId];
+    }
+
+    function _calculateBucketSubmissionEndTimestamp(
+        uint256 bucketId,
+        uint256 bucketOriginNonce,
+        uint256 bucketLastUpdatedNonce,
+        uint256 _slashNonce,
+        uint256 bucketFinalizationTimestamp
+    ) internal view returns (uint256) {
+        // if the bucket has never been initialized
+        if (bucketFinalizationTimestamp == 0) return bucketEndSubmissionTimestampNotReinstated(bucketId);
+        if (bucketOriginNonce == _slashNonce) return bucketEndSubmissionTimestampNotReinstated(bucketId);
+        if (bucketLastUpdatedNonce == _slashNonce) return bucketFinalizationTimestamp;
+        uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
+        //If the slash occurred between the start of the submission period and the bucket finalization timestamp
+        for (uint256 i = bucketLastUpdatedNonce; i < _slashNonce;) {
+            if (_between(slashNonceToSlashTimestamp[i], bucketSubmissionStartTimestamp, bucketFinalizationTimestamp)) {
+                bucketSubmissionStartTimestamp = _WCEIL(i);
+            } else {
+                break;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        return bucketSubmissionStartTimestamp;
+    }
+
+    /**
+     * @dev checks if `a` is between `b` and `c`
+     * @param a the number to check
+     * @param b the lower bound
+     * @param c the upper bound
+     */
+    function _between(uint256 a, uint256 b, uint256 c) internal pure returns (bool) {
+        return a >= b && a <= c;
+    }
+
+    /**
+     * @dev returns the max of two numbers
+     * @param a the first number
+     * @param b the second number
+     */
+    function _max(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a > b ? a : b;
+    }
+
+    /**
+     * @dev returns the min of two numbers
+     * @param a the first number
+     * @param b the second number
+     */
+    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
     }
 }

@@ -103,6 +103,7 @@ contract GrantsTreasury is IGrantsTreasury {
     //************************************************************* */
     //*********************  PRIVATE UTILS    ********************** */
     //************************************************************* */
+
     /**
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with

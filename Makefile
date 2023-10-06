@@ -15,8 +15,12 @@ gen-html :;  make gen-lcov && genhtml -o report --branch-coverage lcov.info
 run-coverage :; forge coverage;
 test.no.ffi :;  forge test --no-match-test "test_MinerPoolFFI"
 test.ffi :; forge test --ffi 
-
+test :; forge test --ffi -vv
 
 # --- [ Specific Tests ] -----------------------------------------------------------------------------------
 test.minerpool.math :; forge test --match-path test/temp/MinerDistributionMath.t.sol -vvv --ffi
 test.earlyLiquidity :; forge test --match-contract EarlyLiquidityTest -vvv && npx hardhat test
+test.minerPoolAndGCA :; forge test --match-contract MinerPoolAndGCATest --ffi -vv
+
+# --- [ Gas Snapshot] -----------------------------------------------------------------------------------
+gas.snapshot :; forge snapshot --gas-report --ffi 
