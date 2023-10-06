@@ -6,7 +6,6 @@ import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
-import "forge-std/console.sol";
 
 interface IDecimals {
     error IncorrectDecimals();
