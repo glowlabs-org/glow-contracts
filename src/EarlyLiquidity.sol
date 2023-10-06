@@ -75,10 +75,6 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /// @dev Represents ln(2) in 64x64 format
     int128 private constant _LN_2 = 12786308645202655659;
 
-    /// @dev max amount of tokens that can be bought in a single tx is 400,000
-    /// - that makes 40_000_000 increments of .01
-    uint256 private constant _MAX_INCREMENTS_PER_PURCHASE_TX = 40_000_000;
-
     /// @dev represents (1-r) in 64x64 format
     /// @dev r =  1 - 1.0000000069314718 =  0000000069314718
     int128 private constant _DENOMINATOR = -127863086349;
@@ -201,9 +197,6 @@ contract EarlyLiquidity is IEarlyLiquidity {
     function getPrice(uint256 incrementsToPurchase) public view returns (uint256) {
         if (incrementsToPurchase == 0) return 0;
 
-        // if (incrementsToPurchase > _MAX_INCREMENTS_PER_PURCHASE_TX) {
-        //     // _revert(IEarlyLiquidity.TooManyIncrements.selector);
-        // }
         return _getPrice(_totalIncrements, incrementsToPurchase);
     }
 
@@ -263,7 +256,6 @@ contract EarlyLiquidity is IEarlyLiquidity {
         // the total amount of increments already sold.
         int128 firstTermInSeries = _getFirstTermInSeries(totalIncrementsSold);
 
-
         //divisionResult > than geometricSeries, so we convert divisionResult to uint256
         uint256 firstTimeInSerieWithFixed = uint256(int256(firstTermInSeries));
         //divisionResult is always positive so we can cast it to uint256
@@ -289,20 +281,23 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
     /**
      *   @notice Calculates the first term in the geometric series for the current price of the current token
-     *   @return  The first term to be used in the geometric series
-     */
-    function _getFirstTermInSeries(uint256 totalSold) private pure returns (int128) {
+     *  @param totalIncrementsSold - the total number of increments that have already been sold
+     *   @return  firstTerm -  first term to be used in the geometric series
+    */
+
+
+    function _getFirstTermInSeries(uint256 totalIncrementsSold) private pure returns (int128) {
         // Convert 'totalSold' to a fixed-point representation using ABDKMath64x64.
         // This is done to perform mathematical operations with precision.
-        int128 floatingPointTotalSold = ABDKMath64x64.fromUInt(totalSold);
+        int128 floatingPointTotalSold = ABDKMath64x64.fromUInt(totalIncrementsSold);
 
-        // The goal is to compute the exponent for: 2^(totalSold / 1,000,000)
+        // The goal is to compute the exponent for: 2^(totalIncrements / 100,000,000)
         // Using logarithmic properties, this can be re-written using the identity:
-        // b^c = a^(ln(b)*c) => 2^(totalSold / 1,000,000) = e^(ln(2) * totalSold / 1,000,000)
-        // Here, '_LN_2' is the natural logarithm of 2, and '_ONE_HUNDRED_MILLION' represents 1,000,000.
+        // b^c = a^(ln(b)*c) => 2^(totalIncrements / 100,000,000) = e^(ln(2) * totalIncrements / 100,000,000)
+        // Here, '_LN_2' is the natural logarithm of 2, and '_ONE_HUNDRED_MILLION' represents 100,000,000.
         int128 exponent = _LN_2.mul(floatingPointTotalSold).div(_ONE_HUNDRED_MILLION);
 
-        // Compute e^(exponent), which effectively calculates 2^(totalSold / 1,000,000)
+        // Compute e^(exponent), which effectively calculates 2^(totalIncrements / 100,000,000)
         // because of the earlier logarithmic transformation.
         int128 baseResult = ABDKMath64x64.exp(exponent);
 
@@ -311,15 +306,14 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
         // The following comments are for the purpose of explaining why the code cannot overflow.
         //ln(2) = 0.693147......
-        //floatingPointTotalSold will never be more than 12,000,000
-        //so the maximum value of the exponent will be 8,316,000 / 1,000,000 = 8.316
+        //floatingPointTotalSold will never be more than 1,200,000,000
+        //so the maximum value of the exponent will be .693147 * 1,200,000,000 / 100,000,000 = 8.316
         //None of those numbers are greater than 2^63-1 (the maximum value of an int128)
-        //Max value of baseResult possible is e^8.316 = 4,088 (rounded up)
+        //Max value of baseResult possible is e^8.316 = 4,089 (rounded up)
         //The max input that baseResult can take in is 43 since (e^44 > type(uint128).max > e^43)
         //We will never cause an overflow in the exponent calculation
-        //Max value of result is 600,000 * 4,088 = 2,453,000,000 approx 2.5e9
+        //Max value of result is 6,000 * 4,088 = 2,453,000,000 approx 2.5e9
         //This is well within the range of 2^63-1 = 9,223,372,036,854,775,807 approx 9.223372e+18
-
         // Return the final result.
         return result;
     }

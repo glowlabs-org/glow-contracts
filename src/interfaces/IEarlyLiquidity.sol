@@ -12,7 +12,7 @@ interface IEarlyLiquidity {
     /**
      * @notice Buys tokens with USDC
      * @param increments The amount of increments to buy
-     *             - an {increment} is .01 GLW 
+     *             - an {increment} is .01 GLW
      * @param maxCost The maximum cost to pay for all the increments
      */
     function buy(uint256 increments, uint256 maxCost) external;
