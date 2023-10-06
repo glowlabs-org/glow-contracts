@@ -11,29 +11,28 @@ interface IEarlyLiquidity {
 
     /**
      * @notice Buys tokens with USDC
-     * @param amount The amount of tokens to buy (including decimals)
-     * @param maxCost The maximum cost to pay for the tokens
+     * @param increments The amount of increments to buy
+     *             - an {increment} is .01 GLW 
+     * @param maxCost The maximum cost to pay for all the increments
      */
-    function buy(uint256 amount, uint256 maxCost) external;
+    function buy(uint256 increments, uint256 maxCost) external;
 
     /**
      * @notice Calculates the price of a given amount of tokens
-     * @param amount The amount of tokens to buy
-     * @return The price of the tokens in microdollars
-     * @dev uses the integral of 2 * .6^((total_sold + tokens_to_buy)/ 1_000_000)
-     *             - to approximate the price of the tokens using calculus
+     * @param increments The amount of increments to buy
+     * @return price - the total price in USDC for the given amount of increments
      */
-    function getPrice(uint256 amount) external view returns (uint256);
+    function getPrice(uint256 increments) external view returns (uint256);
 
     /**
-     * @notice Returns the total amount of tokens sold so far
-     * @return The total amount of tokens sold so far including decimals
+     * @notice Returns the total amount of GLW tokens sold so far
+     * @return totalSold - total amount of GLW tokens sold so far (18 decimal value)
      */
     function totalSold() external view returns (uint256);
 
     /**
      * @notice Returns the current price of the next token.
-     * @return The current price of the next token in microdollars
+     * @return currentPrice current price of the next token in microdollars
      */
     function getCurrentPrice() external view returns (uint256);
 

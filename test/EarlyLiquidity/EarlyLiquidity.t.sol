@@ -82,14 +82,15 @@ contract EarlyLiquidityTest is Test {
         usdc.mint(SIMON, 1_000_000_000 ether);
     }
 
-    function test_emit() public {
-        uint256[] memory arr = new uint256[](30000);
-        unchecked {
-            for (uint256 i; i < arr.length; ++i) {
-                arr[i] = type(uint256).max;
-            }
-        }
-        earlyLiquidity.emitEvent(arr);
+    function test_buyAllInEL() public {
+        test_setGlowAndMint();
+        vm.startPrank(SIMON);
+        uint256 incrementsToPurchase = earlyLiquidity.TOTAL_INCREMENTS_TO_SELL();
+        uint256 price = earlyLiquidity.getPrice(incrementsToPurchase);
+        usdc.mint(SIMON, price);
+        usdc.approve(address(earlyLiquidity), price);
+        earlyLiquidity.buy(incrementsToPurchase, price);
+        vm.stopPrank();
     }
 
     /**
