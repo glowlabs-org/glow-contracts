@@ -52,6 +52,7 @@ contract CCC is ICarbonCreditAuction {
             amountAllocated += amountToAllocate;
             // SafeERC20.safeTra
     }
+    }
 
     function getNextBidPrice() public view returns (uint256) {
         return currentHighestBid * (100 + INCREASE_BID_PERCENTAGE) / _DENOMINATOR;
