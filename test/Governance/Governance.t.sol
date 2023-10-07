@@ -1780,7 +1780,6 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-
     function test_executeGCAElectionOrSlashProposal_rejectionShouldNotUpdateStateInTarget() public {
         test_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);

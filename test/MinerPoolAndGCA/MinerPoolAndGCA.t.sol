@@ -374,6 +374,9 @@ contract MinerPoolAndGCATest is Test {
     }
 
     function test_withdrawFromBucket_shouldClaimMultipleGRCTokens() public {
+        vm.startPrank(governance);
+       minerPoolAndGCA.editReserveCurrencies(address(0), address(grc2));
+       vm.stopPrank();
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
         uint256 amountGRC2_toDonate = 1_000 * 1e6;
@@ -382,6 +385,7 @@ contract MinerPoolAndGCATest is Test {
         grc2.mint(SIMON, amountGRC2_toDonate);
         grc2.approve(address(minerPoolAndGCA), amountGRC2_toDonate);
         minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), amountGRCToDonate);
+
         minerPoolAndGCA.donateToGRCMinerRewardsPool(address(grc2), amountGRC2_toDonate);
         vm.stopPrank();
 
