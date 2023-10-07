@@ -255,14 +255,122 @@ contract Governance is IGovernance {
             }
         }
 
+        handleProposalExecution(proposalId, proposalType, proposal.data);
+        lastExecutedWeek = week;
+    }
+
+    function syncProposals() public {
+        uint256 currentWeek = currentWeek();
+        if (currentWeek == 0) return;
+        uint256 _nextProposalToExecute = lastExecutedWeek;
+        unchecked {
+            //We actually want this to overflow since we start at type(uint256).max
+            ++_nextProposalToExecute;
+            //increment current week to not have to <= check, we can just < check in the for loop
+            ++currentWeek;
+            //we increment up the the current week to make sure that _weekEndTime(_nextProposalToExecute)
+            //eventually becomes greater than block.timestamp so we can stop the loop and update state
+        }
+
+        for (_nextProposalToExecute; _nextProposalToExecute < currentWeek; ++_nextProposalToExecute) {
+            //If the proposal is vetoed, we can skip the execution
+            //We still need to update the lastExecutedWeek so the next proposal can be executed
+            if (getMostPopularProposalStatus(_nextProposalToExecute) == IGovernance.ProposalStatus.VETOED) {
+                continue;
+            }
+
+            uint256 proposalId = mostPopularProposal[_nextProposalToExecute];
+
+            IGovernance.Proposal memory proposal = _proposals[proposalId];
+            IGovernance.ProposalType proposalType = proposal.proposalType;
+            ProposalLongStakerVotes memory longStakerVotes = _proposalLongStakerVotes[proposalId];
+
+            //RFC Proposals  an grant proposals Are The Only Types that don't need to be ratified or rejected
+            //So we can execute them as soon as they are passed
+            // all others need to wait 4 weeks after they are passed
+            //None can also be executed immediately
+            if (
+                proposalType == IGovernance.ProposalType.REQUEST_FOR_COMMENT
+                    || proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL
+                    || proposalType == IGovernance.ProposalType.NONE
+            ) {
+                //as sooon as the RFC is passed, we can execute it
+                //we don't need to wait for the ratify/reject period to end
+                //This makes sure that we don't execute a proposal before the end of the week
+
+                if (block.timestamp < _weekEndTime(_nextProposalToExecute) + 1) {
+                    lastExecutedWeek = _nextProposalToExecute - 1;
+                    return;
+                }
+
+                //If a most popular proposal never got chosen for the week,
+                //we can execute it at the end of the week
+                //since it can never be chosen as a most popular proposal again
+                if (proposalType == IGovernance.ProposalType.NONE) {
+                    continue;
+                }
+            } else {
+                //For all other proposals, we need to make sure that the ratify/reject period has ended
+                if (
+                    block.timestamp < _weekEndTime(_nextProposalToExecute + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)
+                ) {
+                    lastExecutedWeek = _nextProposalToExecute - 1;
+                    return;
+                }
+            }
+            //Start C2:
+            //C2 checks to see if there are enough ratify votes to execute the proposal
+
+            //If the proposal is a gca election, we can check endorsements to
+            //dynamically determine the required percentage to execute the proposal
+            //The default percentage to execute a  proposal is 60%
+            //The minimum percentage to execute a gca proposal is 35%
+            //RFC and Grants Treasury proposals don't need to be ratified to pass
+            if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
+                uint256 numEndorsements = numEndorsementsOnWeek[_nextProposalToExecute];
+                uint256 requiredWeight =
+                    _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL - (numEndorsements * _ENDORSEMENT_WEIGHT);
+                uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
+                //If no one votes, we don't execute the proposal
+                if (totalVotes == 0) {
+                    continue;
+                }
+                uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
+                if (percentage < requiredWeight) {
+                    continue;
+                }
+            } else {
+                if (
+                    (
+                        proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT
+                            || proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
+                    )
+                ) {
+                    uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
+                    if (totalVotes == 0) {
+                        continue;
+                    }
+                    uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
+                    if (percentage < _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL) {
+                        continue;
+                    }
+                }
+            }
+
+            handleProposalExecution(proposalId, proposalType, proposal.data);
+        }
+    }
+
+    function handleProposalExecution(uint256 proposalId, IGovernance.ProposalType proposalType, bytes memory data)
+        internal
+    {
         if (proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
-            (address oldAgent, address newAgent, bool slashOldAgent) =
-                abi.decode(proposal.data, (address, address, bool));
+            (address oldAgent, address newAgent, bool slashOldAgent) = abi.decode(data, (address, address, bool));
             IVetoCouncil(_vetoCouncil).addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent);
         }
 
         if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
-            (bytes32 hash, bool incrementSlashNonce) = abi.decode(proposal.data, (bytes32, bool));
+            (bytes32 hash, bool incrementSlashNonce) = abi.decode(data, (bytes32, bool));
             IGCA(_gca).pushHash(hash, incrementSlashNonce);
         }
 
@@ -275,121 +383,21 @@ contract Governance is IGovernance {
         if (proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL) {
             // (address grantsRecipient, uint256 amount) = abi.decode(proposal.data, (address, uint256));
             // IGCA(_gca).setReserveCurrencies(reserveCurrencies);
-            (address grantsRecipient, uint256 amount,) = abi.decode(proposal.data, (address, uint256, bytes32));
+            (address grantsRecipient, uint256 amount,) = abi.decode(data, (address, uint256, bytes32));
             bool success = IGrantsTreasury(_grantsTreasury).allocateGrantFunds(grantsRecipient, amount);
             //do something with success?
         }
 
         if (proposalType == IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS) {
-            (bytes32 newRequirementsHash) = abi.decode(proposal.data, (bytes32));
+            (bytes32 newRequirementsHash) = abi.decode(data, (bytes32));
             IGCA(_gca).setRequirementsHash(newRequirementsHash);
         }
 
         if (proposalType == IGovernance.ProposalType.REQUEST_FOR_COMMENT) {
-            bytes32 rfcHash = abi.decode(proposal.data, (bytes32));
+            bytes32 rfcHash = abi.decode(data, (bytes32));
             emit IGovernance.RFCProposalExecuted(proposalId, rfcHash);
         }
-
-        lastExecutedWeek = week;
     }
-
-    // function syncProposals() public {
-    //     uint256 _nextProposalToExecute = lastExecutedWeek;
-    //     unchecked {
-    //         //We actually want this to overflow when we start at 0
-    //         ++_nextProposalToExecute;
-    //     }
-    //     for(uint i; i<)
-
-    //     //We need all proposals to be executed synchronously
-    //     if (_nextProposalToExecute != week) {
-    //         _revert(IGovernance.ProposalsMustBeExecutedSynchonously.selector);
-    //     }
-
-    //     //If the proposal is vetoed, we can skip the execution
-    //     //We still need to update the lastExecutedWeek so the next proposal can be executed
-    //     if (getMostPopularProposalStatus(week) == IGovernance.ProposalStatus.VETOED) {
-    //         lastExecutedWeek = week;
-    //         return;
-    //     }
-
-    //     uint256 proposalId = mostPopularProposal[week];
-
-    //     IGovernance.Proposal memory proposal = _proposals[proposalId];
-    //     IGovernance.ProposalType proposalType = proposal.proposalType;
-
-    //     if (proposalType == IGovernance.ProposalType.NONE) {
-    //         _revert(IGovernance.ProposalNotInitialized.selector);
-    //     }
-
-    //     ProposalLongStakerVotes memory longStakerVotes = _proposalLongStakerVotes[proposalId];
-    //     if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
-    //         uint256 numEndorsements = numEndorsementsOnWeek[week];
-    //         uint256 requiredWeight = _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL - (numEndorsements * _ENDORSEMENT_WEIGHT);
-    //         uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
-    //         uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
-    //         if (percentage < requiredWeight) {
-    //             lastExecutedWeek = week;
-    //             return;
-    //         }
-    //     } else {
-    //         if ((proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT)) {
-    //             uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
-    //             uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
-    //             if (percentage < _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL) {
-    //                 lastExecutedWeek = week;
-    //                 return;
-    //             }
-    //         }
-    //     }
-
-    //     //RFC Proposals Are The Only Types that don't need to be ratified or rejected
-    //     //So we can execute them as soon as they are passed
-    //     if (proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT) {
-    //         //For all other proposals, we need to make sure that the ratify/reject period has ended
-    //         if (block.timestamp < _weekEndTime(week + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
-    //             _revert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
-    //         }
-    //     }
-
-    //     if (proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
-    //         (address oldAgent, address newAgent, bool slashOldAgent) =
-    //             abi.decode(proposal.data, (address, address, bool));
-    //         IVetoCouncil(_vetoCouncil).addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent);
-    //     }
-
-    //     if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
-    //         (bytes32 hash, bool incrementSlashNonce) = abi.decode(proposal.data, (bytes32, bool));
-    //         IGCA(_gca).pushHash(hash, incrementSlashNonce);
-    //     }
-
-    //     if (proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES) {
-    //         // (address[] memory reserveCurrencies) = abi.decode(proposal.data, (address[]));
-    //         // IGCA(_gca).setReserveCurrencies(reserveCurrencies);
-    //         //TODO: implement this <3
-    //     }
-
-    //     if (proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL) {
-    //         // (address grantsRecipient, uint256 amount) = abi.decode(proposal.data, (address, uint256));
-    //         // IGCA(_gca).setReserveCurrencies(reserveCurrencies);
-    //         (address grantsRecipient, uint256 amount,) = abi.decode(proposal.data, (address, uint256, bytes32));
-    //         bool success = IGrantsTreasury(_grantsTreasury).allocateGrantFunds(grantsRecipient, amount);
-    //         console.log("HERE!");
-    //         //do something with success?
-    //     }
-
-    //     if (proposalType == IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS) {
-    //         (bytes32 newRequirementsHash) = abi.decode(proposal.data, (bytes32));
-    //         IGCA(_gca).setRequirementsHash(newRequirementsHash);
-    //     }
-
-    //     if (proposalType == IGovernance.ProposalType.REQUEST_FOR_COMMENT) {
-    //         bytes32 rfcHash = abi.decode(proposal.data, (bytes32));
-    //         emit IGovernance.RFCProposalExecuted(proposalId, rfcHash);
-    //     }
-
-    //     lastExecutedWeek = week;
-    // }
 
     //TODO: make sure that the same proposal can't be executed twice :)
     // we cant enforce that the same proposal cant become the most popular proposal twice

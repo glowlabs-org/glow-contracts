@@ -1256,6 +1256,315 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
+    //TODO: long stakers shouldnt be able to vote on grants proposals.
+    //TODO: check all end timestamps on grants proposals
+    function test_syncGrantsProposal() public {
+        test_createGrantsProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.syncProposals();
+        uint256 balance = grantsTreasury.recipientBalance(grantsRecipient);
+        assert(balance > 0);
+        // vm.startPrank(grantsRecipient);
+        // grantsTreasury.claimGrantReward();
+        // vm.stopPrank();
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        console.log("last executed week = ", lastExecutedWeek);
+        /**
+         * [week 0] - create proposal
+         *         [week 1] - ratify proposal (also no most popular proposal set since we havent created a new one)
+         *         [week 2] - (also no most popular proposal set since we havent created a new one)
+         *         [week 3] - (also no most popular proposal set since we havent created a new one)
+         *         [week 4] - (also no most popular proposal set since we havent created a new one)
+         *         Since we fast forwarded 1 week + 4 weeks, and week 1-4 are NONE proposal types,
+         *         the last executed week should be 4
+         */
+        assertEq(lastExecutedWeek, 4);
+    }
+
+    //TODO: long stakers shouldnt be able to vote on grants proposals.
+    //TODO: check all end timestamps on grants proposals
+    function test_syncGrantsProposal_rejection_ShouldNotUpdateRecipientBalance() public {
+        test_createGrantsProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, false, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.syncProposals();
+        uint256 balance = grantsTreasury.recipientBalance(grantsRecipient);
+        assert(balance == 0);
+        // vm.startPrank(grantsRecipient);
+        // grantsTreasury.claimGrantReward();
+        // vm.stopPrank();
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        console.log("last executed week = ", lastExecutedWeek);
+        /**
+         * [week 0] - create proposal
+         *         [week 1] - ratify proposal (also no most popular proposal set since we havent created a new one)
+         *         [week 2] - (also no most popular proposal set since we havent created a new one)
+         *         [week 3] - (also no most popular proposal set since we havent created a new one)
+         *         [week 4] - (also no most popular proposal set since we havent created a new one)
+         *         Since we fast forwarded 1 week + 4 weeks, and week 1-4 are NONE proposal types,
+         *         the last executed week should be 4
+         */
+        assertEq(lastExecutedWeek, 4);
+    }
+
+    function test_syncGrantsProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState()
+        public
+    {
+        test_createGrantsProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
+
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.syncProposals();
+        uint256 balance = grantsTreasury.recipientBalance(grantsRecipient);
+        assert(balance > 0);
+        // vm.startPrank(grantsRecipient);
+        // grantsTreasury.claimGrantReward();
+        // vm.stopPrank();
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        console.log("last executed week = ", lastExecutedWeek);
+        /**
+         * [week 0] - create proposal
+         *         [week 1] - create veto council election proposal
+         */
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_syncRFCProposal() public {
+        test_createRFCProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.syncProposals();
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 4);
+    }
+
+    function test_syncRFCProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState() public {
+        test_createRFCProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        governance.syncProposals();
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    //TODO:! need to add this functionality. This is a placeholder
+    function test_syncChangeReserveCurrencyProposal() public {
+        test_createChangeReserveCurrencyProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(data, (address, address));
+        governance.syncProposals();
+        // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
+        // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 4);
+    }
+
+    //TODO:! need to add this functionality. This is a placeholder
+    function test_syncChangeReserveCurrencyProposal_rejectionShouldNotUpdateState() public {
+        test_createChangeReserveCurrencyProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, false, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(data, (address, address));
+        governance.syncProposals();
+        // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
+        // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 4);
+    }
+
+    //TODO:! need to add this functionality. This is a placeholder
+    function test_syncChangeReserveCurrencyProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
+    ) public {
+        test_createChangeReserveCurrencyProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(data, (address, address));
+        governance.syncProposals();
+        // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
+        // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_syncGCAElectionOrSlashProposal() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (bytes32 hash, bool incrementSlashNonce) = abi.decode(data, (bytes32, bool));
+        governance.syncProposals();
+        assertEq(minerPoolAndGCA.proposalHashes(0), hash);
+        assertEq(minerPoolAndGCA.slashNonce(), incrementSlashNonce ? 1 : 0);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 4);
+    }
+
+    function test_syncGCAElectionOrSlashProposal_rejection_ShouldNotUpdateHashOrNonce() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, false, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (bytes32 hash, bool incrementSlashNonce) = abi.decode(data, (bytes32, bool));
+        governance.syncProposals();
+        //should revert since it was not pushed
+        vm.expectRevert();
+        bytes32 hashInArray = minerPoolAndGCA.proposalHashes(0);
+        assertEq(minerPoolAndGCA.slashNonce(), 0);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 4);
+    }
+
+    function test_syncGCAElectionOrSlashProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
+    ) public {
+        test_createGCAElectionOrSlashProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (bytes32 hash, bool incrementSlashNonce) = abi.decode(data, (bytes32, bool));
+        governance.syncProposals();
+        assertEq(minerPoolAndGCA.proposalHashes(0), hash);
+        assertEq(minerPoolAndGCA.slashNonce(), incrementSlashNonce ? 1 : 0);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_syncVetoCouncilElectionOrSlash() public {
+        test_createVetoCouncilElectionOrSlash();
+        bool slashOldAgent = true;
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (address oldAgent_, address newAgent_, bool slashOldAgent_) = abi.decode(data, (address, address, bool));
+        governance.syncProposals();
+        assert(vetoCouncil.isCouncilMember(newAgent_));
+        assert(!vetoCouncil.isCouncilMember(oldAgent_));
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 4);
+    }
+
+    function test_syncVetoCouncilElectionOrSlash_rejection_shouldNotChangeVetoCouncilState() public {
+        test_createVetoCouncilElectionOrSlash();
+        bool slashOldAgent = true;
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, false, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (address oldAgent_, address newAgent_, bool slashOldAgent_) = abi.decode(data, (address, address, bool));
+        governance.syncProposals();
+        assert(!vetoCouncil.isCouncilMember(newAgent_));
+        assert(vetoCouncil.isCouncilMember(oldAgent_));
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 4);
+    }
+
+    function test_syncVetoCouncilElectionOrSlash_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
+    ) public {
+        test_createVetoCouncilElectionOrSlash();
+        bool slashOldAgent = true;
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        bytes memory data = governance.proposals(1).data;
+        (address oldAgent_, address newAgent_, bool slashOldAgent_) = abi.decode(data, (address, address, bool));
+        governance.syncProposals();
+        assert(vetoCouncil.isCouncilMember(newAgent_));
+        assert(!vetoCouncil.isCouncilMember(oldAgent_));
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_syncChangeGCARequirements() public {
+        test_createChangeGCARequirementsProposal();
+        bytes32 expectedHash = keccak256("new requirements hash");
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.syncProposals();
+        assertEq(minerPoolAndGCA.requirementsHash(), expectedHash);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 4);
+        /**
+         * [week 0] - create proposal
+         *         [week 1] - ratify proposal (also no most popular proposal set since we havent created a new one)
+         *         [week 2] - (also no most popular proposal set since we havent created a new one)
+         *         [week 3] - (also no most popular proposal set since we havent created a new one)
+         *         [week 4] - (also no most popular proposal set since we havent created a new one)
+         *         Since we fast forwarded 1 week + 4 weeks, and week 1-4 are NONE proposal types,
+         *         the last executed week should be 4
+         */
+    }
+
+    function test_syncChangeGCARequirements_rejection_ShouldNotChangRequirements() public {
+        test_createChangeGCARequirementsProposal();
+        bytes32 expectedHash = keccak256("new requirements hash");
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        castLongStakedVotes(SIMON, 0, false, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.syncProposals();
+        assert(minerPoolAndGCA.requirementsHash() != expectedHash);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 4);
+        /**
+         * [week 0] - create proposal
+         *         [week 1] - ratify proposal (also no most popular proposal set since we havent created a new one)
+         *         [week 2] - (also no most popular proposal set since we havent created a new one)
+         *         [week 3] - (also no most popular proposal set since we havent created a new one)
+         *         [week 4] - (also no most popular proposal set since we havent created a new one)
+         *         Since we fast forwarded 1 week + 4 weeks, and week 1-4 are NONE proposal types,
+         *         the last executed week should be 4
+         */
+    }
+
+    function test_syncChangeGCARequirements_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState()
+        public
+    {
+        test_createChangeGCARequirementsProposal();
+        bytes32 expectedHash = keccak256("new requirements hash");
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+        governance.syncProposals();
+        assertEq(minerPoolAndGCA.requirementsHash(), expectedHash);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function createVetoCouncilElectionOrSlashProposal(
+        address proposer,
+        address oldAgent,
+        address newAgent,
+        bool slashOldAgent
+    ) internal {
+        vm.startPrank(proposer);
+        uint256 nominationsToUse = governance.costForNewProposal();
+        gcc.mint(proposer, nominationsToUse);
+        gcc.retireGCC(nominationsToUse, proposer);
+        governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
+        vm.stopPrank();
+    }
+
     function test_executeChangeGCARequirements() public {
         test_createChangeGCARequirementsProposal();
         bytes32 expectedHash = keccak256("new requirements hash");
