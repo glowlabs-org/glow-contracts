@@ -8,4 +8,8 @@ contract MD2 is BucketSubmission {
     function addToCurrentBucket(address grcToken, uint256 amount) external {
         _addToCurrentBucket(grcToken, amount);
     }
+
+    function addGRCToken(address grcToken) external {
+        _setGRCToken(grcToken, true, currentBucket());
+    }
 }

@@ -42,12 +42,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     address private immutable _CARBON_CREDIT_AUCTION;
 
     address private immutable _VETO_COUNCIL;
-
-    /**
-     * @notice the total amount of glow rewards available for farms per bucket
-     */
-    uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
-
     /**
      * @dev the amount to increase the finalization timestamp of a bucket by
      *             -   only veto council agents can delay a bucket.
@@ -55,9 +49,16 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     uint256 private constant _BUCKET_DELAY_LENGTH = uint256(7 days) * 13;
 
-    //----------------- STATE VARIABLES -----------------//
-
     uint256 private constant _BITS_IN_UINT = 256;
+
+    /**
+     * @notice the total amount of glow rewards available for farms per bucket
+     */
+    uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
+
+    uint256 private constant _MAX_RESERVE_CURRENCIES = 3;
+
+    uint256 public numReserveCurrencies;
 
     //----------------- MAPPINGS -----------------//
 
@@ -110,6 +111,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _CARBON_CREDIT_AUCTION = _carbonCreditAuction;
         _VETO_COUNCIL = _vetoCouncil;
         _setGRCToken(_grcToken, true, 0);
+        ++numReserveCurrencies;
     }
 
     //************************************************************* */
@@ -119,10 +121,52 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- DONATIONS -----------------//
 
     //     TODO: token whitelist
+    //TODO: make sure all gov functions can never revert
+    function editReserveCurrencies(address oldReserveCurrency, address newReserveCurrency) external returns (bool) {
+        if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
+        uint256 numCurrenciesToAdd = _isZeroAddress(newReserveCurrency) ? 0 : 1;
+        uint256 numCurrenciesToRemove = _isZeroAddress(oldReserveCurrency) ? 0 : 1;
 
+        uint256 _numReserveCurrencies = numReserveCurrencies;
+
+        //Need to handle the case where we could get an underflow revert
+        if (_numReserveCurrencies == 0) {
+            if (numCurrenciesToRemove > numCurrenciesToAdd) {
+                return false;
+            }
+        }
+
+        _numReserveCurrencies = (_numReserveCurrencies + numCurrenciesToAdd) - numCurrenciesToRemove;
+        if (_numReserveCurrencies > _MAX_RESERVE_CURRENCIES) {
+            return false;
+        }
+        uint256 _currentBucket = currentBucket();
+        //If we're not dealing with the zero address,
+        // then we add the new currency to the current bucket
+        if (numCurrenciesToAdd > 0) {
+            _setGRCToken(newReserveCurrency, true, _currentBucket);
+        }
+
+        //if we're not dealing with the zero address,
+        // then we remove the old currency from the current bucket
+        if (numCurrenciesToRemove > 0) {
+            _setGRCToken(oldReserveCurrency, false, _currentBucket);
+        }
+        numReserveCurrencies = _numReserveCurrencies;
+        //emit an event
+        return true;
+    }
+
+    function _isZeroAddress(address addr) internal pure returns (bool) {
+        assembly {
+            mstore(0x0, iszero(addr))
+            return(0x0, 0x20)
+        }
+    }
     /**
      * @inheritdoc IMinerPool
      */
+
     function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
         // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
         uint256 balBefore = IERC20(grcToken).balanceOf(address(this));
