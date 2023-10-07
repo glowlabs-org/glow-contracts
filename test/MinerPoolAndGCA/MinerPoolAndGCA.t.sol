@@ -989,7 +989,69 @@ contract MinerPoolAndGCATest is Test {
         minerPoolAndGCA.donateToGRCMinerRewardsPoolEarlyLiquidity(address(usdc), amount);
     }
 
+    // add invariant to make sure there cna never be more than 3 GRC's
+    // at any point in time.
+    function test_editReserveCurrencies_swapOldForNew() public {
+        vm.startPrank(governance);
+        address newRandomGRC = address(0x421928138129381983);
+        minerPoolAndGCA.editReserveCurrencies(address(usdc), newRandomGRC);
+        BucketSubmission.BucketTracker memory bucketTrackerOld = minerPoolAndGCA.bucketTracker(address(usdc));
+        console.logBool(bucketTrackerOld.isGRC);
+
+        assertEq(bucketTrackerOld.isGRC, false);
+        BucketSubmission.BucketTracker memory bucketTrackerNew = minerPoolAndGCA.bucketTracker(newRandomGRC);
+        assertEq(bucketTrackerNew.isGRC, true);
+
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 1);
+        vm.stopPrank();
+    }
+
+    // add invariant to make sure there cna never be more than 3 GRC's
+    // at any point in time.
+    function test_editReserveCurrencies_shouldBeAbleToGetToZeroGRCs() public {
+        vm.startPrank(governance);
+        address newRandomGRC = address(0x421928138129381983);
+        minerPoolAndGCA.editReserveCurrencies(address(usdc), address(0));
+        BucketSubmission.BucketTracker memory bucketTrackerOld = minerPoolAndGCA.bucketTracker(address(usdc));
+        assertEq(bucketTrackerOld.isGRC, false);
+
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 0);
+        vm.stopPrank();
+    }
+
+    //We need to return if there's an underflow possibility
+    //so that governance can keep executing proposals
+    function test_editReserveCurrencies_potentialUnderflowShouldNotRevert() public {
+        vm.startPrank(governance);
+        address newRandomGRC = address(0x421928138129381983);
+        minerPoolAndGCA.editReserveCurrencies(address(usdc), address(0));
+        BucketSubmission.BucketTracker memory bucketTrackerOld = minerPoolAndGCA.bucketTracker(address(usdc));
+        assertEq(bucketTrackerOld.isGRC, false);
+
+        minerPoolAndGCA.editReserveCurrencies(address(usdc), address(0));
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 0);
+        vm.stopPrank();
+    }
+
+    //We need to return if there's an underflow possibility
+    //so that governance can keep executing proposals
+    function test_editReserveCurrencies_shouldNeverSurpassThreeReserveCurrencies() public {
+        vm.startPrank(governance);
+        address newRandomGRC = address(0x421928138129381983);
+        minerPoolAndGCA.editReserveCurrencies(address(0), newRandomGRC);
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 2);
+
+        newRandomGRC = address(0x421928138129381984);
+        minerPoolAndGCA.editReserveCurrencies(address(0), newRandomGRC);
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 3);
+
+        newRandomGRC = address(0x421928138129381985);
+        minerPoolAndGCA.editReserveCurrencies(address(0), newRandomGRC);
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 3);
+    }
+
     //------------------------ HELPERS -----------------------------
+
     function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
         address[] memory addresses = new address[](numAddresses);
         for (uint256 i = 0; i < numAddresses; ++i) {

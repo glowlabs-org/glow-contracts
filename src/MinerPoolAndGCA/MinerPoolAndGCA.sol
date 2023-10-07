@@ -15,7 +15,7 @@ import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
-
+import "forge-std/console.sol";
 /**
  * TODO:
  * Add tests for all the claim stuff
@@ -26,6 +26,7 @@ import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
  * add tests for withdrawing from reinstated buckets
  * add 1 week delay on grc withdrawals :)
  */
+
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
 
@@ -124,6 +125,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //TODO: make sure all gov functions can never revert
     function editReserveCurrencies(address oldReserveCurrency, address newReserveCurrency) external returns (bool) {
         if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
+
         uint256 numCurrenciesToAdd = _isZeroAddress(newReserveCurrency) ? 0 : 1;
         uint256 numCurrenciesToRemove = _isZeroAddress(oldReserveCurrency) ? 0 : 1;
 
@@ -131,7 +133,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
         //Need to handle the case where we could get an underflow revert
         if (_numReserveCurrencies == 0) {
-            if (numCurrenciesToRemove > numCurrenciesToAdd) {
+            //We can't remove a currency if there are no currencies
+            if (numCurrenciesToRemove > 0) {
                 return false;
             }
         }
@@ -140,27 +143,31 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         if (_numReserveCurrencies > _MAX_RESERVE_CURRENCIES) {
             return false;
         }
+
         uint256 _currentBucket = currentBucket();
         //If we're not dealing with the zero address,
         // then we add the new currency to the current bucket
         if (numCurrenciesToAdd > 0) {
-            _setGRCToken(newReserveCurrency, true, _currentBucket);
+            if (!_setGRCToken(newReserveCurrency, true, _currentBucket)) {
+                return false;
+            }
         }
 
         //if we're not dealing with the zero address,
         // then we remove the old currency from the current bucket
         if (numCurrenciesToRemove > 0) {
-            _setGRCToken(oldReserveCurrency, false, _currentBucket);
+            if (!_setGRCToken(oldReserveCurrency, false, _currentBucket)) {
+                return false;
+            }
         }
         numReserveCurrencies = _numReserveCurrencies;
         //emit an event
         return true;
     }
 
-    function _isZeroAddress(address addr) internal pure returns (bool) {
+    function _isZeroAddress(address addr) internal pure returns (bool res) {
         assembly {
-            mstore(0x0, iszero(addr))
-            return(0x0, 0x20)
+            res := iszero(addr)
         }
     }
     /**

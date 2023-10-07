@@ -9,6 +9,7 @@ import {MD2Handler} from "./Handlers/MD2Handler.t.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
+
 contract MD2Test is Test {
     address[] public grcTokens;
 
@@ -125,12 +126,12 @@ contract MD2Test is Test {
         //Make s
     }
 
-function test_M2_badGRCTokenShouldRevert() public {
-    
-       vm.expectRevert(IMinerPool.NotGRCToken.selector);
-       minerMath.addToCurrentBucket(address(notGrcToken),10);
-}
+    function test_M2_badGRCTokenShouldRevert() public {
+        vm.expectRevert(IMinerPool.NotGRCToken.selector);
+        minerMath.addToCurrentBucket(address(notGrcToken), 10);
+    }
     //----------------- TESTS  -----------------
+
     function test_M2_manualSanityCheck() public {
         //Forward 100 weeks
         //Make sure that amount %  vesting periods = 0 so we dont get rounding errors in tests
