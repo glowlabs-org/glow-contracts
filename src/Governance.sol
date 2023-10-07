@@ -18,7 +18,6 @@ contract Governance is IGovernance {
 
     /// @dev one point one in 64x64 fixed point
     int128 private constant _ONE_POINT_ONE_128 = (1 << 64) + 0x1999999999999a00;
-    address private dfa = address(0x54442d0a5849AC1CFedd78F892154328f2c5b238);
     /// @dev The duration of a bucket: 1 week
     uint256 private constant _ONE_WEEK = uint256(7 days);
 
