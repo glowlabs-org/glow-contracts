@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.21;
 
-import "forge-std/console.sol";
+import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 
 contract BucketSubmission {
     /**
@@ -10,6 +10,7 @@ contract BucketSubmission {
      *         -   The first bucket to receive grc is the current bucket + 16
      *         -   The last bucket to receive grc is the current bucket + 208
      */
+
     uint256 public constant OFFSET_LEFT = 16;
 
     /**
@@ -67,7 +68,7 @@ contract BucketSubmission {
     }
 
     //************************************************************* */
-    //*****************  EXTERNAL STATE CHANGING FUNCS  ************** */
+    //*****************  INTERNAL STATE CHANGING FUNCS  ************** */
     //************************************************************* */
 
     function _addToCurrentBucket(address grcToken, uint256 amount) internal {
@@ -77,6 +78,9 @@ contract BucketSubmission {
         uint256 amountToAddOrSubtract = amount / TOTAL_VESTING_PERIODS;
         BucketTracker memory _bucketTracker = bucketTracker[grcToken];
 
+        if (!_bucketTracker.isGRC) {
+            revert IMinerPool.NotGRCToken();
+        }
         if (currentBucketId == 0) {
             rewards[bucketToAddTo][grcToken].amountInBucket += amountToAddOrSubtract;
             rewards[bucketToDeductFrom][grcToken].amountToDeduct += amountToAddOrSubtract;
@@ -239,6 +243,7 @@ contract BucketSubmission {
      * @param grcToken - the address of the token
      * @param adding - if true, this adds the token to the allowed grcTokens
      *                     - else it removes it
+     * TODO: make sure the caching is there in the getters to get gas savings on backwards traversal
      */
     function _setGRCToken(address grcToken, bool adding, uint256 currentBucket) internal {
         BucketTracker storage _bucketTracker = bucketTracker[grcToken];
