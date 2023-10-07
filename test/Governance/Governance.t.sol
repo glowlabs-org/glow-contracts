@@ -1780,20 +1780,6 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    // //TODO:! need to add this functionality. This is a placeholder
-    // function test_executeChangeReserveCurrencyProposal() public {
-    //     test_createChangeReserveCurrencyProposal();
-    //     vm.warp(block.timestamp + ONE_WEEK + 1);
-    //     castLongStakedVotes(SIMON, 0, true, 1);
-    //     vm.warp(block.timestamp + ONE_WEEK * 4);
-    //     bytes memory data = governance.proposals(1).data;
-    //     (address currencyToRemove_, address newReserveCurrency_) = abi.decode(data, (address, address));
-    //     governance.executeProposalAtWeek(0);
-    //     // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
-    //     // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
-    //     uint256 lastExecutedWeek = governance.lastExecutedWeek();
-    //     assertEq(lastExecutedWeek, 0);
-    // }
 
     function test_executeGCAElectionOrSlashProposal_rejectionShouldNotUpdateStateInTarget() public {
         test_createGCAElectionOrSlashProposal();

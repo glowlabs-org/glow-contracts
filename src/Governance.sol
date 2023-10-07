@@ -8,6 +8,7 @@ import {IGlow} from "@/interfaces/IGlow.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
+import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import "forge-std/console.sol";
 
 contract Governance is IGovernance {
@@ -376,14 +377,11 @@ contract Governance is IGovernance {
         }
 
         if (proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES) {
-            // (address[] memory reserveCurrencies) = abi.decode(proposal.data, (address[]));
-            // IGCA(_gca).setReserveCurrencies(reserveCurrencies);
-            //TODO: implement this <3
+            (address oldReserveCurrency, address newReserveCurrency) = abi.decode(data, (address, address));
+            IMinerPool(_gca).editReserveCurrencies(oldReserveCurrency, newReserveCurrency);
         }
 
         if (proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL) {
-            // (address grantsRecipient, uint256 amount) = abi.decode(proposal.data, (address, uint256));
-            // IGCA(_gca).setReserveCurrencies(reserveCurrencies);
             (address grantsRecipient, uint256 amount,) = abi.decode(data, (address, uint256, bytes32));
             bool success = IGrantsTreasury(_grantsTreasury).allocateGrantFunds(grantsRecipient, amount);
             //do something with success?
@@ -952,11 +950,12 @@ contract Governance is IGovernance {
      * @dev sets the proposal status for the most popular proposal at a given week
      * @param weekId the week id
      * @param status the status of the proposal
+     *  TODO: check the bitpos stuff
      */
     function _setMostPopularProposalStatus(uint256 weekId, IGovernance.ProposalStatus status) internal {
         //Each uint256 is 32 bytes, and can hold 32 uint8 statuses
         uint256 key = weekId / 32;
-        //Each enum takes up 8 bits
+        //Each enum takes up 8 bits since it's casted to a uint8
         uint256 shift = (weekId % 32) * 8;
         //8 bits << shift
         uint256 mask = uint256(0xff) << shift;

@@ -39,15 +39,6 @@ interface IGovernance {
         REQUEST_FOR_COMMENT
     }
 
-    // uint256 constant PENDING_MASK = 0x1;
-    // uint256 constant UNDER_REVIEW_FOR_APPROVAL_MASK = 0x2;
-    // uint256 constant REJECTED_BY_STAKERS_MASK = 0x4;
-    // uint256 constant APPROVED_MASK = 0x8;
-    // uint256 constant EXECUTED_WITH_ERROR_MASK = 0x10;
-    // uint256 constant EXECUTED_SUCCESSFULLY_MASK = 0x20;
-    // uint256 constant EXPIRED_MASK = 0x40;
-    // uint256 constant VETOED_MASK = 0x80;
-
     enum ProposalStatus {
         PENDING,
         UNDER_REVIEW_FOR_APPROVAL,
