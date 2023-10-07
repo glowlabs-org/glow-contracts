@@ -13,6 +13,7 @@ import {CarbonCreditAuction} from "@/CarbonCreditAuction.sol";
 import {Handler} from "./Handler.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {TestGLOW} from "@/testing/TestGLOW.sol";
 
 contract GCC_Test is Test {
     TestGCC public gcc;
@@ -22,16 +23,24 @@ contract GCC_Test is Test {
     address public SIMON;
     uint256 public SIMON_PK;
     Handler public handler;
+    address gca = address(0x155);
+    address vetoCouncil = address(0x156);
+    address grantsTreasury = address(0x157);
+    address glw;
+    TestGLOW glwContract;
+    address vestingContract = address(0x412412);
+    address earlyLiquidity = address(0x412412);
     address other = address(0xdead);
 
     function setUp() public {
-        // uint localFork = vm.createFork("http://127.0.0.1:8545/");
-        // vm.selectFork(localFork);
+        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
         auction = new CarbonCreditAuction();
         gcc = new TestGCC(address(auction), GCA_AND_MINER_POOL_CONTRACT, address(gov));
         handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
+        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = Handler.mintToCarbonCreditAuction.selector;

@@ -13,3 +13,5 @@ artifacts/
 typechain-types/
 
 report/
+
+lcov.info
