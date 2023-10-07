@@ -166,6 +166,88 @@ contract GovernanceTest is Test {
         assert(!diverged);
     }
 
+    function test_setContractAddresses() public {
+        //Make sure we don't start at 0
+        governance = new MockGovernance();
+        (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
+        vm.warp(10);
+        usdc = new MockUSDC();
+        glow = new TestGLOW(earlyLiquidity,vestingContract);
+        address[] memory temp = new address[](0);
+        grantsTreasury = new GrantsTreasury(address(glow), address(governance));
+        grantsTreasuryAddress = address(grantsTreasury);
+        vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
+        vetoCouncilAddress = address(vetoCouncil);
+        minerPoolAndGCA =
+        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress);
+        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
+        grc2 = new MockUSDC();
+        gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance));
+        // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
+        governance.setContractAddresses(
+            address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
+        );
+
+        vm.expectRevert(IGovernance.ContractsAlreadySet.selector);
+        governance.setContractAddresses(
+            address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
+        );
+    }
+
+    function test_setContractAddresses_noAddressCanBeZero() public {
+        //Make sure we don't start at 0
+        governance = new MockGovernance();
+        (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
+        vm.warp(10);
+        usdc = new MockUSDC();
+        glow = new TestGLOW(earlyLiquidity,vestingContract);
+        address[] memory temp = new address[](0);
+        grantsTreasury = new GrantsTreasury(address(glow), address(governance));
+        grantsTreasuryAddress = address(grantsTreasury);
+        vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
+        vetoCouncilAddress = address(vetoCouncil);
+        minerPoolAndGCA =
+        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress);
+        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
+        grc2 = new MockUSDC();
+        gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance));
+        // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
+        address _zero = address(0x0);
+
+        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
+        governance.setContractAddresses(
+            _zero, address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
+        );
+
+        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
+        governance.setContractAddresses(address(gcc), _zero, vetoCouncilAddress, grantsTreasuryAddress, address(glow));
+
+        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
+        governance.setContractAddresses(
+            address(gcc), address(minerPoolAndGCA), _zero, grantsTreasuryAddress, address(glow)
+        );
+
+        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
+        governance.setContractAddresses(
+            address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, _zero, address(glow)
+        );
+
+        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
+        governance.setContractAddresses(
+            address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, _zero
+        );
+
+        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
+        governance.setContractAddresses(_zero, _zero, _zero, _zero, _zero);
+    }
+
+    function test_updateLastExpiredProposalId() public {
+        test_createGrantsProposal();
+        vm.warp(block.timestamp + ONE_WEEK * 16 + 1);
+        governance.updateLastExpiredProposalId();
+        assertEq(governance.lastExpiredProposalId(), 1);
+    }
+
     function test_grantNomination_halfLifeShouldCorrectlyCalculate() public {
         test_grantNominations_fromGCC_shouldWork();
         vm.warp(block.timestamp + ONE_YEAR);
@@ -1039,6 +1121,36 @@ contract GovernanceTest is Test {
         vm.stopPrank();
     }
 
+    function test_ratifyProposal_afterVotingPeriodEnded_shouldRevert() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+        vm.warp(block.timestamp + (ONE_WEEK * 5) + 1);
+
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodEnded.selector);
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: true, numVotes: 100 ether});
+        vm.stopPrank();
+    }
+
+    function test_rejectProposal_afterVotingPeriodHasEnded_shouldRevert() public {
+        //Create one proposal
+        test_createChangeGCARequirementsProposal();
+
+        //Should be the most popular proposal now
+        vm.startPrank(SIMON);
+        glow.mint(SIMON, 100 ether);
+        glow.stake(100 ether);
+        vm.warp(block.timestamp + (ONE_WEEK * 5) + 1);
+
+        vm.expectRevert(IGovernance.RatifyOrRejectPeriodEnded.selector);
+        governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 100 ether});
+        vm.stopPrank();
+    }
+
     function test_vetoProposal_callerNotVetoCouncilMember() public {
         //Create one proposal
         test_createChangeGCARequirementsProposal();
@@ -1849,6 +1961,66 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + (ONE_WEEK * 4) - 1);
         vm.expectRevert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
         governance.executeProposalAtWeek(0);
+    }
+
+    function test_executeProposalsOutOfSync_shouldRevert() public {
+        test_createChangeGCARequirementsProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+
+        vm.expectRevert(IGovernance.ProposalsMustBeExecutedSynchonously.selector);
+        governance.executeProposalAtWeek(1);
+    }
+
+    function test_executeVetoedProposal_shouldUpdateState() public {
+        test_createChangeGCARequirementsProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
+        castLongStakedVotes(SIMON, 0, true, 1);
+        vm.startPrank(startingAgents[0]);
+        governance.vetoProposal(0);
+        vm.stopPrank();
+        vm.warp(block.timestamp + ONE_WEEK * 4);
+
+        governance.executeProposalAtWeek(0);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_executeProposalWithZeroVotes_shouldUpdateState() public {
+        test_createGCAElectionOrSlashProposal();
+        vm.warp(block.timestamp + (ONE_WEEK * 5) + 1);
+        governance.executeProposalAtWeek(0);
+        assertEq(governance.lastExecutedWeek(), 0);
+    }
+
+    /**
+     * - RFC proposals
+     *     - grants proposals
+     *     - and none proposals
+     */
+    function test_executeProposal_proposalThatCanBeExecutedAfterWeekEndWithZeroVotes_shouldUpdateState() public {
+        test_createRFCProposal();
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        governance.executeProposalAtWeek(0);
+        assertEq(governance.lastExecutedWeek(), 0);
+
+        //Create a grants proposal
+        vm.startPrank(SIMON);
+        uint256 nominationsToUse = governance.costForNewProposal();
+        gcc.mint(SIMON, nominationsToUse);
+        gcc.retireGCC(nominationsToUse, SIMON);
+        governance.createGrantsProposal(grantsRecipient, 10, keccak256("really good use"), nominationsToUse);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        governance.executeProposalAtWeek(1);
+        assertEq(governance.lastExecutedWeek(), 1);
+
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        governance.executeProposalAtWeek(2);
+        assertEq(governance.lastExecutedWeek(), 2);
     }
 
     //TODO: add zero tests to make sure we don't get division by zero errors.

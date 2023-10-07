@@ -18,6 +18,7 @@ contract Governance is IGovernance {
 
     /// @dev one point one in 64x64 fixed point
     int128 private constant _ONE_POINT_ONE_128 = (1 << 64) + 0x1999999999999a00;
+
     /// @dev The duration of a bucket: 1 week
     uint256 private constant _ONE_WEEK = uint256(7 days);
 
@@ -317,6 +318,7 @@ contract Governance is IGovernance {
                     return;
                 }
             }
+
             //Start C2:
             //C2 checks to see if there are enough ratify votes to execute the proposal
 
@@ -842,6 +844,7 @@ contract Governance is IGovernance {
      */
     function updateLastExpiredProposalId() public {
         (, uint256 _lastExpiredProposalId) = _numActiveProposalsAndLastExpiredProposalId();
+        console.log("lastExpiredProposalId: %s", _lastExpiredProposalId);
         lastExpiredProposalId = _lastExpiredProposalId;
     }
 
@@ -905,7 +908,7 @@ contract Governance is IGovernance {
      * @return proposalCount - the total number of proposals created
      * @dev we have to subtract 1 because we start at 1
      */
-    function proposalCount() external view returns (uint256) {
+    function proposalCount() public view returns (uint256) {
         return _proposalCount - 1;
     }
 
@@ -986,8 +989,9 @@ contract Governance is IGovernance {
         view
         returns (uint256 numActiveProposals, uint256 _lastExpiredProposalId)
     {
-        uint256 _lastExpiredProposalId = lastExpiredProposalId;
-        uint256 _proposalCount = _proposalCount;
+        _lastExpiredProposalId = lastExpiredProposalId;
+        uint256 __proposalCount = _proposalCount;
+        _lastExpiredProposalId = _lastExpiredProposalId == 0 ? 1 : _lastExpiredProposalId;
         unchecked {
             for (uint256 i = _lastExpiredProposalId; i < _proposalCount; ++i) {
                 if (_proposals[i].expirationTimestamp < block.timestamp) {
