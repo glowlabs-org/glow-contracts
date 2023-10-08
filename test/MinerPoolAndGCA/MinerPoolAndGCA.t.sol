@@ -23,7 +23,6 @@ import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
 import {BucketDelayHandler} from "./Handlers/BucketDelayHandler.sol";
 
-
 struct ClaimLeaf {
     address payoutWallet;
     uint256 glwWeight;
@@ -370,8 +369,8 @@ contract MinerPoolAndGCATest is Test {
 
     function test_withdrawFromBucket_shouldClaimMultipleGRCTokens() public {
         vm.startPrank(governance);
-       minerPoolAndGCA.editReserveCurrencies(address(0), address(grc2));
-       vm.stopPrank();
+        minerPoolAndGCA.editReserveCurrencies(address(0), address(grc2));
+        vm.stopPrank();
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
         uint256 amountGRC2_toDonate = 1_000 * 1e6;
@@ -1047,6 +1046,59 @@ contract MinerPoolAndGCATest is Test {
         newRandomGRC = address(0x421928138129381985);
         minerPoolAndGCA.editReserveCurrencies(address(0), newRandomGRC);
         assertEq(minerPoolAndGCA.numReserveCurrencies(), 3);
+    }
+
+    // the general rule for setting grc token is ---.....
+    // If it's the first time adding the grc token,
+    // then, the first added bucket id becomes current bucket + 16
+    // if the bucket has already been added
+    // if the current bucket is greater than the max bucket,
+    // then we set the first added bucket to current bucket + 16
+    // if the current bucket is not greater than the max bucket,
+    // then we don't change the struct since it still has periods to vest
+    function test_setGRCToken_addingNewTokenForFirstTime_shouldSetFirstBucketIdToCurrentBucketIdPlus16() public {
+        vm.warp(block.timestamp + ONE_WEEK * 192);
+        uint256 currentBucket = minerPoolAndGCA.currentBucket();
+        minerPoolAndGCA.setGRCToken(address(grc2), true, currentBucket);
+        BucketSubmission.BucketTracker memory bucketTracker = minerPoolAndGCA.bucketTracker(address(grc2));
+        donateToken(SIMON, address(grc2), 2000);
+        assertEq(bucketTracker.firstAddedBucketId, currentBucket + 16);
+    }
+
+    function test_setGRCToken_readdingToken_beforeAllVestingFinished_shouldNotChangeFirstAddedBucketId() public {
+        //Usdc starts out as the default grc
+        donateToken(SIMON, address(usdc), 1000);
+        vm.warp(block.timestamp + ONE_WEEK * 192);
+        //USDC should be vesting until 208, so we should not be able to change the first added bucket id
+        uint256 currentBucket = minerPoolAndGCA.currentBucket();
+        minerPoolAndGCA.setGRCToken(address(usdc), false, currentBucket);
+        BucketSubmission.BucketTracker memory bucketTracker = minerPoolAndGCA.bucketTracker(address(usdc));
+        assert(bucketTracker.firstAddedBucketId == 16);
+    }
+
+    function donateToken(address from, address token, uint256 amount) internal {
+        vm.startPrank(from);
+        MockUSDC(token).mint(from, amount);
+        MockUSDC(token).approve(address(minerPoolAndGCA), amount);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(token, amount);
+        vm.stopPrank();
+    }
+
+    function logBucketTracker(BucketSubmission.BucketTracker memory bucketTracker) internal {
+        console.log("----------------------------");
+        console.log("last updated bucket id ", bucketTracker.lastUpdatedBucket);
+        console.log("first added bucket id ", bucketTracker.firstAddedBucketId);
+        console.log("max bucket = %s", bucketTracker.maxBucketId);
+        console.log("isGRC ", bucketTracker.isGRC);
+        console.log("----------------------------");
+    }
+
+    function logWeeklyReward(BucketSubmission.WeeklyReward memory reward) internal {
+        console.log("----------------------------");
+        console.log("amount in bucket ", reward.amountInBucket);
+        console.log("amount to deduct ", reward.amountToDeduct);
+        console.log("inherited from last week ", reward.inheritedFromLastWeek);
+        console.log("----------------------------");
     }
 
     //------------------------ HELPERS -----------------------------

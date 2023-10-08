@@ -51,4 +51,8 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
     function getUserBitmapForBucket(uint256 bucketId, address user) public view returns (uint256) {
         return _getUserBitmapForBucket(bucketId, user);
     }
+
+    function setGRCToken(address grcToken, bool adding, uint256 currentBucket) public {
+        _setGRCToken(grcToken, adding, currentBucket);
+    }
 }

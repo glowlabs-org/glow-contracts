@@ -274,7 +274,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     //----------------- BUCKET DELAY -----------------//
 
-    function invariant_bucketDelayShouldSetBitmapCorrectly() public {}
     /**
      * @notice allows a veto council member to delay the finalization of a bucket
      * @dev the bucket must already be initialized in order to be delayed
@@ -282,7 +281,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @dev the bucket can be delayed multiple times
      * @param bucketId - the id of the bucket to delay
      */
-
     function delayBucketFinalization(uint256 bucketId) external {
         if (isBucketFinalized(bucketId)) {
             _revert(IGCA.BucketAlreadyFinalized.selector);
