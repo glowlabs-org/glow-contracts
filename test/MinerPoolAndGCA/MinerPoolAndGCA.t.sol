@@ -22,12 +22,7 @@ import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
 import {BucketDelayHandler} from "./Handlers/BucketDelayHandler.sol";
-/*
-TODO: 
-1. Add tests for also claiming GRC tokens
-2. Add tests for claiming multiple GRC tokens.
-3. Add test for claiming glw and grc at same time
-*/
+
 
 struct ClaimLeaf {
     address payoutWallet;
@@ -374,6 +369,9 @@ contract MinerPoolAndGCATest is Test {
     }
 
     function test_withdrawFromBucket_shouldClaimMultipleGRCTokens() public {
+        vm.startPrank(governance);
+       minerPoolAndGCA.editReserveCurrencies(address(0), address(grc2));
+       vm.stopPrank();
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
         uint256 amountGRC2_toDonate = 1_000 * 1e6;
@@ -382,6 +380,7 @@ contract MinerPoolAndGCATest is Test {
         grc2.mint(SIMON, amountGRC2_toDonate);
         grc2.approve(address(minerPoolAndGCA), amountGRC2_toDonate);
         minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), amountGRCToDonate);
+
         minerPoolAndGCA.donateToGRCMinerRewardsPool(address(grc2), amountGRC2_toDonate);
         vm.stopPrank();
 
@@ -731,262 +730,6 @@ contract MinerPoolAndGCATest is Test {
     }
 
     //************************************************************* */
-    //*************  ELECTRICITY FUTURE AUCTION TESTS   ************ */
-    //************************************************************* */
-
-    function test_createElectricityFutureAuction() public {
-        addGCA(SIMON);
-        vm.startPrank(SIMON);
-        uint256 auctionCount = minerPoolAndGCA.electricityFutureAuctionCount();
-        //should be the first
-        assertEq(auctionCount, 0);
-        bytes32 auctionHash = keccak256("Auction data");
-
-        uint256 creationTimestamp = block.timestamp;
-        //1 usdc minimum bid `1e6`
-        minerPoolAndGCA.createElectricityFutureAuction(address(usdc), auctionHash, 1e6);
-        assertEq(auctionCount + 1, minerPoolAndGCA.electricityFutureAuctionCount());
-
-        IMinerPool.ElectricityFutureAuction memory auctionData = minerPoolAndGCA.electricityFutureAuction(0);
-
-        assertEq(auctionData.grcToken, address(usdc));
-        assertEq(auctionData.hash, auctionHash);
-        assertEq(uint256(auctionData.minimumBid), uint256(1e6));
-        assertEq(auctionData.endTime, creationTimestamp + 604800);
-        assertEq(auctionData.highestBid, 0);
-        assertEq(auctionData.highestBidder, address(0));
-        vm.stopPrank();
-    }
-
-    function test_createElectricityFutureAuction_callerNotGCA_shouldRevert() public {
-        vm.startPrank(address(0xdead));
-        bytes32 auctionHash = keccak256("Auction data");
-
-        uint256 creationTimestamp = block.timestamp;
-        //1 usdc minimum bid `1e6`
-        vm.expectRevert(IGCA.CallerNotGCA.selector);
-        minerPoolAndGCA.createElectricityFutureAuction(address(usdc), auctionHash, 1e6);
-
-        vm.stopPrank();
-    }
-
-    function test_bidOnElectricityFuturesAuction() public {
-        test_createElectricityFutureAuction();
-
-        vm.startPrank(bidder1);
-        //Expires in one week
-        uint256 expiration = block.timestamp + 604800;
-        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder1, expiration);
-        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
-
-        usdc.mint(bidder1, 1e6);
-        usdc.approve(address(minerPoolAndGCA), 1e6);
-        // minerPoolAndGCA.bidOnFuturesAuction(auctionId, amount, expiration, gca, signature);
-        minerPoolAndGCA.bidOnFuturesAuction({
-            auctionId: 0,
-            amount: 1e6,
-            expiration: expiration,
-            gca: SIMON,
-            signature: authorizationSignature
-        });
-
-        IMinerPool.ElectricityFutureAuction memory auctionData = minerPoolAndGCA.electricityFutureAuction(0);
-
-        assertEq(auctionData.highestBid, 1e6);
-        assertEq(auctionData.highestBidder, bidder1);
-
-        //Since we are at bucket 0 when we deposit
-        unchecked {
-            for (uint256 i = 16; i < 208; ++i) {
-                BucketSubmission.WeeklyReward memory reward = minerPoolAndGCA.reward(address(usdc), i);
-                uint256 amount = reward.amountInBucket;
-                //Rewards vest over 192 weeks
-                assertEq(amount, uint256(1e6) / uint256(192));
-            }
-        }
-
-        vm.stopPrank();
-    }
-
-    function test_bidOnElectricityFuturesAuction_higherBidShouldReplaceLowerBid() public {
-        test_bidOnElectricityFuturesAuction();
-        vm.startPrank(bidder2);
-        usdc.mint(bidder2, 1e7);
-        usdc.approve(address(minerPoolAndGCA), 1e7);
-        uint256 expiration = block.timestamp + 604800;
-        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
-        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
-        minerPoolAndGCA.bidOnFuturesAuction({
-            auctionId: 0,
-            amount: 1e7,
-            expiration: expiration,
-            gca: SIMON,
-            signature: authorizationSignature
-        });
-
-        vm.stopPrank();
-
-        IMinerPool.ElectricityFutureAuction memory auctionData = minerPoolAndGCA.electricityFutureAuction(0);
-
-        assertEq(auctionData.highestBid, 1e7);
-        assertEq(auctionData.highestBidder, bidder2);
-    }
-
-    function test_bidOnElectricityFuturesAuction_auctionEnded_shouldRevert() public {
-        test_createElectricityFutureAuction();
-
-        vm.startPrank(bidder2);
-        usdc.mint(bidder2, 1e7);
-        IMinerPool.ElectricityFutureAuction memory auctionData = minerPoolAndGCA.electricityFutureAuction(0);
-        vm.warp(auctionData.endTime + 1);
-        usdc.approve(address(minerPoolAndGCA), 1e7);
-        uint256 expiration = block.timestamp + 604800;
-        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
-        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
-        vm.expectRevert(IMinerPool.ElectricityFuturesAuctionEnded.selector);
-        minerPoolAndGCA.bidOnFuturesAuction({
-            auctionId: 0,
-            amount: 1e7,
-            expiration: expiration,
-            gca: SIMON,
-            signature: authorizationSignature
-        });
-
-        vm.stopPrank();
-    }
-
-    function test_bidOnElectricityFuturesAuction_bidLessThanMinimumBid_shouldRevert() public {
-        test_createElectricityFutureAuction();
-        vm.startPrank(bidder2);
-        usdc.mint(bidder2, 1e6 - 1);
-        usdc.approve(address(minerPoolAndGCA), 1e6 - 1);
-        uint256 expiration = block.timestamp + 604800;
-        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
-        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
-        vm.expectRevert(IMinerPool.ElectricityFutureAuctionBidMustBeGreaterThanMinimumBid.selector);
-        minerPoolAndGCA.bidOnFuturesAuction({
-            auctionId: 0,
-            amount: 1e6 - 1,
-            expiration: expiration,
-            gca: SIMON,
-            signature: authorizationSignature
-        });
-
-        vm.stopPrank();
-    }
-
-    function test_bidOnElectricityFuturesAuction_bidLowerThanHighestBid_shouldRevert() public {
-        test_bidOnElectricityFuturesAuction_higherBidShouldReplaceLowerBid();
-        //highest bid should be 1e7 atm
-        vm.startPrank(bidder1);
-        usdc.mint(bidder1, 1e7 - 1);
-        usdc.approve(address(minerPoolAndGCA), 1e7 - 1);
-        uint256 expiration = block.timestamp + 604800;
-        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder1, expiration);
-        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
-
-        vm.expectRevert(IMinerPool.ElectricityFuturesAuctionBidTooLow.selector);
-        minerPoolAndGCA.bidOnFuturesAuction({
-            auctionId: 0,
-            amount: 1e7 - 1,
-            expiration: expiration,
-            gca: SIMON,
-            signature: authorizationSignature
-        });
-
-        vm.stopPrank();
-    }
-
-    function test_bidOnElectricityFuturesAuction_signatureExpirationInPast_shouldRevert() public {
-        test_createElectricityFutureAuction();
-        vm.startPrank(bidder1);
-        //Expires in one week
-        uint256 expiration = block.timestamp + 1000;
-        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder1, expiration);
-        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
-
-        vm.warp(expiration + 1);
-
-        usdc.mint(bidder1, 1e6);
-        usdc.approve(address(minerPoolAndGCA), 1e6);
-
-        vm.expectRevert(IMinerPool.ElectricityFuturesSignatureExpired.selector);
-        minerPoolAndGCA.bidOnFuturesAuction({
-            auctionId: 0,
-            amount: 1e6,
-            expiration: expiration,
-            gca: SIMON,
-            signature: authorizationSignature
-        });
-
-        vm.stopPrank();
-    }
-
-    function test_bidOnElectricityFuturesAuction_asymetricHash_shouldRevert() public {
-        test_createElectricityFutureAuction();
-        vm.startPrank(bidder2);
-        usdc.mint(bidder2, 1e6);
-        usdc.approve(address(minerPoolAndGCA), 1e6);
-        uint256 expiration = block.timestamp + 604800;
-        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
-        bytes memory authorizationSignature = _signDigest(SIMON_PRIVATE_KEY, digest);
-        vm.expectRevert(IMinerPool.ElectricityFuturesAuctionInvalidSignature.selector);
-        minerPoolAndGCA.bidOnFuturesAuction({
-            auctionId: 0,
-            amount: 1e6,
-            expiration: expiration - 1,
-            gca: SIMON,
-            signature: authorizationSignature
-        });
-
-        vm.stopPrank();
-    }
-
-    function test_bidOnElectricityFuturesAuction_nonGcaSignature_shouldRevert() public {
-        test_createElectricityFutureAuction();
-        (address nonGca, uint256 nonGcaPk) = _createAccount(0x2314231, type(uint256).max);
-
-        vm.startPrank(bidder2);
-        usdc.mint(bidder2, 1e6);
-        usdc.approve(address(minerPoolAndGCA), 1e6);
-        uint256 expiration = block.timestamp + 604800;
-        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
-        bytes memory authorizationSignature = _signDigest(nonGcaPk, digest);
-        vm.expectRevert(IMinerPool.SignerNotGCA.selector);
-        minerPoolAndGCA.bidOnFuturesAuction({
-            auctionId: 0,
-            amount: 1e6,
-            expiration: expiration,
-            gca: nonGca,
-            signature: authorizationSignature
-        });
-
-        vm.stopPrank();
-    }
-
-    function test_bidOnElectricityFuturesAuction_signerNotSignerInFunctionInputs_shouldRevert() public {
-        test_createElectricityFutureAuction();
-        (address nonGca, uint256 nonGcaPk) = _createAccount(0x2314231, type(uint256).max);
-
-        vm.startPrank(bidder2);
-        usdc.mint(bidder2, 1e6);
-        usdc.approve(address(minerPoolAndGCA), 1e6);
-        uint256 expiration = block.timestamp + 604800;
-        bytes32 digest = minerPoolAndGCA.constructElectricityFutureAuctionDigest(bidder2, expiration);
-        bytes memory authorizationSignature = _signDigest(nonGcaPk, digest);
-        vm.expectRevert(IMinerPool.ElectricityFuturesAuctionInvalidSignature.selector);
-        minerPoolAndGCA.bidOnFuturesAuction({
-            auctionId: 0,
-            amount: 1e6,
-            expiration: expiration,
-            gca: SIMON,
-            signature: authorizationSignature
-        });
-
-        vm.stopPrank();
-    }
-
-    //************************************************************* */
     //****************  DELAYING BUCKET TESTS   *************** */
     //************************************************************* */
 
@@ -1245,7 +988,69 @@ contract MinerPoolAndGCATest is Test {
         minerPoolAndGCA.donateToGRCMinerRewardsPoolEarlyLiquidity(address(usdc), amount);
     }
 
+    // add invariant to make sure there cna never be more than 3 GRC's
+    // at any point in time.
+    function test_editReserveCurrencies_swapOldForNew() public {
+        vm.startPrank(governance);
+        address newRandomGRC = address(0x421928138129381983);
+        minerPoolAndGCA.editReserveCurrencies(address(usdc), newRandomGRC);
+        BucketSubmission.BucketTracker memory bucketTrackerOld = minerPoolAndGCA.bucketTracker(address(usdc));
+        console.logBool(bucketTrackerOld.isGRC);
+
+        assertEq(bucketTrackerOld.isGRC, false);
+        BucketSubmission.BucketTracker memory bucketTrackerNew = minerPoolAndGCA.bucketTracker(newRandomGRC);
+        assertEq(bucketTrackerNew.isGRC, true);
+
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 1);
+        vm.stopPrank();
+    }
+
+    // add invariant to make sure there cna never be more than 3 GRC's
+    // at any point in time.
+    function test_editReserveCurrencies_shouldBeAbleToGetToZeroGRCs() public {
+        vm.startPrank(governance);
+        address newRandomGRC = address(0x421928138129381983);
+        minerPoolAndGCA.editReserveCurrencies(address(usdc), address(0));
+        BucketSubmission.BucketTracker memory bucketTrackerOld = minerPoolAndGCA.bucketTracker(address(usdc));
+        assertEq(bucketTrackerOld.isGRC, false);
+
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 0);
+        vm.stopPrank();
+    }
+
+    //We need to return if there's an underflow possibility
+    //so that governance can keep executing proposals
+    function test_editReserveCurrencies_potentialUnderflowShouldNotRevert() public {
+        vm.startPrank(governance);
+        address newRandomGRC = address(0x421928138129381983);
+        minerPoolAndGCA.editReserveCurrencies(address(usdc), address(0));
+        BucketSubmission.BucketTracker memory bucketTrackerOld = minerPoolAndGCA.bucketTracker(address(usdc));
+        assertEq(bucketTrackerOld.isGRC, false);
+
+        minerPoolAndGCA.editReserveCurrencies(address(usdc), address(0));
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 0);
+        vm.stopPrank();
+    }
+
+    //We need to return if there's an underflow possibility
+    //so that governance can keep executing proposals
+    function test_editReserveCurrencies_shouldNeverSurpassThreeReserveCurrencies() public {
+        vm.startPrank(governance);
+        address newRandomGRC = address(0x421928138129381983);
+        minerPoolAndGCA.editReserveCurrencies(address(0), newRandomGRC);
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 2);
+
+        newRandomGRC = address(0x421928138129381984);
+        minerPoolAndGCA.editReserveCurrencies(address(0), newRandomGRC);
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 3);
+
+        newRandomGRC = address(0x421928138129381985);
+        minerPoolAndGCA.editReserveCurrencies(address(0), newRandomGRC);
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 3);
+    }
+
     //------------------------ HELPERS -----------------------------
+
     function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
         address[] memory addresses = new address[](numAddresses);
         for (uint256 i = 0; i < numAddresses; ++i) {

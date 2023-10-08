@@ -40,6 +40,15 @@ interface IMinerPool {
     function donateToGRCMinerRewardsPoolEarlyLiquidity(address grcToken, uint256 amount) external;
 
     /**
+     * @notice governance uses this function to set the grc tokens
+     * @param oldReserveCurrency - the old grc token
+     *         -   zero address indicates that we are not removing any grc token
+     * @param newReserveCurrency - the new grc token
+     *         -   zero address indicates that we are not adding a new grc token
+     */
+    function editReserveCurrencies(address oldReserveCurrency, address newReserveCurrency) external returns (bool);
+
+    /**
      * @param grcToken - the address of the grc token
      * @param hash - the hash of the auction data
      * @param minimumBid - the minimum bid for the auction

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.21;
 
+import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import "forge-std/console.sol";
 
 contract BucketSubmission {
@@ -10,6 +11,7 @@ contract BucketSubmission {
      *         -   The first bucket to receive grc is the current bucket + 16
      *         -   The last bucket to receive grc is the current bucket + 208
      */
+
     uint256 public constant OFFSET_LEFT = 16;
 
     /**
@@ -29,7 +31,7 @@ contract BucketSubmission {
     mapping(uint256 => mapping(address => WeeklyReward)) public rewards;
 
     /// @notice grcToken -> bucketTracker
-    mapping(address => BucketTracker) public bucketTracker;
+    mapping(address => BucketTracker) internal bucketTrackerStorage;
 
     /**
      * @dev a helper to keep track of last updated bucket ids for buckets
@@ -67,7 +69,7 @@ contract BucketSubmission {
     }
 
     //************************************************************* */
-    //*****************  EXTERNAL STATE CHANGING FUNCS  ************** */
+    //*****************  INTERNAL STATE CHANGING FUNCS  ************** */
     //************************************************************* */
 
     function _addToCurrentBucket(address grcToken, uint256 amount) internal {
@@ -75,15 +77,18 @@ contract BucketSubmission {
         uint256 bucketToAddTo = currentBucketId + OFFSET_LEFT;
         uint256 bucketToDeductFrom = bucketToAddTo + TOTAL_VESTING_PERIODS;
         uint256 amountToAddOrSubtract = amount / TOTAL_VESTING_PERIODS;
-        BucketTracker memory _bucketTracker = bucketTracker[grcToken];
+        BucketTracker memory _bucketTracker = bucketTrackerStorage[grcToken];
 
+        if (!_bucketTracker.isGRC) {
+            revert IMinerPool.NotGRCToken();
+        }
         if (currentBucketId == 0) {
             rewards[bucketToAddTo][grcToken].amountInBucket += amountToAddOrSubtract;
             rewards[bucketToDeductFrom][grcToken].amountToDeduct += amountToAddOrSubtract;
             rewards[bucketToAddTo][grcToken].inheritedFromLastWeek = true;
             if (_bucketTracker.lastUpdatedBucket != bucketToAddTo) {
                 //TODO: Could also swtich to true for the last param since we check in the external func
-                bucketTracker[grcToken] = BucketTracker(
+                bucketTrackerStorage[grcToken] = BucketTracker(
                     uint48(bucketToAddTo),
                     uint48(bucketToAddTo + TOTAL_VESTING_PERIODS - 1),
                     _bucketTracker.firstAddedBucketId,
@@ -124,7 +129,7 @@ contract BucketSubmission {
             WeeklyReward(true, (lastBucket.amountInBucket + amountToAddOrSubtract) - totalToDeductFromBucket, 0);
 
         if (_bucketTracker.lastUpdatedBucket != bucketToAddTo) {
-            bucketTracker[grcToken] = BucketTracker(
+            bucketTrackerStorage[grcToken] = BucketTracker(
                 uint48(bucketToAddTo),
                 uint48(bucketToAddTo + TOTAL_VESTING_PERIODS - 1),
                 _bucketTracker.firstAddedBucketId,
@@ -203,7 +208,7 @@ contract BucketSubmission {
         // If the index to search for is greater than the maxBucketId
         // than that means all the tokens would have vested,
         // So we return the empty bucket
-        BucketTracker memory _bucketTracker = bucketTracker[grcToken];
+        BucketTracker memory _bucketTracker = bucketTrackerStorage[grcToken];
         if (id > _bucketTracker.maxBucketId) {
             return (bucket, false);
         }
@@ -239,9 +244,12 @@ contract BucketSubmission {
      * @param grcToken - the address of the token
      * @param adding - if true, this adds the token to the allowed grcTokens
      *                     - else it removes it
+     * TODO: make sure the caching is there in the getters to get gas savings on backwards traversal
      */
-    function _setGRCToken(address grcToken, bool adding, uint256 currentBucket) internal {
-        BucketTracker storage _bucketTracker = bucketTracker[grcToken];
+    function _setGRCToken(address grcToken, bool adding, uint256 currentBucket) internal returns (bool) {
+        BucketTracker storage _bucketTracker = bucketTrackerStorage[grcToken];
+        bool isGRC = _bucketTracker.isGRC;
+
         if (adding) {
             // If this is the first time making the token a GRC
             // the firstAddedBucketId will be zero, so we need to set it.
@@ -250,12 +258,22 @@ contract BucketSubmission {
             if (_bucketTracker.firstAddedBucketId == 0 || currentBucket > _bucketTracker.maxBucketId) {
                 _bucketTracker.firstAddedBucketId = uint48(currentBucket + OFFSET_LEFT);
             }
-            if (!_bucketTracker.isGRC) {
-                _bucketTracker.isGRC = true;
+            if (isGRC) {
+                //we return false if the token is already a GRC
+                //because we cant add a token that is already a grc
+                return false;
             }
+            _bucketTracker.isGRC = true;
         } else {
+            //we return false if the token is not a grc
+            //because we cant remove a token that is not a grc
+            if (!isGRC) {
+                return false;
+            }
+
             _bucketTracker.isGRC = false;
         }
+        return true;
     }
 
     /**
@@ -273,6 +291,9 @@ contract BucketSubmission {
         return reward.amountInBucket;
     }
 
+    function bucketTracker(address grcToken) external view returns (BucketTracker memory) {
+        return bucketTrackerStorage[grcToken];
+    }
     //************************************************************* */
     //**************  INTERNAL/PRIVATE VIEW  ************ */
     //************************************************************* */

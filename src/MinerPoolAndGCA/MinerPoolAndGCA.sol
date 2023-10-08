@@ -15,7 +15,7 @@ import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
-
+import "forge-std/console.sol";
 /**
  * TODO:
  * Add tests for all the claim stuff
@@ -26,13 +26,9 @@ import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
  * add tests for withdrawing from reinstated buckets
  * add 1 week delay on grc withdrawals :)
  */
+
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
-
-    /// @notice the typehash for the electricity future auction authorization
-    /// @dev this is used for the EIP712 signature when gca's authorize bidders
-    bytes32 public constant ELECTRICITY_FUTURES_TYPEHASH =
-        keccak256("ElectricityFutureAuctionAuthorization(address bidder,uint256 expirationTimestamp)");
 
     // /// @notice the maximum length of an authorization
     // /// @dev a signature can only last 16 weeks
@@ -47,12 +43,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     address private immutable _CARBON_CREDIT_AUCTION;
 
     address private immutable _VETO_COUNCIL;
-
-    /**
-     * @notice the total amount of glow rewards available for farms per bucket
-     */
-    uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
-
     /**
      * @dev the amount to increase the finalization timestamp of a bucket by
      *             -   only veto council agents can delay a bucket.
@@ -60,14 +50,16 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     uint256 private constant _BUCKET_DELAY_LENGTH = uint256(7 days) * 13;
 
-    //----------------- STATE VARIABLES -----------------//
+    uint256 private constant _BITS_IN_UINT = 256;
 
     /**
-     * @notice a counter for the electricity future auctions
+     * @notice the total amount of glow rewards available for farms per bucket
      */
-    uint256 public electricityFutureAuctionCount;
+    uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
 
-    uint256 private constant _BITS_IN_UINT = 256;
+    uint256 private constant _MAX_RESERVE_CURRENCIES = 3;
+
+    uint256 public numReserveCurrencies;
 
     //----------------- MAPPINGS -----------------//
 
@@ -76,11 +68,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint248 firstAddedBucketId;
         bool isGRC;
     }
-
-    /**
-     *  @notice a mapping o4f auction id -> auction data
-     */
-    mapping(uint256 => IMinerPool.ElectricityFutureAuction) private _electricityFutureAuctions;
 
     /**
      * @dev a mapping of (bucketId / 256) -> user -> bitmap
@@ -125,96 +112,68 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _CARBON_CREDIT_AUCTION = _carbonCreditAuction;
         _VETO_COUNCIL = _vetoCouncil;
         _setGRCToken(_grcToken, true, 0);
+        ++numReserveCurrencies;
     }
 
     //************************************************************* */
     //***********  EXTERNAL/PUBLIC STATE CHANGING FUNCS    ******** */
     //************************************************************* */
 
-    //----------------- ELECTRICITY FUTURE AUCTIONS -----------------//
-
-    /**
-     * @notice allows GCA's to create a new electricity future auction
-     * @param grcToken - the address of the grc token to conduct the auction in
-     * @param hash - the hash of the auction data
-     *                         -   should be available off-chain
-     * @param minimumBid - the minimum bid for the auction
-     */
-    function createElectricityFutureAuction(address grcToken, bytes32 hash, uint256 minimumBid) external {
-        //TODO: need to add check if it's a valid grc token...
-        if (!isGCA(msg.sender)) _revert(IGCA.CallerNotGCA.selector);
-        //current time + 1 week
-        uint64 endTime = uint64(block.timestamp + 604800);
-        _electricityFutureAuctions[electricityFutureAuctionCount] = ElectricityFutureAuction({
-            grcToken: grcToken,
-            hash: hash,
-            minimumBid: uint192(minimumBid),
-            endTime: endTime,
-            highestBid: 0,
-            highestBidder: address(0)
-        });
-        emit IMinerPool.ElectricityFutureAuctionCreated(
-            electricityFutureAuctionCount, grcToken, hash, minimumBid, endTime
-        );
-        ++electricityFutureAuctionCount;
-    }
-
-    /**
-     * @notice entrypoint for an authorized bidder to bid on an electricity future auction
-     * @param auctionId - the id of the auction
-     * @param amount - the amount of the bid in the grc token of the auction
-     * @param expiration - the expiration timestamp of the authorization signature in seconds
-     * @param gca - the address of the gca that authorized the bidder
-     *                 -   must be an active gca
-     * @param signature - the signature of the authorization
-     *                     -   the signature cannot be expired
-     */
-    function bidOnFuturesAuction(
-        uint256 auctionId,
-        uint256 amount,
-        uint256 expiration,
-        address gca,
-        bytes calldata signature
-    ) external {
-        ElectricityFutureAuction memory auction = _electricityFutureAuctions[auctionId];
-        if (block.timestamp > auction.endTime) {
-            _revert(IMinerPool.ElectricityFuturesAuctionEnded.selector);
-        }
-        if (amount < auction.minimumBid) {
-            _revert(IMinerPool.ElectricityFutureAuctionBidMustBeGreaterThanMinimumBid.selector);
-        }
-        if (amount < auction.highestBid) {
-            _revert(IMinerPool.ElectricityFuturesAuctionBidTooLow.selector);
-        }
-
-        if (block.timestamp > expiration) {
-            _revert(IMinerPool.ElectricityFuturesSignatureExpired.selector);
-        }
-
-        if (!isGCA(gca)) _revert(IMinerPool.SignerNotGCA.selector);
-
-        bytes32 digest = _constructElectricityFutureAuctionDigest(msg.sender, expiration);
-        if (!SignatureChecker.isValidSignatureNow(gca, digest, signature)) {
-            _revert(IMinerPool.ElectricityFuturesAuctionInvalidSignature.selector);
-        }
-
-        IERC20 grcToken = IERC20(auction.grcToken);
-
-        SafeERC20.safeTransferFrom(grcToken, msg.sender, address(this), amount);
-
-        _electricityFutureAuctions[auctionId].highestBid = amount;
-        _electricityFutureAuctions[auctionId].highestBidder = msg.sender;
-        _addToCurrentBucket(auction.grcToken, amount);
-        emit IMinerPool.FuturesBid(msg.sender, auctionId, amount);
-    }
-
     //----------------- DONATIONS -----------------//
 
     //     TODO: token whitelist
+    //TODO: make sure all gov functions can never revert
+    function editReserveCurrencies(address oldReserveCurrency, address newReserveCurrency) external returns (bool) {
+        if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
 
+        uint256 numCurrenciesToAdd = _isZeroAddress(newReserveCurrency) ? 0 : 1;
+        uint256 numCurrenciesToRemove = _isZeroAddress(oldReserveCurrency) ? 0 : 1;
+
+        uint256 _numReserveCurrencies = numReserveCurrencies;
+
+        //Need to handle the case where we could get an underflow revert
+        if (_numReserveCurrencies == 0) {
+            //We can't remove a currency if there are no currencies
+            if (numCurrenciesToRemove > 0) {
+                return false;
+            }
+        }
+
+        _numReserveCurrencies = (_numReserveCurrencies + numCurrenciesToAdd) - numCurrenciesToRemove;
+        if (_numReserveCurrencies > _MAX_RESERVE_CURRENCIES) {
+            return false;
+        }
+
+        uint256 _currentBucket = currentBucket();
+        //If we're not dealing with the zero address,
+        // then we add the new currency to the current bucket
+        if (numCurrenciesToAdd > 0) {
+            if (!_setGRCToken(newReserveCurrency, true, _currentBucket)) {
+                return false;
+            }
+        }
+
+        //if we're not dealing with the zero address,
+        // then we remove the old currency from the current bucket
+        if (numCurrenciesToRemove > 0) {
+            if (!_setGRCToken(oldReserveCurrency, false, _currentBucket)) {
+                return false;
+            }
+        }
+        numReserveCurrencies = _numReserveCurrencies;
+        //emit an event
+        return true;
+    }
+
+    function _isZeroAddress(address addr) internal pure returns (bool res) {
+        assembly {
+            res := iszero(addr)
+        }
+    }
     /**
      * @inheritdoc IMinerPool
      */
+
     function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
         // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
         uint256 balBefore = IERC20(grcToken).balanceOf(address(this));
@@ -372,10 +331,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         return _EARLY_LIQUIDITY;
     }
 
-    function electricityFutureAuction(uint256 id) external view returns (ElectricityFutureAuction memory) {
-        return _electricityFutureAuctions[id];
-    }
-
     //************************************************************* */
     //*************  INTERNAL STATE CHANGING FUNCS   ************ */
     //************************************************************* */
@@ -478,19 +433,5 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     function _genesisTimestamp() internal view override(BucketSubmission) returns (uint256) {
         return GENESIS_TIMESTAMP;
-    }
-
-    /**
-     * @dev used internally to construct the digest for the electricity future auction authorization
-     * @param bidder - the address of the bidder
-     * @param expiration - the expiration timestamp of the authorization
-     * @return digest - the digest of the authorization
-     */
-    function _constructElectricityFutureAuctionDigest(address bidder, uint256 expiration)
-        internal
-        view
-        returns (bytes32)
-    {
-        return _hashTypedDataV4(keccak256(abi.encode(ELECTRICITY_FUTURES_TYPEHASH, bidder, expiration)));
     }
 }

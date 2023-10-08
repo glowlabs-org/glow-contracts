@@ -43,10 +43,6 @@ interface IVetoCouncil {
      */
     function nextReward(address account) external view returns (uint256 rewardNow, uint256 vestingAmount);
 
-    /// @notice returns the number of council members
-    /// @return  - all the council members
-    function allVetoAgents() external view returns (address[] memory);
-
     /**
      * @notice a struct to hold the payment details of a council member
      * @param lastUpdatedTimestamp - the timestamp of the last update

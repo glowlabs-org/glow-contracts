@@ -3,6 +3,8 @@
 install-solc :; pip install solc-select
 install-solc-0.8.21 :; solc-select install 0.8.21
 use-solc-0.8.21 :; solc-select use 0.8.21
+compile-rust :;  rustc test/Governance/ffi/half_life.rs --out-dir  ./test/Governance/ffi/  && \
+				rustc test/Governance/ffi/divergence_check.rs --out-dir  ./test/Governance/ffi/  
 
 
 # --- [Gen HTML] requires linux or wsl
