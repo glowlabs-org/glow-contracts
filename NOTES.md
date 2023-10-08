@@ -48,4 +48,4 @@ According to some tests I ran, cost about 15K gas for a half life calculation
 
 ---NOTES:
 1. list max and min gas prices for each major function
-2. min increment for anything smaller than 1 ether fails, so we can't decrease the min increment
+2. min increment for anything smaller than 1 ether fails, so we can't decrease the min increment3
