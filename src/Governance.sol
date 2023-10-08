@@ -14,13 +14,20 @@ import "forge-std/console.sol";
 contract Governance is IGovernance {
     using ABDKMath64x64 for int128;
 
-    /// @dev one in 64x64 fixed point
+    /**
+     * @dev one in 64x64 fixed point
+     */
     int128 private constant _ONE_64x64 = (1 << 64);
 
-    /// @dev one point one in 64x64 fixed point
+    /**
+     * @dev 1.1 in 128x128 fixed point
+     * @dev used in the half life formula
+     */
     int128 private constant _ONE_POINT_ONE_128 = (1 << 64) + 0x1999999999999a00;
 
-    /// @dev The duration of a bucket: 1 week
+    /**
+     * @dev The duration of a bucket: 1 week
+     */
     uint256 private constant _ONE_WEEK = uint256(7 days);
 
     /**
@@ -28,13 +35,27 @@ contract Governance is IGovernance {
      */
     uint256 private constant _MAX_PROPOSAL_DURATION = 9676800;
 
-    /// @dev the maximum number of weeks a proposal can be ratified or rejected
-    ///      - from the time it it has been finalized (i.e. the week has passed)
-    /// For example: If proposal 1 is the most popular proposal for week 2, then it can be ratified or rejected until the end of week 6
+    /**
+     *   @dev the maximum number of weeks a proposal can be ratified or rejected
+     *      - from the time it it has been finalized (i.e. the week has passed)
+     *  For example: If proposal 1 is the most popular proposal for week 2, then it can be ratified or rejected until the end of week 6
+     */
     uint256 private constant _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL = 4;
 
+    /**
+     * @dev The percentage of ratify to reject votes that is required to execute a proposal
+     * @dev exceptions are noted in the implemntation of executeProposalAtWeek
+     */
     uint256 private constant _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL = 60; //60%
+
+    /**
+     * @dev there can be a maximum of 5 endorsements on a GCA election proposal
+     */
     uint256 private constant _MAX_ENDORSEMENTS_ON_GCA_PROPOSALS = 5;
+
+    /**
+     * @dev each endorsement decreases the required percentage to execute a GCA election proposal by 5%
+     */
     uint256 private constant _ENDORSEMENT_WEIGHT = 5;
 
     /**
@@ -159,9 +180,29 @@ contract Governance is IGovernance {
     /// @dev each uint256 is 32 bytes, so we can store 32 statuses in a single uint256
     mapping(uint256 => uint256) private _packedMostPopularProposalStatusByWeek;
 
+    /**
+     * @notice the number of endorsements on the most popular proposal at a given week
+     * @dev only GCA elections can be endorsed
+     * @dev only veto council members can endorse a proposal
+     * @dev an endorsement represents a 5% drop to the default percentage to execute a proposal
+     * @dev the default percentage to execute a proposal is 60%
+     * @dev the weight of an endorsement is 5%
+     * @dev the minimum percentage to execute GCA election proposal is 35%
+     *             -  that means there can be a maximumn of 5 endorsements on a GCA election proposal
+     */
     mapping(uint256 => uint256) public numEndorsementsOnWeek;
+
+    /**
+     * @dev veto council agent -> key -> bitmap
+     * @dev one mapping slot holds 256 bits
+     *             - each bit represents a week
+     *             - if the bit is set, then the veto council agent has vetoed the most popular proposal for that week
+     */
     mapping(address => mapping(uint256 => uint256)) private _hasEndorsedProposalBitmap;
 
+    /**
+     * @inheritdoc IGovernance
+     */
     function executeProposalAtWeek(uint256 week) public {
         uint256 _nextProposalToExecute = lastExecutedWeek;
         unchecked {
@@ -260,6 +301,9 @@ contract Governance is IGovernance {
         lastExecutedWeek = week;
     }
 
+    /**
+     * @inheritdoc IGovernance
+     */
     function syncProposals() public {
         uint256 currentWeek = currentWeek();
         if (currentWeek == 0) return;

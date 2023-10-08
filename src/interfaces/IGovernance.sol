@@ -81,6 +81,22 @@ interface IGovernance {
     function grantNominations(address to, uint256 amount) external;
 
     /**
+     * @notice Executes a most popular proposal at a given week
+     * @dev a proposal that has not been ratified or rejected can be executed
+     *         - but should never make any changes to the system (exceptions are detailed in the implementation)
+     * @dev proposals that have met their requirements to perform state changes are executed as well
+     * @dev no execution of any proposal should ever revert as this will freeze the governance contract
+     * @param weekId the weekId that containst the 'mostPopularProposal' at that week
+     * @dev proposals must be executed synchronously to ensure that the state of the system is consistent
+     */
+    function executeProposalAtWeek(uint256 weekId) external;
+
+    /**
+     * @notice syncs all proposals that must be synced
+     */
+    function syncProposals() external;
+
+    /**
      * @notice Emitted when a Veto Council Election or Slash proposal is created
      * @param proposalId the id of the proposal
      * @param proposer the address of the proposer
