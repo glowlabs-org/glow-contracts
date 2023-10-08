@@ -29,12 +29,12 @@ contract SetMostPopularProposalTest is Test {
      *     Side Note For Self: This may break once I add dynamic statuses
      */
     function invariant_setProposalStatus_shouldCorrectlySet() public {
-        uint256[] memory weekIds = handler.allIds();
+        uint256[] memory proposalIds = handler.allIds();
         unchecked {
-            for (uint256 i = 0; i < weekIds.length; ++i) {
-                uint256 weekId = weekIds[i];
-                IGovernance.ProposalStatus statusFromHandler = handler.mostPopularProposalStatus(weekId);
-                IGovernance.ProposalStatus statusFromGovernance = governance.getMostPopularProposalStatus(weekId);
+            for (uint256 i = 0; i < proposalIds.length; ++i) {
+                uint256 proposalId = proposalIds[i];
+                IGovernance.ProposalStatus statusFromHandler = handler.mostPopularProposalStatus(proposalId);
+                IGovernance.ProposalStatus statusFromGovernance = governance.getProposalStatus(proposalId);
                 assertEq(uint256(statusFromHandler), uint256(statusFromGovernance));
             }
         }

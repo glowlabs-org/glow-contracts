@@ -1112,9 +1112,9 @@ contract GovernanceTest is Test {
         glow.stake(100 ether);
         vm.warp(block.timestamp + ONE_WEEK + 1);
 
-        governance.vetoProposal(0);
+        governance.vetoProposal(0, 1);
 
-        IGovernance.ProposalStatus status = governance.getMostPopularProposalStatus(0);
+        IGovernance.ProposalStatus status = governance.getProposalStatus(1);
         assertEq(uint256(status), uint256(IGovernance.ProposalStatus.VETOED));
         vm.expectRevert(IGovernance.ProposalAlreadyVetoed.selector);
         governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: true, numVotes: 100 ether});
@@ -1162,7 +1162,7 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK + 1);
 
         vm.expectRevert(IGovernance.CallerNotVetoCouncilMember.selector);
-        governance.vetoProposal(0);
+        governance.vetoProposal(0, 1);
         vm.stopPrank();
     }
 
@@ -1173,14 +1173,14 @@ contract GovernanceTest is Test {
         //Should be the most popular proposal now
         vm.startPrank(SIMON);
         vm.expectRevert(IGovernance.WeekNotFinalized.selector);
-        governance.vetoProposal(0);
+        governance.vetoProposal(0, 1);
         vm.stopPrank();
     }
 
     function test_vetoProposal_futureWeek_shouldRevert() public {
         vm.startPrank(SIMON);
-        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
-        governance.vetoProposal(1);
+        vm.expectRevert(IGovernance.ProposalIdDoesNotMatchMostPopularProposal.selector);
+        governance.vetoProposal(1, 1);
         vm.stopPrank();
     }
 
@@ -1192,7 +1192,7 @@ contract GovernanceTest is Test {
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + (ONE_WEEK * 5) + 1);
         vm.expectRevert(IGovernance.RatifyOrRejectPeriodEnded.selector);
-        governance.vetoProposal(0);
+        governance.vetoProposal(0, 1);
         vm.stopPrank();
     }
 
@@ -1202,7 +1202,7 @@ contract GovernanceTest is Test {
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + ONE_WEEK);
         vm.expectRevert(IGovernance.VetoCouncilElectionsCannotBeVetoed.selector);
-        governance.vetoProposal(0);
+        governance.vetoProposal(0, 1);
         vm.stopPrank();
     }
 
@@ -1212,7 +1212,7 @@ contract GovernanceTest is Test {
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + ONE_WEEK);
         vm.expectRevert(IGovernance.GCACouncilElectionsCannotBeVetoed.selector);
-        governance.vetoProposal(0);
+        governance.vetoProposal(0, 1);
         vm.stopPrank();
     }
 
@@ -1395,16 +1395,15 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 4);
     }
 
-    //TODO: long stakers shouldnt be able to vote on grants proposals.
-    //TODO: check all end timestamps on grants proposals
-    function test_syncGrantsProposal_rejection_ShouldNotUpdateRecipientBalance() public {
+    //Grants proposals dont need to be ratified, so we can just execute them right away
+    function test_syncGrantsProposal_rejection_ShouldUpdateRecipientBalance() public {
         test_createGrantsProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.syncProposals();
         uint256 balance = grantsTreasury.recipientBalance(grantsRecipient);
-        assert(balance == 0);
+        assert(balance > 0);
         // vm.startPrank(grantsRecipient);
         // grantsTreasury.claimGrantReward();
         // vm.stopPrank();
@@ -1427,18 +1426,19 @@ contract GovernanceTest is Test {
     {
         test_createGrantsProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
-        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
 
-        castLongStakedVotes(SIMON, 0, true, 1);
+        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        console.log("last executed week = ", lastExecutedWeek);
+        // castLongStakedVotes(SIMON, 0, true, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.syncProposals();
         uint256 balance = grantsTreasury.recipientBalance(grantsRecipient);
+        // console.log("balance = ", balance);
         assert(balance > 0);
-        // vm.startPrank(grantsRecipient);
-        // grantsTreasury.claimGrantReward();
-        // vm.stopPrank();
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        console.log("last executed week = ", lastExecutedWeek);
+        vm.startPrank(grantsRecipient);
+        grantsTreasury.claimGrantReward();
+        vm.stopPrank();
         /**
          * [week 0] - create proposal
          *         [week 1] - create veto council election proposal
@@ -1460,13 +1460,13 @@ contract GovernanceTest is Test {
         test_createRFCProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
-        castLongStakedVotes(SIMON, 0, true, 1);
+        //We actually don't need this syncProposals call since
+        //{createVetoCouncilElectionOrSlashProposal} alreadys calls it in the {retireGCC} method
         governance.syncProposals();
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
-    //TODO:! need to add this functionality. This is a placeholder
     function test_syncChangeReserveCurrencyProposal() public {
         test_createChangeReserveCurrencyProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -1481,7 +1481,6 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 4);
     }
 
-    //TODO:! need to add this functionality. This is a placeholder
     function test_syncChangeReserveCurrencyProposal_rejectionShouldNotUpdateState() public {
         test_createChangeReserveCurrencyProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -1496,7 +1495,6 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 4);
     }
 
-    //TODO:! need to add this functionality. This is a placeholder
     function test_syncChangeReserveCurrencyProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
     ) public {
         test_createChangeReserveCurrencyProposal();
@@ -1660,6 +1658,7 @@ contract GovernanceTest is Test {
         governance.syncProposals();
         assertEq(minerPoolAndGCA.requirementsHash(), expectedHash);
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        console.log("last executed week = ", lastExecutedWeek);
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1727,7 +1726,6 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    //TODO:! need to add this functionality. This is a placeholder
     function test_executeChangeReserveCurrencyProposal() public {
         test_createChangeReserveCurrencyProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -1742,16 +1740,16 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_executeGrantsProposal_rejectionShouldNotUpdateStateInTarget() public {
+    function test_executeGrantsProposal_rejectionShouldUpdateStateInTarget() public {
+        //Grants proposals dont need to be ratified to be executed
         test_createGrantsProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.executeProposalAtWeek(0);
         uint256 balance = grantsTreasury.recipientBalance(grantsRecipient);
-        assert(balance == 0);
+        assert(balance > 0);
         vm.startPrank(grantsRecipient);
-        vm.expectRevert();
         grantsTreasury.claimGrantReward();
         vm.stopPrank();
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
@@ -1811,6 +1809,54 @@ contract GovernanceTest is Test {
         assert(vetoCouncil.isCouncilMember(oldAgent_));
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
+    }
+
+    function test_executingSameProposalTwice_shouldNotCreateStateChanges() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+        vm.stopPrank();
+        uint256 cost = governance.costForNewProposal();
+        bytes32 newRequirementsHash = keccak256("new hash");
+        vm.startPrank(SIMON);
+        governance.createChangeGCARequirementsProposal(newRequirementsHash, cost);
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        vm.stopPrank();
+
+        castLongStakedVotes(SIMON, 0, true, 1);
+
+        vm.startPrank(SIMON);
+        //Create a new proposal that will also become the most popular and will eventually get executed
+        cost = governance.costForNewProposal();
+        bytes32 secondNewRequirementsHash = keccak256("second new hash");
+        governance.createChangeGCARequirementsProposal(secondNewRequirementsHash, cost);
+        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        vm.stopPrank();
+
+        castLongStakedVotes(SIMON, 1, true, 1);
+
+        vm.startPrank(SIMON);
+        governance.useNominationsOnProposal(1, 100);
+        assertEq(governance.mostPopularProposal(governance.currentWeek()), 1);
+        governance.useNominationsOnProposal(1, 100);
+        // Warp forward to make sure we can execute all proposals in one go
+        vm.warp(block.timestamp + ONE_WEEK + 1);
+        vm.stopPrank();
+
+        castLongStakedVotes(SIMON, 2, true, 1);
+        assert(minerPoolAndGCA.requirementsHash() != newRequirementsHash);
+        assert(minerPoolAndGCA.requirementsHash() != secondNewRequirementsHash);
+
+        vm.warp(block.timestamp + ONE_WEEK * 4 + 1);
+        governance.syncProposals();
+
+        bytes32 actualRequirementsHash = minerPoolAndGCA.requirementsHash();
+
+        //The second proposal should have been executed
+        //and the third week should not have changed the requirements hash
+        //since the proposal was already executed
+        assert(minerPoolAndGCA.requirementsHash() == secondNewRequirementsHash);
     }
 
     function testFuzz_executeChangeGCARequirements_withEndorsement(uint256 numEndorsements) public {
@@ -1964,7 +2010,7 @@ contract GovernanceTest is Test {
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
         castLongStakedVotes(SIMON, 0, true, 1);
         vm.startPrank(startingAgents[0]);
-        governance.vetoProposal(0);
+        governance.vetoProposal(0, 1);
         vm.stopPrank();
         vm.warp(block.timestamp + ONE_WEEK * 4);
 

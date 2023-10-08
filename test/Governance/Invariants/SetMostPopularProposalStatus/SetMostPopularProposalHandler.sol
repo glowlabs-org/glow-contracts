@@ -12,30 +12,30 @@ contract SetMostPopularProposalHandler is Test {
     MockGovernance immutable g;
     mapping(uint256 => IGovernance.ProposalStatus) public mostPopularProposalStatus;
 
-    uint256[] private ghost_weekIds;
-    mapping(uint256 => bool) private ghost_weekIds_set;
+    uint256[] private ghost_proposalIds;
+    mapping(uint256 => bool) private ghost_proposalIds_set;
 
     constructor(address _g) {
         g = MockGovernance(_g);
     }
 
-    function setStatus(uint256 weekId, IGovernance.ProposalStatus status) external {
+    function setStatus(uint256 proposalId, IGovernance.ProposalStatus status) external {
         //Keep it contained into 3 keys to test for incorrect masking or shifting
-        vm.assume(weekId < 600);
-        g.setMostPopularProposalStatus(weekId, status);
-        mostPopularProposalStatus[weekId] = status;
-        setGhostWeekId(weekId);
+        vm.assume(proposalId < 600);
+        g.setProposalStatus(proposalId, status);
+        mostPopularProposalStatus[proposalId] = status;
+        setGhostproposalId(proposalId);
     }
 
-    function setGhostWeekId(uint256 weekId) internal {
-        if (ghost_weekIds_set[weekId]) {
+    function setGhostproposalId(uint256 proposalId) internal {
+        if (ghost_proposalIds_set[proposalId]) {
             return;
         }
-        ghost_weekIds.push(weekId);
-        ghost_weekIds_set[weekId] = true;
+        ghost_proposalIds.push(proposalId);
+        ghost_proposalIds_set[proposalId] = true;
     }
 
     function allIds() external view returns (uint256[] memory) {
-        return ghost_weekIds;
+        return ghost_proposalIds;
     }
 }

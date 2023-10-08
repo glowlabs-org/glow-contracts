@@ -28,6 +28,9 @@ interface IGovernance {
     error ProposalsMustBeExecutedSynchonously();
     error ProposalNotInitialized();
     error RFCPeriodNotEnded();
+    error ProposalAlreadyExecuted();
+    error ProposalIdDoesNotMatchMostPopularProposal();
+    error ProposalNotMostPopular();
 
     enum ProposalType {
         NONE, //default value for unset proposals
@@ -95,6 +98,12 @@ interface IGovernance {
      * @notice syncs all proposals that must be synced
      */
     function syncProposals() external;
+
+    /**
+     * @notice allows a veto council member to endorse a gca election
+     * @param weekId the weekId of the gca election to endorse
+     */
+    function endorseGCAProposal(uint256 weekId) external;
 
     /**
      * @notice Emitted when a Veto Council Election or Slash proposal is created
