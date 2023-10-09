@@ -25,6 +25,7 @@ import {TestGCC} from "@/testing/TestGCC.sol";
 import {HalfLife} from "@/libraries/HalfLife.sol";
 import {DivergenceHandler} from "./Handlers/DivergenceHandler.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
+import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
 
 /*
 TODO:
@@ -43,6 +44,7 @@ contract GovernanceTest is Test {
     TestGCC gcc;
     DivergenceHandler divergenceHandler;
     GrantsTreasury grantsTreasury;
+    HoldingContract holdingContract;
 
     //--------  ADDRESSES ---------//
     address earlyLiquidity = address(0x2);
@@ -92,8 +94,10 @@ contract GovernanceTest is Test {
         grantsTreasuryAddress = address(grantsTreasury);
         vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
         vetoCouncilAddress = address(vetoCouncil);
+        holdingContract = new HoldingContract(vetoCouncilAddress);
+
         minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress);
+        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress,address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
         gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance));
@@ -178,8 +182,11 @@ contract GovernanceTest is Test {
         grantsTreasuryAddress = address(grantsTreasury);
         vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
         vetoCouncilAddress = address(vetoCouncil);
+        holdingContract = new HoldingContract(vetoCouncilAddress);
+
         minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress);
+        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress,
+        address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
         gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance));
@@ -206,8 +213,11 @@ contract GovernanceTest is Test {
         grantsTreasuryAddress = address(grantsTreasury);
         vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
         vetoCouncilAddress = address(vetoCouncil);
+        holdingContract = new HoldingContract(vetoCouncilAddress);
+
         minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress);
+        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress,
+        address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
         gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance));

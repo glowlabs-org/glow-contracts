@@ -13,6 +13,7 @@ import {Handler} from "./handlers/Handler.t.sol";
 import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
 import {EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
+import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
 
 contract EarlyLiquidityTest is Test {
     //-----------------CONSTANTS-----------------
@@ -33,13 +34,17 @@ contract EarlyLiquidityTest is Test {
     Handler handler;
     EarlyLiquidityMockMinerPool minerPool;
     TestGLOW glow;
+    HoldingContract holdingContract;
+    address vetoCouncilAddress = address(0x49349031419);
 
     //-----------------SETUP-----------------
     function setUp() public {
         usdc = new MockUSDC();
         earlyLiquidity = new EarlyLiquidity(address(usdc));
         glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
-        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(usdc));
+        holdingContract = new HoldingContract(vetoCouncilAddress);
+        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(usdc),
+        address(holdingContract));
         earlyLiquidity.setMinerPool(address(minerPool));
         glw = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
         handler = new Handler(address(earlyLiquidity), address(usdc));
@@ -212,7 +217,9 @@ contract EarlyLiquidityTest is Test {
         earlyLiquidity = new EarlyLiquidity(address(taxUsdc));
         glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
         earlyLiquidity.setGlowToken(address(glow));
-        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(taxUsdc));
+        holdingContract = new HoldingContract(vetoCouncilAddress);
+        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(taxUsdc),
+        address(holdingContract));
         earlyLiquidity.setMinerPool(address(minerPool));
 
         uint256 totalCost = earlyLiquidity.getPrice(increments);

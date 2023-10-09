@@ -22,6 +22,7 @@ import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
 import {BucketDelayHandler} from "./Handlers/BucketDelayHandler.sol";
+import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
 
 struct ClaimLeaf {
     address payoutWallet;
@@ -36,6 +37,7 @@ contract MinerPoolAndGCATest is Test {
     MockUSDC usdc;
     MockUSDC grc2;
     BucketDelayHandler bucketDelayHandler;
+    HoldingContract holdingContract;
 
     //--------  ADDRESSES ---------//
     address governance = address(0x1);
@@ -74,8 +76,9 @@ contract MinerPoolAndGCATest is Test {
         startingAgents[1] = address(bucketDelayHandler);
         vetoCouncil = new VetoCouncil(governance, address(glow),startingAgents);
         vetoCouncilAddress = address(vetoCouncil);
+        holdingContract = new HoldingContract(vetoCouncilAddress);
         minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress);
+        new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress,address(holdingContract));
         addGCA(address(bucketDelayHandler));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
@@ -208,8 +211,6 @@ contract MinerPoolAndGCATest is Test {
         );
         assertTrue(validProof);
     }
-
-    
 
     //------------WITHDRAWALS----------------//
     //TODO: Add sending to carbon credit auction

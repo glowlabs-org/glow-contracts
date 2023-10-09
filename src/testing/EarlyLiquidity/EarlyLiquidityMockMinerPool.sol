@@ -8,7 +8,7 @@ contract EarlyLiquidityMockMinerPool is MinerPoolAndGCA {
     address[] private _startingGCAs;
     mapping(address => uint256) public grcDepositFromEarlyLiquidity;
 
-    constructor(address _earlyLiquidity, address _glowAddress, address _grcToken)
+    constructor(address _earlyLiquidity, address _glowAddress, address _grcToken, address _holdingContract)
         MinerPoolAndGCA(
             _startingGCAs,
             _glowAddress,
@@ -19,7 +19,8 @@ contract EarlyLiquidityMockMinerPool is MinerPoolAndGCA {
             //Carbon Credit Auction
             address(0x44444444444),
             //Veto Council Contract
-            address(0x4444)
+            address(0x4444),
+            _holdingContract
         )
     {}
     /**

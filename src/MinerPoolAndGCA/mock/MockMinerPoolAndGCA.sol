@@ -12,7 +12,8 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         address _earlyLiquidity,
         address _grcToken,
         address _carbonCreditAuction,
-        address _vetoCouncil
+        address _vetoCouncil,
+        address _holdingContract
     )
         MinerPoolAndGCA(
             _gcaAgents,
@@ -22,7 +23,8 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
             _earlyLiquidity,
             _grcToken,
             _carbonCreditAuction,
-            _vetoCouncil
+            _vetoCouncil,
+            _holdingContract
         )
     {}
 

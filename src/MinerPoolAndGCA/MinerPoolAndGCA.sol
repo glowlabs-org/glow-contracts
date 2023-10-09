@@ -17,6 +17,7 @@ import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import "forge-std/console.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {IHoldingContract} from "@/HoldingContract.sol";
 /**
  * TODO:
  * Add tests for all the claim stuff
@@ -62,6 +63,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     uint256 public numReserveCurrencies;
 
+    IHoldingContract public immutable HOLDING_CONTRACT;
+
     bytes32 public constant CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
         "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,address[] grcTokens,bool claimFromInflation)"
     );
@@ -102,6 +105,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param _requirementsHash the requirements hash of GCA Agents
      * @param _grcToken - the first grc token (USDC)
      * @param _vetoCouncil - the address of the veto council contract.
+     * @param _holdingContract - the address of the holding contract
      */
     constructor(
         address[] memory _gcaAgents,
@@ -111,12 +115,15 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         address _earlyLiquidity,
         address _grcToken,
         address _carbonCreditAuction,
-        address _vetoCouncil
+        address _vetoCouncil,
+        address _holdingContract
     ) GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _CARBON_CREDIT_AUCTION = _carbonCreditAuction;
         _VETO_COUNCIL = _vetoCouncil;
         _setGRCToken(_grcToken, true, 0);
+        HOLDING_CONTRACT = IHoldingContract(_holdingContract);
+        HOLDING_CONTRACT.setMinerPool(address(this));
         ++numReserveCurrencies;
     }
 
@@ -228,7 +235,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         address[] memory grcTokens,
         bool claimFromInflation,
         bytes memory signature
-    ) external {
+    )
+        //todo: add nonce to claim sig?
+        external
+    {
         if (msg.sender != user) {
             bytes32 hash =
                 createClaimRewardFromBucketDigest(bucketId, glwWeight, grcWeight, index, grcTokens, claimFromInflation);
@@ -264,11 +274,11 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
                 uint256 amountInBucket = _getAmountForTokenAndInitIfNot(grcTokens[i], bucketId);
                 //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
                 // so that we don't overflow the available GRC rewards
+                // and grab rewards from other buckets
                 amountInBucket = amountInBucket * _min(grcWeight, totalGRCWeight) / totalGRCWeight;
                 if (amountInBucket > 0) {
                     SafeERC20.safeTransfer(IERC20(grcTokens[i]), user, amountInBucket);
                 }
-
                 unchecked {
                     ++i;
                 }
