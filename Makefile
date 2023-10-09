@@ -6,6 +6,7 @@ use-solc-0.8.21 :; solc-select use 0.8.21
 compile-rust :;  rustc test/Governance/ffi/half_life.rs --out-dir  ./test/Governance/ffi/  && \
 				rustc test/Governance/ffi/divergence_check.rs --out-dir  ./test/Governance/ffi/  
 
+hardhat-test :; make hardhat.test.earlyLiquidity 
 
 # --- [Gen HTML] requires linux or wsl
 gen-lcov :; forge coverage --ffi --report lcov
@@ -21,6 +22,7 @@ test :; forge test --ffi -vv
 
 # --- [ Specific Tests ] -----------------------------------------------------------------------------------
 test.minerpool.math :; forge test --match-path test/temp/MinerDistributionMath.t.sol -vvv --ffi
+hardhat.test.earlyLiquidity :; npx hardhat test test/EarlyLiquidity/EarlyLiquidity.test.ts
 test.earlyLiquidity :; forge test --match-contract EarlyLiquidityTest -vvv && npx hardhat test
 test.minerPoolAndGCA :; forge test --match-contract MinerPoolAndGCATest --ffi -vv
 

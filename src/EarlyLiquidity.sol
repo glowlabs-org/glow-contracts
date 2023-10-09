@@ -6,7 +6,6 @@ import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
-import "forge-std/console.sol";
 
 interface IDecimals {
     error IncorrectDecimals();
@@ -14,16 +13,21 @@ interface IDecimals {
     function decimals() external view returns (uint8);
 }
 
-// add deposit functions so we can deposit to GRC and Miner Pool once those contracts are up and running
-
 /**
  * @title EarlyLiquidity
  * @author @DavidVorick
- * @author @0xSimon
+ * @author twitter: @0xSimon github: @0xSimbo
  * @notice This contract allows users to buy Glow tokens with USDC
  * @dev the cost of glow rises exponentially with the amount of glow sold
- *         -  The price at token t = 0.6 * 2^((total_sold + t)/ 1_000_000)
- * @dev to calculate the price for x tokens in real time, we use the sum of a geometric series
+ *         -  The price at increment x = 0.006 * 2^((x)/ 100_000_000)
+ *            - if the function above to get price of increment x if f(x)
+ *            - Then, the price to buy y tokens is Σ f(x) from x = the total increments sold, to x = the total increments sold + y
+ *            - For example, to buy the first ten increments, (aka the first .1 tokens), the price is
+ *                 -   f(0) + f(1) .... + f(9)
+ *                 - To buy the next ten increments, or token .1 -> .2, the price is
+ *                 -   f(10) + f(11) ... + f(19)
+ * @dev to calculate the price for y tokens in real time, we use the sum of a geometric series which allows us
+ *         - to efficiently calculate the price of y tokens in real time rather than looping through all the increments
  */
 
 contract EarlyLiquidity is IEarlyLiquidity {
@@ -35,49 +39,54 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /// @dev The number of decimals for USDC
     uint256 public constant USDC_DECIMALS = 6;
 
-    /// @dev The number 0.6 in microdollars with respect to USDC_DECIMALS
-    uint256 private constant _POINT6 = 6 * (10 ** (USDC_DECIMALS - 1));
-
-    /// @dev The total number of glow tokens to sell
-    uint256 public constant TOTAL_TOKENS_TO_SELL_DIV_1E18 = 12_000_000;
+    /// @dev The number 0.006 in microdollars with respect to USDC_DECIMALS
+    uint256 private constant _POINT_ZERO_ZERO6 = 6 * (10 ** (USDC_DECIMALS - 3));
 
     /// @dev The minimum increment that tokens can be bought in
     /// @dev this is essential so our floating point math doesn't break
-    uint256 public constant MIN_TOKEN_INCREMENT = 1e18;
+    /// @dev .01 GLW
+    uint256 public constant MIN_TOKEN_INCREMENT = 1e16;
+
+    /// @dev The total number of glow tokens to sell
+    /// @dev 12 million GLOW tokens
+    /// @dev .01 * 1_200_000_000 = 12_000_000
+    uint256 public constant TOTAL_INCREMENTS_TO_SELL = 1_200_000_000;
 
     //************************************************************* */
     //*****************  FLOATING POINT CONSTANTS    ************** */
     //************************************************************* */
 
-    /// @dev Represents 1.000000693 in 64x64 format, or `r` in the geometric series
-    int128 private constant _RATIO = 18_446_756_860_022_628_215;
+    /// @dev Represents 1.0000000069314718 in 64x64 format, or `r` in the geometric series
+    int128 private constant _RATIO = 18446744201572638720;
 
-    /// @dev Represents 0.6 USDC in 64x64 format
-    int128 private constant _POINT_6 = 11068046444225730969600000;
+    /// @dev Represents 0.006 USDC in 64x64 format
+    int128 private constant _POINT_ZERO_ZERO_6 = 110680464442257309696000;
 
     /// @dev Represents 1 in 64x64 format
     int128 private constant _ONE = 18446744073709551616;
 
     /// @dev Represents ln(r) in 64x64 format
-    int128 private constant _LN_RATIO = 12786308645200;
+    int128 private constant _LN_RATIO = 127863086660;
 
-    /// @dev Represents  1e6 in 64x64 format
-    int128 private constant _ONE_MILLION = 18446744073709551616000000;
+    /// @dev Represents  1e8 in 64x64 format
+    int128 private constant _ONE_HUNDRED_MILLION = 100_000_000 << 64;
 
     /// @dev Represents ln(2) in 64x64 format
     int128 private constant _LN_2 = 12786308645202655659;
 
     /// @dev represents (1-r) in 64x64 format
-    /// @dev r =  1 - 1.000000693 = -0.000000693
-    int128 private constant _DENOMINATOR = -12786313076599;
+    /// @dev r =  1 - 1.0000000069314718 =  0000000069314718
+    int128 private constant _DENOMINATOR = -127863086349;
 
     /// @dev tokens are demagnified by 1e18 to make floating point math easier
     /// @dev the {totalSold} function returns the total sold in 1e18 (GLW DECIMALS)
-    uint256 private _totalSoldDiv1e18;
+    uint256 private _totalIncrements;
 
-    /// @dev The Glow token
+    /// @notice The Glow token
     IERC20 public glowToken;
 
+    /// @notice The miner pool contract
+    /// @dev all USDC is donated to the miner pool
     IMinerPool public minerPool;
 
     //************************************************************* */
@@ -100,7 +109,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /**
      * @inheritdoc IEarlyLiquidity
      */
-    function buy(uint256 amount, uint256 maxCost) external {
+    function buy(uint256 increments, uint256 maxCost) external {
         // Cache the minerPool in memory for gas optimization.
         IMinerPool pool = minerPool;
         address poolAddress = address(pool);
@@ -110,25 +119,18 @@ contract EarlyLiquidity is IEarlyLiquidity {
             _revert(IEarlyLiquidity.ZeroAddress.selector);
         }
 
-        // Ensure the amount to buy is an increment of the MIN_TOKEN_INCREMENT.
-        // If not, revert the transaction.
-        if (amount % MIN_TOKEN_INCREMENT != 0) {
-            _revert(IEarlyLiquidity.ModNotZero.selector);
-        }
-        // Divide the amount by MIN_TOKEN_INCREMENT to normalize it.
-        amount = amount / MIN_TOKEN_INCREMENT;
-
         // Calculate the total cost of the desired amount of tokens.
-        uint256 totalCost = getPrice(amount);
+        uint256 totalCost = getPrice(increments);
 
         // If the computed total cost is greater than the user's specified max cost, revert the transaction.
         if (totalCost > maxCost) {
             _revert(IEarlyLiquidity.PriceTooHigh.selector);
         }
 
-        // Calculate the exact amount of tokens to send to the user. Convert the normalized amount back to its original scale.
-        // Impossible to overflow since this is equal to {amount} in the function inputs
-        uint256 glowToSend = amount * 1e18;
+        // Calculate the exact amount of tokens to send to the user. Convert the normalized increments back to its original scale.
+        // Impossible to overflow since this is equal to {increments} in the function inputs
+        // 1 increment = .01 (or 1e16) glw
+        uint256 glowToSend = increments * 1e16;
 
         // Check the balance of USDC in the miner pool before making a transfer.
         uint256 balBefore = USDC_TOKEN.balanceOf(poolAddress);
@@ -150,7 +152,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
         pool.donateToGRCMinerRewardsPoolEarlyLiquidity(address(USDC_TOKEN), diff);
 
         // Update the total amount of tokens sold by adding the normalized amount to the total.
-        _totalSoldDiv1e18 += amount;
+        _totalIncrements += increments;
 
         // Emit an event to log the purchase details.
         emit IEarlyLiquidity.Purchase(msg.sender, glowToSend, totalCost);
@@ -191,22 +193,24 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /**
      * @inheritdoc IEarlyLiquidity
      */
-    function getPrice(uint256 amount) public view returns (uint256) {
-        return _getPrice(_totalSoldDiv1e18, amount);
+    function getPrice(uint256 incrementsToPurchase) public view returns (uint256) {
+        if (incrementsToPurchase == 0) return 0;
+
+        return _getPrice(_totalIncrements, incrementsToPurchase);
     }
 
     /**
      * @inheritdoc IEarlyLiquidity
      */
     function totalSold() public view returns (uint256) {
-        return _totalSoldDiv1e18 * MIN_TOKEN_INCREMENT;
+        return _totalIncrements * MIN_TOKEN_INCREMENT;
     }
 
     /**
      * @inheritdoc IEarlyLiquidity
      */
     function getCurrentPrice() external view returns (uint256) {
-        return _getPrice(_totalSoldDiv1e18, 1);
+        return _getPrice(_totalIncrements, 1);
     }
 
     //************************************************************* */
@@ -215,23 +219,23 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
     /**
      * @notice Calculates the price of a given amount of tokens
-     * @param totalSold The total amount of tokens sold so far (divided by 1e18)
-     * @param tokensToBuy The amount of tokens to buy (divided by 1e18)
-     * @return The price of the tokens in microdollars
-     * @dev uses the geometric series of 2 * .6^((total_sold + tokens_to_buy)/ 1_000_000)
-     *             - to get the price using the sum of a geometric series
-     *                - rounding errors do occur due to floating point math, but divergence is sub 1e-7
+     * @param totalIncrementsSold The total amount of .01 increments sold
+     * @param incrementsToBuy The amount of .01 increments to buy
+     * @return price price of the increments to purchase in USDC
+     * @dev since our increments are in .01, the function evaluates to Σ .006 * 2^((incrementId)/ 100_000_000)
+     *         - for increment id = totalIncrementsSold  id: to incrementId = incrementsToBuy
+     *         - rounding errors do occur due to floating point math, but divergence is sub 1e-7
      */
 
-    function _getPrice(uint256 totalSold, uint256 tokensToBuy) private pure returns (uint256) {
+    function _getPrice(uint256 totalIncrementsSold, uint256 incrementsToBuy) private pure returns (uint256) {
         // Check if the combined total of tokens sold and tokens to buy exceed the allowed amount.
         // If it does, revert the transaction.
-        if (totalSold + tokensToBuy > TOTAL_TOKENS_TO_SELL_DIV_1E18) {
+        if (totalIncrementsSold + incrementsToBuy > TOTAL_INCREMENTS_TO_SELL) {
             _revert(IEarlyLiquidity.AllSold.selector);
         }
 
-        // Convert the number of tokens to buy into a fixed-point representation.
-        int128 n = ABDKMath64x64.fromUInt(tokensToBuy);
+        // Convert the number of increments to buy into a fixed-point representation.
+        int128 n = ABDKMath64x64.fromUInt(incrementsToBuy);
 
         // Compute r^n, where 'r' is the common ratio of the geometric series.
         // Using logarithmic properties, we compute the exponent as: n * ln(r).
@@ -248,64 +252,67 @@ contract EarlyLiquidity is IEarlyLiquidity {
         int128 divisionResult = numerator.div(_DENOMINATOR);
 
         // Calculate the first term in the geometric series. The first term is based on
-        // the total amount of tokens already sold.
-        int128 firstTermInSeries = _getFirstTermInSeries(totalSold);
+        // the total amount of increments already sold.
+        int128 firstTermInSeries = _getFirstTermInSeries(totalIncrementsSold);
 
-        // Compute the sum of the geometric series.
-        int128 geometricSeries = (firstTermInSeries.mul(divisionResult));
-
-        // Convert the fixed-point result back to an unsigned integer, representing the
-        // final price in microdollars.
-        uint256 result = geometricSeries.toUInt();
+        //divisionResult > than geometricSeries, so we convert divisionResult to uint256
+        uint256 firstTimeInSerieWithFixed = uint256(int256(firstTermInSeries));
+        //divisionResult is always positive so we can cast it to uint256
+        uint256 divUint = uint256(int256(divisionResult));
+        //We do the fixed point math in uint256 domain since we know that the result will be positive
+        //Below is a fixed point multiplication
+        uint256 mulResFixed = firstTimeInSerieWithFixed * divUint >> 64;
+        //convert {mulResFixed} back to uint256
+        return mulResFixed >> 64;
 
         // The following comments are for the purpose of explaining why the code cannot overflow.
-        //The maximum value of totalSold is 12,000,000
-        //The maximum value of tokensToBuy is 12,000,000
-        // the max of n is 12,000,000
-        // _LN_RATIO  = ln(1.000000693) = 0.000000693
-        //The maximum value of rToTheN is e^(12,000,000 * .000000693) = 4088
-        //The maximum value of numerator is 1 - 4088 = -4087
-        //The maximum value of divisionResult is -4087 / -0.000000693  = 5,907,834,144
-        //The maximum value of firstTermInSeries is 600,000 * 2^12,000,000 / 1,000,000 = 2.5e9
-        //The maximum value of geometricSeries is 2.5e9 * 5,907,834,144 = 1.476e+19
-        //This cant overflow since 1.476e+19< 2^63-1
-
-        return result;
+        //The maximum value of totalIncrementsSold is 1,200,000,000
+        //The maximum value of incrementsToBuy is     1,200,000,000
+        //The max value of n is 1,200,000
+        // _LN_RATIO  = ln(1.0000000069314718)
+        //The maximum value of rToTheN is e^(1,200,000,000 * ln(r)) = e^8.317766180304424 = 4096.000055644491
+        //The maximum value of numerator is 1 -  4096 = -4095
+        //The maximum value of divisionResult is -4095 / -0.0000000069314718  = 590,783,619,721.2834
+        //The maximum value of firstTermInSeries is 6000 * 2^12 = 24576000
+        //The maximum value of geometricSeries is 24576000 * 590,783,619,721.2834  = 14,499,840,000,783,619,721
+        //This cant overflow since it's < 2^63-1
     }
 
     /**
      *   @notice Calculates the first term in the geometric series for the current price of the current token
-     *   @return  The first term to be used in the geometric series
-     */
-    function _getFirstTermInSeries(uint256 totalSold) private pure returns (int128) {
+     *  @param totalIncrementsSold - the total number of increments that have already been sold
+     *   @return  firstTerm -  first term to be used in the geometric series
+    */
+
+
+    function _getFirstTermInSeries(uint256 totalIncrementsSold) private pure returns (int128) {
         // Convert 'totalSold' to a fixed-point representation using ABDKMath64x64.
         // This is done to perform mathematical operations with precision.
-        int128 floatingPointTotalSold = ABDKMath64x64.fromUInt(totalSold);
+        int128 floatingPointTotalSold = ABDKMath64x64.fromUInt(totalIncrementsSold);
 
-        // The goal is to compute the exponent for: 2^(totalSold / 1,000,000)
+        // The goal is to compute the exponent for: 2^(totalIncrements / 100,000,000)
         // Using logarithmic properties, this can be re-written using the identity:
-        // b^c = a^(ln(b)*c) => 2^(totalSold / 1,000,000) = e^(ln(2) * totalSold / 1,000,000)
-        // Here, '_LN_2' is the natural logarithm of 2, and '_ONE_MILLION' represents 1,000,000.
-        int128 exponent = _LN_2.mul(floatingPointTotalSold).div(_ONE_MILLION);
+        // b^c = a^(ln(b)*c) => 2^(totalIncrements / 100,000,000) = e^(ln(2) * totalIncrements / 100,000,000)
+        // Here, '_LN_2' is the natural logarithm of 2, and '_ONE_HUNDRED_MILLION' represents 100,000,000.
+        int128 exponent = _LN_2.mul(floatingPointTotalSold).div(_ONE_HUNDRED_MILLION);
 
-        // Compute e^(exponent), which effectively calculates 2^(totalSold / 1,000,000)
+        // Compute e^(exponent), which effectively calculates 2^(totalIncrements / 100,000,000)
         // because of the earlier logarithmic transformation.
         int128 baseResult = ABDKMath64x64.exp(exponent);
 
-        // Multiply the result by 0.6, where '_POINT_6' is the fixed-point representation of 0.6.
-        int128 result = _POINT_6.mul(baseResult);
+        // Multiply the result by 0.006, where '_POINT_ZERO_ZERO_6' is the fixed-point representation of 0.006.
+        int128 result = _POINT_ZERO_ZERO_6.mul(baseResult);
 
         // The following comments are for the purpose of explaining why the code cannot overflow.
         //ln(2) = 0.693147......
-        //floatingPointTotalSold will never be more than 12,000,000
-        //so the maximum value of the exponent will be 8,316,000 / 1,000,000 = 8.316
+        //floatingPointTotalSold will never be more than 1,200,000,000
+        //so the maximum value of the exponent will be .693147 * 1,200,000,000 / 100,000,000 = 8.316
         //None of those numbers are greater than 2^63-1 (the maximum value of an int128)
-        //Max value of baseResult possible is e^8.316 = 4,088 (rounded up)
+        //Max value of baseResult possible is e^8.316 = 4,089 (rounded up)
         //The max input that baseResult can take in is 43 since (e^44 > type(uint128).max > e^43)
         //We will never cause an overflow in the exponent calculation
-        //Max value of result is 600,000 * 4,088 = 2,453,000,000 approx 2.5e9
+        //Max value of result is 6,000 * 4,088 = 2,453,000,000 approx 2.5e9
         //This is well within the range of 2^63-1 = 9,223,372,036,854,775,807 approx 9.223372e+18
-
         // Return the final result.
         return result;
     }

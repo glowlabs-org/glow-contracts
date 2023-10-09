@@ -32,6 +32,13 @@ const csvHeaders = [
   'divergencePercent',
 ];
 
+
+type ClaimLeaf = {
+  address:string,
+  w1:string,
+  w2:string,
+}
+
 /***
  * @dev staging function to deploy contracts and mint USDC to the signer.
  * @dev useful when running fuzzing tests to reset the state of the contracts on each run.
@@ -51,6 +58,7 @@ async function stage() {
   const earlyLiquidity = await EarlyLiquidity.deploy(mockUSDC.address);
   await earlyLiquidity.deployed();
   const MockGlow = await ethers.getContractFactory('TestGLOW');
+  //Random vesting contract address
   const vestingContractPlaceholderAddress =
   '0x591749484BFb1737473bf1E7Bb453257BdA452A9';
   const mockGlow = await MockGlow.deploy(
@@ -61,7 +69,7 @@ async function stage() {
 
     //----------------- DEPLOY MINER POOL -----------------
     const MinerPool = await ethers.getContractFactory('EarlyLiquidityMockMinerPool');
-    const minerPool = await MinerPool.deploy(earlyLiquidity.address,mockGlow.address);
+    const minerPool = await MinerPool.deploy(earlyLiquidity.address,mockGlow.address,mockUSDC.address);
     await minerPool.deployed();
     await earlyLiquidity.setMinerPool(minerPool.address);
   await earlyLiquidity.setGlowToken(mockGlow.address);
@@ -95,48 +103,68 @@ describe('Test: Early Liquidity', function () {
           earlyLiquidity.address,
         );
 
-        //ensure mod 1e18 is 0 to make sure all inputs are correct
-        expect(
-          earlyLiquidityGlowBalanceBN.mod(BigNumber.from(10).pow(18)),
-        ).to.equal(0);
 
-        //Divide by 1e18 to ensure that floating point math doesen't break in the contract
-        const earlyLiquidityGlowBalanceDiv1e18 =
-          earlyLiquidityGlowBalanceBN.div(BigNumber.from(10).pow(18));
+        //Divide by 1e16 to get the number of increments left in the EL contract.
+        const earlyLiquidityGlowBalanceDiv1e16 =
+          earlyLiquidityGlowBalanceBN.div(BigNumber.from(10).pow(16));
 
-        ///If all tokens have been sold, we can exit
+        ///If all tokens have been sold (AKA no increments left), we can exit
         if (earlyLiquidityGlowBalanceBN.eq(0)) {
           break;
         }
         /// Get the fuzz input from the random number generator
-        const tokensToBuy = getRandomBigNumberWithUpperBound(
-          earlyLiquidityGlowBalanceDiv1e18,
+        const incrementsToBuy = getRandomBigNumberWithUpperBound(
+          earlyLiquidityGlowBalanceDiv1e16,
         );
 
-        //Get the price from the contract
+        
+
+        // console.log(`increments to buy: ${incrementsToBuy.toString()}`)
         const totalCostFromContract =
-          await earlyLiquidity.getPrice(tokensToBuy);
+        await earlyLiquidity.getPrice(incrementsToBuy);
 
         //Get the price from the local function
+        const totalSold = ((await earlyLiquidity.totalSold()).div(`${1e16}`)).toNumber();
+        //This gets me totalSold / 1e16, I want to get these in decimal format, so i need to divide by 1e16 again
         const totalCostLocal = getPriceOfTokens(
-          totalTokensSold,
-          tokensToBuy.toNumber(),
+          totalSold,
+          incrementsToBuy.toNumber(),
         );
+
+        const ff = Array.from({length: 40}, () => 'f').join('');
+        const maxUint128 = BigNumber.from(1).shl(128).sub(1)
+        const arrayWith1000 = Array.from({length: 1000}, (_, i) => {
+          return {
+            address:  `0x${ff}`,
+            w1: maxUint128,
+            w2: maxUint128,
+            
+          }
+        })
+
+
+        //An increment is .01 tokens, so the tota amount of tokens we are buying is equal to 
+        // For example, 100 increments is equal to 1 token
+        const tokensToBuy = incrementsToBuy.toNumber() / 100;
 
         //Expect the abs(difference) of the difference to be less than the max diverence
         const diverges = divergeMoreThanDivergencePercent(
           totalCostFromContract,
-          totalCostLocal,
+          BigNumber.from(`${totalCostLocal}`),
         );
         if (diverges) {
-          console.log(`expected ${totalCostLocal.toString()} USDC`);
-          console.log(`got ${totalCostFromContract.toString()} USDC`);
+          console.log(`total tokens sold: ${totalSold}`)
+          console.log(`expected (local result) ${totalCostLocal.toString()} USDC`);
+          console.log(`got (contract result) ${totalCostFromContract.toString()} USDC`);
           console.log(
             `Diverged by ${totalCostFromContract
               .sub(totalCostLocal)
               .abs()
               .toString()} USDC`,
           );
+          console.log(`total cost from local: \n totalSold: ${totalSold} \n incrementsToBuy: ${incrementsToBuy.toNumber()}`)
+          console.log(`total cost from contract \n totalSold:  `)
+          // console.log(`inputs ti total cost local, `)
         }
         const message = `Diverged by ${totalCostFromContract}`;
         //We should never diverge more than the max divergence percent
@@ -158,7 +186,7 @@ describe('Test: Early Liquidity', function () {
           .sub(totalCostLocal)
           .abs()
           .toNumber();
-        let expectedValue = totalCostLocal.toNumber();
+        let expectedValue = totalCostLocal;
         if (expectedValue === 0) {
           expectedValue = 1;
         }
@@ -178,31 +206,31 @@ describe('Test: Early Liquidity', function () {
         }
         //Purchase the tokens
         await earlyLiquidity.buy(
-          ethers.utils.parseEther(`${tokensToBuy}`),
+          incrementsToBuy,
           totalCostFromContract,
         );
-        totalTokensSold += tokensToBuy.toNumber();
+        totalTokensSold += tokensToBuy;
         const signerGlowBalanceAfter = await mockGlow.balanceOf(signer.address);
         const signerUSDCBalanceAfter = await mockUSDC.balanceOf(signer.address);
         const earlyLiquidityGlowBalanceAfter = await mockGlow.balanceOf(
           earlyLiquidity.address,
         );
 
-        //Reconvert the tokens to 1e18 to readjust for the floating point math adjustment
+        //Reconvert the tokens to 1e16 to readjust for the floating point math adjustment
         expect(signerGlowBalanceAfter.sub(signerGlowBalanceBefore)).to.equal(
-          tokensToBuy.mul(BigNumber.from(10).pow(18)),
+          incrementsToBuy.mul(BigNumber.from(10).pow(16)),
         );
         expect(signerUSDCBalanceBefore.sub(signerUSDCBalanceAfter)).to.equal(
           totalCostFromContract,
         );
         expect(
           earlyLiquidityGlowBalanceBefore.sub(earlyLiquidityGlowBalanceAfter),
-        ).to.equal(tokensToBuy.mul(BigNumber.from(10).pow(18)));
+        ).to.equal(incrementsToBuy.mul(BigNumber.from(10).pow(16)));
       }
 
-      const allEvents  = await earlyLiquidity.queryFilter(earlyLiquidity.filters['Purchase(address,uint256,uint256)']());
-      // console.log(allEvents);
-      fs.writeFileSync("events.json", JSON.stringify(allEvents, null, 4));
+      // const allEvents  = await earlyLiquidity.queryFilter(earlyLiquidity.filters['Purchase(address,uint256,uint256)']());
+      // // console.log(allEvents);
+      // fs.writeFileSync("events.json", JSON.stringify(allEvents, null, 4));
       if (SAVE_EARLY_LIQUIDITY_RUNS) {
         //Generate a random id to save the data to
         const RANDOM_ID = Math.floor(Math.random() * 1000000);
@@ -224,28 +252,30 @@ describe('Test: Early Liquidity', function () {
 //----------------- HELPER FUNCTIONS -----------------
 
 function getPriceOfToken(totalTokensSold: number): number {
-  return Math.floor(600_000 * 2 ** ((totalTokensSold + 1) / 1_000_000));
+  //Since our increments are .01, the formula reshapes to
+  // .006 * 2^((totalIncrementsSold + 1) / 100 million)
+  return Math.floor(6000 * 2 ** ((totalTokensSold + 1) / 100_000_000));
 }
-/**
- * @notice grabs the actual price of all the tokens by looping through each token and adding the price
-            - this is not possible on-chain due to gas fees, so we use the sum of a geometric series in the contacts to get the price
- * @param totalTokensSold - the total number of tokens sold so far
- * @param totalToBuy - the total number of tokens to buy
- * @returns - the actual price of the tokens by looping through each token and adding the price
- */
-function getPriceOfTokens(
-  totalTokensSold: number,
-  totalToBuy: number,
-): BigNumber {
-  let price = BigNumber.from(0);
-  for (let i = 0; i < totalToBuy; ++i) {
-    // price += getPriceOfToken(totalTokensSold + i);
-    price = price.add(
-      BigNumber.from(`${getPriceOfToken(totalTokensSold + i)}`),
-    );
-  }
-  return price;
-}
+// /**
+//  * @notice grabs the actual price of all the tokens by looping through each token and adding the price
+//             - this is not possible on-chain due to gas fees, so we use the sum of a geometric series in the contacts to get the price
+//  * @param totalTokensSold - the total number of tokens sold so far
+//  * @param totalToBuy - the total number of tokens to buy
+//  * @returns - the actual price of the tokens by looping through each token and adding the price
+//  */
+// function getPriceOfTokens(
+//   totalTokensSold: number,
+//   totalToBuy: number,
+// ): BigNumber {
+//   let price = BigNumber.from(0);
+//   for (let i = 0; i < totalToBuy; ++i) {
+//     // price += getPriceOfToken(totalTokensSold + i);
+//     price = price.add(
+//       BigNumber.from(`${getPriceOfToken(totalTokensSold + i)}`),
+//     );
+//   }
+//   return price;
+// }
 
 /**
  * @notice returns a random number between 0 and upperBound.
@@ -255,8 +285,12 @@ function getPriceOfTokens(
 function getRandomBigNumberWithUpperBound(upperBound: BigNumber) {
   //If upperbound is 1 return 1, this is to ensure all tokens are sold
   if (upperBound.eq(1)) return BigNumber.from(1);
-  //We set the max upper bound to be 5% of the total supply to ensure we get enough fuzzing
-  const maxVal = 0.05 * 12_000_000;
+  
+  //max tokens we can buy in one go is 400_000
+  //each increment is .01 tokens, so that would be 40_000_000 increments
+  //15427135
+  const asda =   15_427_135
+  const maxVal = 40_000_000;
   const upperBoundRevised = upperBound.gt(maxVal)
     ? BigNumber.from(`${maxVal}`)
     : upperBound;
@@ -283,3 +317,54 @@ function divergeMoreThanDivergencePercent(
   const percentDiff = diff.mul(BigNumber.from(10).pow(5)).div(expected);
   return percentDiff.gt(MAX_DIVERGENCE_PERCENT_E5);
 }
+
+
+function geometricSeriesSum(
+  startingValue: number,
+  ratio: number,
+  numTerms: number,
+): number {
+  return startingValue * ((1 - ratio ** numTerms) / (1 - ratio));
+}
+const incrementsToBuy = 15971269
+// console.log(getPriceOfTokens(0, 15971269).toString())
+// console.log(getPriceOfToken(100_000_000))
+
+const ratio = 1.0000000069314718;
+
+
+
+const getPriceOfTokens = (totalTokensSold: number, totalToBuy: number) => {
+  const firstTerm = .006 * 2 ** (totalTokensSold / 100_000_000);
+  const price = geometricSeriesSum(
+    firstTerm,
+    ratio,
+    totalToBuy,
+  );
+  //Strong change this may 
+  //We need to multiply by 1e6 to account for the floating point math adjustment
+  return Math.floor(price * 1e6);
+}
+
+
+/**
+Test: Early Liquidity
+increments to buy: 16061567
+increments to buy: 39892801
+total tokens sold: 16061567
+expected (local result) 275723101810 USDC
+got (contract result) 308193370576 USDC
+Diverged by 32470268766 USDC
+total cost from local: 
+totalSold: 16061567 
+incrementsToBuy: 39892801
+total cost from contract 
+totalSold:  
+ */
+
+//  const t1 = getPriceOfTokens(16061567, 39892801);
+//  const t2 = 308193370576;
+
+//  console.log(t1);
+//  console.log(t2);
+//  console.log((t2 - t1) / t1)
