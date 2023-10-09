@@ -15,3 +15,5 @@ typechain-types/
 report/
 
 lcov.info
+
+.env
