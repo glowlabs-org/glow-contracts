@@ -52,10 +52,15 @@ async function stage() {
   const mockUSDC = await MockUSDC.deploy();
   await mockUSDC.deployed();
 
+  const holdingContract = await ethers.getContractFactory('HoldingContract');
+  const vetoCouncilPlaceholderAddress = '0x591749484BFb1737473bf1E7Bb453257BdA452A9';
+  const holding = await holdingContract.deploy(vetoCouncilPlaceholderAddress);
+
+
   // Mint USDC to signer
   await mockUSDC.mint(signer.address, STARTING_USDC_BALANCE);
   const EarlyLiquidity = await ethers.getContractFactory('EarlyLiquidity');
-  const earlyLiquidity = await EarlyLiquidity.deploy(mockUSDC.address);
+  const earlyLiquidity = await EarlyLiquidity.deploy(mockUSDC.address,holding.address);
   await earlyLiquidity.deployed();
   const MockGlow = await ethers.getContractFactory('TestGLOW');
   //Random vesting contract address
@@ -69,7 +74,7 @@ async function stage() {
 
     //----------------- DEPLOY MINER POOL -----------------
     const MinerPool = await ethers.getContractFactory('EarlyLiquidityMockMinerPool');
-    const minerPool = await MinerPool.deploy(earlyLiquidity.address,mockGlow.address);
+    const minerPool = await MinerPool.deploy(earlyLiquidity.address,mockGlow.address,mockUSDC.address,holding.address);
     await minerPool.deployed();
     await earlyLiquidity.setMinerPool(minerPool.address);
   await earlyLiquidity.setGlowToken(mockGlow.address);

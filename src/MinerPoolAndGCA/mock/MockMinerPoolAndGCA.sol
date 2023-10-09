@@ -12,7 +12,8 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         address _earlyLiquidity,
         address _grcToken,
         address _carbonCreditAuction,
-        address _vetoCouncil
+        address _vetoCouncil,
+        address _holdingContract
     )
         MinerPoolAndGCA(
             _gcaAgents,
@@ -22,7 +23,8 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
             _earlyLiquidity,
             _grcToken,
             _carbonCreditAuction,
-            _vetoCouncil
+            _vetoCouncil,
+            _holdingContract
         )
     {}
 
@@ -48,7 +50,11 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         proposalHashes.push(hash);
     }
 
-    function getUserBitmapForBucket(uint256 bucketId, address user) public view returns (uint256) {
-        return _getUserBitmapForBucket(bucketId, user);
+    function getUserBitmapForBucket(uint256 bucketId, address user, address token) public view returns (uint256) {
+        return _getUserBitmapForBucket(bucketId, user, token);
+    }
+
+    function setGRCToken(address grcToken, bool adding, uint256 currentBucket) public {
+        _setGRCToken(grcToken, adding, currentBucket);
     }
 }

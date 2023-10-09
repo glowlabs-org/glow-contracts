@@ -95,7 +95,6 @@ contract GrantsTreasury is IGrantsTreasury {
      */
     function totalBalanceInGrantsTreasury() public view returns (uint256) {
         uint256 balance = GLOW_TOKEN.balanceOf(address(this));
-        //TODO: Decide if this is too complicated for people
         /// @dev having two vars saves gas on sstores by almost always guaranteeing a hot sstore
         return balance + cumulativePaidOut - cumulativeAllocated;
     }

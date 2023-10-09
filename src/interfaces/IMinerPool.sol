@@ -17,6 +17,7 @@ interface IMinerPool {
     error CannotDelayBucketThatNeedsToUpdateSlashNonce();
     error BucketAlreadyDelayed();
     error SignerNotGCA();
+    error SignatureDoesNotMatchUser();
 
     /**
      * @notice Allows anyone to donate GRC into the miner grc rewards pool

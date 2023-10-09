@@ -37,6 +37,10 @@ contract BucketSubmission {
      * @dev a helper to keep track of last updated bucket ids for buckets
      * @param lastUpdatedBucket - the last bucket + 16 that grc was deposited to this bucket
      * @param maxBucketId - the lastUpdatedBucket + 192
+     * @param firstAddedBucketId - the first bucket + 16 that grc was deposited to this bucket
+     * @param isGRC - a flag to see if the token is a grc token
+     * @dev none of the params should overflow, since they represent weeks
+     *         - it's safe to assume by 2^48 weeks climate should should have better solutions
      */
     struct BucketTracker {
         uint48 lastUpdatedBucket;
@@ -49,6 +53,7 @@ contract BucketSubmission {
      * @dev a helper function for {getBatchAddressesRewards}
      * @param token - the grcToken the user is querying for
      * @param reward - the weekly reward struct
+     * @dev only used for getter purposes
      */
     struct TokenWithWeeklyReward {
         address token;
@@ -72,62 +77,100 @@ contract BucketSubmission {
     //*****************  INTERNAL STATE CHANGING FUNCS  ************** */
     //************************************************************* */
 
+    /**
+     * @notice adds the grc to the current bucket
+     * @dev this function is called when a user donates grc to the contract
+     * @param grcToken - the address of the grc token
+     * @param amount - the amount of grc to add to the current bucket
+     */
     function _addToCurrentBucket(address grcToken, uint256 amount) internal {
+        //Find the current bucket
         uint256 currentBucketId = currentBucket();
+        //The bucket to add to is always the current bucket + OFFSET_LEFT
         uint256 bucketToAddTo = currentBucketId + OFFSET_LEFT;
+        //The bucket to deduct from is always the bucketToAddTo + TOTAL_VESTING_PERIODS
         uint256 bucketToDeductFrom = bucketToAddTo + TOTAL_VESTING_PERIODS;
+
+        //The amount to add or subtract is the amount / TOTAL_VESTING_PERIODS
+        //it adds {amount} / {TOTAL_VESTING_PERIODS} to the bucketToAddTo
+        //and subtracts {amount} / {TOTAL_VESTING_PERIODS} from the bucketToDeductFrom
         uint256 amountToAddOrSubtract = amount / TOTAL_VESTING_PERIODS;
+
+        //Load the _bucketTracker into memory
+        //Bucket trackers are used to keep track of the last updated bucket
+        //and are used for caching to reduce gas costs
         BucketTracker memory _bucketTracker = bucketTrackerStorage[grcToken];
 
+        //Make sure the grc token is valid
         if (!_bucketTracker.isGRC) {
             revert IMinerPool.NotGRCToken();
         }
-        if (currentBucketId == 0) {
-            rewards[bucketToAddTo][grcToken].amountInBucket += amountToAddOrSubtract;
-            rewards[bucketToDeductFrom][grcToken].amountToDeduct += amountToAddOrSubtract;
-            rewards[bucketToAddTo][grcToken].inheritedFromLastWeek = true;
-            if (_bucketTracker.lastUpdatedBucket != bucketToAddTo) {
-                //TODO: Could also swtich to true for the last param since we check in the external func
-                bucketTrackerStorage[grcToken] = BucketTracker(
-                    uint48(bucketToAddTo),
-                    uint48(bucketToAddTo + TOTAL_VESTING_PERIODS - 1),
-                    _bucketTracker.firstAddedBucketId,
-                    _bucketTracker.isGRC
-                );
-            }
-            return;
-        }
 
+        //Load the current bucket into memory
         WeeklyReward memory currentBucket = rewards[bucketToAddTo][grcToken];
+
+        //If the bucket has already reconciled with its past weeks,
+        //then we can just add the amount to the bucket
+        //We also deduct the amount from the bucketToDeductFrom bucket
         if (currentBucket.inheritedFromLastWeek) {
             rewards[bucketToAddTo][grcToken].amountInBucket += amountToAddOrSubtract;
             rewards[bucketToDeductFrom][grcToken].amountToDeduct += amountToAddOrSubtract;
             return;
         }
 
+        //Cache the last updated bucket
+        //The last updated bucket is, the last bucket thats {amountInBucket} was updated
+        //If the last updated bucket has never been set (aka == 0),
+        //then that means the first bucket to be updated is the bucketToAddTo
+        //If the last updated bucket was already set, then we use that
         uint256 lastUpdatedBucket =
             _bucketTracker.lastUpdatedBucket == 0 ? bucketToAddTo : _bucketTracker.lastUpdatedBucket;
         WeeklyReward memory lastBucket = rewards[lastUpdatedBucket][grcToken];
 
+        //We already know we are going to add {amountToAddOrSubtract} to the {bucketToDeductFrom}
         rewards[bucketToDeductFrom][grcToken].amountToDeduct += amountToAddOrSubtract;
 
         //This means that we don't need to look backwards
         //Since all the vested amount from that bucket would have been emptied by now if the bucket hadnt been refreshed in 192 weeks
         // If the lastUpdatedBucket is the current bucket, we also don't need to look backwards
+        //If the {bucketToAddTo} is greater than the {maxBucketId} then we don't need to look backwards
+        //This is so because if {bucketToAddTo} is > {maxBucketId} then that means that all the tokens have already vested
+        //because tokens vest in between {bucketToAddTo} and {maxBucketId}
+        //This would only be the case if there has been a long period of time where no one has called {claimRewards}
+        //Or, no one has donated the grc to the contract
+        //Also, if the last bucket is the same as the bucket to add to, then we don't need to look backwards neither
         bool pastDataIrrelavant = bucketToAddTo > _bucketTracker.maxBucketId || lastUpdatedBucket == bucketToAddTo;
+        //If past data is irrelavant, we can assume that we start fresh from the current bucket
         uint256 totalToDeductFromBucket = pastDataIrrelavant ? 0 : currentBucket.amountToDeduct;
 
+        //As such, we don't need to look backwards if the past data is irrelavant
         if (!pastDataIrrelavant) {
+            //However, if the past data is relavant,
+            //We start at the last bucket that was updated,
+            //And we look forwards until we reach the bucketToAddTo
             for (uint256 i = lastUpdatedBucket; i < bucketToAddTo; ++i) {
                 totalToDeductFromBucket += rewards[i][grcToken].amountToDeduct;
             }
         }
 
-        //If past data is irrelavant, then, lastBucket.amountInBucket should be 0,
-        // and totalToDeduct
+        /**
+         * We then set
+         *         {
+         *             amountInBucket: (lastBucket.amountInBucket + amountToAddOrSubtract) - totalToDeductFromBucket,
+         *             amountToDeduct: 0,
+         *             inheritedFromLastWeek: true
+         *         }
+         *         We know that lastBucket.amountInBucket will always have a value > 0 (if the bucket has been donated to),
+         *         and we also know that every time a bucket is donated to, it becomes the last updated bucket,
+         *         therefore, {lastBucket.amountInBucket} is intended to be a cumulative sum of all the donations
+         *         with {totalToDeductFromBucket} being the amount that is needed to be deducted from the bucket
+         *         Once we adjust the amount in the bucket, we set the {inheritedFromLastWeek} to true
+         *         We also set the {amountToDeduct} to 0 since we don't need to deduct anything from the bucket anymore
+         */
         rewards[bucketToAddTo][grcToken] =
             WeeklyReward(true, (lastBucket.amountInBucket + amountToAddOrSubtract) - totalToDeductFromBucket, 0);
 
+        //If the lastUpdatedBucket has changed, then we update the lastUpdatedBucket
         if (_bucketTracker.lastUpdatedBucket != bucketToAddTo) {
             bucketTrackerStorage[grcToken] = BucketTracker(
                 uint48(bucketToAddTo),
@@ -142,10 +185,21 @@ contract BucketSubmission {
     //***************  EXTERNAL/PUBLIC VIEW FUNCTIONS  ************ */
     //************************************************************* */
 
+    /**
+     * @notice returns the current bucket
+     * @return currentBucket - the current bucket
+     */
     function currentBucket() public view returns (uint256) {
         return (block.timestamp - _genesisTimestamp()) / BUCKET_DURATION;
     }
 
+    /**
+     * @notice returns all buckets between start and end for a given grc token
+     * @param start - the start bucket
+     * @param end - the end bucket
+     * @param grcToken - the address of the grc token
+     * @return _rewards - an array of weekly rewards
+     */
     function getRewards(uint256 start, uint256 end, address grcToken) public view returns (WeeklyReward[] memory) {
         WeeklyReward[] memory _rewards = new WeeklyReward[](end - start);
         for (uint256 i = start; i < end; i++) {
@@ -154,6 +208,13 @@ contract BucketSubmission {
         return _rewards;
     }
 
+    /**
+     * @notice returns all buckets between start and end for a group of grc tokens
+     * @param start - the start bucket
+     * @param end - the end bucket
+     * @param tokens - the array of grc tokens
+     * @return _rewards - an array of TokenWithWeeklyReward structs
+     */
     function getBatchAddressesRewards(uint256 start, uint256 end, address[] calldata tokens)
         external
         view
@@ -174,21 +235,33 @@ contract BucketSubmission {
         }
     }
 
+    /**
+     * @notice returns the bucket tracker for a given grc token
+     * @param grcToken - the address of the grc token
+     * @return bucketTracker - the bucket tracker struct
+     */
+    function bucketTracker(address grcToken) external view returns (BucketTracker memory) {
+        return bucketTrackerStorage[grcToken];
+    }
+
+    /**
+     * @notice returns the weekly reward for a given bucket and grc token
+     * @param grcToken - the address of the grcToken
+     * @param id - the bucketId (week) to query for
+     * @return bucket - the  weekly reward struct for the bucket
+     */
     function reward(address grcToken, uint256 id) external view returns (WeeklyReward memory) {
         (WeeklyReward memory bucket,) = _rewardWithNeedsInitializing(grcToken, id);
         return bucket;
     }
 
-    //TODO: Check if this returns correctly on unitialized buckets.
-    //TODO: When the bucket is being withdrawn from, if it's not yet init,
-    //          -   make sure that it gets init so we dont need to spend time looking backwards
     /**
      * @notice returns the weekly reward for a given bucket
      * @dev if the bucket has not yet been initialized,
      *             - the function will look backwards to calculate the correct amount
      *             - if the bucket has been initialized, it will return the bucket
      * @param grcToken - the address of the grcToken
-     * @param id - the bucketId to query for
+     * @param id - the bucketId (week) to query for
      * @return bucket - the  weekly reward struct for the bucket
      * @return needsInitializing -- flag to see if the bucket needs to be initialized
      * @dev `needsInitializing` should be used in the withdraw reward function to see if the bucket needs to be initialized
@@ -214,19 +287,34 @@ contract BucketSubmission {
         }
 
         uint256 amountToSubtract = bucket.amountToDeduct;
+        //Can't underflow siince we start at id 16
         uint256 lastBucketId = id - 1;
 
+        //We get the first added bucket id from the bucket tracker.
+        //The tracker helps us prevent uneccessary backward lookups
         uint256 firstUpdatedBucket = _bucketTracker.firstAddedBucketId;
-        // ....check with david if i can leave while loop in here.
         while (true) {
+            // if the firstupdatedbucket is greater than the last bucket id
+            //then we break out of the loop
+            //This happens in the cae where the bucket has not been initialized yet
+            //And also in the case where we re-add a grc token to the contract
+            // after all its vesting periods have ended
             if (firstUpdatedBucket > lastBucketId) {
                 break;
             }
+            //Load the last bucket into memory
             WeeklyReward memory lastBucket = rewards[lastBucketId--][grcToken];
-
+            // add the amount to deduct from the last bucket to the amount to subtract
             amountToSubtract += lastBucket.amountToDeduct;
 
+            //If the last bucket has inherited from the last week
             if (lastBucket.inheritedFromLastWeek) {
+                //We set the amount in the bucket to the last bucket amount - the amount to subtract
+                //This marks the point at which we can stop looking backwards
+                //It's also important to keep in mind that this algorithm only works
+                //because we know that the last bucket will always have a value
+                //If it does not have a value -- that means that the bucket has not been initialized
+                // and thefefore there are no rewards that need to be accounted for in those buckets
                 bucket.amountInBucket = lastBucket.amountInBucket - amountToSubtract;
                 break;
             }
@@ -244,7 +332,14 @@ contract BucketSubmission {
      * @param grcToken - the address of the token
      * @param adding - if true, this adds the token to the allowed grcTokens
      *                     - else it removes it
-     * TODO: make sure the caching is there in the getters to get gas savings on backwards traversal
+     *  the general rule for setting grc token is;
+     *  If it's the first time adding the grc token,
+     *       - then, the {firstAddedBucketId} becomes current bucket + 16
+     *  if the bucket has already been added
+     *  if the current bucket is greater than the max bucket,
+     *  then we set the first added bucket to current bucket + 16
+     *  if the current bucket is not greater than the max bucket,
+     *  then we don't change the {firstAddedBucketId} since it still has periods to vest
      */
     function _setGRCToken(address grcToken, bool adding, uint256 currentBucket) internal returns (bool) {
         BucketTracker storage _bucketTracker = bucketTrackerStorage[grcToken];
@@ -255,9 +350,6 @@ contract BucketSubmission {
             // the firstAddedBucketId will be zero, so we need to set it.
             // If the currentBucket > maxBucketId -- that means that the bucket has zero vesting remaining so we can reset
             // the firstAddedBucketId to the current bucket. This makes lookups inside {reward} more efficient.
-            if (_bucketTracker.firstAddedBucketId == 0 || currentBucket > _bucketTracker.maxBucketId) {
-                _bucketTracker.firstAddedBucketId = uint48(currentBucket + OFFSET_LEFT);
-            }
             if (isGRC) {
                 //we return false if the token is already a GRC
                 //because we cant add a token that is already a grc
@@ -272,6 +364,12 @@ contract BucketSubmission {
             }
 
             _bucketTracker.isGRC = false;
+        }
+
+        if (_bucketTracker.firstAddedBucketId == 0 || currentBucket > _bucketTracker.maxBucketId) {
+            _bucketTracker.firstAddedBucketId = uint48(currentBucket + OFFSET_LEFT);
+            //TODO:should we also set inherited from last week here to true?
+            //might make some other functions easier
         }
         return true;
     }
@@ -291,9 +389,6 @@ contract BucketSubmission {
         return reward.amountInBucket;
     }
 
-    function bucketTracker(address grcToken) external view returns (BucketTracker memory) {
-        return bucketTrackerStorage[grcToken];
-    }
     //************************************************************* */
     //**************  INTERNAL/PRIVATE VIEW  ************ */
     //************************************************************* */

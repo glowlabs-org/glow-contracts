@@ -22,6 +22,7 @@ contract GCC is ERC20, IGCC, EIP712 {
     /// @notice The maximum shift for a bucketId
     uint256 private constant _MAX_SHIFT = 255;
 
+    /// @notice The EIP712 typehash for the RetiringPermit struct used by the permit
     bytes32 public constant RETIRING_PERMIT_TYPEHASH =
         keccak256("RetiringPermit(address owner,address spender,uint256 amount,uint256 nonce,uint256 deadline)");
 
@@ -210,6 +211,7 @@ contract GCC is ERC20, IGCC, EIP712 {
     /// @notice handles the storage writes and event emissions relating to retiring carbon credits.
     /// @dev should only be used internally and by function that require a transfer of {amount} to address(this)
     function _handleRetirement(address from, address rewardAddress, uint256 amount) private {
+        GOVERNANCE.syncProposals();
         totalCreditsRetired[rewardAddress] += amount;
         GOVERNANCE.grantNominations(rewardAddress, amount);
         emit IGCC.GCCRetired(from, rewardAddress, amount);

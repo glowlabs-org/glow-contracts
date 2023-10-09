@@ -5,8 +5,8 @@ import "@/Governance.sol";
 import {IGovernance} from "@/interfaces/IGovernance.sol";
 
 contract MockGovernance is Governance {
-    function setMostPopularProposalStatus(uint256 weekId, IGovernance.ProposalStatus status) public {
-        _setMostPopularProposalStatus(weekId, status);
+    function setProposalStatus(uint256 weekId, IGovernance.ProposalStatus status) public {
+        _setProposalStatus(weekId, status);
     }
 
     function getNominationCostForProposalCreation(uint256 numActiveProposals) public pure returns (uint256) {
