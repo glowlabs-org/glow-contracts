@@ -5,6 +5,8 @@ import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+//TODO: make sure to change the miner pool to donate to here
+//todo: make EL donate to here since we delay EL as well.
 /**
  * @dev Struct representing a holding of tokens in the HoldingContract.
  * @param amount The amount of tokens being held.
@@ -73,6 +75,10 @@ contract HoldingContract {
      */
     uint256 private constant EIGHTY_DAYS = uint256(80 days);
 
+    /**
+     * @notice the minimum timestamp for withdrawals
+     * @dev any claims below this timestamp will revert
+     */
     uint256 public minimumWithdrawTimestamp;
 
     mapping(address => mapping(address => Holding)) private _holdings;

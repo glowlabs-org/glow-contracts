@@ -40,9 +40,9 @@ contract EarlyLiquidityTest is Test {
     //-----------------SETUP-----------------
     function setUp() public {
         usdc = new MockUSDC();
-        earlyLiquidity = new EarlyLiquidity(address(usdc));
-        glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
         holdingContract = new HoldingContract(vetoCouncilAddress);
+        earlyLiquidity = new EarlyLiquidity(address(usdc),address(holdingContract));
+        glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
         minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(usdc),
         address(holdingContract));
         earlyLiquidity.setMinerPool(address(minerPool));
@@ -174,7 +174,7 @@ contract EarlyLiquidityTest is Test {
      * @dev we test to make sure that usdc used to buy goes to the
      *             - miner pool contract
      */
-    function test_Buy_checkUSDCGoesToMinerPool() public {
+    function test_Buy_checkUSDCGoesToHoldingContract() public {
         test_setGlowAndMint();
 
         vm.startPrank(SIMON);
@@ -184,7 +184,7 @@ contract EarlyLiquidityTest is Test {
         usdc.approve(address(earlyLiquidity), totalCost);
         uint256 glwBalanceBefore = glw.balanceOf(SIMON);
 
-        uint256 minerPoolUsdcBalanceBefore = usdc.balanceOf(address(minerPool));
+        uint256 holdingContractBalanceBefore = usdc.balanceOf(address(holdingContract));
         uint256 usdcBalanceBefore = usdc.balanceOf(SIMON);
         assertEq(usdcBalanceBefore, 1_000_000_000 ether);
         assertEq(glwBalanceBefore, 0);
@@ -193,14 +193,14 @@ contract EarlyLiquidityTest is Test {
 
         uint256 glwBalanceAfter = glw.balanceOf(SIMON);
         uint256 usdcBalanceAfter = usdc.balanceOf(SIMON);
-        uint256 minerPoolUsdcBalanceAfter = usdc.balanceOf(address(minerPool));
+        uint256 holdingContractBalanceAfter = usdc.balanceOf(address(holdingContract));
 
         assertEq(earlyLiquidity.totalSold(), 400_000 ether);
 
         uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity(address(usdc));
-        assertEq(amountReceivedFromELInMP, minerPoolUsdcBalanceAfter - minerPoolUsdcBalanceBefore);
+        assertEq(amountReceivedFromELInMP, holdingContractBalanceAfter - holdingContractBalanceBefore);
 
-        assertTrue(minerPoolUsdcBalanceAfter - totalCost == minerPoolUsdcBalanceBefore);
+        assertTrue(holdingContractBalanceAfter - totalCost == holdingContractBalanceBefore);
     }
 
     /**
@@ -214,10 +214,10 @@ contract EarlyLiquidityTest is Test {
         MockUSDCTax taxUsdc = new MockUSDCTax();
         uint256 increments = 40_000_000;
         taxUsdc.mint(SIMON, 1_000_000_000 ether);
-        earlyLiquidity = new EarlyLiquidity(address(taxUsdc));
+        holdingContract = new HoldingContract(vetoCouncilAddress);
+        earlyLiquidity = new EarlyLiquidity(address(taxUsdc),address(holdingContract));
         glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
         earlyLiquidity.setGlowToken(address(glow));
-        holdingContract = new HoldingContract(vetoCouncilAddress);
         minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(taxUsdc),
         address(holdingContract));
         earlyLiquidity.setMinerPool(address(minerPool));
@@ -226,22 +226,23 @@ contract EarlyLiquidityTest is Test {
         taxUsdc.approve(address(earlyLiquidity), totalCost);
         uint256 glwBalanceBefore = glw.balanceOf(SIMON);
 
-        uint256 minerPoolUsdcBalanceBefore = taxUsdc.balanceOf(address(minerPool));
+        uint256 holdingContractBalanceBefore = taxUsdc.balanceOf(address(holdingContract));
         uint256 usdcBalanceBefore = taxUsdc.balanceOf(SIMON);
         assertEq(usdcBalanceBefore, 1_000_000_000 ether);
         assertEq(glwBalanceBefore, 0);
         uint256 allowance = taxUsdc.allowance(address(this), address(earlyLiquidity));
-        //buy 400_000 tokens (max increments * .01)
+
+        taxUsdc.approve(address(earlyLiquidity), totalCost);
         earlyLiquidity.buy(increments, totalCost);
 
         uint256 glwBalanceAfter = glw.balanceOf(SIMON);
         uint256 usdcBalanceAfter = taxUsdc.balanceOf(SIMON);
-        uint256 minerPoolUsdcBalanceAfter = taxUsdc.balanceOf(address(minerPool));
+        uint256 holdingContractBalanceAfter = taxUsdc.balanceOf(address(holdingContract));
 
         assertEq(earlyLiquidity.totalSold(), 400_000 ether);
 
         uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity(address(taxUsdc));
-        assertEq(amountReceivedFromELInMP, minerPoolUsdcBalanceAfter - minerPoolUsdcBalanceBefore);
+        assertEq(amountReceivedFromELInMP, holdingContractBalanceAfter - holdingContractBalanceBefore);
         assertTrue(amountReceivedFromELInMP != totalCost);
     }
 

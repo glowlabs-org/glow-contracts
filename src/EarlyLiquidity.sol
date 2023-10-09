@@ -33,28 +33,8 @@ interface IDecimals {
 contract EarlyLiquidity is IEarlyLiquidity {
     using ABDKMath64x64 for int128;
 
-    /// @dev The USDC token
-    IERC20 public immutable USDC_TOKEN;
-
-    /// @dev The number of decimals for USDC
-    uint256 public constant USDC_DECIMALS = 6;
-
     /// @dev The number 0.006 in microdollars with respect to USDC_DECIMALS
     uint256 private constant _POINT_ZERO_ZERO6 = 6 * (10 ** (USDC_DECIMALS - 3));
-
-    /// @dev The minimum increment that tokens can be bought in
-    /// @dev this is essential so our floating point math doesn't break
-    /// @dev .01 GLW
-    uint256 public constant MIN_TOKEN_INCREMENT = 1e16;
-
-    /// @dev The total number of glow tokens to sell
-    /// @dev 12 million GLOW tokens
-    /// @dev .01 * 1_200_000_000 = 12_000_000
-    uint256 public constant TOTAL_INCREMENTS_TO_SELL = 1_200_000_000;
-
-    //************************************************************* */
-    //*****************  FLOATING POINT CONSTANTS    ************** */
-    //************************************************************* */
 
     /// @dev Represents 1.0000000069314718 in 64x64 format, or `r` in the geometric series
     int128 private constant _RATIO = 18446744201572638720;
@@ -82,6 +62,43 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /// @dev the {totalSold} function returns the total sold in 1e18 (GLW DECIMALS)
     uint256 private _totalIncrements;
 
+    /**
+     * @notice USDC token
+     * @dev The USDC token
+     */
+    IERC20 public immutable USDC_TOKEN;
+
+    /// @dev The number of decimals for USDC
+    uint256 public constant USDC_DECIMALS = 6;
+
+    /**
+     * @notice The address of the holding contract
+     * @dev the holding contract holds all GRC tokens
+     */
+    address public immutable HOLDING_CONTRACT;
+
+    /**
+     * @notice the minimum increment that tokens can be bought in
+     *     -   .01 GLW
+     * @dev The minimum increment that tokens can be bought in
+     * @dev this is essential so our floating point math doesn't break
+     * @dev .01 GLW
+     */
+    uint256 public constant MIN_TOKEN_INCREMENT = 1e16;
+
+    /**
+     * @notice the total amount of .01 increments to sell
+     *     - equals to 12,000,000 GLW total
+     * @dev The total number of glow tokens to sell
+     * @dev 12 million GLOW tokens
+     * @dev .01 * 1_200_000_000 = 12_000_000
+     */
+    uint256 public constant TOTAL_INCREMENTS_TO_SELL = 1_200_000_000;
+
+    //************************************************************* */
+    //*****************  FLOATING POINT CONSTANTS    ************** */
+    //************************************************************* */
+
     /// @notice The Glow token
     IERC20 public glowToken;
 
@@ -96,14 +113,16 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /**
      * @notice Constructs the EarlyLiquidity contract
      * @param _usdcAddress The address of the USDC token
+     * @param _holdingContract The address of the holding contract
      * @dev does not take in Glow token since it is not deployed yet
      */
-    constructor(address _usdcAddress) {
+    constructor(address _usdcAddress, address _holdingContract) {
         USDC_TOKEN = IERC20(_usdcAddress);
         uint256 decimals = uint256(IDecimals(_usdcAddress).decimals());
         if (decimals != USDC_DECIMALS) {
             _revert(IDecimals.IncorrectDecimals.selector);
         }
+        HOLDING_CONTRACT = _holdingContract;
     }
 
     /**
@@ -112,12 +131,12 @@ contract EarlyLiquidity is IEarlyLiquidity {
     function buy(uint256 increments, uint256 maxCost) external {
         // Cache the minerPool in memory for gas optimization.
         IMinerPool pool = minerPool;
-        address poolAddress = address(pool);
+        address _holdingContract = HOLDING_CONTRACT;
 
-        // Check if the cached pool address is the zero address. If it is, revert the transaction.
-        if (_isZeroAddress(poolAddress)) {
-            _revert(IEarlyLiquidity.ZeroAddress.selector);
-        }
+        // // Check if the cached pool address is the zero address. If it is, revert the transaction.
+        // if (_isZeroAddress(poolAddress)) {
+        //     _revert(IEarlyLiquidity.ZeroAddress.selector);
+        // }
 
         // Calculate the total cost of the desired amount of tokens.
         uint256 totalCost = getPrice(increments);
@@ -133,13 +152,13 @@ contract EarlyLiquidity is IEarlyLiquidity {
         uint256 glowToSend = increments * 1e16;
 
         // Check the balance of USDC in the miner pool before making a transfer.
-        uint256 balBefore = USDC_TOKEN.balanceOf(poolAddress);
+        uint256 balBefore = USDC_TOKEN.balanceOf(_holdingContract);
 
         // Transfer USDC from the user to the miner pool to pay for the tokens.
-        SafeERC20.safeTransferFrom(USDC_TOKEN, msg.sender, poolAddress, totalCost);
+        SafeERC20.safeTransferFrom(USDC_TOKEN, msg.sender, _holdingContract, totalCost);
 
         // Check the balance of USDC in the miner pool after the transfer to find the actual transferred amount.
-        uint256 balAfter = USDC_TOKEN.balanceOf(poolAddress);
+        uint256 balAfter = USDC_TOKEN.balanceOf(_holdingContract);
         //Underflow should be impossible, unless the USDC contract is hacked and malicious
         //in which case, this transaction will revert
         //For almost all cases possible, this should not underflow/revert
