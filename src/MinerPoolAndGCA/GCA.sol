@@ -564,7 +564,6 @@ contract GCA is IGCA {
         return _getShares(agent, gcaAgents);
     }
 
-    //TODO: Implement from Bucket.py
     function isBucketFinalized(uint256 bucketId) public view returns (bool) {
         uint256 packedData;
         assembly {

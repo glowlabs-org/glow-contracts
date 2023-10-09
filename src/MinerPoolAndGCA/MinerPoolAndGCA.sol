@@ -19,16 +19,7 @@ import "forge-std/console.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IHoldingContract} from "@/HoldingContract.sol";
 
-/**
- * TODO:
- * Add tests for all the claim stuff
- * Add tests for new bitmask stuff
- * add test for merkle root efficient in gca
- * make sure that veto council agents can delay a bucket
- * make sure to check for finalization around bucket submission
- * add tests for withdrawing from reinstated buckets
- * add 1 week delay on grc withdrawals :)
- */
+
 
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//

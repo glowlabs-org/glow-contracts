@@ -48,7 +48,6 @@ contract CCC is ICarbonCreditAuction {
         return;
     }
 
-    //TODO: finish calculating the closing price
     // take into account partial fills  and how to handle those
     // take into account the other edge cases where there are not enough bids
     // also remember to make sure that the bid is a minimum bid sothat users can bid as much glow as they want

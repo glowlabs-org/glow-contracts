@@ -240,7 +240,6 @@ contract Glow is ERC20, IGlow {
         //This gives us the # of unstaked positions that the user has
         uint256 adjustedLenBefore = lenBefore - tail;
 
-        //TODO: I don't think we actually need this. check with @david,  just let people DoS themselves
         //if adjustlenBefore >= 99
         // we + 2 to proactively set emergencyLastUpdate when length will be 99 so the 100th unstake will trigger cooldown
         if (adjustedLenBefore + 2 > MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN) {
