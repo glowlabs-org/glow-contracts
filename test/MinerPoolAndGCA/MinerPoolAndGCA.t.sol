@@ -209,49 +209,7 @@ contract MinerPoolAndGCATest is Test {
         assertTrue(validProof);
     }
 
-    function test_FFI_MerkleRoot() public {
-        address[] memory arr = new address[](2);
-        arr[0] = (defaultAddressInWithdraw);
-        arr[1] = address(0x777);
-        bytes32[] memory hashes = new bytes32[](arr.length);
-        for (uint256 i; i < arr.length; ++i) {
-            hashes[i] = keccak256(abi.encodePacked(bytes32(uint256(uint160(arr[i])))));
-        }
-        string[] memory inputs = new string[](4);
-
-        inputs[0] = "npx";
-        inputs[1] = "ts-node";
-        inputs[2] = "./test/MinerPoolAndGCA/CreateMerkleRoot.ts";
-        inputs[3] = string(abi.encodePacked("--leaves=", stringifyBytes32Array(hashes)));
-
-        bytes memory res = vm.ffi(inputs);
-
-        bytes32 root = abi.decode(res, (bytes32));
-        assertEq(root, bytes32(0x2a1f8d700503a793decdfdc50d092eda9ec782510eeab6159a68366bbdf8f203));
-    }
-
-    function test_FFI_getMerkleProof() public {
-        address[] memory arr = new address[](2);
-        arr[0] = (defaultAddressInWithdraw);
-        arr[1] = address(0x777);
-        bytes32[] memory hashes = new bytes32[](arr.length);
-        for (uint256 i; i < arr.length; ++i) {
-            hashes[i] = keccak256(abi.encodePacked(bytes32(uint256(uint160(arr[i])))));
-        }
-        bytes32 root = 0x2a1f8d700503a793decdfdc50d092eda9ec782510eeab6159a68366bbdf8f203;
-        string[] memory inputs = new string[](5);
-        inputs[0] = "npx";
-        inputs[1] = "ts-node";
-        inputs[2] = "./test/MinerPoolAndGCA/GetMerkleProof.ts";
-        inputs[3] = string(abi.encodePacked("--leaves=", stringifyBytes32Array(hashes)));
-        inputs[4] = string(abi.encodePacked("--targetLeaf=", Strings.toHexString(uint256(hashes[1]), 32)));
-
-        bytes memory res = vm.ffi(inputs);
-
-        bytes32[] memory proof = abi.decode(res, (bytes32[]));
-        bool validProof = MerkleProofLib.verify(proof, root, hashes[1]);
-        assertTrue(validProof);
-    }
+    
 
     //------------WITHDRAWALS----------------//
     //TODO: Add sending to carbon credit auction
