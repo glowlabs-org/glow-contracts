@@ -79,9 +79,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     }
 
     /**
-     * @dev a mapping of (bucketId / 256) -> user -> bitmap
+     * @dev a mapping of (bucketId / 256) -> user  -> address -> bitmap
      */
-    mapping(uint256 => mapping(address => uint256)) private _bucketClaimBitmap;
+    mapping(uint256 => mapping(address => mapping(address => uint256))) private _bucketClaimBitmap;
 
     /**
      * @dev a mapping of (bucketId / 256) -> user -> bitmap
@@ -134,8 +134,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     //----------------- DONATIONS -----------------//
 
-    //     TODO: token whitelist
-    //TODO: make sure all gov functions can never revert
+    /**
+     * @inheritdoc IMinerPool
+     */
     function editReserveCurrencies(address oldReserveCurrency, address newReserveCurrency) external returns (bool) {
         if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
 
@@ -178,20 +179,14 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         return true;
     }
 
-    function _isZeroAddress(address addr) internal pure returns (bool res) {
-        assembly {
-            res := iszero(addr)
-        }
-    }
     /**
      * @inheritdoc IMinerPool
      */
-
     function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
         // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
-        uint256 balBefore = IERC20(grcToken).balanceOf(address(this));
-        SafeERC20.safeTransferFrom(IERC20(grcToken), msg.sender, address(this), amount);
-        uint256 transferredBalance = IERC20(grcToken).balanceOf(address(this)) - balBefore;
+        uint256 balBefore = IERC20(grcToken).balanceOf(address(HOLDING_CONTRACT));
+        SafeERC20.safeTransferFrom(IERC20(grcToken), msg.sender, address(HOLDING_CONTRACT), amount);
+        uint256 transferredBalance = IERC20(grcToken).balanceOf(address(HOLDING_CONTRACT)) - balBefore;
         _addToCurrentBucket(grcToken, transferredBalance);
     }
 
@@ -258,11 +253,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             bytes32 root = getBucketRootAtIndexEfficient(bucketId, index);
             _checkProof(user, glwWeight, grcWeight, proof, root);
         }
-        {
-            uint256 userBitmap = _getUserBitmapForBucket(bucketId, user);
-            userBitmap = _checkClaimAvailableAndReturnNewBitmap(bucketId, userBitmap);
-            _setUserBitmapForBucket(bucketId, user, userBitmap);
-        }
+
         uint256 globalStatePackedData = getPackedBucketGlobalState(bucketId);
 
         _handleMintToCarbonCreditAuction(bucketId, globalStatePackedData & _UINT128_MASK);
@@ -270,15 +261,21 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         {
             //no need to use a mask since totalGRCWeight uses the last 64 bits, so we can just shift
             uint256 totalGRCWeight = globalStatePackedData >> 192;
-
             for (uint256 i; i < grcTokens.length;) {
-                uint256 amountInBucket = _getAmountForTokenAndInitIfNot(grcTokens[i], bucketId);
+                {
+                    address token = grcTokens[i];
+                    uint256 userBitmap = _getUserBitmapForBucket(bucketId, user, token);
+                    userBitmap = _checkClaimAvailableAndReturnNewBitmap(bucketId, userBitmap);
+                    _setUserBitmapForBucket(bucketId, user, token, userBitmap);
+                }
+
                 //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
                 // so that we don't overflow the available GRC rewards
                 // and grab rewards from other buckets
+                uint256 amountInBucket = _getAmountForTokenAndInitIfNot(grcTokens[i], bucketId);
                 amountInBucket = amountInBucket * _min(grcWeight, totalGRCWeight) / totalGRCWeight;
                 if (amountInBucket > 0) {
-                    SafeERC20.safeTransfer(IERC20(grcTokens[i]), user, amountInBucket);
+                    HOLDING_CONTRACT.addHolding(user, grcTokens[i], uint192(amountInBucket));
                 }
                 unchecked {
                     ++i;
@@ -414,8 +411,12 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param user - the address of the user
      * @param userBitmap - the new bitmap to set for the user
      */
-    function _setUserBitmapForBucket(uint256 bucketId, address user, uint256 userBitmap) internal {
-        _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user] = userBitmap;
+    function _setUserBitmapForBucket(uint256 bucketId, address user, address token, uint256 userBitmap) internal {
+        _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user][token] = userBitmap;
+    }
+
+    function bucketClaimBitmap(uint256 bucketId, address user, address token) public view returns (uint256) {
+        return _getUserBitmapForBucket(bucketId, user, token);
     }
 
     //************************************************************* */
@@ -471,8 +472,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param user - the address of the user
      * @return userBitmap - the bitmap of the user
      */
-    function _getUserBitmapForBucket(uint256 bucketId, address user) internal view returns (uint256) {
-        return _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user];
+    function _getUserBitmapForBucket(uint256 bucketId, address user, address token) internal view returns (uint256) {
+        return _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user][token];
     }
 
     /**
@@ -482,5 +483,16 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     function _genesisTimestamp() internal view override(BucketSubmission) returns (uint256) {
         return GENESIS_TIMESTAMP;
+    }
+
+    /**
+     * @dev efficient checker for whether an address is the zero address
+     * @param addr the address to check
+     * @return res - whether or not the address is the zero address
+     */
+    function _isZeroAddress(address addr) internal pure returns (bool res) {
+        assembly {
+            res := iszero(addr)
+        }
     }
 }

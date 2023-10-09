@@ -5,8 +5,6 @@ import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-//TODO: make sure to change the miner pool to donate to here
-//todo: make EL donate to here since we delay EL as well.
 /**
  * @dev Struct representing a holding of tokens in the HoldingContract.
  * @param amount The amount of tokens being held.
@@ -28,7 +26,7 @@ struct ClaimHoldingArgs {
 }
 
 interface IHoldingContract {
-    function addHoldings(address user, address[] memory tokens, uint192[] memory amounts) external;
+    function addHolding(address user, address token, uint192 amount) external;
     function holdings(address user, address token) external view returns (Holding memory);
     function claimHoldings(ClaimHoldingArgs[] memory args) external;
     function setMinerPool(address _minerPool) external;
@@ -81,6 +79,16 @@ contract HoldingContract {
      */
     uint256 public minimumWithdrawTimestamp;
 
+    /**
+     * @notice the holdings for each user
+     *     Note: We could have chosen an array of holdings
+     *     such that each withdraw truly is a FIFO queue with 1 week delay
+     *     However, we chose to store all holdings in a single slot
+     *     to avoid cold sstores and sloads
+     *     The downside of this approach is that we can't have a FIFO queue
+     *     and that any time a withdraw is made from the miner pool contract
+     *     the user's holdings are locked for 7 days
+     */
     mapping(address => mapping(address => Holding)) private _holdings;
 
     /**
@@ -112,23 +120,23 @@ contract HoldingContract {
         minimumWithdrawTimestamp = block.timestamp + VETO_HOLDING_DELAY;
     }
 
-    /**
-     * @notice allows the miner pool contract to add holdings
-     * @param user the address of the user
-     * @param tokens the addresses of the grc tokens to withdraw
-     * @param amounts the amounts of tokens to add to the holding
-     */
-    function addHoldings(address user, address[] memory tokens, uint192[] memory amounts) external {
-        if (msg.sender != minerPool) {
-            _revert(OnlyMinerPoolCanAddHoldings.selector);
-        }
-        for (uint256 i; i < tokens.length;) {
-            addHolding(user, tokens[i], amounts[i]);
-            unchecked {
-                ++i;
-            }
-        }
-    }
+    // /**
+    //  * @notice allows the miner pool contract to add holdings
+    //  * @param user the address of the user
+    //  * @param tokens the addresses of the grc tokens to withdraw
+    //  * @param amounts the amounts of tokens to add to the holding
+    //  */
+    // function addHoldings(address user, address[] memory tokens, uint192[] memory amounts) external {
+    //     if (msg.sender != minerPool) {
+    //         _revert(OnlyMinerPoolCanAddHoldings.selector);
+    //     }
+    //     for (uint256 i; i < tokens.length;) {
+    //         addHolding(user, tokens[i], amounts[i]);
+    //         unchecked {
+    //             ++i;
+    //         }
+    //     }
+    // }
 
     /**
      * @notice entrypoint to claim holdings
@@ -157,6 +165,22 @@ contract HoldingContract {
         }
     }
 
+    function claimHoldingSingleton(address user, address token) external {
+        //If the network is frozen, don't allow withdrawals
+        if (block.timestamp < minimumWithdrawTimestamp) {
+            _revert(NetworkIsFrozen.selector);
+        }
+        Holding memory holding = _holdings[user][token];
+        if (block.timestamp < holding.expirationTimestamp) {
+            _revert(WithdrawalNotReady.selector);
+        }
+        //Delete the holding args.
+        //Should set all the data to zero.
+        delete _holdings[user][token];
+        //Add the amount to the amount to transfer
+        SafeERC20.safeTransfer(IERC20(token), user, holding.amount);
+    }
+
     function setMinerPool(address _minerPool) external {
         if (minerPool != address(0)) {
             _revert(MinerPoolAlreadySet.selector);
@@ -180,7 +204,10 @@ contract HoldingContract {
      * @param token the address of the grc token to withdraw
      * @param amount the amount of tokens to add to the holding
      */
-    function addHolding(address user, address token, uint192 amount) internal {
+    function addHolding(address user, address token, uint192 amount) external {
+        if (msg.sender != minerPool) {
+            _revert(OnlyMinerPoolCanAddHoldings.selector);
+        }
         _holdings[user][token].amount += amount;
         _holdings[user][token].expirationTimestamp = uint64(block.timestamp + DEFAULT_DELAY);
     }
