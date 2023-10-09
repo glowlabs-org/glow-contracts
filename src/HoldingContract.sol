@@ -42,18 +42,6 @@ contract HoldingContract {
     error MinerPoolAlreadySet();
 
     /**
-     * @notice the address of the miner pool
-     * @dev this is the address that can add holdings to the contract
-     */
-    address public minerPool;
-
-    /**
-     * @notice the address of the veto council
-     * @dev veto council members can delay the network
-     */
-    IVetoCouncil public immutable VETO_COUNCIL;
-
-    /**
      * @notice the default delay for withdrawals
      * @dev the default delay is 7 days
      * Whenever a user withdraws from the miner pool,
@@ -69,9 +57,22 @@ contract HoldingContract {
     uint256 private constant VETO_HOLDING_DELAY = uint256(90 days);
 
     /**
-     * @dev the 90 day delay can only be activated every 80 days
+     * @dev a cached version of 10 days in seconds
+     * @dev used in delayNetwork to ensure that the network can only be delayed every 80 days
      */
-    uint256 private constant EIGHTY_DAYS = uint256(80 days);
+    uint256 private constant TEN_DAYS = uint256(10 days);
+
+    /**
+     * @notice the address of the veto council
+     * @dev veto council members can delay the network
+     */
+    IVetoCouncil public immutable VETO_COUNCIL;
+
+    /**
+     * @notice the address of the miner pool
+     * @dev this is the address that can add holdings to the contract
+     */
+    address public minerPool;
 
     /**
      * @notice the minimum timestamp for withdrawals
@@ -90,6 +91,25 @@ contract HoldingContract {
      *     the user's holdings are locked for 7 days
      */
     mapping(address => mapping(address => Holding)) private _holdings;
+
+    /**
+     * @dev emitted when there is a network delay
+     * @param vetoAgent the address of the veto agent that delayed the network
+     * @param timestamp the timestamp at which the network was delayed
+     *         - timestamp + 90 days is the earliest time that withdrawals can be made
+     */
+    event NetworkDelay(address vetoAgent, uint256 timestamp);
+
+    /**
+     * @dev emitted whenever a holding is added to a user
+     * @param user the address of the user
+     * @param token the address of the grc token
+     * @param amount the amount of tokens added to the holding
+     * @dev we dont emit a {HoldingClaimed} event since there may be a tax
+     *     - on the token that will mess up the data.
+     *     - we rely on catching transfer events
+     */
+    event HoldingAdded(address indexed user, address indexed token, uint192 amount);
 
     /**
      * @param _vetoCouncil the address of the veto council
@@ -112,31 +132,17 @@ contract HoldingContract {
             minimumWithdrawTimestamp = block.timestamp + VETO_HOLDING_DELAY;
             return;
         }
-
-        uint256 timeSinceLastDelay = block.timestamp - _minimumWithdrawTimestamp;
-        if (timeSinceLastDelay < EIGHTY_DAYS) {
-            _revert(CanOnlyDelayEveryEightyDays.selector);
+        if (block.timestamp < _minimumWithdrawTimestamp) {
+            //The block.timestamp needs to be within 10 days of
+            //minimumWithdrawTimestamp
+            uint256 timeLeftInDelay = _minimumWithdrawTimestamp - block.timestamp;
+            if (timeLeftInDelay > TEN_DAYS) {
+                _revert(CanOnlyDelayEveryEightyDays.selector);
+            }
         }
+
         minimumWithdrawTimestamp = block.timestamp + VETO_HOLDING_DELAY;
     }
-
-    // /**
-    //  * @notice allows the miner pool contract to add holdings
-    //  * @param user the address of the user
-    //  * @param tokens the addresses of the grc tokens to withdraw
-    //  * @param amounts the amounts of tokens to add to the holding
-    //  */
-    // function addHoldings(address user, address[] memory tokens, uint192[] memory amounts) external {
-    //     if (msg.sender != minerPool) {
-    //         _revert(OnlyMinerPoolCanAddHoldings.selector);
-    //     }
-    //     for (uint256 i; i < tokens.length;) {
-    //         addHolding(user, tokens[i], amounts[i]);
-    //         unchecked {
-    //             ++i;
-    //         }
-    //     }
-    // }
 
     /**
      * @notice entrypoint to claim holdings
@@ -181,19 +187,25 @@ contract HoldingContract {
         SafeERC20.safeTransfer(IERC20(token), user, holding.amount);
     }
 
+    /**
+     * @notice a one time setter to set the miner pool
+     * @dev the miner pool calls this function upon deployment
+     * @param _minerPool the address of the miner pool
+     */
     function setMinerPool(address _minerPool) external {
+        //Make sure the miner pool is not already set
         if (minerPool != address(0)) {
             _revert(MinerPoolAlreadySet.selector);
         }
         minerPool = _minerPool;
     }
+
     /**
      * @notice returns the Holding struct for a user and token pair
      * @param user the address of the user
      * @param token the address of the grc token to withdraw
      * @return holding - the Holding struct
      */
-
     function holdings(address user, address token) external view returns (Holding memory) {
         return _holdings[user][token];
     }
@@ -210,6 +222,7 @@ contract HoldingContract {
         }
         _holdings[user][token].amount += amount;
         _holdings[user][token].expirationTimestamp = uint64(block.timestamp + DEFAULT_DELAY);
+        emit HoldingAdded(user, token, amount);
     }
 
     /**
