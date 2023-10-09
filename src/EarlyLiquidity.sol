@@ -282,8 +282,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
      *   @notice Calculates the first term in the geometric series for the current price of the current token
      *  @param totalIncrementsSold - the total number of increments that have already been sold
      *   @return  firstTerm -  first term to be used in the geometric series
-    */
-
+     */
 
     function _getFirstTermInSeries(uint256 totalIncrementsSold) private pure returns (int128) {
         // Convert 'totalSold' to a fixed-point representation using ABDKMath64x64.

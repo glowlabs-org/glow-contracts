@@ -50,7 +50,6 @@ contract GCA is IGCA {
     uint256 internal constant _UINT64_MASK = (1 << 64) - 1;
     uint256 private constant _BOOL_MASK = (1 << 8) - 1;
     uint256 private constant _UINT184_MASK = (1 << 184) - 1;
-    // uint256 private constant _BOOL_MASK = (1<<8) - 1;
 
     // 1 week
     uint256 private constant BUCKET_LENGTH = 7 * uint256(1 days);

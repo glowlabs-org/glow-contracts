@@ -16,6 +16,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import "forge-std/console.sol";
+import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 /**
  * TODO:
  * Add tests for all the claim stuff
@@ -60,6 +61,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     uint256 private constant _MAX_RESERVE_CURRENCIES = 3;
 
     uint256 public numReserveCurrencies;
+
+    bytes32 public constant CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
+        "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,address[] grcTokens,bool claimFromInflation)"
+    );
 
     //----------------- MAPPINGS -----------------//
 
@@ -213,7 +218,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param grcTokens - the grc tokens to send to the user
      * @param claimFromInflation - whether or not to claim glow from inflation
      */
-    function claimRewardMultipleRootsOneBucket(
+    function claimRewardFromBucket(
         uint256 bucketId,
         uint256 glwWeight,
         uint256 grcWeight,
@@ -221,8 +226,16 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint256 index,
         address user,
         address[] memory grcTokens,
-        bool claimFromInflation
+        bool claimFromInflation,
+        bytes memory signature
     ) external {
+        if (msg.sender != user) {
+            bytes32 hash =
+                createClaimRewardFromBucketDigest(bucketId, glwWeight, grcWeight, index, grcTokens, claimFromInflation);
+            if (!SignatureChecker.isValidSignatureNow(user, hash, signature)) {
+                _revert(IMinerPool.SignatureDoesNotMatchUser.selector);
+            }
+        }
         if (!isBucketFinalized(bucketId)) {
             _revert(IMinerPool.BucketNotFinalized.selector);
         }
@@ -253,7 +266,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
                 // so that we don't overflow the available GRC rewards
                 amountInBucket = amountInBucket * _min(grcWeight, totalGRCWeight) / totalGRCWeight;
                 if (amountInBucket > 0) {
-                    SafeERC20.safeTransfer(IERC20(grcTokens[i]), msg.sender, amountInBucket);
+                    SafeERC20.safeTransfer(IERC20(grcTokens[i]), user, amountInBucket);
                 }
 
                 unchecked {
@@ -267,7 +280,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             // so that we don't overflow the available glow rewards
             uint256 amountGlowToSend = GLOW_REWARDS_PER_BUCKET * _min(glwWeight, totalGlwWeight) / totalGlwWeight;
             if (amountGlowToSend > 0) {
-                SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), msg.sender, amountGlowToSend);
+                SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), user, amountGlowToSend);
             }
         }
     }
@@ -327,6 +340,33 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     function earlyLiquidity() public view returns (address) {
         return _EARLY_LIQUIDITY;
+    }
+
+    function createClaimRewardFromBucketDigest(
+        uint256 bucketId,
+        uint256 glwWeight,
+        uint256 grcWeight,
+        uint256 index,
+        address[] memory grcTokens,
+        bool claimFromInflation
+    ) public view returns (bytes32) {
+        return keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                _domainSeparatorV4(),
+                keccak256(
+                    abi.encode(
+                        CLAIM_REWARD_FROM_BUCKET_TYPEHASH,
+                        bucketId,
+                        glwWeight,
+                        grcWeight,
+                        index,
+                        keccak256(abi.encodePacked(grcTokens)),
+                        claimFromInflation
+                    )
+                )
+            )
+        );
     }
 
     //************************************************************* */

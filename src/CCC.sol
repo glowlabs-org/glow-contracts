@@ -187,7 +187,6 @@ contract CCC is ICarbonCreditAuction {
         closingPrice = price;
         totalGlowSold = totalGlowSpent;
     }
-    
 
     function getNextBidPrice() public view returns (uint256) {
         uint256 _currentHighestBid = currentHighestBid;

@@ -359,7 +359,6 @@ contract Governance is IGovernance {
                     lastExecutedWeek = _nextWeekToExecute == 0 ? type(uint256).max : _nextWeekToExecute - 1;
                     return;
                 }
-                console.log("here mf!2");
             }
 
             //Start C2:
