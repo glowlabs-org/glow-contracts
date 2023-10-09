@@ -6,6 +6,8 @@ use-solc-0.8.21 :; solc-select use 0.8.21
 compile-rust :;  rustc test/Governance/ffi/half_life.rs --out-dir  ./test/Governance/ffi/  && \
 				rustc test/Governance/ffi/divergence_check.rs --out-dir  ./test/Governance/ffi/  
 
+
+install :; forge install --no-commit && npm install
 hardhat-test :; make hardhat.test.earlyLiquidity 
 
 # --- [Gen HTML] requires linux or wsl
