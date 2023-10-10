@@ -11,6 +11,7 @@ import {GrantsTreasury} from "../../src/GrantsTreasury.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
+import {VetoCouncilSalaryHelper, PayoutHelper, Status} from "@/generic/VetoCouncilSalaryHelper.sol";
 
 contract VetoCouncilTest is Test {
     TestGLOW public glw;
@@ -28,6 +29,8 @@ contract VetoCouncilTest is Test {
     uint256 public constant GRANTS_INFLATION_PER_WEEK = 40_000 ether;
 
     function setUp() public {
+        //make sure block.timestamp does not start at 0
+        vm.warp(1);
         glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
         address[] memory startingAgents = new address[](3);
         startingAgents[0] = address(SIMON);
@@ -135,53 +138,97 @@ contract VetoCouncilTest is Test {
         vm.warp(block.timestamp + 365 days);
 
         vm.startPrank(SIMON);
-        (uint256 a, uint256 b) = vetoCouncil.nextReward(SIMON);
+        (uint256 a, uint256 b) = vetoCouncil.payoutData(SIMON, 1);
         assertTrue(a > 0);
         assertTrue(b > 0);
         vetoCouncil.payoutCouncilMember();
-        IVetoCouncil.MemberData memory data = vetoCouncil.vetoAgentData(SIMON);
-        assertTrue(data.vestingAmount > 0);
-        assertEq(data.vestingAmount, b);
+        (uint256 withdrawableAmount, uint256 slashableAmount) = vetoCouncil.payoutData(SIMON, 1);
+        assertTrue(withdrawableAmount > 0);
+        assertEq(slashableAmount, b);
         vm.stopPrank();
 
         vm.startPrank(GOVERNANCE);
+        uint256 timestamp = block.timestamp;
         vetoCouncil.addAndRemoveCouncilMember(SIMON, address(1), true);
-        data = vetoCouncil.vetoAgentData(SIMON);
-        assertTrue(data.vestingAmount == 0);
-        assertTrue(data.isActive == false);
-        assertTrue(data.lastUpdatedTimestamp == 0);
+        bool isCouncilMember = vetoCouncil.isCouncilMember(SIMON);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(SIMON, 1);
+        assertTrue(withdrawableAmount == 0);
+        assertTrue(slashableAmount == 0);
+        assertTrue(isCouncilMember == false);
+        PayoutHelper memory payoutHelper = vetoCouncil.payoutHelper(SIMON, 1);
+        assertEq(payoutHelper.shiftEndTimestamp, timestamp);
         vm.stopPrank();
     }
 
     function test_addAndRemoveCouncilMembers_notSlashing_shouldKeepPayout() public {
         vm.warp(block.timestamp + 365 days);
-
         vm.startPrank(SIMON);
-        (uint256 a, uint256 b) = vetoCouncil.nextReward(SIMON);
+        (uint256 a, uint256 b) = vetoCouncil.payoutData(SIMON, 1);
         assertTrue(a > 0);
         assertTrue(b > 0);
         vetoCouncil.payoutCouncilMember();
-        IVetoCouncil.MemberData memory data = vetoCouncil.vetoAgentData(SIMON);
-        assertTrue(data.vestingAmount > 0);
-        assertEq(data.vestingAmount, b);
+        (uint256 withdrawableAmount, uint256 slashableAmount) = vetoCouncil.payoutData(SIMON, 1);
+        assertTrue(withdrawableAmount > 0);
+        assertEq(slashableAmount, b);
         vm.stopPrank();
 
         vm.startPrank(GOVERNANCE);
+        uint256 timestamp = block.timestamp;
         vetoCouncil.addAndRemoveCouncilMember(SIMON, address(1), false);
-        data = vetoCouncil.vetoAgentData(SIMON);
-        assertTrue(data.vestingAmount == data.vestingAmount);
-        assertTrue(data.isActive == false);
-        assertTrue(data.lastUpdatedTimestamp == data.lastUpdatedTimestamp);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(SIMON, 1);
+        assertTrue(withdrawableAmount > 0);
+        assertEq(slashableAmount, b);
+        assertFalse(vetoCouncil.isCouncilMember(SIMON));
+
+        PayoutHelper memory payoutHelper = vetoCouncil.payoutHelper(SIMON, 1);
+        assertEq(payoutHelper.shiftEndTimestamp, timestamp);
         vm.stopPrank();
     }
 
-    //-------------------  HELPERS  -----------------------------
-    function _containsElement(address[] memory array, address element) internal pure returns (bool) {
-        for (uint256 i; i < array.length; ++i) {
-            if (array[i] == element) {
-                return true;
-            }
-        }
-        return false;
+    function test_fullBalanceShouldVest() public {
+        uint256 startingAgentsLength = 3;
+        //Warp one day
+        vm.warp(block.timestamp + 1 weeks);
+        (uint256 withdrawableAmount, uint256 slashableAmount) = vetoCouncil.payoutData(SIMON, 1);
+        uint256 totalBalance = withdrawableAmount + slashableAmount;
+
+        //remove but dont slash
+        vm.startPrank(GOVERNANCE);
+        vetoCouncil.addAndRemoveCouncilMember(SIMON, address(1), false);
+        vm.stopPrank();
+
+        //Fast forward 99 weeks
+        vm.warp(block.timestamp + 99 weeks);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(SIMON, 1);
+        totalBalance = withdrawableAmount + slashableAmount;
+
+        //warp 1 week
+        vm.warp(block.timestamp + 1 weeks);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(SIMON, 1);
+        totalBalance = withdrawableAmount + slashableAmount;
+        //after 100 weeks, there should be 0 slashable amount
+        assertEq(slashableAmount, 0);
+        //Since we have never claimed;
+        assert(withdrawableAmount == totalBalance);
+
+        vm.startPrank(SIMON);
+        vetoCouncil.claimPayout(SIMON, 1, true);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(SIMON, 1);
+        PayoutHelper memory payoutHelper = vetoCouncil.payoutHelper(SIMON, 1);
+        assert(payoutHelper.amountAlreadyWithdrawn == totalBalance);
+        assert(withdrawableAmount == 0);
+        vm.stopPrank();
     }
+
+    
+
+    // //-------------------  HELPERS  -----------------------------
+    // function _containsElement(address[] memory array, address element) internal pure returns (bool) {
+    //     for (uint256 i; i < array.length; ++i) {
+    //         if (array[i] == element) {
+    //             return true;
+    //         }
+    //     }
+    //     return false;
+    // }
 }

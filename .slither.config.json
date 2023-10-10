@@ -7,5 +7,6 @@
         "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
         "@/=src/",
         "@solady/=lib/solady/src/"
-    ]
+    ],
+    "filter_paths": "^src/[^/]+$"
   }

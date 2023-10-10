@@ -15,7 +15,7 @@ Full Documentation can be found
 ## Test
 ```forge test --ffi```
 
-### Setup:
+
 
 
 #### Set Your Environment Variables

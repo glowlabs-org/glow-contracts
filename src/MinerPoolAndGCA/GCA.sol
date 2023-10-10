@@ -63,15 +63,29 @@ contract GCA is IGCA {
     /// @notice the addresses of the gca agents
     address[] public gcaAgents;
 
-    /// @notice the requirements hash of GCA Agents
+    /**
+     * @notice the requirements hash of GCA Agents
+     */
     bytes32 public requirementsHash;
 
-    /// @notice the current slash nonce
+    /**
+     * @notice the current slash nonce
+     */
     uint256 public slashNonce;
 
+    /**
+     * @notice the timestamp of the slash event as [nonce]
+     * @dev nonce -> slash timestamp
+     */
     mapping(uint256 => uint256) public slashNonceToSlashTimestamp;
 
-    /// @notice the bitpacked compensation plans
+    /**
+     * @notice the bitpacked compensation plans
+     *  [0...23] weight for gca at index position 0,
+     *  [24...47] weight for gca at index position 1
+     *  .......
+     *  [96...119] weight for gca at index position 4
+     */
     mapping(address => uint256) public _compensationPlans;
 
     /// @notice the gca payouts
@@ -79,7 +93,7 @@ contract GCA is IGCA {
 
     mapping(uint256 => IGCA.Bucket) internal _buckets;
 
-    mapping(uint256 => IGCA.BucketGlobalState) private _bucketGlobalState;
+    mapping(uint256 => IGCA.BucketGlobalState) internal _bucketGlobalState;
 
     /**
      * @notice constructs a new GCA contract
@@ -371,7 +385,8 @@ contract GCA is IGCA {
         uint256 len = proposalHashes.length;
         if (len == 0) _revert(IGCA.ProposalHashesEmpty.selector);
         bytes32 derivedHash = keccak256(abi.encodePacked(gcasToSlash, newGCAs, proposalCreationTimestamp));
-
+        //Slash nonce already get's incremented so we need to subtract 1
+        slashNonceToSlashTimestamp[slashNonce - 1] = proposalCreationTimestamp;
         if (proposalHashes[_nextProposalIndexToUpdate] != derivedHash) {
             _revert(IGCA.ProposalHashDoesNotMatch.selector);
         }

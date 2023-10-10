@@ -35,25 +35,25 @@ interface IVetoCouncil {
      */
     function isCouncilMember(address agent) external view returns (bool);
 
-    /**
-     * @dev returns the next reward of the council member
-     * @param account - the address of the council member
-     * @return rewardNow - the amount of tokens to be paid out now
-     * @return vestingAmount - the amount of tokens to be added into their vesting schedule
-     */
-    function nextReward(address account) external view returns (uint256 rewardNow, uint256 vestingAmount);
+    // /**
+    //  * @dev returns the next reward of the council member
+    //  * @param account - the address of the council member
+    //  * @return rewardNow - the amount of tokens to be paid out now
+    //  * @return vestingAmount - the amount of tokens to be added into their vesting schedule
+    //  */
+    // function nextReward(address account) external view returns (uint256 rewardNow, uint256 vestingAmount);
 
-    /**
-     * @notice a struct to hold the payment details of a council member
-     * @param lastUpdatedTimestamp - the timestamp of the last update
-     * @param payout - the amount of tokens to be paid out that are being vested
-     * @param isActive - whether the council member is active or not
-     */
-    struct MemberData {
-        uint64 lastUpdatedTimestamp;
-        uint184 vestingAmount;
-        bool isActive;
-    } // 1 slot
+    // /**
+    //  * @notice a struct to hold the payment details of a council member
+    //  * @param lastUpdatedTimestamp - the timestamp of the last update
+    //  * @param payout - the amount of tokens to be paid out that are being vested
+    //  * @param isActive - whether the council member is active or not
+    //  */
+    // struct MemberData {
+    //     uint64 lastUpdatedTimestamp;
+    //     uint184 vestingAmount;
+    //     bool isActive;
+    // } // 1 slot
 
     /**
      * @param oldAgent The address of the agent to be slashed or removed

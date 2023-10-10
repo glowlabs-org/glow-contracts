@@ -13,6 +13,8 @@ contract Glow is ERC20, IGlow {
 
     /// @notice The amount of GLW that is minted per second for the GCA and Miner Pool
     /// @notice 185,000 GLW per week
+    /// @dev 175,000 to miners
+    /// @dev 10,000 to the GCAs
     uint256 public constant GCA_AND_MINER_POOL_INFLATION_PER_SECOND = 185_000 * 1 ether / uint256(7 days);
 
     /// @notice The amount of GLW that is minted per second for the Veto Council

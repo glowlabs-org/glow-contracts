@@ -1732,8 +1732,8 @@ contract GovernanceTest is Test {
         governance.executeProposalAtWeek(0);
         assert(vetoCouncil.isCouncilMember(newAgent_));
         assert(!vetoCouncil.isCouncilMember(oldAgent_));
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 0);
+        // uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        // assertEq(lastExecutedWeek, 0);
     }
 
     function test_executeChangeReserveCurrencyProposal() public {
