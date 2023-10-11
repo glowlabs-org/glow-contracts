@@ -37,7 +37,7 @@ contract VetoCouncilSalaryHelper {
 
     //Store as 1 to avoid cold sstore for the first proposal
     uint256 public paymentNonce = 1;
-    mapping(uint256 => NonceHelper) public nonceToRewardsPerSecond;
+    mapping(uint256 => NonceHelper) internal _nonceHelper;
 
     //Hooks!
     function addSalary(address agent) internal {
@@ -65,7 +65,7 @@ contract VetoCouncilSalaryHelper {
         returns (uint256 rewardPerSecond, uint256 secondsActive, uint256 secondsStopped, uint256 amountAlreadyWithdrawn)
     {
         PayoutHelper memory payoutHelper = _payoutHelpers[agent][nonce];
-        NonceHelper memory nonceHelper = nonceToRewardsPerSecond[nonce];
+        NonceHelper memory nonceHelper = _nonceHelper[nonce];
 
         rewardPerSecond = nonceHelper.rewardPerSecond;
         if (payoutHelper.shiftStartTimestamp == 0) revert("Shift hasn't started yet");
@@ -87,7 +87,10 @@ contract VetoCouncilSalaryHelper {
     function _payoutData(address agent, uint256 nonce) private view returns (uint256, uint256) {
         (uint256 rewardPerSecond, uint256 secondsActive, uint256 secondsStopped, uint256 amountAlreadyWithdrawn) =
             getDataToCalculatePayout(agent, nonce);
-
+        // console.log("rewardPerSecond", rewardPerSecond);
+        // console.log("secondsActive", secondsActive);
+        // console.log("secondsStopped", secondsStopped);
+        // console.log("amountAlreadyWithdrawn", amountAlreadyWithdrawn);
         (uint256 withdrawableAmount, uint256 slashableAmount) = VestingMathLib
             .calculateWithdrawableAmountAndSlashableAmount(
             rewardPerSecond, secondsActive, secondsStopped, amountAlreadyWithdrawn
@@ -135,13 +138,15 @@ contract VetoCouncilSalaryHelper {
         }
 
         //1 sload
-        NonceHelper memory currentNonceHelper = nonceToRewardsPerSecond[_paymentNonce];
+        NonceHelper memory currentNonceHelper = _nonceHelper[_paymentNonce];
 
         if (currentNonceHelper.rewardPerSecond != newRewardPerSecond) {
+            console.log("current rwps", uint256(currentNonceHelper.rewardPerSecond));
+            console.log("new rwps", uint256(newRewardPerSecond));
             //1 hot sstore
-            nonceToRewardsPerSecond[_paymentNonce].lastApplicableTimestamp = uint64(block.timestamp);
+            _nonceHelper[_paymentNonce].lastApplicableTimestamp = uint64(block.timestamp);
             // 1 cold sstore
-            nonceToRewardsPerSecond[++_paymentNonce] =
+            _nonceHelper[++_paymentNonce] =
                 NonceHelper({rewardPerSecond: uint64(newRewardPerSecond), lastApplicableTimestamp: 0});
             // 1 hot sstore
             paymentNonce = _paymentNonce;
@@ -188,9 +193,12 @@ contract VetoCouncilSalaryHelper {
         }
     }
 
+    function nonceHelper(uint256 nonce) public view returns (NonceHelper memory) {
+        return _nonceHelper[nonce];
+    }
+
     function setRewardPerSecondAtNonce(uint256 nonce, uint256 rewardPerSecond) internal {
         if (nonce == 0) _revert(CannotSetNonceToZero.selector);
-        nonceToRewardsPerSecond[nonce] =
-            NonceHelper({rewardPerSecond: uint64(rewardPerSecond), lastApplicableTimestamp: 0});
+        _nonceHelper[nonce] = NonceHelper({rewardPerSecond: uint64(rewardPerSecond), lastApplicableTimestamp: 0});
     }
 }

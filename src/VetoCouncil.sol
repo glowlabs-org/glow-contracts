@@ -118,7 +118,11 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
 
         bool isOldAgentZeroAddress = _isZeroAddress(oldAgent);
         bool isNewAgentZeroAddress = _isZeroAddress(newAgent);
-        uint256 numAgentsRemoving = isOldAgentZeroAddress ? 1 : 0;
+        //if old agent is the zero address, we arent removing an agent
+        //however, it it's not, then we are removing an agent
+        uint256 numAgentsRemoving = isOldAgentZeroAddress ? 0 : 1;
+        //if new agent is the zero address, we arent adding an agent
+        //however, if it's not, then we are adding an agent
         uint256 numAgentsAdding = isNewAgentZeroAddress ? 0 : 1;
         if (_numCouncilMembers == 0) {
             //If we don't check this, there can be an underflow

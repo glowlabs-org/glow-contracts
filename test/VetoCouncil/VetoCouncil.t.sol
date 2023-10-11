@@ -130,7 +130,7 @@ contract VetoCouncilTest is Test {
         vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
         vm.startPrank(GOVERNANCE);
         //should return false since we are adding an 8th member and the max is 7
-        assert(vetoCouncil.addAndRemoveCouncilMember(address(0), address(2), false));
+        assert(vetoCouncil.addAndRemoveCouncilMember(address(0), address(2), false) == false);
         vm.stopPrank();
     }
 
@@ -220,7 +220,74 @@ contract VetoCouncilTest is Test {
         vm.stopPrank();
     }
 
-    
+    function test_rewardsPerSecondDoesNotChange_shouldNotAffectNonChangedAgents() public {
+        uint256 startingAgentsLength = 3;
+        //Warp one day
+        vm.warp(block.timestamp + 1 weeks);
+        (uint256 withdrawableAmount, uint256 slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1);
+        uint256 totalBalance = withdrawableAmount + slashableAmount;
+
+        //remove but dont slash
+        vm.startPrank(GOVERNANCE);
+        //add 1 and remove 1 so we dont change the rewards per second
+        vetoCouncil.addAndRemoveCouncilMember(SIMON, address(1), false);
+        assert(vetoCouncil.nonceHelper(2).rewardPerSecond == 0);
+        assert(vetoCouncil.nonceHelper(1).lastApplicableTimestamp == 0);
+        vm.stopPrank();
+
+        //Fast forward 99 weeks
+        vm.warp(block.timestamp + 99 weeks);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1);
+        totalBalance = withdrawableAmount + slashableAmount;
+
+        //warp 1 week
+        vm.warp(block.timestamp + 1 weeks);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1);
+        totalBalance = withdrawableAmount + slashableAmount;
+        // console.log("withdrawableAmount", withdrawableAmount);
+        // console.log("slashableAmount", slashableAmount);
+        // console.log("totalBalance", totalBalance);
+        //since the rewards per second didnt change,
+        // we need to make sure rewards are still getting accrued
+        assert(slashableAmount > 0);
+    }
+
+    function test_rewardsPerSecondShouldChange_whenChangingNumberOfAgents() public {
+        uint256 startingAgentsLength = 3;
+        //Warp one day
+        vm.warp(block.timestamp + 1 weeks);
+        (uint256 withdrawableAmount, uint256 slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1);
+        uint256 totalBalance = withdrawableAmount + slashableAmount;
+
+        //remove but dont slash
+        vm.startPrank(GOVERNANCE);
+        //add 1 and remove 1 so we dont change the rewards per second
+        vetoCouncil.addAndRemoveCouncilMember(SIMON, address(0), false);
+        assert(vetoCouncil.numberOfCouncilMembers() == 2);
+        assert(vetoCouncil.nonceHelper(2).rewardPerSecond > 0);
+        assert(vetoCouncil.nonceHelper(1).lastApplicableTimestamp == block.timestamp);
+        vm.stopPrank();
+
+        //Fast forward 99 weeks
+        vm.warp(block.timestamp + 99 weeks);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1);
+        totalBalance = withdrawableAmount + slashableAmount;
+
+        //warp 1 week
+        vm.warp(block.timestamp + 1 weeks);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1);
+        totalBalance = withdrawableAmount + slashableAmount;
+        // console.log("withdrawableAmount", withdrawableAmount);
+        // console.log("slashableAmount", slashableAmount);
+        // console.log("totalBalance", totalBalance);
+        //since the # of agents changed,
+        //the rate changed and slashable balance should get to zero
+        //100 weeks after the change.
+        assert(slashableAmount == 0);
+        //Since we have never claimed;
+    }
+
+    //test not changing # of agents should not change rwps at any nonce
 
     // //-------------------  HELPERS  -----------------------------
     // function _containsElement(address[] memory array, address element) internal pure returns (bool) {
