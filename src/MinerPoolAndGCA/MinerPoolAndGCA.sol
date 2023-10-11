@@ -209,6 +209,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      *                   - OR: have an approved withdrawal address that can initiate the tx
      * @param grcTokens - the grc tokens to send to the user
      * @param claimFromInflation - whether or not to claim glow from inflation
+     * @param signature - the eip712 signature that allows a relayer to execute the action
+     *               - to claim for a user.
+     *               - the relayer is not able to access rewards under any means
+     *               - rewards are always sent to the {user}
      */
     function claimRewardFromBucket(
         uint256 bucketId,

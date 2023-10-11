@@ -121,13 +121,7 @@ contract VetoCouncilSalaryHelper {
         return _payoutHelpers[agent][nonce];
     }
 
-    function removeAgent(
-        address agent,
-        uint256 agentPayoutNonce,
-        uint256 shiftEndTimestamp,
-        bool slash,
-        uint256 newRewardPerSecond
-    ) internal {
+    function removeAgent(address agent, uint256 agentPayoutNonce, uint256 shiftEndTimestamp, bool slash) internal {
         uint256 _paymentNonce = paymentNonce;
 
         //1 hot sstore
@@ -135,21 +129,6 @@ contract VetoCouncilSalaryHelper {
             _status[agent] = Status({isActive: false, isSlashed: true, currentPaymentNonce: type(uint120).max});
         } else {
             _status[agent] = Status({isActive: false, isSlashed: false, currentPaymentNonce: type(uint120).max});
-        }
-
-        //1 sload
-        NonceHelper memory currentNonceHelper = _nonceHelper[_paymentNonce];
-
-        if (currentNonceHelper.rewardPerSecond != newRewardPerSecond) {
-            console.log("current rwps", uint256(currentNonceHelper.rewardPerSecond));
-            console.log("new rwps", uint256(newRewardPerSecond));
-            //1 hot sstore
-            _nonceHelper[_paymentNonce].lastApplicableTimestamp = uint64(block.timestamp);
-            // 1 cold sstore
-            _nonceHelper[++_paymentNonce] =
-                NonceHelper({rewardPerSecond: uint64(newRewardPerSecond), lastApplicableTimestamp: 0});
-            // 1 hot sstore
-            paymentNonce = _paymentNonce;
         }
 
         //1 hot sstore
@@ -200,5 +179,15 @@ contract VetoCouncilSalaryHelper {
     function setRewardPerSecondAtNonce(uint256 nonce, uint256 rewardPerSecond) internal {
         if (nonce == 0) _revert(CannotSetNonceToZero.selector);
         _nonceHelper[nonce] = NonceHelper({rewardPerSecond: uint64(rewardPerSecond), lastApplicableTimestamp: 0});
+    }
+
+    function handlePotentialSalaryRateChange(uint256 newRewardsPerSecond) internal {
+        uint256 _paymentNonce = paymentNonce;
+        if (newRewardsPerSecond == _nonceHelper[_paymentNonce].rewardPerSecond) return;
+        _nonceHelper[_paymentNonce].lastApplicableTimestamp = uint64(block.timestamp);
+        ++_paymentNonce;
+        _nonceHelper[_paymentNonce] =
+            NonceHelper({rewardPerSecond: uint64(newRewardsPerSecond), lastApplicableTimestamp: 0});
+        paymentNonce = _paymentNonce;
     }
 }

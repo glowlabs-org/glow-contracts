@@ -252,7 +252,7 @@ contract VetoCouncilTest is Test {
         assert(slashableAmount > 0);
     }
 
-    function test_rewardsPerSecondShouldChange_whenChangingNumberOfAgents() public {
+    function test_rewardsPerSecondShouldChange_whenDecreasingNumberOfAgents() public {
         uint256 startingAgentsLength = 3;
         //Warp one day
         vm.warp(block.timestamp + 1 weeks);
@@ -285,6 +285,42 @@ contract VetoCouncilTest is Test {
         //100 weeks after the change.
         assert(slashableAmount == 0);
         //Since we have never claimed;
+    }
+
+    function test_rewardsPerSecondShouldChange_whenIncreasingNumberOfAgents() public {
+        uint256 startingAgentsLength = 3;
+        //Warp one day
+        vm.warp(block.timestamp + 1 weeks);
+        address newRandomAgentToAdd = address(0x22222aaaaaddddd);
+        (uint256 withdrawableAmount, uint256 slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1);
+        uint256 totalBalance = withdrawableAmount + slashableAmount;
+
+        //remove but dont slash
+        vm.startPrank(GOVERNANCE);
+        //add 1 and remove 1 so we dont change the rewards per second
+        vetoCouncil.addAndRemoveCouncilMember(address(0), newRandomAgentToAdd, false);
+        assert(vetoCouncil.numberOfCouncilMembers() == 4);
+        assert(vetoCouncil.nonceHelper(2).rewardPerSecond > 0);
+        // assert(vetoCouncil.nonceHelper(1).lastApplicableTimestamp == block.timestamp);
+        vm.stopPrank();
+
+        // //Fast forward 99 weeks
+        // vm.warp(block.timestamp + 99 weeks);
+        // (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1);
+        // totalBalance = withdrawableAmount + slashableAmount;
+
+        // //warp 1 week
+        // vm.warp(block.timestamp + 1 weeks);
+        // (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1);
+        // totalBalance = withdrawableAmount + slashableAmount;
+        // // console.log("withdrawableAmount", withdrawableAmount);
+        // // console.log("slashableAmount", slashableAmount);
+        // // console.log("totalBalance", totalBalance);
+        // //since the # of agents changed,
+        // //the rate changed and slashable balance should get to zero
+        // //100 weeks after the change.
+        // assert(slashableAmount == 0);
+        // //Since we have never claimed;
     }
 
     //test not changing # of agents should not change rwps at any nonce

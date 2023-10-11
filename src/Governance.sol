@@ -202,8 +202,8 @@ contract Governance is IGovernance {
 
     /**
      * @inheritdoc IGovernance
+     * @dev proposal execution should be sub-100k gas
      */
-
     function executeProposalAtWeek(uint256 week) public {
         uint256 _nextWeekToExecute = lastExecutedWeek;
         unchecked {
@@ -227,31 +227,9 @@ contract Governance is IGovernance {
         IGovernance.ProposalType proposalType = proposal.proposalType;
         ProposalLongStakerVotes memory longStakerVotes = _proposalLongStakerVotes[proposalId];
 
-        //RFC Proposals  an grant proposals Are The Only Types that don't need to be ratified or rejected
-        //So we can execute them as soon as they are passed
-        // all others need to wait 4 weeks after they are passed
-        //None can also be executed immediately
-        if (
-            proposalType == IGovernance.ProposalType.REQUEST_FOR_COMMENT
-                || proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL || proposalType == IGovernance.ProposalType.NONE
-        ) {
-            //as sooon as the RFC is passed, we can execute it
-            //we don't need to wait for the ratify/reject period to end
-            if (block.timestamp < _weekEndTime(week) + 1) {
-                _revert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
-            }
-            //If a most popular proposal never got chosen for the week,
-            //we can execute it at the end of the week
-            //since it can never be chosen as a most popular proposal again
-            if (proposalType == IGovernance.ProposalType.NONE) {
-                lastExecutedWeek = week;
-                return;
-            }
-        } else {
-            //For all other proposals, we need to make sure that the ratify/reject period has ended
-            if (block.timestamp < _weekEndTime(week + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
-                _revert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
-            }
+        //For all other proposals, we need to make sure that the ratify/reject period has ended
+        if (block.timestamp < _weekEndTime(week + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
+            _revert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
         }
 
         //Start C2:
@@ -301,6 +279,12 @@ contract Governance is IGovernance {
     }
 
     /**
+     *     Note: Sync proposals should be max 100k gas per proposal
+     *     to make sure that users aren't too heavily penalized for
+     *     syncing proposals
+     */
+
+    /**
      * @inheritdoc IGovernance
      */
     function syncProposals() public {
@@ -327,38 +311,11 @@ contract Governance is IGovernance {
             IGovernance.ProposalType proposalType = proposal.proposalType;
             ProposalLongStakerVotes memory longStakerVotes = _proposalLongStakerVotes[proposalId];
 
-            //RFC Proposals  an grant proposals Are The Only Types that don't need to be ratified or rejected
-            //So we can execute them as soon as they are passed
-            // all others need to wait 4 weeks after they are passed
-            //None can also be executed immediately
+            //For all other proposals, we need to make sure that the ratify/reject period has ended
 
-            if (
-                proposalType == IGovernance.ProposalType.REQUEST_FOR_COMMENT
-                    || proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL
-                    || proposalType == IGovernance.ProposalType.NONE
-            ) {
-                //as sooon as the RFC is passed, we can execute it
-                //we don't need to wait for the ratify/reject period to end
-                //This makes sure that we don't execute a proposal before the end of the week
-
-                if (block.timestamp < _weekEndTime(_nextWeekToExecute) + 1) {
-                    lastExecutedWeek = _nextWeekToExecute == 0 ? type(uint256).max : _nextWeekToExecute - 1;
-                    return;
-                }
-
-                //If a most popular proposal never got chosen for the week,
-                //we can execute it at the end of the week
-                //since it can never be chosen as a most popular proposal again
-                if (proposalType == IGovernance.ProposalType.NONE) {
-                    continue;
-                }
-            } else {
-                //For all other proposals, we need to make sure that the ratify/reject period has ended
-
-                if (block.timestamp < _weekEndTime(_nextWeekToExecute + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
-                    lastExecutedWeek = _nextWeekToExecute == 0 ? type(uint256).max : _nextWeekToExecute - 1;
-                    return;
-                }
+            if (block.timestamp < _weekEndTime(_nextWeekToExecute + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
+                lastExecutedWeek = _nextWeekToExecute == 0 ? type(uint256).max : _nextWeekToExecute - 1;
+                return;
             }
 
             //Start C2:

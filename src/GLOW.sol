@@ -5,6 +5,10 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
 import "forge-std/console.sol";
 
+/**
+ * TODO:
+ * 1. Pre-mine 6 million  pre-mine  grants
+ */
 contract Glow is ERC20, IGlow {
     //----------------------- CONSTANTS -----------------------//
 
@@ -87,6 +91,7 @@ contract Glow is ERC20, IGlow {
         GENESIS_TIMESTAMP = block.timestamp;
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
         _mint(EARLY_LIQUIDITY_ADDRESS, 12_000_000 ether);
+        //TODO: pre-mine to 90 million
         _mint(_vestingContract, 60_000_000 ether);
     }
 
@@ -206,6 +211,13 @@ contract Glow is ERC20, IGlow {
         if (amountUserOwes > 0) {
             _transfer(msg.sender, address(this), uint256(amountUserOwes));
         }
+
+        /**
+         *
+         *         You have like 10 glow that's no longer cooldown , so you can claim it.,
+         *         and then you request to stake 1 glow.
+         *         TODO: mathey functions hit all largest numbers
+         */
 
         //If the user has claimable tokens, we need to transfer it to them
         if (amountUserOwes < 0) {

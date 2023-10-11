@@ -5,6 +5,11 @@ import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+//TODO: change to weeks
+//todo: a holding can be max delayed 97 days.
+//so we need to add a nonce to the holding
+//todo: can create a delay event, eveyy 60 days (9 weeks)
+
 /**
  * @dev Struct representing a holding of tokens in the HoldingContract.
  * @param amount The amount of tokens being held.
@@ -12,7 +17,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  */
 struct Holding {
     uint192 amount;
-    uint64 expirationTimestamp;
+    uint64 expirationTimestamp; //TODO: if > 90 days past the expiration,
+        // holding available to claim
 }
 
 /**

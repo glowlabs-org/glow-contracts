@@ -27,13 +27,6 @@ import {DivergenceHandler} from "./Handlers/DivergenceHandler.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
 import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
 
-/*
-TODO:
-1. Add tests for also claiming GRC tokens
-2. Add tests for claiming multiple GRC tokens.
-3. Add test for claiming glw and grc at same time
-*/
-
 contract GovernanceTest is Test {
     //--------  CONTRACTS ---------//
     MockMinerPoolAndGCA minerPoolAndGCA;
@@ -1418,7 +1411,7 @@ contract GovernanceTest is Test {
          *         Since we fast forwarded 1 week + 4 weeks, and week 1-4 are NONE proposal types,
          *         the last executed week should be 4
          */
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
     }
 
     //Grants proposals dont need to be ratified, so we can just execute them right away
@@ -1444,7 +1437,7 @@ contract GovernanceTest is Test {
          *         Since we fast forwarded 1 week + 4 weeks, and week 1-4 are NONE proposal types,
          *         the last executed week should be 4
          */
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
     }
 
     function test_syncGrantsProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState()
@@ -1454,8 +1447,7 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK + 1);
 
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        console.log("last executed week = ", lastExecutedWeek);
+        // console.log("last executed week = ", lastExecutedWeek);
         // castLongStakedVotes(SIMON, 0, true, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.syncProposals();
@@ -1469,6 +1461,7 @@ contract GovernanceTest is Test {
          * [week 0] - create proposal
          *         [week 1] - create veto council election proposal
          */
+        uint256 lastExecutedWeek = governance.lastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1479,17 +1472,18 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.syncProposals();
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
     }
 
     function test_syncRFCProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState() public {
         test_createRFCProposal();
-        vm.warp(block.timestamp + ONE_WEEK + 1);
+        vm.warp(block.timestamp + ONE_WEEK * 5);
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
         //We actually don't need this syncProposals call since
         //{createVetoCouncilElectionOrSlashProposal} alreadys calls it in the {retireGCC} method
         governance.syncProposals();
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        console.log("last executed week = ", lastExecutedWeek);
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1504,7 +1498,7 @@ contract GovernanceTest is Test {
         // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
         // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
     }
 
     function test_syncChangeReserveCurrencyProposal_rejectionShouldNotUpdateState() public {
@@ -1518,7 +1512,7 @@ contract GovernanceTest is Test {
         // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
         // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
     }
 
     function test_syncChangeReserveCurrencyProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
@@ -1548,7 +1542,7 @@ contract GovernanceTest is Test {
         assertEq(minerPoolAndGCA.proposalHashes(0), hash);
         assertEq(minerPoolAndGCA.slashNonce(), incrementSlashNonce ? 1 : 0);
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
     }
 
     function test_syncGCAElectionOrSlashProposal_rejection_ShouldNotUpdateHashOrNonce() public {
@@ -1564,7 +1558,7 @@ contract GovernanceTest is Test {
         bytes32 hashInArray = minerPoolAndGCA.proposalHashes(0);
         assertEq(minerPoolAndGCA.slashNonce(), 0);
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
     }
 
     function test_syncGCAElectionOrSlashProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
@@ -1595,7 +1589,7 @@ contract GovernanceTest is Test {
         assert(vetoCouncil.isCouncilMember(newAgent_));
         assert(!vetoCouncil.isCouncilMember(oldAgent_));
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
     }
 
     function test_syncVetoCouncilElectionOrSlash_rejection_shouldNotChangeVetoCouncilState() public {
@@ -1610,7 +1604,7 @@ contract GovernanceTest is Test {
         assert(!vetoCouncil.isCouncilMember(newAgent_));
         assert(vetoCouncil.isCouncilMember(oldAgent_));
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
     }
 
     function test_syncVetoCouncilElectionOrSlash_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
@@ -1630,7 +1624,7 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncChangeGCARequirements() public {
+    function test_syncChangeGCARequirements_aaa() public {
         test_createChangeGCARequirementsProposal();
         bytes32 expectedHash = keccak256("new requirements hash");
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -1639,7 +1633,7 @@ contract GovernanceTest is Test {
         governance.syncProposals();
         assertEq(minerPoolAndGCA.requirementsHash(), expectedHash);
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
         /**
          * [week 0] - create proposal
          *         [week 1] - ratify proposal (also no most popular proposal set since we havent created a new one)
@@ -1660,7 +1654,7 @@ contract GovernanceTest is Test {
         governance.syncProposals();
         assert(minerPoolAndGCA.requirementsHash() != expectedHash);
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 4);
+        assertEq(lastExecutedWeek, 0);
         /**
          * [week 0] - create proposal
          *         [week 1] - ratify proposal (also no most popular proposal set since we havent created a new one)
@@ -1718,6 +1712,7 @@ contract GovernanceTest is Test {
         test_createRFCProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
+        vm.warp(block.timestamp + (ONE_WEEK * 4));
         governance.executeProposalAtWeek(0);
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
@@ -1799,6 +1794,7 @@ contract GovernanceTest is Test {
         test_createRFCProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
+        vm.warp(block.timestamp + (ONE_WEEK * 4));
         governance.executeProposalAtWeek(0);
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
@@ -1954,7 +1950,7 @@ contract GovernanceTest is Test {
 
     function test_executeNoneProposal() public {
         vm.warp(block.timestamp + ONE_WEEK + 1);
-        vm.warp(block.timestamp + ONE_WEEK * 1);
+        vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.executeProposalAtWeek(0);
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
@@ -2059,28 +2055,25 @@ contract GovernanceTest is Test {
      */
     function test_executeProposal_proposalThatCanBeExecutedAfterWeekEndWithZeroVotes_shouldUpdateState() public {
         test_createRFCProposal();
-        vm.warp(block.timestamp + ONE_WEEK + 1);
-        governance.executeProposalAtWeek(0);
-        assertEq(governance.lastExecutedWeek(), 0);
-
-        //Create a grants proposal
         vm.startPrank(SIMON);
         uint256 nominationsToUse = governance.costForNewProposal();
-        gcc.mint(SIMON, nominationsToUse);
-        gcc.retireGCC(nominationsToUse, SIMON);
+        gcc.mint(SIMON, 10000 ether);
+        //retiring proposals actually calls sync nominations so we need to make all propsals
+        //the first week
+        //the rfc proposal should be first now
+        gcc.retireGCC(10000 ether, SIMON);
+        governance.useNominationsOnProposal(1, 1 ether);
         governance.createGrantsProposal(grantsRecipient, 10, keccak256("really good use"), nominationsToUse);
-        vm.stopPrank();
-
         vm.warp(block.timestamp + ONE_WEEK + 1);
+        governance.useNominationsOnProposal(2, 1 ether);
+        vm.stopPrank();
+        //Create a grants proposal
+        vm.warp(block.timestamp + (ONE_WEEK * 6));
+        governance.executeProposalAtWeek(0);
+        assertEq(governance.lastExecutedWeek(), 0);
         governance.executeProposalAtWeek(1);
         assertEq(governance.lastExecutedWeek(), 1);
-
-        vm.warp(block.timestamp + ONE_WEEK + 1);
-        governance.executeProposalAtWeek(2);
-        assertEq(governance.lastExecutedWeek(), 2);
     }
-
-    //TODO: add zero tests to make sure we don't get division by zero errors.
 
     //-----------------  HELPERS -----------------//
     function divergenceCheck(uint128 a, uint128 b) internal returns (bool) {

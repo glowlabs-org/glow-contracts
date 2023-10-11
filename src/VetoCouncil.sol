@@ -139,13 +139,14 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
         }
 
         uint256 newAgentRewardPerSecond = REWARDS_PER_SECOND_FOR_ALL / _numCouncilMembers;
+        VetoCouncilSalaryHelper.handlePotentialSalaryRateChange(newAgentRewardPerSecond);
         if (!isOldAgentZeroAddress) {
             if (!oldAgentData.isActive) {
                 return false;
             }
 
             VetoCouncilSalaryHelper.removeAgent(
-                oldAgent, oldAgentData.currentPaymentNonce, block.timestamp, slashOldAgent, newAgentRewardPerSecond
+                oldAgent, oldAgentData.currentPaymentNonce, block.timestamp, slashOldAgent
             );
         }
 
