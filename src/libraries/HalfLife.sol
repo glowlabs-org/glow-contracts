@@ -5,8 +5,16 @@ pragma solidity ^0.8.0;
 import "@/libraries/ABDKMath64x64.sol";
 
 library HalfLife {
+    /// @dev 1 year in seconds
     uint256 constant SECONDS_IN_YEAR = 365 * uint256(1 days);
 
+    /**
+     * @notice calculates the value remaining after a given amount of time has elapsed
+     *         - using a half-life of 52 weeks
+     * @param initialValue the initial value
+     * @param elapsedSeconds the number of seconds that have elapsed
+     * @return value - the value remaining given a half-life of 52 weeks
+     */
     function calculateHalfLifeValue(uint256 initialValue, uint256 elapsedSeconds) public pure returns (uint256) {
         // Convert the half-life from months to seconds
         uint256 halfLifeSeconds = SECONDS_IN_YEAR;

@@ -873,6 +873,9 @@ contract Governance is IGovernance {
         bool slashOldAgent,
         uint256 maxNominations
     ) external {
+        if (oldAgent == newAgent) {
+            _revert(IGovernance.VetoCouncilProposalCreationOldAgentCannotEqualNewAgent.selector);
+        }
         uint256 proposalId = _proposalCount;
         uint256 nominationCost = costForNewProposal();
         if (maxNominations < nominationCost) {

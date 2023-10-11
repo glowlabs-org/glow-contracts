@@ -31,6 +31,7 @@ interface IGovernance {
     error ProposalAlreadyExecuted();
     error ProposalIdDoesNotMatchMostPopularProposal();
     error ProposalNotMostPopular();
+    error VetoCouncilProposalCreationOldAgentCannotEqualNewAgent();
 
     enum ProposalType {
         NONE, //default value for unset proposals

@@ -701,6 +701,22 @@ contract GovernanceTest is Test {
         vm.stopPrank();
     }
 
+    function test_createVetoCouncilElectionOrSlash_newAgentEqualsOldAgent_shouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+        address oldAgent = startingAgents[2];
+        address newAgent = oldAgent;
+        bool slashOldAgent = true;
+        uint256 maxNominations = nominationsOfSimon;
+        uint256 creationTimestamp = block.timestamp;
+        uint256 nominationsToUse = governance.costForNewProposal();
+        vm.expectRevert(IGovernance.VetoCouncilProposalCreationOldAgentCannotEqualNewAgent.selector);
+        governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
+        vm.stopPrank();
+    }
+
     function test_createVetoCouncilElectionOrSlash_secondOneShouldBecomeMostPopular() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
