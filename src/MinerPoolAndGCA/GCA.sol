@@ -13,13 +13,6 @@ import "forge-std/console.sol";
  */
 
 contract GCA is IGCA {
-    /**
-     * @notice the amount of shares required per agent when submitting a compensation plan
-     * @dev this is not strictly enforced, but rather the
-     *         the total shares in a comp plan but equal the SHARES_REQUIRED_PER_COMP_PLAN * gcaAgents.length
-     */
-    uint256 public constant SHARES_REQUIRED_PER_COMP_PLAN = 100_000;
-
     /// @notice the address of the glow token
     IGlow public immutable GLOW_TOKEN;
 
