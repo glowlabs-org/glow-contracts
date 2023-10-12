@@ -20,6 +20,7 @@ interface IGCA {
     error BucketSubmissionNotOpen();
     error BucketSubmissionEnded();
     error EmptyRoot();
+    error CallerNotGCAAtIndex();
     // error BucketNotReinitilizable();
 
     /**
@@ -28,10 +29,10 @@ interface IGCA {
     function isGCA(address account) external view returns (bool);
 
     /// @dev allows GCAs to submit a compensation plan
-    function submitCompensationPlan(ICompensation[] calldata plans) external;
+    function submitCompensationPlan(uint32[5] calldata plan, uint256 indexOfGCA) external;
 
     /// @return - returns the compensation plan for a gca by unpacking the packed compensation plan
-    function compensationPlan(address gca) external view returns (ICompensation[] memory);
+    // function compensationPlan(address gca) external view returns (ICompensation[] memory);
 
     /// @return - returns all thFe gcas
     function allGcas() external view returns (address[] memory);

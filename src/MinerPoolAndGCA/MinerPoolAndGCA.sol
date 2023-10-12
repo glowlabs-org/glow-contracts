@@ -474,8 +474,16 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      *             - it must override the function in BucketSubmission
      * @return the genesis timestamp
      */
-    function _genesisTimestamp() internal view override(BucketSubmission) returns (uint256) {
+    function _genesisTimestamp() internal view override(BucketSubmission, GCA) returns (uint256) {
         return GENESIS_TIMESTAMP;
+    }
+
+    function _currentWeek() internal view override(GCA) returns (uint256) {
+        return currentBucket();
+    }
+
+    function _domainSeperatorV4Main() internal view virtual override(GCA) returns (bytes32) {
+        return _domainSeparatorV4();
     }
 
     /**

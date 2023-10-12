@@ -3,6 +3,8 @@ import "../GCA.sol";
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.21;
 
+import {GCASalaryHelper} from "../GCASalaryHelper.sol";
+
 contract MockGCA is GCA {
     /**
      * @notice constructs a new GCA contract

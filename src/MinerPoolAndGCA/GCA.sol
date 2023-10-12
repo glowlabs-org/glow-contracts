@@ -4,6 +4,7 @@ pragma solidity 0.8.21;
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
+import {GCASalaryHelper} from "./GCASalaryHelper.sol";
 import "forge-std/console.sol";
 
 /**
@@ -12,14 +13,7 @@ import "forge-std/console.sol";
  * @author @0xSimon
  */
 
-contract GCA is IGCA {
-    /**
-     * @notice the amount of shares required per agent when submitting a compensation plan
-     * @dev this is not strictly enforced, but rather the
-     *         the total shares in a comp plan but equal the SHARES_REQUIRED_PER_COMP_PLAN * gcaAgents.length
-     */
-    uint256 public constant SHARES_REQUIRED_PER_COMP_PLAN = 100_000;
-
+contract GCA is IGCA, GCASalaryHelper {
     /// @notice the address of the glow token
     IGlow public immutable GLOW_TOKEN;
 
@@ -34,12 +28,6 @@ contract GCA is IGCA {
 
     /// @notice the mask to apply to the bitpacked compensation plans
     uint256 private constant _UINT24_MASK = 0xFFFFFF;
-
-    /// @dev 10_000 GLW Per Week available as rewards to all GCAs
-    uint256 public constant REWARDS_PER_SECOND_FOR_ALL = 10_000 ether / uint256(7 days);
-
-    /// @dev 1% of the rewards vest per week
-    uint256 public constant VESTING_REWARDS_PER_SECOND_FOR_ALL = REWARDS_PER_SECOND_FOR_ALL / (100 * 86400 * 7);
 
     /// @dev 200 Billion in 18 decimals
     uint256 private constant _200_BILLION = 200_000_000_000 ether;
@@ -102,7 +90,9 @@ contract GCA is IGCA {
      * @param _governance the address of the governance contract
      * @param _requirementsHash the requirements hash of GCA Agents
      */
-    constructor(address[] memory _gcaAgents, address _glowToken, address _governance, bytes32 _requirementsHash) {
+    constructor(address[] memory _gcaAgents, address _glowToken, address _governance, bytes32 _requirementsHash)
+        GCASalaryHelper(_gcaAgents)
+    {
         GLOW_TOKEN = IGlow(_glowToken);
         GOVERNANCE = _governance;
         _setGCAs(_gcaAgents);
@@ -111,53 +101,34 @@ contract GCA is IGCA {
             _gcaPayouts[_gcaAgents[i]].lastClaimedTimestamp = uint64(GENESIS_TIMESTAMP);
         }
         requirementsHash = _requirementsHash;
+        GCASalaryHelper.setZeroPaymentStartTimestamp();
     }
 
     /// @inheritdoc IGCA
     function isGCA(address account) public view returns (bool) {
         if (_isFrozen()) return false;
-        return _compensationPlans[account] > 0;
+        uint256 len = gcaAgents.length;
+        //could gas optimize this.
+        unchecked {
+            for (uint256 i; i < len; ++i) {
+                if (gcaAgents[i] == account) return true;
+            }
+        }
+        return false;
     }
 
-    /**
-     * TODO: Make sure this pays out all active gcas as well
-     */
+    function isGCA(address account, uint256 index) public view returns (bool) {
+        if (_isFrozen()) return false;
+        return gcaAgents[index] == account;
+    }
+
     /// @inheritdoc IGCA
-    function submitCompensationPlan(IGCA.ICompensation[] calldata plans) external {
+    function submitCompensationPlan(uint32[5] calldata plan, uint256 indexOfGCA) external {
         _revertIfFrozen();
-        uint256 bitpackedPlans;
-        if (plans.length == 0) {
-            _revert(CompensationPlanLengthMustBeGreaterThanZero.selector);
-        }
         uint256 gcaLength = gcaAgents.length;
-        uint256 requiredShares = SHARES_REQUIRED_PER_COMP_PLAN;
-        uint256 sumOfShares;
-        if (!isGCA(msg.sender)) {
-            _revert(NotGCA.selector);
-        }
-
-        for (uint256 i; i < gcaLength; ++i) {
-            address agentInGca = gcaAgents[i];
-            bool found;
-            for (uint256 j; j < plans.length; ++j) {
-                if (agentInGca == plans[j].agent) {
-                    sumOfShares += plans[i].shares;
-                    bitpackedPlans |= plans[j].shares << _calculateShift(i);
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                _revert(NotGCA.selector);
-            }
-            _compensationPlans[agentInGca] = bitpackedPlans;
-        }
-
-        if (sumOfShares < requiredShares) {
-            _revert(InsufficientShares.selector);
-        }
-        emit IGCA.CompensationPlanSubmitted(msg.sender, plans);
+        if (msg.sender != gcaAgents[indexOfGCA]) _revert(IGCA.CallerNotGCAAtIndex.selector);
+        GCASalaryHelper.handleCompensationPlanSubmission(plan, indexOfGCA, gcaLength);
+        // emit IGCA.CompensationPlanSubmitted(msg.sender, plans);
     }
 
     function issueWeeklyReport(
@@ -386,12 +357,15 @@ contract GCA is IGCA {
         if (len == 0) _revert(IGCA.ProposalHashesEmpty.selector);
         bytes32 derivedHash = keccak256(abi.encodePacked(gcasToSlash, newGCAs, proposalCreationTimestamp));
         //Slash nonce already get's incremented so we need to subtract 1
-        slashNonceToSlashTimestamp[slashNonce - 1] = proposalCreationTimestamp;
+        if (gcasToSlash.length > 0) {
+            slashNonceToSlashTimestamp[slashNonce - 1] = proposalCreationTimestamp;
+        }
         if (proposalHashes[_nextProposalIndexToUpdate] != derivedHash) {
             _revert(IGCA.ProposalHashDoesNotMatch.selector);
         }
 
         //TODO: Insert payment mechanism here
+        GCASalaryHelper.callbackInElectionEvent(newGCAs);
         _setGCAs(newGCAs);
         _slashGCAs(gcasToSlash);
         nextProposalIndexToUpdate = _nextProposalIndexToUpdate + 1;
@@ -416,32 +390,32 @@ contract GCA is IGCA {
     //*****************  PUBLIC VIEW FUNCTIONS    ************** */
     //************************************************************* */
 
-    /// @inheritdoc IGCA
-    function compensationPlan(address gca) public view returns (IGCA.ICompensation[] memory) {
-        return _compensationPlan(gca, gcaAgents);
-    }
+    // /// @inheritdoc IGCA
+    // function compensationPlan(address gca) public view returns (IGCA.ICompensation[] memory) {
+    //     return _compensationPlan(gca, gcaAgents);
+    // }
 
-    function _compensationPlan(address gca, address[] memory gcaAddresses)
-        internal
-        view
-        returns (IGCA.ICompensation[] memory)
-    {
-        if (!isGCA(gca)) {
-            _revert(NotGCA.selector);
-        }
-        uint256 bitpackedPlans = _compensationPlans[gca];
-        uint256 gcaLength = gcaAddresses.length;
-        IGCA.ICompensation[] memory plans = new IGCA.ICompensation[](gcaLength);
-        for (uint256 i; i < gcaLength; ++i) {
-            plans[i].shares = uint80((bitpackedPlans >> _calculateShift(i)) & _UINT24_MASK);
-            plans[i].agent = gcaAddresses[i];
-        }
+    // function _compensationPlan(address gca, address[] memory gcaAddresses)
+    //     internal
+    //     view
+    //     returns (IGCA.ICompensation[] memory)
+    // {
+    //     if (!isGCA(gca)) {
+    //         _revert(NotGCA.selector);
+    //     }
+    //     uint256 bitpackedPlans = _compensationPlans[gca];
+    //     uint256 gcaLength = gcaAddresses.length;
+    //     IGCA.ICompensation[] memory plans = new IGCA.ICompensation[](gcaLength);
+    //     for (uint256 i; i < gcaLength; ++i) {
+    //         plans[i].shares = uint80((bitpackedPlans >> _calculateShift(i)) & _UINT24_MASK);
+    //         plans[i].agent = gcaAddresses[i];
+    //     }
 
-        return plans;
-    }
+    //     return plans;
+    // }
 
     function claimGlowFromInflation() public virtual {
-        GLOW_TOKEN.claimGLWFromGCAAndMinerPool();
+        _claimGlowFromInflation();
     }
 
     /// @inheritdoc IGCA
@@ -499,48 +473,6 @@ contract GCA is IGCA {
      */
     function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint184) {
         return uint184(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
-    }
-
-    /**
-     * @dev Find total owed now and slashable balance using the summation of an arithmetic series
-     * @dev formula = n/2 * (2a + (n-1)d) or n/2 * (a + l)
-     * @dev read more about this  https://github.com/glowlabs-org/glow-docs/issues/4
-     * @dev SB stands for slashable balance
-     * @param secondsSinceLastPayout - the  amount of seconds since the last payout
-     * @param shares - the amount of shares the gca has
-     * @param totalShares - the total amount of shares
-     * @return amountNow - the amount of glow owed now
-     * @return slashableBalance - the amount of glow that is added to the slashable balance
-     */
-    function getAmountNowAndSB(uint256 secondsSinceLastPayout, uint256 shares, uint256 totalShares)
-        public
-        pure
-        returns (uint256 amountNow, uint256 slashableBalance)
-    {
-        (amountNow, slashableBalance) = VestingMathLib.getAmountNowAndSB(
-            secondsSinceLastPayout, shares, totalShares, REWARDS_PER_SECOND_FOR_ALL, VESTING_REWARDS_PER_SECOND_FOR_ALL
-        );
-    }
-
-    /**
-     * @param agent - the address of the agent to payout
-     * @param gcas - should always be allGcas in storage, but passed through memory for gas savings
-     */
-    function _payoutAgent(address agent, address[] memory gcas) internal {
-        uint256 totalToPayNow;
-        uint256 amountToAddToSlashable;
-        uint256 totalShares = SHARES_REQUIRED_PER_COMP_PLAN * gcas.length;
-        //If the agent is a gca, we need to pay everyone out?
-        uint256 lastClaimTimestamp = _gcaPayouts[agent].lastClaimedTimestamp;
-        uint256 timeElapsed = block.timestamp - lastClaimTimestamp;
-        if (isGCA(agent)) {
-            //Check how much they've worked
-            //TODO: make sure that lastClaimTimestamp can never be zero
-            (uint256 shares,) = _getShares(agent, gcas);
-            (totalToPayNow, amountToAddToSlashable) = getAmountNowAndSB(timeElapsed, shares, totalShares);
-        }
-
-        //Now we need to calculate how uch
     }
 
     function bucket(uint256 bucketId) public view returns (IGCA.Bucket memory bucket) {
@@ -633,17 +565,7 @@ contract GCA is IGCA {
      *     TODO: Make sure this pays out all GCA's and handles slashes
      */
     function _setGCAs(address[] memory gcaAddresses) internal {
-        address[] memory oldGCAs = gcaAgents;
-        for (uint256 i; i < oldGCAs.length; ++i) {
-            delete _compensationPlans[oldGCAs[i]];
-        }
-
         gcaAgents = gcaAddresses;
-        //log all the gcaAddresses
-        for (uint256 i; i < gcaAddresses.length; ++i) {
-            _compensationPlans[gcaAddresses[i]] = (SHARES_REQUIRED_PER_COMP_PLAN) << _calculateShift(i);
-            //If they have any slashable balance that's unclaimed, we should clean that up here...
-        }
     }
 
     function _slashGCAs(address[] memory gcasToSlash) internal {
@@ -714,18 +636,6 @@ contract GCA is IGCA {
             }
         }
         return false;
-    }
-
-    /**
-     * @notice More efficiently reverts with a bytes4 selector
-     * @param selector The selector to revert with
-     */
-
-    function _revert(bytes4 selector) internal pure {
-        assembly {
-            mstore(0x0, selector)
-            revert(0x0, 0x04)
-        }
     }
 
     /**
@@ -800,12 +710,27 @@ contract GCA is IGCA {
         return a > b ? a : b;
     }
 
-    /**
-     * @dev returns the min of two numbers
-     * @param a the first number
-     * @param b the second number
-     */
-    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
+    // function paymentNonce() internal view virtual override(GCASalaryHelper) returns (uint256) {
+    //     return proposalHashes.length + super.paymentNonce();
+    // }
+
+    function _currentWeek() internal view virtual override(GCASalaryHelper) returns (uint256) {
+        revert();
+    }
+
+    function _genesisTimestamp() internal view virtual override(GCASalaryHelper) returns (uint256) {
+        return GENESIS_TIMESTAMP;
+    }
+
+    function _transferGlow(address to, uint256 amount) internal override(GCASalaryHelper) {
+        GLOW_TOKEN.transfer(to, amount);
+    }
+
+    function _claimGlowFromInflation() internal virtual override(GCASalaryHelper) {
+        GLOW_TOKEN.claimGLWFromGCAAndMinerPool();
+    }
+
+    function _domainSeperatorV4Main() internal view virtual override(GCASalaryHelper) returns (bytes32) {
+        revert();
     }
 }

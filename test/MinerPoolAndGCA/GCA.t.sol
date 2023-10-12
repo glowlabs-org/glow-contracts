@@ -16,9 +16,6 @@ import {TestGLOW} from "@/testing/TestGLOW.sol";
 import {Handler} from "./Handlers/Handler.GCA.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
-//TODO: add invariant for total inside global state and the sum of reports
-//TODO: add max length to set GCA contract?
-//TODO: add tests for withdrawing
 
 contract GCATest is Test {
     //--------  CONTRACTS ---------//
@@ -793,63 +790,63 @@ contract GCATest is Test {
         assertTrue(glow.balanceOf(address(gca)) > 0);
     }
 
-    function test_setGCAs() public {
-        //Create addresses in memory so we can set
-        address[] memory gcaAddresses = _getAddressArray(5, 25);
-        //Check addresses are not there yet
-        for (uint256 i; i < gcaAddresses.length; i++) {
-            assertFalse(gca.isGCA(gcaAddresses[i]));
-            assertFalse(_containsElement(gca.allGcas(), gcaAddresses[i]));
-        }
-        //Set addresses
-        gca.setGCAs(gcaAddresses);
-        //Loop through and make sure
-        /**
-         * 1. Addresses are now GCAs
-         *         2. Addresses are in allGcas
-         *         3. Addresses have the correct compensation plan
-         *             -   All shares for themselves in their plans
-         *             -   No shares for others in their plans
-         */
-        for (uint256 i; i < gcaAddresses.length; i++) {
-            assertTrue(gca.isGCA(gcaAddresses[i]));
-            assertTrue(_containsElement(gca.allGcas(), gcaAddresses[i]));
-            IGCA.ICompensation[] memory plans = gca.compensationPlan(gcaAddresses[i]);
-            for (uint256 j; j < plans.length; j++) {
-                (uint256 shares, uint256 totalShares) = gca.getShares(gcaAddresses[i]);
-                if (plans[j].agent == gcaAddresses[i]) {
-                    assertTrue(plans[j].shares == gca.SHARES_REQUIRED_PER_COMP_PLAN());
-                } else {
-                    assertTrue(plans[j].shares == 0);
-                }
-                assertEq(totalShares, gca.SHARES_REQUIRED_PER_COMP_PLAN() * gcaAddresses.length);
-                assertEq(shares, gca.SHARES_REQUIRED_PER_COMP_PLAN());
-            }
-        }
-    }
+    // function test_setGCAs() public {
+    //     //Create addresses in memory so we can set
+    //     address[] memory gcaAddresses = _getAddressArray(5, 25);
+    //     //Check addresses are not there yet
+    //     for (uint256 i; i < gcaAddresses.length; i++) {
+    //         assertFalse(gca.isGCA(gcaAddresses[i]));
+    //         assertFalse(_containsElement(gca.allGcas(), gcaAddresses[i]));
+    //     }
+    //     //Set addresses
+    //     gca.setGCAs(gcaAddresses);
+    //     //Loop through and make sure
+    //     /**
+    //      * 1. Addresses are now GCAs
+    //      *         2. Addresses are in allGcas
+    //      *         3. Addresses have the correct compensation plan
+    //      *             -   All shares for themselves in their plans
+    //      *             -   No shares for others in their plans
+    //      */
+    //     for (uint256 i; i < gcaAddresses.length; i++) {
+    //         assertTrue(gca.isGCA(gcaAddresses[i]));
+    //         assertTrue(_containsElement(gca.allGcas(), gcaAddresses[i]));
+    //         IGCA.ICompensation[] memory plans = gca.compensationPlan(gcaAddresses[i]);
+    //         for (uint256 j; j < plans.length; j++) {
+    //             (uint256 shares, uint256 totalShares) = gca.getShares(gcaAddresses[i]);
+    //             if (plans[j].agent == gcaAddresses[i]) {
+    //                 assertTrue(plans[j].shares == gca.SHARES_REQUIRED_PER_COMP_PLAN());
+    //             } else {
+    //                 assertTrue(plans[j].shares == 0);
+    //             }
+    //             assertEq(totalShares, gca.SHARES_REQUIRED_PER_COMP_PLAN() * gcaAddresses.length);
+    //             assertEq(shares, gca.SHARES_REQUIRED_PER_COMP_PLAN());
+    //         }
+    //     }
+    // }
 
     //------------------------ PAYMENTS -----------------------------
-    function testFuzz_amountNowAndSb(uint256 secondsSinceLastPayout) public {
-        vm.assume(secondsSinceLastPayout < 14 days);
-        uint256 shares = 1;
-        uint256 totalShares = 1;
-        (uint256 amountNow, uint256 slashableBalance) =
-            gca.getAmountNowAndSB(secondsSinceLastPayout, shares, totalShares);
-        uint256 rewardPerSecond = gca.REWARDS_PER_SECOND_FOR_ALL();
-        uint256 vestingRate = gca.VESTING_REWARDS_PER_SECOND_FOR_ALL();
-        uint256 vestedSum;
-        for (uint256 i; i < secondsSinceLastPayout; i++) {
-            uint256 timeElapsed = secondsSinceLastPayout - i;
-            uint256 vestedFromSecond = _min(timeElapsed * vestingRate, rewardPerSecond);
-            vestedSum += vestedFromSecond;
-        }
-        //Account for division errors
-        uint256 maxAcceptableDifference = 10 ** 10; //.00000001 tokens
-        // console.log("amountNow", amountNow);
-        // console.log("Sum from loop", vestedSum);
-        int256 diff = int256(amountNow) - int256(vestedSum);
-        assertTrue(diff < int256(maxAcceptableDifference));
-    }
+    // function testFuzz_amountNowAndSb(uint256 secondsSinceLastPayout) public {
+    //     vm.assume(secondsSinceLastPayout < 14 days);
+    //     uint256 shares = 1;
+    //     uint256 totalShares = 1;
+    //     (uint256 amountNow, uint256 slashableBalance) =
+    //         gca.getAmountNowAndSB(secondsSinceLastPayout, shares, totalShares);
+    //     uint256 rewardPerSecond = gca.REWARDS_PER_SECOND_FOR_ALL();
+    //     uint256 vestingRate = gca.VESTING_REWARDS_PER_SECOND_FOR_ALL();
+    //     uint256 vestedSum;
+    //     for (uint256 i; i < secondsSinceLastPayout; i++) {
+    //         uint256 timeElapsed = secondsSinceLastPayout - i;
+    //         uint256 vestedFromSecond = _min(timeElapsed * vestingRate, rewardPerSecond);
+    //         vestedSum += vestedFromSecond;
+    //     }
+    //     //Account for division errors
+    //     uint256 maxAcceptableDifference = 10 ** 10; //.00000001 tokens
+    //     // console.log("amountNow", amountNow);
+    //     // console.log("Sum from loop", vestedSum);
+    //     int256 diff = int256(amountNow) - int256(vestedSum);
+    //     assertTrue(diff < int256(maxAcceptableDifference));
+    // }
 
     //------------------------ GOVERNANCE CALLS -----------------------------
     function test_setRequirements_callerNotGovernance_shouldFail() public {

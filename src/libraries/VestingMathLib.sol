@@ -86,8 +86,9 @@ library VestingMathLib {
         uint256 partiallyVestedSecondsValue = partiallyVestedSeconds * (lowestValueSecond + highestValueSecond) / 2;
 
         uint256 totalRewards = secondsActive * rewardsPerSecond;
-        withdrawableAmount = fullyVestedRewards + partiallyVestedSecondsValue - amountAlreadyWithdrawn;
+        withdrawableAmount = fullyVestedRewards + partiallyVestedSecondsValue;
         slashableAmount = totalRewards - withdrawableAmount;
+        withdrawableAmount -= amountAlreadyWithdrawn;
 
         return (withdrawableAmount, slashableAmount);
     }
