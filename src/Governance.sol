@@ -54,6 +54,11 @@ contract Governance is IGovernance {
     uint256 private constant _MAX_ENDORSEMENTS_ON_GCA_PROPOSALS = 5;
 
     /**
+     * @dev the maximum number of concurrently actibe GCA council members
+     */
+    uint256 private constant _MAX_GCAS = 5;
+
+    /**
      * @dev each endorsement decreases the required percentage to execute a GCA election proposal by 5%
      */
     uint256 private constant _ENDORSEMENT_WEIGHT = 5;
@@ -786,6 +791,9 @@ contract Governance is IGovernance {
         address[] calldata newGCAs,
         uint256 maxNominations
     ) external {
+        if (newGCAs.length > _MAX_ENDORSEMENTS_ON_GCA_PROPOSALS) {
+            _revert(IGovernance.MaximumSevenGCAsAllowed.selector);
+        }
         //[agentsToSlash,newGCAs,proposalCreationTimestamp]
         bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
         uint256 proposalId = _proposalCount;

@@ -8,7 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 //TODO: change to weeks
 //todo: a holding can be max delayed 97 days.
 //so we need to add a nonce to the holding
-//todo: can create a delay event, eveyy 60 days (9 weeks)
+//TODO: can create a delay event, eveyy 60 days (9 weeks)
 
 /**
  * @dev Struct representing a holding of tokens in the HoldingContract.

@@ -8,6 +8,7 @@ import "forge-std/console.sol";
 /**
  * TODO:
  * 1. Pre-mine 6 million  pre-mine  grants
+ *  2. changed unstaked positions to claim from the head of the array
  */
 contract Glow is ERC20, IGlow {
     //----------------------- CONSTANTS -----------------------//
