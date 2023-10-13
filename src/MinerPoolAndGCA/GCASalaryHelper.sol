@@ -7,13 +7,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "forge-std/console.sol";
 
-//amount already withdrawn can be packed into 128 bits
-//2**128-1 / 1e18 = 3.4e20. It would take 1307692307692307.8 years to overflow at 5000 glow per week
-
-// struct PaymentPeriod {
-//     uint64 startTimestamp;
-//     uint64 endTimestamp;
-// }
+/**
+ */
 
 contract GCASalaryHelper {
     error HashesNotUpdated();
@@ -22,6 +17,7 @@ contract GCASalaryHelper {
     error InvalidGCAHash();
     error InvalidUserIndex();
     error InvalidShares();
+    error SlashedAgentCannotClaimReward();
 
     uint256 private constant ONE_WEEK = uint256(7 days);
 
@@ -42,6 +38,8 @@ contract GCASalaryHelper {
 
     // agent -> payment nonce -> amount already withdrawn
     mapping(address => mapping(uint256 => uint256)) public amountWithdrawnAtPaymentNonce;
+
+    mapping(address => bool) public isSlashed;
     //  Private payment nonce.
     /// Private payment nonce only needs to be incremented when a gca submits a new overriding comp plan.
     /// The public paymentNonce() function is also incremented whenever there's a slash event
@@ -179,6 +177,11 @@ contract GCASalaryHelper {
         );
     }
 
+    /**
+     * @dev we don't need a deadline on the sig since the relayer cant make the funds go anywhere else,
+     *             except for the user's address.
+     *             AND - the relayer is restricted to a certian nonce.
+     */
     function claimPayout(
         address user,
         uint256 paymentNonce,
@@ -187,7 +190,9 @@ contract GCASalaryHelper {
         bool claimFromInflation,
         bytes memory sig
     ) external {
-        //TODO: maybe add deadline?
+        if (isSlashed[user]) {
+            _revert(SlashedAgentCannotClaimReward.selector);
+        }
         if (msg.sender != user) {
             bytes32 digest = createRelayDigest(msg.sender, paymentNonce, nextRelayNonce[user]++);
             if (!SignatureChecker.isValidSignatureNow(user, digest, sig)) {
@@ -294,6 +299,10 @@ contract GCASalaryHelper {
 
     function _claimGlowFromInflation() internal virtual {
         revert();
+    }
+
+    function _slash(address user) internal {
+        isSlashed[user] = true;
     }
 
     /**

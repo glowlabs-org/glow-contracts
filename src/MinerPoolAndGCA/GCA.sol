@@ -570,6 +570,11 @@ contract GCA is IGCA, GCASalaryHelper {
 
     function _slashGCAs(address[] memory gcasToSlash) internal {
         //todo: put logic here
+        unchecked {
+            for (uint256 i; i < gcasToSlash.length; ++i) {
+                _slash(gcasToSlash[i]);
+            }
+        }
     }
 
     /**

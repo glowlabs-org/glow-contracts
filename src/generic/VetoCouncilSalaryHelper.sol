@@ -6,8 +6,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "forge-std/console.sol";
 
-
 //TODO: Error logic bug where the payout wont carry over when a new nonce is started.....
+
 /**
  * @param rewardPerSecond - the amount of tokens to be distributed per second
  * @param lastApplicableTimestamp - the last time the rewardPerSecond is applicable
@@ -242,17 +242,17 @@ contract VetoCouncilSalaryHelper {
         _nonceHelper[nonce] = NonceHelper({rewardPerSecond: uint64(rewardPerSecond), lastApplicableTimestamp: 0});
     }
 
-    function handlePotentialSalaryRateChange(address agentThatIsBeingAdded, uint256 newRewardsPerSecond) internal {
+    function handlePotentialSalaryRateChange(uint256 newRewardsPerSecond) internal {
         uint256 _paymentNonce = paymentNonce;
         //If the reward per second hasnt changed
         if (newRewardsPerSecond == _nonceHelper[_paymentNonce].rewardPerSecond) {
             //If the agentThatIsBeingAdded already had a shift that ended on that nonce
-            //Then we have to start a new nonce and end the lastApplicableTimestamp 
-            if (_payoutHelpers[agentThatIsBeingAdded][_paymentNonce].shiftEndTimestamp != 0) {
-                _nonceHelper[_paymentNonce].lastApplicableTimestamp = uint64(block.timestamp);
-                ++_paymentNonce;
-                paymentNonce = _paymentNonce;
-            }
+            //Then we have to start a new nonce and end the lastApplicableTimestamp
+            // if (_payoutHelpers[agentThatIsBeingAdded][_paymentNonce].shiftEndTimestamp != 0) {
+            //     _nonceHelper[_paymentNonce].lastApplicableTimestamp = uint64(block.timestamp);
+            //     ++_paymentNonce;
+            //     paymentNonce = _paymentNonce;
+            // }
             return;
         }
         _nonceHelper[_paymentNonce].lastApplicableTimestamp = uint64(block.timestamp);
