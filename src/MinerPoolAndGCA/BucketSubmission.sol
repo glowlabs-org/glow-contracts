@@ -82,6 +82,7 @@ contract BucketSubmission {
      * @dev this function is called when a user donates grc to the contract
      * @param grcToken - the address of the grc token
      * @param amount - the amount of grc to add to the current bucket
+     * @dev the parent function should check to ensure that grcToken is valid
      */
     function _addToCurrentBucket(address grcToken, uint256 amount) internal {
         //Find the current bucket
