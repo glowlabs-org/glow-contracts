@@ -175,7 +175,7 @@ contract HoldingContract {
             if (block.timestamp - holding.expirationTimestamp < NINETY_DAYS) {
                 //If it's been less than 90 days and the network is frozen,
                 //we need to revert
-                if (networkFrozen) {
+                if (networkIsFrozen) {
                     _revert(NetworkIsFrozen.selector);
                 }
             }

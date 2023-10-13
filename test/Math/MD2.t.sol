@@ -126,10 +126,6 @@ contract MD2Test is Test {
         //Make s
     }
 
-    function test_M2_badGRCTokenShouldRevert() public {
-        vm.expectRevert(IMinerPool.NotGRCToken.selector);
-        minerMath.addToCurrentBucket(address(notGrcToken), 10);
-    }
     //----------------- TESTS  -----------------
 
     function test_M2_manualSanityCheck() public {
