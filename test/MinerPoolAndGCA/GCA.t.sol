@@ -937,7 +937,7 @@ contract GCATest is Test {
 
         vm.startPrank(governance);
 
-        gca.pushHash(keccak256(abi.encodePacked(gcasToSlash, newGCAs, proposalCreationTimestamp)), true);
+        gca.pushHash(keccak256(abi.encode(gcasToSlash, newGCAs, proposalCreationTimestamp)), true);
         vm.stopPrank();
 
         gca.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);

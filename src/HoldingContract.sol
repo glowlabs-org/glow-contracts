@@ -36,7 +36,7 @@ contract HoldingContract {
     error OnlyMinerPoolCanAddHoldings();
     error WithdrawalNotReady();
     error CallerMustBeVetoCouncilMember();
-    error CanOnlyDelayEveryEightyDays();
+    error DelayStillOnCooldown();
     error NetworkIsFrozen();
     error AlreadyWithdrawnFromHolding();
     error MinerPoolAlreadySet();
@@ -47,19 +47,19 @@ contract HoldingContract {
      * Whenever a user withdraws from the miner pool,
      *       their funds are locked for 7 days
      */
-    uint256 private constant DEFAULT_DELAY = uint256(7 days);
+    uint256 public constant DEFAULT_DELAY = uint256(7 days);
 
     /**
      * @dev 90 days in seconds
      */
-    uint256 private constant NINETY_DAYS = uint256(90 days);
+    uint256 public constant NINETY_DAYS = uint256(90 days);
 
     /**
      * @notice the delay for withdrawals after the network is delayed
      * @dev the delay is 13 weeks
      * all withdrawals will be delayed for 13 weeks
      */
-    uint256 private constant VETO_HOLDING_DELAY = uint256(13 weeks);
+    uint256 public constant VETO_HOLDING_DELAY = uint256(13 weeks);
 
     /**
      * @dev a cached version of 10 days in seconds
@@ -67,7 +67,7 @@ contract HoldingContract {
      * @dev This helps prevent bad veto agents from spamming the delay network function
      *         - by giving governance enough time to kick out the veto agent
      */
-    uint256 private constant FIVE_WEEKS = uint256(5 weeks);
+    uint256 public constant FIVE_WEEKS = uint256(5 weeks);
 
     /**
      * @notice the address of the veto council
@@ -141,7 +141,7 @@ contract HoldingContract {
             //minimumWithdrawTimestamp
             uint256 timeLeftInDelay = _minimumWithdrawTimestamp - block.timestamp;
             if (timeLeftInDelay > FIVE_WEEKS) {
-                _revert(CanOnlyDelayEveryEightyDays.selector);
+                _revert(DelayStillOnCooldown.selector);
             }
         }
 

@@ -165,7 +165,7 @@ contract GCAPayoutTest is Test {
         address[] memory newGCAs = _getAddressArray(3, 4000000);
         address[] memory gcasToSlash = new address[](0);
         uint256 timestamp = block.timestamp;
-        bytes32 hash = keccak256(abi.encodePacked(gcasToSlash, newGCAs, timestamp));
+        bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, timestamp));
         gca.pushHash(hash, false);
         gca.executeAgainstHash(gcasToSlash, newGCAs, timestamp);
 
@@ -179,7 +179,7 @@ contract GCAPayoutTest is Test {
         //New gcas
         address[] memory newGCAs2 = _getAddressArray(5, 9000000);
         timestamp = block.timestamp;
-        hash = keccak256(abi.encodePacked(gcasToSlash, newGCAs2, timestamp));
+        hash = keccak256(abi.encode(gcasToSlash, newGCAs2, timestamp));
         gca.pushHash(hash, false);
         gca.executeAgainstHash(gcasToSlash, newGCAs2, timestamp);
 

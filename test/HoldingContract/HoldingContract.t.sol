@@ -152,34 +152,34 @@ contract HoldingContractTest is Test {
         holdingContract.delayNetwork();
         vm.stopPrank();
         uint256 newTimestamp = holdingContract.minimumWithdrawTimestamp();
-        assert(originalTimestamp + NINETY_DAYS == newTimestamp);
+        assert(originalTimestamp + holdingContract.VETO_HOLDING_DELAY() == newTimestamp);
     }
 
-    function test_delayNetworkTwiceBefore80Days_shouldRevert() public {
+    function test_delayNetworkTwice_whileOnCooldown_shouldRevert() public {
         uint256 originalTimestamp = block.timestamp;
         vm.startPrank(SIMON);
         holdingContract.delayNetwork();
         uint256 newTimestamp = holdingContract.minimumWithdrawTimestamp();
-        assert(originalTimestamp + NINETY_DAYS == newTimestamp);
+        assert(originalTimestamp + holdingContract.VETO_HOLDING_DELAY() == newTimestamp);
 
-        vm.expectRevert(HoldingContract.CanOnlyDelayEveryEightyDays.selector);
+        vm.expectRevert(HoldingContract.DelayStillOnCooldown.selector);
         holdingContract.delayNetwork();
 
         //warp forward 79 days
-        uint256 seventyNineDays = 79 * uint256(1 days);
-        vm.warp(block.timestamp + seventyNineDays);
-        vm.expectRevert(HoldingContract.CanOnlyDelayEveryEightyDays.selector);
+        uint256 minimumWaitPeriod = holdingContract.VETO_HOLDING_DELAY() - holdingContract.FIVE_WEEKS() - 1;
+        vm.warp(block.timestamp + minimumWaitPeriod);
+        vm.expectRevert(HoldingContract.DelayStillOnCooldown.selector);
         holdingContract.delayNetwork();
 
         vm.stopPrank();
     }
 
-    function test_delayNetworkTwiceAfter80Days_shouldWork() public {
-        test_delayNetworkTwiceBefore80Days_shouldRevert();
+    function test_delayNetworkTwice_noLongerOnCooldown_shouldWork() public {
+        test_delayNetworkTwice_whileOnCooldown_shouldRevert();
         //Warping one more day should work
 
         vm.startPrank(SIMON);
-        vm.warp(block.timestamp + uint256(1 days));
+        vm.warp(block.timestamp + 1);
         holdingContract.delayNetwork();
 
         vm.stopPrank();
