@@ -355,7 +355,7 @@ contract GCA is IGCA, GCASalaryHelper {
         uint256 _nextProposalIndexToUpdate = nextProposalIndexToUpdate;
         uint256 len = proposalHashes.length;
         if (len == 0) _revert(IGCA.ProposalHashesEmpty.selector);
-        bytes32 derivedHash = keccak256(abi.encodePacked(gcasToSlash, newGCAs, proposalCreationTimestamp));
+        bytes32 derivedHash = keccak256(abi.encode(gcasToSlash, newGCAs, proposalCreationTimestamp));
         //Slash nonce already get's incremented so we need to subtract 1
         if (gcasToSlash.length > 0) {
             slashNonceToSlashTimestamp[slashNonce - 1] = proposalCreationTimestamp;
@@ -572,7 +572,7 @@ contract GCA is IGCA, GCASalaryHelper {
         //todo: put logic here
         unchecked {
             for (uint256 i; i < gcasToSlash.length; ++i) {
-                _slash(gcasToSlash[i]);
+                GCASalaryHelper._slash(gcasToSlash[i]);
             }
         }
     }
