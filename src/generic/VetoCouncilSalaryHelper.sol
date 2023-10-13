@@ -6,12 +6,22 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "forge-std/console.sol";
 
+/**
+ * @param rewardPerSecond - the amount of tokens to be distributed per second
+ * @param lastApplicableTimestamp - the last time the rewardPerSecond is applicable
+ * @dev all agents share the same `rewardPerSecond` for each `nonce` since they all earn at the same rate
+ *             - so it's not necessary to track rewardPerSecond on an individual basis.
+ */
 struct NonceHelper {
     uint64 rewardPerSecond;
     uint64 lastApplicableTimestamp;
 }
 
-//1 slot
+/**
+ * @param shiftStartTimestamp - marks the start of a shift
+ * @param shiftEndTimestamp - marks the end of a shift
+ * @param amountAlreadyWithdrawn - the amount of tokens an agent has already withdrawn from this shift
+ */
 struct PayoutHelper {
     uint64 shiftStartTimestamp;
     uint64 shiftEndTimestamp;
@@ -20,26 +30,102 @@ struct PayoutHelper {
 //amount already withdrawn can be packed into 128 bits
 //2**128-1 / 1e18 = 3.4e20. It would take 1307692307692307.8 years to overflow at 5000 glow per week
 
+/**
+ * @param isActive - whether or not the agent is active
+ * @param isSlashed - whether or not the agent is slashed
+ * @param currentPaymentNonce - the nonce at which the agent's current shift started
+ */
 struct Status {
     bool isActive;
     bool isSlashed;
     uint120 currentPaymentNonce;
 }
 
+/**
+ * @title VetoCouncilSalaryHelper
+ * @notice A library to help with the salary of the Veto Council
+ *         -  handles the salary and payout of the Veto Council
+ * @author DavidVorick
+ * @author 0xSimon(twitter) - 0xSimbo(github)
+ * @dev a nonce is a unique identifier for a shift and is incremented every time the salary rate changes
+ *         - if an agent is removed before the rate has changed, they will earn until their `shiftEndTimestamp`
+ *  @dev payouts vest linearly at 1% per week.
+ *         - It takes 100 weeks for a payout to fully vest
+ */
 contract VetoCouncilSalaryHelper {
     error HashesNotUpdated();
     error CannotSetNonceToZero();
 
-    mapping(address => mapping(uint256 => PayoutHelper)) private _payoutHelpers;
-    mapping(address => Status) private _status;
-    // bytes32[] public proposalHashes;
-    uint256 public nextProposalIndexToUpdate;
-
-    //Store as 1 to avoid cold sstore for the first proposal
+    /**
+     * @notice The nonce at which the current shift started
+     * @dev store as 1 to avoid cold sstore for the first proposal
+     */
     uint256 public paymentNonce = 1;
+
+    /**
+     * @dev (Nonce -> NonceHelper)
+     */
     mapping(uint256 => NonceHelper) internal _nonceHelper;
 
-    //Hooks!
+    /**
+     * @dev (Agent -> Payout Nonce -> PayoutHelper)
+     */
+    mapping(address => mapping(uint256 => PayoutHelper)) private _payoutHelpers;
+
+    /**
+     * @dev (Agent -> Status)
+     */
+    mapping(address => Status) private _status;
+
+    /**
+     * ----------------------------------------------
+     */
+    /**
+     * ----------       EXTERNAL VIEW --------------
+     */
+    /**
+     * ----------------------------------------------
+     */
+
+    /**
+     * @notice Returns the payout data for an agent
+     * @dev if the `shiftEndTimestamp` is 0, then the shift hasn't ended yet
+     * @param agent - the address of the agents
+     * @param nonce - the nonce of the payout
+     */
+    function payoutHelper(address agent, uint256 nonce) public view returns (PayoutHelper memory) {
+        return _payoutHelpers[agent][nonce];
+    }
+
+    /**
+     * @notice Returns the (withdrawableAmount, slashableAmount) for an agent for a given nonce
+     * @param agent - the address of the agents
+     * @param nonce - the nonce of the payout
+     * @return (withdrawableAmount, slashableAmount) - the amount of tokens that can be withdrawn and the amount that are still vesting
+     */
+    function payoutData(address agent, uint256 nonce) external view returns (uint256, uint256) {
+        if (_status[agent].isSlashed) {
+            return (0, 0);
+        }
+        return _payoutData(agent, nonce);
+    }
+
+    /**
+     * ----------------------------------------------
+     */
+    /**
+     * -------     INTERNAL STATE CHANGING ---------
+     */
+    /**
+     * ----------------------------------------------
+     */
+
+     /**
+        * @dev Adds a new salary for an agent at the current payment nonce.
+        * @dev should not be used independently, it should only be used in the election function
+        * @param agent - the address of the agent
+        TODO: is it possible for an agent to be added twice in the same payment nonce?
+      */
     function addSalary(address agent) internal {
         _payoutHelpers[agent][paymentNonce] = PayoutHelper({
             shiftStartTimestamp: uint64(block.timestamp),
@@ -59,6 +145,21 @@ contract VetoCouncilSalaryHelper {
         _payoutHelpers[agent][currentNonce].shiftEndTimestamp = uint64(block.timestamp);
     }
 
+    function claimPayout(address agent, uint256 nonce, IERC20 token) internal {
+        uint256 withdrawableAmount = nextPayoutAmount(agent, nonce);
+        _payoutHelpers[agent][nonce].amountAlreadyWithdrawn += uint128(withdrawableAmount);
+        SafeERC20.safeTransfer(token, agent, withdrawableAmount);
+    }
+
+    /**
+     * ----------------------------------------------
+     */
+    /**
+     * -------     INTERNAL VIEW ---------
+     */
+    /**
+     * ----------------------------------------------
+     */
     function getDataToCalculatePayout(address agent, uint256 nonce)
         internal
         view
@@ -99,26 +200,9 @@ contract VetoCouncilSalaryHelper {
         return (withdrawableAmount, slashableAmount);
     }
 
-    function payoutData(address agent, uint256 nonce) external view returns (uint256, uint256) {
-        if (_status[agent].isSlashed) {
-            return (0, 0);
-        }
-        return _payoutData(agent, nonce);
-    }
-
     function nextPayoutAmount(address agent, uint256 nonce) internal view returns (uint256) {
         (uint256 withdrawableAmount,) = _payoutData(agent, nonce);
         return withdrawableAmount;
-    }
-
-    function claimPayout(address agent, uint256 nonce, IERC20 token) internal {
-        uint256 withdrawableAmount = nextPayoutAmount(agent, nonce);
-        _payoutHelpers[agent][nonce].amountAlreadyWithdrawn += uint128(withdrawableAmount);
-        SafeERC20.safeTransfer(token, agent, withdrawableAmount);
-    }
-
-    function payoutHelper(address agent, uint256 nonce) public view returns (PayoutHelper memory) {
-        return _payoutHelpers[agent][nonce];
     }
 
     function removeAgent(address agent, uint256 agentPayoutNonce, uint256 shiftEndTimestamp, bool slash) internal {
@@ -136,20 +220,6 @@ contract VetoCouncilSalaryHelper {
         return;
     }
 
-    // function _revertIfFrozen() internal view {
-    //     if (_isFrozen()) _revert(HashesNotUpdated.selector);
-    // }
-
-    // function _isFrozen() internal view returns (bool) {
-    //     uint256 len = proposalHashes.length;
-    //     //If no proposals have been submitted, we don't need to check
-    //     if (len == 0) return false;
-    //     if (len != nextProposalIndexToUpdate) {
-    //         return true;
-    //     }
-    //     return false;
-    // }
-
     function agentStatus(address agent) public view returns (Status memory) {
         return _status[agent];
     }
@@ -159,17 +229,6 @@ contract VetoCouncilSalaryHelper {
      */
     function _isCouncilMember(address agent) internal view returns (bool) {
         return _status[agent].isActive;
-    }
-
-    /**
-     * @notice More efficiently reverts with a bytes4 selector
-     * @param selector The selector to revert with
-     */
-    function _revert(bytes4 selector) internal pure {
-        assembly {
-            mstore(0x0, selector)
-            revert(0x0, 0x04)
-        }
     }
 
     function nonceHelper(uint256 nonce) public view returns (NonceHelper memory) {
@@ -189,5 +248,16 @@ contract VetoCouncilSalaryHelper {
         _nonceHelper[_paymentNonce] =
             NonceHelper({rewardPerSecond: uint64(newRewardsPerSecond), lastApplicableTimestamp: 0});
         paymentNonce = _paymentNonce;
+    }
+
+    /**
+     * @notice More efficiently reverts with a bytes4 selector
+     * @param selector The selector to revert with
+     */
+    function _revert(bytes4 selector) internal pure {
+        assembly {
+            mstore(0x0, selector)
+            revert(0x0, 0x04)
+        }
     }
 }
