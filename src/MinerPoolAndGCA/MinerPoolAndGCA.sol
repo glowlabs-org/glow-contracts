@@ -172,7 +172,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @inheritdoc IMinerPool
      */
     function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
-        // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
+        BucketSubmission._revertIfNotGRC(grcToken);
         uint256 balBefore = IERC20(grcToken).balanceOf(address(HOLDING_CONTRACT));
         SafeERC20.safeTransferFrom(IERC20(grcToken), msg.sender, address(HOLDING_CONTRACT), amount);
         uint256 transferredBalance = IERC20(grcToken).balanceOf(address(HOLDING_CONTRACT)) - balBefore;
@@ -184,7 +184,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     function donateToGRCMinerRewardsPoolEarlyLiquidity(address grcToken, uint256 amount) external virtual {
         if (msg.sender != _EARLY_LIQUIDITY) _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
-        // if (!grcTracker[grcToken].isGRC) _revert(IMinerPool.NotGRCToken.selector);
+        _revertIfNotGRC(grcToken);
         _addToCurrentBucket(grcToken, amount);
     }
 

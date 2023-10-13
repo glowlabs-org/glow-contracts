@@ -101,11 +101,6 @@ contract BucketSubmission {
         //and are used for caching to reduce gas costs
         BucketTracker memory _bucketTracker = bucketTrackerStorage[grcToken];
 
-        //Make sure the grc token is valid
-        if (!_bucketTracker.isGRC) {
-            revert IMinerPool.NotGRCToken();
-        }
-
         //Load the current bucket into memory
         WeeklyReward memory currentBucket = rewards[bucketToAddTo][grcToken];
 
@@ -396,5 +391,11 @@ contract BucketSubmission {
     /// @dev this must be overriden inside the parent contract.
     function _genesisTimestamp() internal view virtual returns (uint256) {
         return 0;
+    }
+
+    function _revertIfNotGRC(address grc) internal {
+        if (!bucketTrackerStorage[grc].isGRC) {
+            revert IMinerPool.NotGRCToken();
+        }
     }
 }
