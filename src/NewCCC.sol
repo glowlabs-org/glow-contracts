@@ -106,7 +106,7 @@ contract CarbonCreditDutchAuction {
      */
     function receiveGCC(uint256 amount) external {
         if (msg.sender != MINER_POOL) {
-            revert CallerNotMinerPool();
+            _revert(CallerNotMinerPool.selector);
         }
         Timestamps memory _timestamps = timestamps;
         totalAmountFullyAvailableForSale = totalSupply();
@@ -129,14 +129,14 @@ contract CarbonCreditDutchAuction {
      */
     function buyGCC(uint256 unitsToBuy, uint256 maxPricePerUnit) external {
         if (unitsToBuy == 0) {
-            revert CannotBuyZeroUnits();
+            _revert(CannotBuyZeroUnits.selector);
         }
         Timestamps memory _timestamps = timestamps;
         uint256 _lastPriceChangeTimestamp = _timestamps.lastPriceChangeTimestamp;
         uint256 _price24HoursAgo = price24HoursAgo;
         uint256 price = getPricePerUnit();
         if (price > maxPricePerUnit) {
-            revert UserPriceNotHighEnough();
+            _revert(UserPriceNotHighEnough.selector);
         }
         uint256 gccPurchasing = unitsToBuy * SALE_UNIT;
         uint256 glowToTransfer = unitsToBuy * price;
@@ -145,21 +145,24 @@ contract CarbonCreditDutchAuction {
         uint256 saleUnitsLeftForSale = totalSaleUnitsAvailable - totalUnitsSold;
 
         if (saleUnitsLeftForSale < unitsToBuy) {
-            revert NotEnoughGCCForSale();
+            _revert(NotEnoughGCCForSale.selector);
         }
 
         uint256 newPrice = price + (price * (unitsToBuy * PRECISION / saleUnitsLeftForSale) / PRECISION);
 
-        //If it's been more than a day since the last sale, then we can reset the price
-        if (block.timestamp - _lastPriceChangeTimestamp > ONE_DAY) {
-            _price24HoursAgo = price;
-            price24HoursAgo = _price24HoursAgo;
-            _lastPriceChangeTimestamp = block.timestamp;
-        } else {
-            if (newPrice * PRECISION / _price24HoursAgo > 2 * PRECISION) {
-                newPrice = _price24HoursAgo * 2;
-            }
+        //The new price can never grow more than 100% in 24 hours
+        if (newPrice * PRECISION / _price24HoursAgo > 2 * PRECISION) {
+            newPrice = _price24HoursAgo * 2;
         }
+        //If it's been more than a day since the last sale, then update the price
+        //To the price in the current tx
+        //Also update the last price change timestamp
+        if (block.timestamp - _lastPriceChangeTimestamp > ONE_DAY) {
+            price24HoursAgo = price;
+            _lastPriceChangeTimestamp = block.timestamp;
+        }
+
+        //
         pricePerSaleUnit = newPrice;
 
         totalUnitsSold += unitsToBuy;
