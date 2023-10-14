@@ -4,13 +4,6 @@ pragma solidity 0.8.21;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HalfLifeCarbonCreditAuction} from "@/libraries/HalfLifeCarbonCreditAuction.sol";
 import "forge-std/console.sol";
-/*
- 1.    It's a dutch auction. GCC is set to a starting price (1 GLW per GCC) and then the price falls continuously over time (could be a step function to prevent friction). The rate is that the price cuts in half every week.
- 2.   GCC are added to the pile of for-sale items continuously throughout each week, they are added linearly over the week on a per-second basis
-3.    When someone buys GCC, the price jumps by (2 * (GCC_purchase / GCC_available)). So if someone buys all the GCC, the price doubles. If someone buys 10% of the GCC, the price goes up by 10%
-4.    The price cannot go up faster than doubling every day.
- 5.   Someone can buy as many GCC as they want at the current price. The price does not change until after the sale is completed.
-*/
 
 /**
  * @title CarbonCreditDutchAuction
@@ -82,6 +75,7 @@ contract CarbonCreditDutchAuction {
         uint64 lastSaleTimestamp;
         uint64 lastReceivedTimestamp;
         uint64 lastPriceChangeTimestamp;
+        uint64 firstReceivedTimestamp;
     }
 
     /// @notice The timestamps
@@ -114,9 +108,17 @@ contract CarbonCreditDutchAuction {
         if (msg.sender != MINER_POOL) {
             revert CallerNotMinerPool();
         }
-
+        Timestamps memory _timestamps = timestamps;
         totalAmountFullyAvailableForSale = totalSupply();
-        timestamps.lastReceivedTimestamp = uint64(block.timestamp);
+        // timestamps.lastReceivedTimestamp = uint64(block.timestamp);
+        timestamps = Timestamps({
+            lastSaleTimestamp: _timestamps.lastSaleTimestamp,
+            lastReceivedTimestamp: uint64(block.timestamp),
+            lastPriceChangeTimestamp: _timestamps.lastPriceChangeTimestamp,
+            firstReceivedTimestamp: _timestamps.firstReceivedTimestamp == 0
+                ? uint64(block.timestamp)
+                : _timestamps.firstReceivedTimestamp
+        });
         totalAmountReceived += amount;
     }
 
@@ -164,7 +166,8 @@ contract CarbonCreditDutchAuction {
         timestamps = Timestamps({
             lastSaleTimestamp: uint64(block.timestamp),
             lastReceivedTimestamp: _timestamps.lastReceivedTimestamp,
-            lastPriceChangeTimestamp: uint64(_lastPriceChangeTimestamp)
+            lastPriceChangeTimestamp: uint64(_lastPriceChangeTimestamp),
+            firstReceivedTimestamp: _timestamps.firstReceivedTimestamp
         });
         GLOW.transferFrom(msg.sender, address(this), glowToTransfer);
         GCC.transfer(msg.sender, gccPurchasing);
@@ -177,7 +180,15 @@ contract CarbonCreditDutchAuction {
      * @notice returns the price per unit of GCC
      */
     function getPricePerUnit() public view returns (uint256) {
-        uint256 _lastSaleTimestamp = timestamps.lastSaleTimestamp;
+        Timestamps memory _timestamps = timestamps;
+        uint256 _lastSaleTimestamp = _timestamps.lastSaleTimestamp;
+        uint256 firstReceivedTimestamp = _timestamps.firstReceivedTimestamp;
+        if (firstReceivedTimestamp == 0) {
+            return pricePerSaleUnit;
+        }
+        if (_lastSaleTimestamp == 0) {
+            _lastSaleTimestamp = firstReceivedTimestamp;
+        }
         uint256 _pricePerSaleUnit = pricePerSaleUnit;
         return
             HalfLifeCarbonCreditAuction.calculateHalfLifeValue(_pricePerSaleUnit, block.timestamp - _lastSaleTimestamp);
