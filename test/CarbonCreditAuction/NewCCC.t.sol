@@ -34,11 +34,23 @@ contract CarbonCreditDutchAuctionTest is Test {
         vm.warp(block.timestamp + ONE_WEEK / 2);
         sendGCCToAuction(20_000 ether);
         vm.warp(block.timestamp + ONE_WEEK / 2);
-        auction.logStateVariables();
+        // auction.logStateVariables();
+    }
+
+    function testFuzz_priceShouldHalfEveryWeekOfInactivity(uint256 weeksToWarp) public {
+        vm.assume(weeksToWarp > 0 && weeksToWarp < 60);
+        sendGCCToAuction(10_000 ether);
+        uint256 startingPrice = auction.getPricePerUnit();
+        vm.warp(block.timestamp + ONE_WEEK * weeksToWarp);
+        uint256 expectedPrice = startingPrice / (2 ** weeksToWarp);
+        // assert(auction.getPricePerUnit() == expectedPrice);
+        assert(valFallsInRange(auction.getPricePerUnit(), expectedPrice * 99 / 100, expectedPrice * 101 / 100));
     }
 
     function test_BuyCCAuction() public {
+        uint256 startingPrice = auction.getPricePerUnit();
         sendGCCToAuction(10_000 ether);
+        console.log("starting price = ", startingPrice);
         vm.warp(block.timestamp + ONE_WEEK);
         vm.startPrank(operator);
         uint256 price = auction.getPricePerUnit();
@@ -55,6 +67,7 @@ contract CarbonCreditDutchAuctionTest is Test {
         // //12 hours
         assert(gcc.balanceOf(operator) == 10_000 ether);
         assert(auction.totalUnitsSold() == 10_000 ether / SALE_UNIT);
+        console.log("[1] price per unit = ", auction.getPricePerUnit());
         vm.warp(block.timestamp + (3600 * 12));
         uint256 unitsForSale = auction.unitsForSale();
         console.log("total supply = ", auction.totalSupply());
@@ -67,6 +80,16 @@ contract CarbonCreditDutchAuctionTest is Test {
         console.log("[2] gcc balance after purchase = ", gcc.balanceOf(operator));
         // auction.logStateVariables();
         console.log("[2] new price per unit = ", auction.getPricePerUnit());
+        //warp one week
+        vm.warp(block.timestamp + ONE_WEEK);
+        console.log("[3] new price per unit = ", auction.getPricePerUnit());
+        vm.warp(block.timestamp + ONE_WEEK);
+        console.log("[4] new price per unit = ", auction.getPricePerUnit());
+        vm.warp(block.timestamp + ONE_WEEK);
+    }
+
+    function valFallsInRange(uint256 val, uint256 min, uint256 max) internal pure returns (bool) {
+        return val >= min && val <= max;
     }
 
     function sendGCCToAuction(uint256 amountToSend) internal {

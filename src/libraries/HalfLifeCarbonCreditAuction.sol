@@ -16,6 +16,9 @@ library HalfLifeCarbonCreditAuction {
      * @return value - the value remaining given a half-life of 52 weeks
      */
     function calculateHalfLifeValue(uint256 initialValue, uint256 elapsedSeconds) public pure returns (uint256) {
+        if (elapsedSeconds == 0) {
+            return initialValue;
+        }
         // Convert the half-life from months to seconds
         uint256 halfLifeSeconds = SECONDS_IN_YEAR;
 
