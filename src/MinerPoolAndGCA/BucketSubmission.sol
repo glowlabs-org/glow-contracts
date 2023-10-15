@@ -364,8 +364,6 @@ contract BucketSubmission {
 
         if (_bucketTracker.firstAddedBucketId == 0 || currentBucket > _bucketTracker.maxBucketId) {
             _bucketTracker.firstAddedBucketId = uint48(currentBucket + OFFSET_LEFT);
-            //TODO:should we also set inherited from last week here to true?
-            //might make some other functions easier
         }
         return true;
     }
