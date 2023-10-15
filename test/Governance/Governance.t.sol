@@ -8,7 +8,7 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {CarbonCreditAuction} from "@/CarbonCreditAuction.sol";
+import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";

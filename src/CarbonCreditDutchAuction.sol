@@ -3,8 +3,7 @@ pragma solidity 0.8.21;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HalfLifeCarbonCreditAuction} from "@/libraries/HalfLifeCarbonCreditAuction.sol";
-import "forge-std/console.sol";
-
+import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
 /**
  * @title CarbonCreditDutchAuction
  * @notice This contract is a reverse dutch auction for GCC.
@@ -20,7 +19,8 @@ import "forge-std/console.sol";
  * @author DavidVorick
  * @author 0xSimon , 0xSimbo
  */
-contract CarbonCreditDutchAuction {
+
+contract CarbonCreditDutchAuction is ICarbonCreditAuction {
     error CallerNotGCC();
     error UserPriceNotHighEnough();
     error NotEnoughGCCForSale();
@@ -48,6 +48,8 @@ contract CarbonCreditDutchAuction {
 
     /// @notice The total amount of GLOW received from the miner pool
     uint256 public totalAmountReceived;
+
+    /// @notice The total number of units of GCC sold
     uint256 public totalUnitsSold;
 
     /// @notice The price of GCC 24 hours ago
@@ -97,9 +99,7 @@ contract CarbonCreditDutchAuction {
     //************************************************************* */
 
     /**
-     * @notice receives GCC from the miner pool
-     * @param amount the amount of GCC to receive
-     * @dev this function can only be called by the miner pool contract
+     * @inheritdoc ICarbonCreditAuction
      */
     function receiveGCC(uint256 amount) external {
         if (msg.sender != address(GCC)) {
@@ -120,9 +120,7 @@ contract CarbonCreditDutchAuction {
     }
 
     /**
-     * @notice purchases {unitsToBuy} units of GCC at a maximum price of {maxPricePerUnit} GLOW per unit
-     * @param unitsToBuy the number of units to buy
-     * @param maxPricePerUnit the maximum price per unit that the user is willing to pay
+     * @inheritdoc ICarbonCreditAuction
      */
     function buyGCC(uint256 unitsToBuy, uint256 maxPricePerUnit) external {
         if (unitsToBuy == 0) {
@@ -177,7 +175,7 @@ contract CarbonCreditDutchAuction {
     //*****************  EXTERNAL GETTER FUNCTIONS    ************** */
     //************************************************************* */
     /**
-     * @notice returns the price per unit of GCC
+     * @inheritdoc ICarbonCreditAuction
      */
     function getPricePerUnit() public view returns (uint256) {
         Timestamps memory _timestamps = timestamps;
@@ -195,8 +193,7 @@ contract CarbonCreditDutchAuction {
     }
 
     /**
-     * @notice returns the total supply of GCC available for sale in WEI
-     * @dev this is not to be confused with the total units of GCC available for sale
+     * @inheritdoc ICarbonCreditAuction
      */
     function totalSupply() public view returns (uint256) {
         Timestamps memory _timestamps = timestamps;
@@ -209,14 +206,14 @@ contract CarbonCreditDutchAuction {
     }
 
     /**
-     * @notice returns the number of units of GCC available for sale
+     * @inheritdoc ICarbonCreditAuction
      */
     function unitsForSale() external view returns (uint256) {
         return totalSaleUnits() - totalUnitsSold;
     }
 
     /**
-     * @notice returns the cumulative total number of units of GCC that have been sold or are available for sale
+     * @inheritdoc ICarbonCreditAuction
      */
     function totalSaleUnits() public view returns (uint256) {
         return totalSupply() / (SALE_UNIT);

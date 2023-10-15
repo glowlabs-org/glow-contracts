@@ -4,7 +4,7 @@ pragma solidity 0.8.21;
 import "forge-std/Test.sol";
 import "../../src/testing/TestGLOW.sol";
 import {TestGCC} from "../../src/testing/TestGCC.sol";
-import {CarbonCreditDutchAuction} from "@/NewCCC.sol";
+import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import "forge-std/console.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";

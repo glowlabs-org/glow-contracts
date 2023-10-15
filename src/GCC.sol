@@ -7,7 +7,7 @@ import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IGovernance} from "@/interfaces/IGovernance.sol";
-import {CarbonCreditDutchAuction} from "@/NewCCC.sol";
+import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract GCC is ERC20, IGCC, EIP712 {

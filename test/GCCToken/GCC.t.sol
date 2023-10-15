@@ -9,7 +9,7 @@ import "forge-std/StdError.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditAuction} from "@/CarbonCreditAuction.sol";
+import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import {Handler} from "./Handler.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -18,7 +18,7 @@ import {TestGLOW} from "@/testing/TestGLOW.sol";
 contract GCCTest is Test {
     TestGCC public gcc;
     Governance public gov;
-    CarbonCreditAuction public auction;
+    CarbonCreditDutchAuction public auction;
     address public constant GCA_AND_MINER_POOL_CONTRACT = address(0x2);
     address public SIMON;
     uint256 public SIMON_PK;
@@ -38,7 +38,7 @@ contract GCCTest is Test {
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
         gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw);
-        auction = CarbonCreditAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
         gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
