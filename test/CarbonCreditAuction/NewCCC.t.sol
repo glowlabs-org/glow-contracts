@@ -24,7 +24,7 @@ contract CarbonCreditDutchAuctionTest is Test {
     function setUp() public {
         vm.warp(100000);
         glow = new TestGLOW(earlyLiquidityAddress, vestingContract);
-        gcc = new TestGCC(address(this), address(this), address(this),address(glow));
+        gcc = new TestGCC(address(this), address(this),address(glow));
         //Starting price is 1:1
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
     }

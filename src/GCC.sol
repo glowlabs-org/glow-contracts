@@ -55,16 +55,13 @@ contract GCC is ERC20, IGCC, EIP712 {
     //************************************************************* */
     //*********************  CONSTRUCTOR    ********************** */
     //************************************************************* */
-    //TODO: clean up constructor for redundant carbon credit auction address.
-    //TODO: make sure the CCC deploys
 
     /**
      * @notice GCC constructor
-     * @param _carbonCreditAuction The address of the CarbonCreditAuction contract
      * @param _gcaAndMinerPoolContract The address of the GCAAndMinerPool contract
      * @param _governance The address of the governance contract
      */
-    constructor(address _carbonCreditAuction, address _gcaAndMinerPoolContract, address _governance, address _glowToken)
+    constructor(address _gcaAndMinerPoolContract, address _governance, address _glowToken)
         ERC20("Glow Carbon Credit", "GCC")
         EIP712("Glow Carbon Credit", "1")
     {

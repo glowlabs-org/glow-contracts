@@ -37,7 +37,7 @@ contract GCCTest is Test {
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
-        gcc = new TestGCC(address(auction), GCA_AND_MINER_POOL_CONTRACT, address(gov), glw);
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw);
         auction = CarbonCreditAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
         gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);

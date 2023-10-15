@@ -69,9 +69,6 @@ contract GCASalaryHelper {
         _paymentNonceToShiftStartTimestamp[0] = _genesisTimestamp();
     }
 
-    //handlePayoutChangeFromGCAEvent(); ^^ TODO: work on this.....
-
-    //TODO: In GCA external function, we need to make sure that the gca is the one in the index
     function handleCompensationPlanSubmission(uint32[5] calldata compPlan, uint256 indexOfGCA, uint256 totalGCAs)
         internal
     {
