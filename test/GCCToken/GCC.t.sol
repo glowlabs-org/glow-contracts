@@ -37,8 +37,8 @@ contract GCCTest is Test {
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
-        auction = new CarbonCreditAuction();
-        gcc = new TestGCC(address(auction), GCA_AND_MINER_POOL_CONTRACT, address(gov));
+        gcc = new TestGCC(address(auction), GCA_AND_MINER_POOL_CONTRACT, address(gov), glw);
+        auction = CarbonCreditAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
         gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
@@ -174,14 +174,14 @@ contract GCCTest is Test {
     }
 
     function test_setAllowances() public {
-        uint transferApproval = 500_000;
-        uint retiringApproval = 900_000;
+        uint256 transferApproval = 500_000;
+        uint256 retiringApproval = 900_000;
         vm.startPrank(SIMON);
         gcc.setAllowances(other, transferApproval, retiringApproval);
         assertEq(gcc.retiringAllowance(SIMON, other), retiringApproval);
         assertEq(gcc.allowance(SIMON, other), transferApproval);
-        
     }
+
     function test_setRetiringAllowances_underflowShouldRevert() public {
         vm.startPrank(SIMON);
         vm.expectRevert(stdError.arithmeticError);

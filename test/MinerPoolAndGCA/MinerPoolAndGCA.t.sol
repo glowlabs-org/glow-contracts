@@ -38,6 +38,7 @@ contract MinerPoolAndGCATest is Test {
     MockUSDC grc2;
     BucketDelayHandler bucketDelayHandler;
     HoldingContract holdingContract;
+    TestGCC gcc;
 
     //--------  ADDRESSES ---------//
     address governance = address(0x1);
@@ -79,6 +80,8 @@ contract MinerPoolAndGCATest is Test {
         holdingContract = new HoldingContract(vetoCouncilAddress);
         minerPoolAndGCA =
         new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress,address(holdingContract));
+        gcc = new TestGCC(carbonCreditAuction,address(minerPoolAndGCA),governance,address(glow));
+        minerPoolAndGCA.setGCC(address(gcc));
         addGCA(address(bucketDelayHandler));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();

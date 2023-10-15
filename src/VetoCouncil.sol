@@ -88,7 +88,6 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
         }
     }
 
-    //TODO: handle payouts + vesting
     /// @inheritdoc IVetoCouncil
     function addAndRemoveCouncilMember(address oldAgent, address newAgent, bool slashOldAgent)
         external
@@ -174,23 +173,6 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
     function pullGlowFromInflation() public {
         IGlow(address(GLOW_TOKEN)).claimGLWFromVetoCouncil();
     }
-
-    // function vetoAgentData(address agent) public view returns (IVetoCouncil.MemberData memory data) {
-    //     data = _vetoAgent[agent];
-    //     return data;
-    // }
-
-    // /// @inheritdoc IVetoCouncil
-    // function nextReward(address account) public view returns (uint256 rewardNow, uint256 vestingAmount) {
-    //     uint256 totalShares = numberOfCouncilMembers;
-    //     uint256 shares = 1;
-    //     //TODO: figure out the seconds since last payout in the comp algo
-    //     uint256 secondsSinceLastPayout = block.timestamp - _vetoAgent[account].lastUpdatedTimestamp;
-    //     //Shares are distributed evenly among council members
-    //     (rewardNow, vestingAmount) = VestingMathLib.getAmountNowAndSB(
-    //         secondsSinceLastPayout, shares, totalShares, REWARDS_PER_SECOND_FOR_ALL, VESTING_REWARDS_PER_SECOND_FOR_ALL
-    //     );
-    // }
 
     //----------------- PRIVATE -----------------
 

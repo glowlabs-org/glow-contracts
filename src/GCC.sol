@@ -7,6 +7,8 @@ import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IGovernance} from "@/interfaces/IGovernance.sol";
+import {CarbonCreditDutchAuction} from "@/NewCCC.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract GCC is ERC20, IGCC, EIP712 {
     /// @notice The address of the CarbonCreditAuction contract
@@ -17,6 +19,8 @@ contract GCC is ERC20, IGCC, EIP712 {
 
     /// @notice the address of the governance contract
     IGovernance public immutable GOVERNANCE;
+
+    address public immutable GLOW;
 
     /// @notice The maximum shift for a bucketId
     uint256 private constant _BITS_IN_UINT = 256;
@@ -51,6 +55,8 @@ contract GCC is ERC20, IGCC, EIP712 {
     //************************************************************* */
     //*********************  CONSTRUCTOR    ********************** */
     //************************************************************* */
+    //TODO: clean up constructor for redundant carbon credit auction address.
+    //TODO: make sure the CCC deploys
 
     /**
      * @notice GCC constructor
@@ -58,13 +64,17 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @param _gcaAndMinerPoolContract The address of the GCAAndMinerPool contract
      * @param _governance The address of the governance contract
      */
-    constructor(address _carbonCreditAuction, address _gcaAndMinerPoolContract, address _governance)
+    constructor(address _carbonCreditAuction, address _gcaAndMinerPoolContract, address _governance, address _glowToken)
         ERC20("Glow Carbon Credit", "GCC")
         EIP712("Glow Carbon Credit", "1")
     {
-        CARBON_CREDIT_AUCTION = ICarbonCreditAuction(_carbonCreditAuction);
+        // CARBON_CREDIT_AUCTION = ICarbonCreditAuction(_carbonCreditAuction);
         GCA_AND_MINER_POOL_CONTRACT = _gcaAndMinerPoolContract;
         GOVERNANCE = IGovernance(_governance);
+        GLOW = _glowToken;
+        CarbonCreditDutchAuction cccAuction =
+            new CarbonCreditDutchAuction(IERC20(_glowToken), IERC20(address(this)), _gcaAndMinerPoolContract, 1e6);
+        CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));
     }
 
     //************************************************************* */
@@ -115,7 +125,8 @@ contract GCC is ERC20, IGCC, EIP712 {
         if (block.timestamp > deadline) {
             _revert(IGCC.RetiringPermitSignatureExpired.selector);
         }
-        bytes32 message = _constructRetiringPermitDigest(from, _msgSender(), amount, nextRetiringNonce[from]++, deadline);
+        bytes32 message =
+            _constructRetiringPermitDigest(from, _msgSender(), amount, nextRetiringNonce[from]++, deadline);
         if (!_checkRetiringPermitSignature(from, message, signature)) {
             _revert(IGCC.RetiringSignatureInvalid.selector);
         }

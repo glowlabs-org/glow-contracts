@@ -18,7 +18,7 @@ contract UpdateLastExpiredProposal is Test {
     function setUp() public {
         //Make sure we don't start at 0
         governance = new MockGovernance();
-        gcc = new TestGCC(address(10),address(11),address(governance));
+        gcc = new TestGCC(address(10),address(11),address(governance),address(0x12));
         handler = new  Handler(address(governance),address(gcc));
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = Handler.createProposal.selector;

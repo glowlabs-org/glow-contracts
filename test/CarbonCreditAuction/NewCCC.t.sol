@@ -23,10 +23,10 @@ contract CarbonCreditDutchAuctionTest is Test {
 
     function setUp() public {
         vm.warp(100000);
-        gcc = new TestGCC(address(this), address(this), address(this));
         glow = new TestGLOW(earlyLiquidityAddress, vestingContract);
+        gcc = new TestGCC(address(this), address(this), address(this),address(glow));
         //Starting price is 1:1
-        auction = new CarbonCreditDutchAuction(glow, gcc, minerPool, SALE_UNIT);
+        auction =  CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
     }
 
     function testReceiveGCC() public {
@@ -59,10 +59,10 @@ contract CarbonCreditDutchAuctionTest is Test {
         auction.buyGCC({unitsToBuy: 10_000 ether / SALE_UNIT, maxPricePerUnit: price});
         vm.stopPrank();
 
-        // console.log("gcc balance after purchase = ", gcc.balanceOf(operator));
-        // // auction.logStateVariables();
-        // console.log("new price per unit = " , auction.getPricePerUnit());
-        // //add ten thousand more and warp 12 hours, and price should not change when we buy
+        console.log("gcc balance after purchase = ", gcc.balanceOf(operator));
+        // auction.logStateVariables();
+        console.log("new price per unit = " , auction.getPricePerUnit());
+        //add ten thousand more and warp 12 hours, and price should not change when we buy
         sendGCCToAuction(10_000 ether);
         // //12 hours
         assert(gcc.balanceOf(operator) == 10_000 ether);
@@ -93,7 +93,7 @@ contract CarbonCreditDutchAuctionTest is Test {
     }
 
     function sendGCCToAuction(uint256 amountToSend) internal {
-        vm.startPrank(minerPool);
+        vm.startPrank(address(gcc));
         gcc.mint(address(auction), amountToSend);
         auction.receiveGCC(amountToSend);
         vm.stopPrank();

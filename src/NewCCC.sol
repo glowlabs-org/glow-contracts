@@ -21,7 +21,7 @@ import "forge-std/console.sol";
  * @author 0xSimon , 0xSimbo
  */
 contract CarbonCreditDutchAuction {
-    error CallerNotMinerPool();
+    error CallerNotGCC();
     error UserPriceNotHighEnough();
     error NotEnoughGCCForSale();
     error CannotBuyZeroUnits();
@@ -30,8 +30,6 @@ contract CarbonCreditDutchAuction {
     IERC20 public immutable GLOW;
     /// @notice The GCC token
     IERC20 public immutable GCC;
-    /// @notice The miner pool contract
-    address public immutable MINER_POOL;
 
     /// @dev The precision (magnifier) used for calculations
     uint256 private constant PRECISION = 1e8;
@@ -90,7 +88,6 @@ contract CarbonCreditDutchAuction {
     constructor(IERC20 glow, IERC20 gcc, address minerPool, uint256 startingPrice) {
         GLOW = glow;
         GCC = gcc;
-        MINER_POOL = minerPool;
         pricePerSaleUnit = startingPrice;
         price24HoursAgo = startingPrice;
     }
@@ -105,8 +102,8 @@ contract CarbonCreditDutchAuction {
      * @dev this function can only be called by the miner pool contract
      */
     function receiveGCC(uint256 amount) external {
-        if (msg.sender != MINER_POOL) {
-            _revert(CallerNotMinerPool.selector);
+        if (msg.sender != address(GCC)) {
+            _revert(CallerNotGCC.selector);
         }
         Timestamps memory _timestamps = timestamps;
         totalAmountFullyAvailableForSale = totalSupply();

@@ -94,7 +94,6 @@ contract Glow is ERC20, IGlow {
         GENESIS_TIMESTAMP = block.timestamp;
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
         _mint(EARLY_LIQUIDITY_ADDRESS, 12_000_000 ether);
-        //TODO: pre-mine to 90 million
         _mint(_vestingContract, 90_000_000 ether);
     }
 

@@ -21,6 +21,7 @@ interface IGCA {
     error BucketSubmissionEnded();
     error EmptyRoot();
     error CallerNotGCAAtIndex();
+    error GCCAlreadySet();
     // error BucketNotReinitilizable();
 
     /**

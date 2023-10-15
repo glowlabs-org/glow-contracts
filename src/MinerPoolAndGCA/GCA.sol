@@ -188,8 +188,8 @@ contract GCA is IGCA, GCASalaryHelper {
                         //conditionally delete all reports in storage
                         if (len > 0) {
                             len = 0;
-                            //TODO: figure out if we want to override length with assembly for cheaper gas
-                            // or if we replace with a delete
+                            //delete all reports in storage
+                            //by setting the length to 0
                             assembly {
                                 //1 slot offset for buckets length
                                 sstore(add(1, bucket.slot), 0)
@@ -364,7 +364,6 @@ contract GCA is IGCA, GCASalaryHelper {
             _revert(IGCA.ProposalHashDoesNotMatch.selector);
         }
 
-        //TODO: Insert payment mechanism here
         GCASalaryHelper.callbackInElectionEvent(newGCAs);
         _setGCAs(newGCAs);
         _slashGCAs(gcasToSlash);

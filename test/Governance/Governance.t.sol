@@ -93,7 +93,7 @@ contract GovernanceTest is Test {
         new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress,address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
-        gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance));
+        gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance),address(glow));
         // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
         governance.setContractAddresses(
             address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
@@ -182,7 +182,7 @@ contract GovernanceTest is Test {
         address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
-        gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance));
+        gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance),address(glow));
         // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
         governance.setContractAddresses(
             address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
@@ -213,7 +213,7 @@ contract GovernanceTest is Test {
         address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
-        gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance));
+        gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance),address(glow));
         // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
         address _zero = address(0x0);
 

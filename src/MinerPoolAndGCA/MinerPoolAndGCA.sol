@@ -15,16 +15,12 @@ import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
-import "forge-std/console.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IHoldingContract} from "@/HoldingContract.sol";
+import {IGCC} from "@/interfaces/IGCC.sol";
 
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
-
-    // /// @notice the maximum length of an authorization
-    // /// @dev a signature can only last 16 weeks
-    // uint256 public constant MAX_AUTHORIZATION_LENGTH = uint256(7 days) * 16;
 
     /**
      * @notice the address of the early liquidity contract
@@ -32,9 +28,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     address private immutable _EARLY_LIQUIDITY;
 
-    address private immutable _CARBON_CREDIT_AUCTION;
-
     address private immutable _VETO_COUNCIL;
+
+    IHoldingContract public immutable HOLDING_CONTRACT;
+
     /**
      * @dev the amount to increase the finalization timestamp of a bucket by
      *             -   only veto council agents can delay a bucket.
@@ -53,19 +50,13 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     uint256 public numReserveCurrencies;
 
-    IHoldingContract public immutable HOLDING_CONTRACT;
+    IGCC public gccContract;
 
-    bytes32 public constant CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
+    bytes32 private constant CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
         "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,address[] grcTokens,bool claimFromInflation)"
     );
 
     //----------------- MAPPINGS -----------------//
-
-    //TODO: see if we use this in the getReward function from GCA.
-    struct GRCTracker {
-        uint248 firstAddedBucketId;
-        bool isGRC;
-    }
 
     /**
      * @dev a mapping of (bucketId / 256) -> user  -> address -> bitmap
@@ -86,6 +77,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //************************************************************* */
     //*****************  CONSTRUCTOR   ************** */
     //************************************************************* */
+
+    //TODO: remove carbon credit auction from constructor.
 
     /**
      * @notice constructs a new GCA contract
@@ -109,7 +102,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         address _holdingContract
     ) GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
-        _CARBON_CREDIT_AUCTION = _carbonCreditAuction;
         _VETO_COUNCIL = _vetoCouncil;
         _setGRCToken(_grcToken, true, 0);
         HOLDING_CONTRACT = IHoldingContract(_holdingContract);
@@ -205,8 +197,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param index - the index of the report in the bucket
      *                     - that contains the merkle root where the user's rewards are stored
      * @param user - the address of the user
-     *                   - TODO: make a wrapper contract that can loop through buckets
-     *                   - OR: have an approved withdrawal address that can initiate the tx
      * @param grcTokens - the grc tokens to send to the user
      * @param claimFromInflation - whether or not to claim glow from inflation
      * @param signature - the eip712 signature that allows a relayer to execute the action
@@ -224,10 +214,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         address[] memory grcTokens,
         bool claimFromInflation,
         bytes memory signature
-    )
-        //todo: add nonce to claim sig?
-        external
-    {
+    ) external {
         if (msg.sender != user) {
             bytes32 hash =
                 createClaimRewardFromBucketDigest(bucketId, glwWeight, grcWeight, index, grcTokens, claimFromInflation);
@@ -327,6 +314,13 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
     }
 
+    function setGCC(address gcc) external {
+        if (!_isZeroAddress(address(gccContract))) {
+            _revert(IGCA.GCCAlreadySet.selector);
+        }
+        gccContract = IGCC(gcc);
+    }
+
     //************************************************************* */
     //*************  PUBLIC/EXTERNAL VIEW FUNCTIONS   ************ */
     //************************************************************* */
@@ -391,9 +385,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint256 shift = bucketId % _BITS_IN_UINT;
         uint256 mask = 1 << shift;
         if (mask & existingBitmap == 0) {
-            //TODO: mint to the auction
             existingBitmap |= mask;
             _mintedToCarbonCreditAuctionBitmap[key] = existingBitmap;
+            gccContract.mintToCarbonCreditAuction(bucketId, amountToMint);
         }
     }
 
