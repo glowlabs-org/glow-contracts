@@ -36,6 +36,14 @@ interface IGCC is IERC20 {
     function retireGCC(uint256 amount, address rewardAddress) external;
 
     /**
+     * @notice direct setter to set transfer allowance and retiring allowance in one transaction for a {spender}
+     * @param spender the address of the spender to set the allowances for
+     * @param transferAllowance the amount of transfer allowance to set
+     * @param retiringAllowance the amount of retiring allowance to set
+     */
+    function setAllowances(address spender, uint256 transferAllowance, uint256 retiringAllowance) external;
+
+    /**
      * @notice approves a spender to retire credits on behalf of the caller
      * @param spender the address of the spender
      * @param amount the amount of credits to approve

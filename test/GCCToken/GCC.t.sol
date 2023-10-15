@@ -15,7 +15,7 @@ import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
 
-contract GCC_Test is Test {
+contract GCCTest is Test {
     TestGCC public gcc;
     Governance public gov;
     CarbonCreditAuction public auction;
@@ -166,13 +166,22 @@ contract GCC_Test is Test {
         gcc.decreaseRetiringAllowance(other, 1);
     }
 
-    function test_setRetiringAllowances_overflowShouldRevert() public {
+    function test_setRetiringAllowances_overflowShouldSetToUintMax() public {
         vm.startPrank(SIMON);
         gcc.increaseRetiringAllowance(other, type(uint256).max);
-        vm.expectRevert(stdError.arithmeticError);
         gcc.increaseRetiringAllowance(other, 5 ether);
+        assertEq(gcc.retiringAllowance(SIMON, other), type(uint256).max);
     }
 
+    function test_setAllowances() public {
+        uint transferApproval = 500_000;
+        uint retiringApproval = 900_000;
+        vm.startPrank(SIMON);
+        gcc.setAllowances(other, transferApproval, retiringApproval);
+        assertEq(gcc.retiringAllowance(SIMON, other), retiringApproval);
+        assertEq(gcc.allowance(SIMON, other), transferApproval);
+        
+    }
     function test_setRetiringAllowances_underflowShouldRevert() public {
         vm.startPrank(SIMON);
         vm.expectRevert(stdError.arithmeticError);

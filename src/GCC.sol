@@ -19,7 +19,7 @@ contract GCC is ERC20, IGCC, EIP712 {
     IGovernance public immutable GOVERNANCE;
 
     /// @notice The maximum shift for a bucketId
-    uint256 private constant _MAX_SHIFT = 255;
+    uint256 private constant _BITS_IN_UINT = 256;
 
     /// @notice The EIP712 typehash for the RetiringPermit struct used by the permit
     bytes32 public constant RETIRING_PERMIT_TYPEHASH =
@@ -77,7 +77,7 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @inheritdoc IGCC
      */
     function mintToCarbonCreditAuction(uint256 bucketId, uint256 amount) external {
-        if (msg.sender != GCA_AND_MINER_POOL_CONTRACT) _revert(IGCC.CallerNotGCAContract.selector);
+        if (_msgSender() != GCA_AND_MINER_POOL_CONTRACT) _revert(IGCC.CallerNotGCAContract.selector);
         _setBucketMinted(bucketId);
         CARBON_CREDIT_AUCTION.receiveGCC(amount);
         _mint(address(CARBON_CREDIT_AUCTION), amount);
@@ -89,8 +89,8 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @inheritdoc IGCC
      */
     function retireGCC(uint256 amount, address rewardAddress) external {
-        _transfer(msg.sender, address(this), amount);
-        _handleRetirement(msg.sender, rewardAddress, amount);
+        _transfer(_msgSender(), address(this), amount);
+        _handleRetirement(_msgSender(), rewardAddress, amount);
     }
 
     /**
@@ -98,8 +98,8 @@ contract GCC is ERC20, IGCC, EIP712 {
      */
     function retireGCCFor(address from, address rewardAddress, uint256 amount) public {
         transferFrom(from, address(this), amount);
-        if (msg.sender != from) {
-            _decreaseRetiringAllowance(from, msg.sender, amount, false);
+        if (_msgSender() != from) {
+            _decreaseRetiringAllowance(from, _msgSender(), amount, false);
         }
         _handleRetirement(from, rewardAddress, amount);
     }
@@ -115,14 +115,14 @@ contract GCC is ERC20, IGCC, EIP712 {
         if (block.timestamp > deadline) {
             _revert(IGCC.RetiringPermitSignatureExpired.selector);
         }
-        bytes32 message = _constructRetiringPermitDigest(from, msg.sender, amount, nextRetiringNonce[from]++, deadline);
+        bytes32 message = _constructRetiringPermitDigest(from, _msgSender(), amount, nextRetiringNonce[from]++, deadline);
         if (!_checkRetiringPermitSignature(from, message, signature)) {
             _revert(IGCC.RetiringSignatureInvalid.selector);
         }
-        _increaseRetiringAllowance(from, msg.sender, amount, false);
-        uint256 transferAllowance = allowance(from, msg.sender);
+        _increaseRetiringAllowance(from, _msgSender(), amount, false);
+        uint256 transferAllowance = allowance(from, _msgSender());
         if (transferAllowance < amount) {
-            _approve(from, msg.sender, amount, false);
+            _approve(from, _msgSender(), amount, false);
         }
         retireGCCFor(from, rewardAddress, amount);
     }
@@ -130,36 +130,43 @@ contract GCC is ERC20, IGCC, EIP712 {
     //-----------------  ALLOWANCES -----------------//
 
     /// @inheritdoc IGCC
+    function setAllowances(address spender, uint256 transferAllowance, uint256 retiringAllowance) external {
+        _approve(_msgSender(), spender, transferAllowance);
+        _retireGCCAllowances[_msgSender()][spender] = retiringAllowance;
+        emit IGCC.RetireGCCAllowance(_msgSender(), spender, retiringAllowance);
+    }
+
+    /// @inheritdoc IGCC
     function increaseAllowances(address spender, uint256 addedValue) public {
-        _approve(msg.sender, spender, allowance(msg.sender, spender) + addedValue);
-        _increaseRetiringAllowance(msg.sender, spender, addedValue, true);
+        _approve(_msgSender(), spender, allowance(_msgSender(), spender) + addedValue);
+        _increaseRetiringAllowance(_msgSender(), spender, addedValue, true);
     }
 
     /// @inheritdoc IGCC
     function decreaseAllowances(address spender, uint256 requestedDecrease) public {
         address owner = _msgSender();
-        uint256 currentAllowance = allowance(msg.sender, spender);
+        uint256 currentAllowance = allowance(_msgSender(), spender);
         if (currentAllowance < requestedDecrease) {
             revert ERC20.ERC20FailedDecreaseAllowance(spender, currentAllowance, requestedDecrease);
         }
         unchecked {
-            _approve(msg.sender, spender, currentAllowance - requestedDecrease);
+            _approve(_msgSender(), spender, currentAllowance - requestedDecrease);
         }
-        _decreaseRetiringAllowance(msg.sender, spender, requestedDecrease, true);
+        _decreaseRetiringAllowance(_msgSender(), spender, requestedDecrease, true);
     }
 
     /**
      * @inheritdoc IGCC
      */
     function increaseRetiringAllowance(address spender, uint256 amount) external override {
-        _increaseRetiringAllowance(msg.sender, spender, amount, true);
+        _increaseRetiringAllowance(_msgSender(), spender, amount, true);
     }
 
     /**
      * @inheritdoc IGCC
      */
     function decreaseRetiringAllowance(address spender, uint256 amount) external override {
-        _decreaseRetiringAllowance(msg.sender, spender, amount, true);
+        _decreaseRetiringAllowance(_msgSender(), spender, amount, true);
     }
 
     //************************************************************* */
@@ -201,7 +208,7 @@ contract GCC is ERC20, IGCC, EIP712 {
      */
     function _setBucketMinted(uint256 bucketId) private {
         (uint256 key, uint256 shift) = _getKeyAndShiftFromBucketId(bucketId);
-        //Can't overflow because _MAX_SHIFT is 255
+        //Can't overflow because _BITS_IN_UINT is 255
         uint256 bitmap = _mintedBucketsBitmap[key];
         if (bitmap & (1 << shift) != 0) _revert(IGCC.BucketAlreadyMinted.selector);
         _mintedBucketsBitmap[key] = bitmap | (1 << shift);
@@ -226,7 +233,14 @@ contract GCC is ERC20, IGCC, EIP712 {
      */
     function _increaseRetiringAllowance(address from, address spender, uint256 amount, bool emitEvent) private {
         uint256 currentAllowance = _retireGCCAllowances[from][spender];
-        uint256 newAllowance = currentAllowance + amount;
+        uint256 newAllowance;
+        unchecked {
+            newAllowance = currentAllowance + amount;
+        }
+        //If there was an overflow, then we set the new allowance to type(uint).max
+        if (newAllowance <= currentAllowance) {
+            newAllowance = type(uint256).max;
+        }
         _retireGCCAllowances[from][spender] = newAllowance;
         if (emitEvent) {
             emit IGCC.RetireGCCAllowance(from, spender, newAllowance);
@@ -256,12 +270,12 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @notice Returns the key and shift for a bucketId
      * @return key The key for the bucketId
      * @return shift The shift for the bucketId
-     * @dev cant overflow because _MAX_SHIFT is 255
-     * @dev no division by zero because _MAX_SHIFT is 255
+     * @dev cant overflow because _BITS_IN_UINT is 255
+     * @dev no division by zero because _BITS_IN_UINT is 255
      */
     function _getKeyAndShiftFromBucketId(uint256 bucketId) private pure returns (uint256 key, uint256 shift) {
-        key = bucketId / _MAX_SHIFT;
-        shift = bucketId % _MAX_SHIFT;
+        key = bucketId / _BITS_IN_UINT;
+        shift = bucketId % _BITS_IN_UINT;
     }
 
     /**
