@@ -39,6 +39,7 @@ contract GCASalaryHelper {
     // agent -> payment nonce -> amount already withdrawn
     mapping(address => mapping(uint256 => uint256)) public amountWithdrawnAtPaymentNonce;
 
+    /// @dev slashed agents cannot claim rewards
     mapping(address => bool) public isSlashed;
     //  Private payment nonce.
     /// Private payment nonce only needs to be incremented when a gca submits a new overriding comp plan.
@@ -49,11 +50,16 @@ contract GCASalaryHelper {
     //keccak256(abi.encodePacked(address[]));
     mapping(uint256 => bytes32) private _payoutNonceToGCAs;
 
+    /// @notice the next nonce to use in the relay signature
     mapping(address => uint256) public nextRelayNonce;
 
+    /// @dev the type hash for a claim payout relay permit
     bytes32 public constant CLAIM_PAYOUT_RELAY_PERMIT_TYPEHASH =
         keccak256("ClaimPayoutRelay(address relayer,uint256 paymentNonce)");
 
+    /**
+     * @param startingAgents the starting gca agents
+     */
     constructor(address[] memory startingAgents) payable {
         if (startingAgents.length == 0) return;
         _payoutNonceToGCAs[0] = keccak256(abi.encodePacked(startingAgents));
@@ -69,6 +75,11 @@ contract GCASalaryHelper {
         _paymentNonceToShiftStartTimestamp[0] = _genesisTimestamp();
     }
 
+    /**
+     * @param compPlan the comp plans to submit
+     * @param indexOfGCA the index of the gca submitting the comp plan
+     * @param totalGCAs the total number of gca agents
+     */
     function handleCompensationPlanSubmission(uint32[5] calldata compPlan, uint256 indexOfGCA, uint256 totalGCAs)
         internal
     {
@@ -138,6 +149,14 @@ contract GCASalaryHelper {
         _paymentNonceToCompensationPlan[_paymentNonce][indexOfGCA] = compPlan;
     }
 
+    /**
+     * @param gcaAgents the gca agents
+     * @dev handles incrementing payment nonce,
+     *             - setting the gca agents hash
+     *             - setting the shift start timestamp
+     *             - setting the comp plans to the identity matrix
+     *                 - (i.e. each gca agent gets 100_000 shares)
+     */
     function callbackInElectionEvent(address[] memory gcaAgents) internal {
         //Make sure to check proposalHashes.length mistmatchs
         uint256 _paymentNonce = paymentNonce();
@@ -160,6 +179,14 @@ contract GCASalaryHelper {
         }
     }
 
+    /**
+     * @notice returns the bytes32 digest used for the relay signature
+     * @param relayer the relayer that is being granted permission
+     * @param paymentNonce the payment nonce that the relayer is being granted permission for
+     * @param relayNonce the relay nonce that the relayer is being granted permission for
+     * @dev this function is used to create the digest for the relay signature
+     * @return digest - the bytes32 digest
+     */
     function createRelayDigest(address relayer, uint256 paymentNonce, uint256 relayNonce)
         public
         view
@@ -205,6 +232,16 @@ contract GCASalaryHelper {
         _transferGlow(user, withdrawableAmount);
     }
 
+    /**
+     * @notice gets the payout data for an agent
+     * @param user the user to get the payout data for
+     * @param paymentNonce the payment nonce to get the payout data for
+     * @param activeGCAsAtPaymentNonce the active gca agents at the payment nonce
+     * @param userIndex the index of the user in the active gca agents array
+     * @dev the function must take in the activeGCAsAtPaymentNonce array to prevent
+     *         -   a user from submitting a different array of gca agents
+     *         -   and receiving false payout data
+     */
     function getPayoutData(
         address user,
         uint256 paymentNonce,
@@ -249,55 +286,77 @@ contract GCASalaryHelper {
         return (withdrawableAmount, slashableAmount, amountAlreadyWithdrawn);
     }
 
+    /**
+     * @notice returns the shift start timestamp for a payment nonce
+     * @param nonce the payment nonce to get the shift start timestamp for
+     * @return shiftStartTimestamp - the shift start timestamp for the payment nonce or 0 if it does not exist
+     */
+    function paymentNonceToShiftStartTimestamp(uint256 nonce) external view returns (uint256) {
+        return _paymentNonceToShiftStartTimestamp[nonce];
+    }
+
+    /**
+     * @notice returns the gca agents hash for a payment nonce
+     * @param nonce the payment nonce to get the gca agents hash for
+     * @return gcaHash - the gca agents hash for the payment nonce
+     */
+    function payoutNonceToGCAHash(uint256 nonce) external view returns (bytes32) {
+        return _payoutNonceToGCAs[nonce];
+    }
+
+    /**
+     * @notice returns the comp plan for a payment nonce and gca index
+     * @param nonce the payment nonce to get the comp plan for
+     * @param index the gca index to get the comp plan for
+     * @return shares - the comp plan for the payment nonce and gca index
+     */
+    function paymentNonceToCompensationPlan(uint256 nonce, uint256 index) external view returns (uint32[5] memory) {
+        return _paymentNonceToCompensationPlan[nonce][index];
+    }
+
+    /**
+     * @notice returns the current payment nonce in storage
+     * @return paymentNonce - the current payment nonce
+     */
+    function paymentNonce() public view returns (uint256) {
+        return _privatePaymentNonce;
+    }
+
+    /**
+     * @notice returns the default comp plan for a gca agent
+     * @param gcaIndex the index of the gca agent
+     * @dev the default comp plan is the identity matrix
+     * @return shares - the default comp plan for a gca agent at index {gcaIndex}
+     */
     function defaultCompPlan(uint256 gcaIndex) internal pure returns (uint32[5] memory shares) {
         shares[gcaIndex] = uint32(SHARES_REQUIRED_PER_COMP_PLAN);
         return shares;
     }
 
-    function paymentNonceToShiftStartTimestamp(uint256 nonce) external view returns (uint256) {
-        return _paymentNonceToShiftStartTimestamp[nonce];
-    }
-
-    function paymentNonceToCompensationPlan(uint256 nonce, uint256 index) external view returns (uint32[5] memory) {
-        return _paymentNonceToCompensationPlan[nonce][index];
-    }
-
-    function paymentNonce() public view returns (uint256) {
-        return _privatePaymentNonce;
-    }
-
-    function _genesisTimestamp() internal view virtual returns (uint256) {
-        revert();
-    }
-
-    function _currentWeek() internal view virtual returns (uint256) {
-        revert();
-    }
-
-    function payoutNonceToGCAHash(uint256 nonce) external view returns (bytes32) {
-        return _payoutNonceToGCAs[nonce];
-    }
-
-    function _weekEndTimestamp(uint256 week) internal view virtual returns (uint256) {
-        return _genesisTimestamp() + (week * ONE_WEEK);
-    }
-
-    function _domainSeperatorV4Main() internal view virtual returns (bytes32) {
-        revert();
-    }
-
+    /**
+     * @dev returns the min of (a,b)
+     * @param a the first number
+     * @param b the second number
+     * @return min - the min of (a,b)
+     */
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
     }
 
+    /**
+     * @notice transfers glow to an address
+     * @param to the address to transfer glow to
+     * @param amount the amount of glow to transfer
+     * @dev the function must be overriden by the parent contract
+     */
     function _transferGlow(address to, uint256 amount) internal virtual {
         revert();
     }
 
-    function _claimGlowFromInflation() internal virtual {
-        revert();
-    }
-
+    /**
+     * @notice slashes an agent
+     * @param user the user to slash
+     */
     function _slash(address user) internal {
         isSlashed[user] = true;
     }
@@ -306,11 +365,45 @@ contract GCASalaryHelper {
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
      */
-
     function _revert(bytes4 selector) internal pure {
         assembly {
             mstore(0x0, selector)
             revert(0x0, 0x04)
         }
+    }
+
+    /**
+     * @notice claims glow from inflation
+     * @dev the function must be overriden by the parent contract
+     */
+    function _claimGlowFromInflation() internal virtual {
+        revert();
+    }
+
+    /**
+     * @notice returns the domain seperator for the relay signature
+     * @dev the function must be overriden by the parent contract
+     * @return domainSeperator - the domain seperator for the relay signature
+     */
+    function _domainSeperatorV4Main() internal view virtual returns (bytes32) {
+        revert();
+    }
+
+    /**
+     * @notice returns the genesis timestamp of the glow protocol
+     * @return genesisTimestamp - the genesis timestamp of the glow protocol
+     * @dev the function must be overriden by the parent contract
+     */
+    function _genesisTimestamp() internal view virtual returns (uint256) {
+        revert();
+    }
+
+    /**
+     * @notice returns the current week
+     * @return week - the current week
+     * @dev the function must be overriden by the parent contract
+     */
+    function _currentWeek() internal view virtual returns (uint256) {
+        revert();
     }
 }
