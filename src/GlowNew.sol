@@ -199,13 +199,14 @@ contract GlowNew is ERC20, IGlow {
         Pointers memory pointers = _unstakedPositionPointers[msg.sender];
         uint256 adjustedLenBefore = pointers.head - pointers.tail + 1;
 
+        uint256 indexInMappingToPushTo = pointers.head + 1;
         //We don;t actually need this because it cant be greater than 100
         if (pointers.head == pointers.tail) {
-            if (_unstakedPositions[msg.sender][0].amount == 0) {
+            if (_unstakedPositions[msg.sender][pointers.head].amount == 0) {
                 adjustedLenBefore = 0;
+                indexInMappingToPushTo = pointers.head;
             }
         }
-
 
         //if adjustlenBefore >= 99
         // we + 2 to proactively set emergencyLastUpdate when length will be 99 so the 100th unstake will trigger cooldown
@@ -227,10 +228,6 @@ contract GlowNew is ERC20, IGlow {
         //Decrease the number of tokens staked by the user
         numStaked[msg.sender] = numAccountStaked - amount;
 
-        uint256 indexInMappingToPushTo = pointers.head + 1;
-        if (adjustedLenBefore == 0) {
-            indexInMappingToPushTo = 0;
-        }
         _unstakedPositions[msg.sender][indexInMappingToPushTo] =
             UnstakedPosition({amount: uint192(amount), cooldownEnd: uint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)});
 
@@ -268,7 +265,7 @@ contract GlowNew is ERC20, IGlow {
         uint256 tail = pointers.tail;
         uint256 newHead = head;
         uint256 newTail = tail;
-        console.log("head = %s",head);
+        console.log("head = %s", head);
 
         //Loop through the unstaked positions until claimableTotal >= amount
         //Tail will also be <= len so no risk of underflow
@@ -297,7 +294,7 @@ contract GlowNew is ERC20, IGlow {
             // - since the old unstaked positions EXACTLY fulfill the amount
             if (claimableTotal == amount) {
                 newTail = i + 1;
-                if(newTail > head) {
+                if (newTail > head) {
                     newTail = head;
                 }
                 //Update the tail in storage
@@ -435,9 +432,21 @@ contract GlowNew is ERC20, IGlow {
         Pointers memory pointers = _unstakedPositionPointers[account];
         uint256 start = pointers.tail;
         uint256 end = pointers.head + 1;
+        UnstakedPosition[] memory positions = new UnstakedPosition[](end - start);
+
+        if (pointers.tail == pointers.head) {
+            UnstakedPosition memory position = _unstakedPositions[account][pointers.head];
+            if (position.amount == 0) {
+                assembly {
+                    mstore(positions, 0)
+                }
+                return positions;
+            }
+            positions[0] = position;
+            ++start;
+        }
         unchecked {
             //The sload is safe since it's in storage through {unstake}
-            UnstakedPosition[] memory positions = new UnstakedPosition[](end - start);
             //Start is always less than end so no risk of underflow
             //start should also be close to end since we delete unstaked positions as we claim them
             // and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user

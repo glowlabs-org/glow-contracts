@@ -480,7 +480,6 @@ contract NewGlowTest is Test {
         //After the emergency cooldown period, we should be able to unstake again
         glw.unstake(0.2 ether);
 
-
         //Forward 10 years
         vm.warp(block.timestamp + 365 * 10 * 1 days);
         //Let's claim all our positions
@@ -492,33 +491,31 @@ contract NewGlowTest is Test {
             }
             glw.claimUnstakedTokens(sumOfUnstakedPositions);
         }
-        logUnstakedPosition(101, glw.unstakedPosition(SIMON,101));
         Pointers memory pointers = glw.accountUnstakedPositionPointers(SIMON);
         console.log("head  = ", pointers.head);
         console.log("tail  = ", pointers.tail);
-        glw.stake(0.2 ether);
-        // //Our length should be zero since we forwarded in time past all the cooldowns
-        // positions = glw.unstakedPositionsOf(SIMON);
-        // assertEq(positions.length, 0);
+        // glw.stake(0.2 ether);
 
+        //Our length should be zero since we forwarded in time past all the cooldowns
+        positions = glw.unstakedPositionsOf(SIMON);
+        assertEq(positions.length, 0);
 
+        //Now on the 100th it should revert
+        for (uint256 i; i < glw.MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN(); ++i) {
+            glw.unstake(1);
+        }
 
-        // //Now on the 100th it should revert
-        // for (uint256 i; i < glw.MAX_UNSTAKES_BEFORE_EMERGENCY_COOLDOWN(); ++i) {
-        //     glw.unstake(1);
-        // }
+        positions = glw.unstakedPositionsOf(SIMON);
+        assertEq(positions.length, 100);
 
-        // len = glw.unstakedPositionsOf(SIMON).length;
-        // assertEq(len, 100);
+        //The 101th should need a cooldown
+        vm.expectRevert(IGlow.UnstakingOnEmergencyCooldown.selector);
+        glw.unstake(1 ether);
 
-        // //The 101th should need a cooldown
-        // vm.expectRevert(IGlow.UnstakingOnEmergencyCooldown.selector);
-        // glw.unstake(1 ether);
-
-        // //Warp Forward past the cooldown
-        // vm.warp(block.timestamp + glw.EMERGENCY_COOLDOWN_PERIOD());
-        // //After the emergency cooldown period, we should be able to unstake again
-        // glw.unstake(0.2 ether);
+        //Warp Forward past the cooldown
+        vm.warp(block.timestamp + glw.EMERGENCY_COOLDOWN_PERIOD());
+        //After the emergency cooldown period, we should be able to unstake again
+        glw.unstake(0.2 ether);
     }
 
     // function test_ClaimZeroTokensShouldFail() public {
