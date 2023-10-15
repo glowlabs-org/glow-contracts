@@ -518,409 +518,416 @@ contract NewGlowTest is Test {
         glw.unstake(0.2 ether);
     }
 
-    // function test_ClaimZeroTokensShouldFail() public {
-    //     vm.startPrank(SIMON);
-    //     glw.mint(SIMON, 1e9 ether);
-    //     glw.stake(1 ether);
-    //     glw.unstake(1 ether);
-    //     vm.warp(block.timestamp + FIVE_YEARS);
-    //     vm.expectRevert(IGlow.CannotClaimZeroTokens.selector);
-    //     glw.claimUnstakedTokens(0);
-    // }
+    function test_ClaimZeroTokensShouldFail() public {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 1e9 ether);
+        glw.stake(1 ether);
+        glw.unstake(1 ether);
+        vm.warp(block.timestamp + FIVE_YEARS);
+        vm.expectRevert(IGlow.CannotClaimZeroTokens.selector);
+        glw.claimUnstakedTokens(0);
+    }
 
-    // function test_ClaimTokens() public {
-    //     vm.startPrank(SIMON);
-    //     glw.mint(SIMON, 1e9 ether);
-    //     glw.stake(1 ether);
-    //     vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
-    //     glw.claimUnstakedTokens(1 ether);
+    function test_ClaimTokens() public {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 1e9 ether);
+        glw.stake(1 ether);
+        vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
+        glw.claimUnstakedTokens(1 ether);
 
-    //     glw.unstake(1 ether);
-    //     vm.warp(block.timestamp + 5 minutes);
-    //     //should revert since we need to wait 5 years
-    //     vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
-    //     glw.claimUnstakedTokens(1 ether);
+        glw.unstake(1 ether);
+        vm.warp(block.timestamp + 5 minutes);
+        //should revert since we need to wait 5 years
+        vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
+        glw.claimUnstakedTokens(1 ether);
 
-    //     vm.warp(block.timestamp + FIVE_YEARS);
-    //     uint256 balBefore = glw.balanceOf(SIMON);
-    //     uint256 glwBalBefore = glw.balanceOf(address(glw));
-    //     glw.claimUnstakedTokens(1 ether);
-    //     uint256 balAfter = glw.balanceOf(SIMON);
-    //     uint256 glwBalAfter = glw.balanceOf(address(glw));
-    //     assertEq(balAfter, balBefore + 1 ether);
+        vm.warp(block.timestamp + FIVE_YEARS);
+        uint256 balBefore = glw.balanceOf(SIMON);
+        uint256 glwBalBefore = glw.balanceOf(address(glw));
+        glw.claimUnstakedTokens(1 ether);
+        uint256 balAfter = glw.balanceOf(SIMON);
+        uint256 glwBalAfter = glw.balanceOf(address(glw));
+        assertEq(balAfter, balBefore + 1 ether);
 
-    //     assertEq(glwBalAfter, glwBalBefore - 1 ether);
+        assertEq(glwBalAfter, glwBalBefore - 1 ether);
 
-    //     //Our unstaked positions should be empty now
-    //     IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
-    //     assertEq(unstakedPositions.length, 0);
+        //Our unstaked positions should be empty now
+        IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        assertEq(unstakedPositions.length, 0);
 
-    //     //Sanity check: num staked should be zero
-    //     assertEq(glw.numStaked(SIMON), 0);
-    // }
+        //Sanity check: num staked should be zero
+        assertEq(glw.numStaked(SIMON), 0);
+    }
 
-    // function test_ClaimTokens_ClaimableTotalGT_Amount_NoNewTail() public {
-    //     vm.startPrank(SIMON);
-    //     glw.mint(SIMON, 1e9 ether);
-    //     glw.stake(1 ether);
-    //     vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
-    //     glw.claimUnstakedTokens(1 ether);
+    function test_ClaimTokens_ClaimableTotalGT_Amount_NoNewTail() public {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 1e9 ether);
+        glw.stake(1 ether);
+        vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
+        glw.claimUnstakedTokens(1 ether);
 
-    //     glw.unstake(1 ether);
-    //     vm.warp(block.timestamp + 5 minutes);
-    //     //should revert since we need to wait 5 years
-    //     vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
-    //     glw.claimUnstakedTokens(0.1 ether);
+        glw.unstake(1 ether);
+        vm.warp(block.timestamp + 5 minutes);
+        //should revert since we need to wait 5 years
+        vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
+        glw.claimUnstakedTokens(0.1 ether);
 
-    //     vm.warp(block.timestamp + FIVE_YEARS);
-    //     uint256 balBefore = glw.balanceOf(SIMON);
-    //     uint256 glwBalBefore = glw.balanceOf(address(glw));
-    //     glw.claimUnstakedTokens(0.1 ether);
-    //     uint256 balAfter = glw.balanceOf(SIMON);
-    //     uint256 glwBalAfter = glw.balanceOf(address(glw));
-    //     assertEq(balAfter, balBefore + 0.1 ether);
+        vm.warp(block.timestamp + FIVE_YEARS);
+        uint256 balBefore = glw.balanceOf(SIMON);
+        uint256 glwBalBefore = glw.balanceOf(address(glw));
+        glw.claimUnstakedTokens(0.1 ether);
+        uint256 balAfter = glw.balanceOf(SIMON);
+        uint256 glwBalAfter = glw.balanceOf(address(glw));
+        assertEq(balAfter, balBefore + 0.1 ether);
 
-    //     assertEq(glwBalAfter, glwBalBefore - 0.1 ether);
+        assertEq(glwBalAfter, glwBalBefore - 0.1 ether);
 
-    //     //Our unstaked positions should be empty now
-    //     IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
-    //     assertEq(unstakedPositions.length, 1);
+        //Our unstaked positions should be empty now
+        IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        assertEq(unstakedPositions.length, 1);
 
-    //     assertEq(unstakedPositions[0].amount, 0.9 ether);
+        assertEq(unstakedPositions[0].amount, 0.9 ether);
 
-    //     //Sanity check: num staked should be zero
-    //     assertEq(glw.numStaked(SIMON), 0);
-    // }
+        //Sanity check: num staked should be zero
+        assertEq(glw.numStaked(SIMON), 0);
+    }
 
-    // function test_ClaimTokens_ClaimableTotalGT_Amount_NewTail() public {
-    //     vm.startPrank(SIMON);
-    //     glw.mint(SIMON, 1e9 ether);
-    //     glw.stake(1 ether);
-    //     vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
-    //     glw.claimUnstakedTokens(1 ether);
+    function test_ClaimTokens_ClaimableTotalGT_Amount_NewTail() public {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 1e9 ether);
+        glw.stake(1 ether);
+        vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
+        glw.claimUnstakedTokens(1 ether);
 
-    //     //Create 2 staked positions
-    //     glw.unstake(0.01 ether);
-    //     glw.unstake(0.99 ether);
+        //Create 2 staked positions
+        glw.unstake(0.01 ether);
+        glw.unstake(0.99 ether);
 
-    //     vm.warp(block.timestamp + 5 minutes);
-    //     //should revert since we need to wait 5 years
-    //     vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
-    //     glw.claimUnstakedTokens(1.1 ether);
+        vm.warp(block.timestamp + 5 minutes);
+        //should revert since we need to wait 5 years
+        vm.expectRevert(IGlow.InsufficientClaimableBalance.selector);
+        glw.claimUnstakedTokens(1.1 ether);
 
-    //     vm.warp(block.timestamp + FIVE_YEARS);
-    //     uint256 balBefore = glw.balanceOf(SIMON);
-    //     uint256 glwBalBefore = glw.balanceOf(address(glw));
-    //     glw.claimUnstakedTokens(0.1 ether);
-    //     uint256 balAfter = glw.balanceOf(SIMON);
-    //     uint256 glwBalAfter = glw.balanceOf(address(glw));
-    //     assertEq(balAfter, balBefore + 0.1 ether);
+        vm.warp(block.timestamp + FIVE_YEARS);
+        uint256 balBefore = glw.balanceOf(SIMON);
+        uint256 glwBalBefore = glw.balanceOf(address(glw));
+        glw.claimUnstakedTokens(0.1 ether);
+        uint256 balAfter = glw.balanceOf(SIMON);
+        uint256 glwBalAfter = glw.balanceOf(address(glw));
+        assertEq(balAfter, balBefore + 0.1 ether);
 
-    //     assertEq(glwBalAfter, glwBalBefore - 0.1 ether);
+        assertEq(glwBalAfter, glwBalBefore - 0.1 ether);
 
-    //     IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
-    //     assertEq(unstakedPositions.length, 1);
-    //     assertEq(unstakedPositions[0].amount, 0.99 ether - 0.1 ether + 0.01 ether);
+        IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        assertEq(unstakedPositions.length, 1);
+        assertEq(unstakedPositions[0].amount, 0.99 ether - 0.1 ether + 0.01 ether);
 
-    //     //Sanity check: num staked should be zero
-    //     assertEq(glw.numStaked(SIMON), 0);
-    // }
+        //Sanity check: num staked should be zero
+        assertEq(glw.numStaked(SIMON), 0);
+    }
 
     // //-------------------- Inflation Tests --------------------
 
-    // function test_InflationShouldRevertIfContractsNotSet() public {
-    //     vm.expectRevert(IGlow.AddressNotSet.selector);
-    //     glw.claimGLWFromGCAAndMinerPool();
-    //     vm.expectRevert(IGlow.AddressNotSet.selector);
-    //     glw.claimGLWFromVetoCouncil();
-    //     vm.expectRevert(IGlow.AddressNotSet.selector);
-    //     glw.claimGLWFromGrantsTreasury();
-    // }
+    function test_InflationShouldRevertIfContractsNotSet() public {
+        vm.expectRevert(IGlow.AddressNotSet.selector);
+        glw.claimGLWFromGCAAndMinerPool();
+        vm.expectRevert(IGlow.AddressNotSet.selector);
+        glw.claimGLWFromVetoCouncil();
+        vm.expectRevert(IGlow.AddressNotSet.selector);
+        glw.claimGLWFromGrantsTreasury();
+    }
 
-    // modifier setInflationContracts() {
-    //     vm.startPrank(SIMON);
-    //     glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
-    //     vm.stopPrank();
-    //     _;
-    // }
+    modifier setInflationContracts() {
+        vm.startPrank(SIMON);
+        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
+        vm.stopPrank();
+        _;
+    }
 
-    // function test_ClaimInflationFromGCA() public setInflationContracts {
-    //     vm.startPrank(SIMON);
+    function test_ClaimInflationFromGCA() public setInflationContracts {
+        vm.startPrank(SIMON);
 
-    //     vm.expectRevert(IGlow.CallerNotGCA.selector);
-    //     glw.claimGLWFromGCAAndMinerPool();
-    //     //Sanity Check to make sure GCA has 0 balance
-    //     vm.stopPrank();
+        vm.expectRevert(IGlow.CallerNotGCA.selector);
+        glw.claimGLWFromGCAAndMinerPool();
+        //Sanity Check to make sure GCA has 0 balance
+        vm.stopPrank();
 
-    //     vm.startPrank(GCA);
-    //     vm.warp(glw.GENESIS_TIMESTAMP());
-    //     glw.claimGLWFromGCAAndMinerPool();
-    //     assertEq(glw.balanceOf(GCA), 0);
+        vm.startPrank(GCA);
+        vm.warp(glw.GENESIS_TIMESTAMP());
+        glw.claimGLWFromGCAAndMinerPool();
+        assertEq(glw.balanceOf(GCA), 0);
 
-    //     //Should be able to pull 185,000 * 1e18 tokens in 1 week
-    //     vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
-    //     glw.claimGLWFromGCAAndMinerPool();
-    //     uint256 balanceAfterFirstClaim = glw.balanceOf(GCA);
-    //     //.00000005% rounding error caught
-    //     assertEq(_fallsWithinBounds(balanceAfterFirstClaim, 184_999.999 ether, 185_000.001 ether), true);
+        //Should be able to pull 185,000 * 1e18 tokens in 1 week
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        glw.claimGLWFromGCAAndMinerPool();
+        uint256 balanceAfterFirstClaim = glw.balanceOf(GCA);
+        //.00000005% rounding error caught
+        assertEq(_fallsWithinBounds(balanceAfterFirstClaim, 184_999.999 ether, 185_000.001 ether), true);
 
-    //     vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
-    //     //balanceAfterSecond claim should be exactly the same as the first claim since no time has passed
-    //     glw.claimGLWFromGCAAndMinerPool();
-    //     uint256 balanceAfterSecondClaim = glw.balanceOf(GCA);
-    //     assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
-    // }
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        //balanceAfterSecond claim should be exactly the same as the first claim since no time has passed
+        glw.claimGLWFromGCAAndMinerPool();
+        uint256 balanceAfterSecondClaim = glw.balanceOf(GCA);
+        assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
+    }
 
-    // function test_ClaimFromVetoCouncil() public setInflationContracts {
-    //     vm.startPrank(SIMON);
-    //     vm.expectRevert(IGlow.CallerNotVetoCouncil.selector);
-    //     glw.claimGLWFromVetoCouncil();
-    //     vm.stopPrank();
+    function test_ClaimFromVetoCouncil() public setInflationContracts {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGlow.CallerNotVetoCouncil.selector);
+        glw.claimGLWFromVetoCouncil();
+        vm.stopPrank();
 
-    //     vm.startPrank(VETO_COUNCIL);
-    //     vm.warp(glw.GENESIS_TIMESTAMP());
-    //     glw.claimGLWFromVetoCouncil();
-    //     assertEq(glw.balanceOf(VETO_COUNCIL), 0);
+        vm.startPrank(VETO_COUNCIL);
+        vm.warp(glw.GENESIS_TIMESTAMP());
+        glw.claimGLWFromVetoCouncil();
+        assertEq(glw.balanceOf(VETO_COUNCIL), 0);
 
-    //     //Should be able to pull 5,000 * 1e18 tokens in 1 week
-    //     vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
-    //     glw.claimGLWFromVetoCouncil();
-    //     uint256 balanceAfterFirstClaim = glw.balanceOf(VETO_COUNCIL);
-    //     //.0.00000002% rounding error caught
-    //     assertEq(_fallsWithinBounds(balanceAfterFirstClaim, 4_999.9999 ether, 5_000.0001 ether), true);
+        //Should be able to pull 5,000 * 1e18 tokens in 1 week
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        glw.claimGLWFromVetoCouncil();
+        uint256 balanceAfterFirstClaim = glw.balanceOf(VETO_COUNCIL);
+        //.0.00000002% rounding error caught
+        assertEq(_fallsWithinBounds(balanceAfterFirstClaim, 4_999.9999 ether, 5_000.0001 ether), true);
 
-    //     vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
-    //     //balanceAfterSecond claim should be exactly the same as the first claim since no time has passed
-    //     glw.claimGLWFromVetoCouncil();
-    //     uint256 balanceAfterSecondClaim = glw.balanceOf(VETO_COUNCIL);
-    //     assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
-    // }
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        //balanceAfterSecond claim should be exactly the same as the first claim since no time has passed
+        glw.claimGLWFromVetoCouncil();
+        uint256 balanceAfterSecondClaim = glw.balanceOf(VETO_COUNCIL);
+        assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
+    }
 
-    // function test_ClaimFromGrantsTreasury() public setInflationContracts {
-    //     vm.startPrank(SIMON);
-    //     vm.expectRevert(IGlow.CallerNotGrantsTreasury.selector);
-    //     glw.claimGLWFromGrantsTreasury();
-    //     vm.stopPrank();
+    function test_ClaimFromGrantsTreasury() public setInflationContracts {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGlow.CallerNotGrantsTreasury.selector);
+        glw.claimGLWFromGrantsTreasury();
+        vm.stopPrank();
 
-    //     vm.startPrank(GRANTS_TREASURY);
-    //     vm.warp(glw.GENESIS_TIMESTAMP());
-    //     glw.claimGLWFromGrantsTreasury();
-    //     assertEq(glw.balanceOf(GRANTS_TREASURY), 0);
+        vm.startPrank(GRANTS_TREASURY);
+        vm.warp(glw.GENESIS_TIMESTAMP());
+        glw.claimGLWFromGrantsTreasury();
+        //Grants treasury starts with 6 million ether
+        uint256 startingBalance = 6_000_000 ether;
+        assertEq(glw.balanceOf(GRANTS_TREASURY), startingBalance);
 
-    //     //Should be able to pull 40,000 * 1e18 tokens in 1 week
-    //     vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
-    //     glw.claimGLWFromGrantsTreasury();
-    //     uint256 balanceAfterFirstClaim = glw.balanceOf(GRANTS_TREASURY);
-    //     //.00000025% rounding error caught
-    //     assertEq(_fallsWithinBounds(balanceAfterFirstClaim, 39_999.999 ether, 40_000.0001 ether), true);
+        //Should be able to pull 40,000 * 1e18 tokens in 1 week
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        glw.claimGLWFromGrantsTreasury();
+        uint256 balanceAfterFirstClaim = glw.balanceOf(GRANTS_TREASURY);
+        //.00000025% rounding error caught
+        assertEq(
+            _fallsWithinBounds(
+                balanceAfterFirstClaim, 39_999.999 ether + startingBalance, 40_000.0001 ether + startingBalance
+            ),
+            true
+        );
 
-    //     vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
-    //     //balanceAfterSecond claim should be exactly the same as the first claim since no time has passed
-    //     glw.claimGLWFromGrantsTreasury();
-    //     uint256 balanceAfterSecondClaim = glw.balanceOf(GRANTS_TREASURY);
-    //     assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
-    // }
+        vm.warp(glw.GENESIS_TIMESTAMP() + 7 days);
+        //balanceAfterSecond claim should be exactly the same as the first claim since no time has passed
+        glw.claimGLWFromGrantsTreasury();
+        uint256 balanceAfterSecondClaim = glw.balanceOf(GRANTS_TREASURY);
+        assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
+    }
 
-    // function test_InflationGettersShouldRevertIfContractsNotSet() public {
-    //     vm.expectRevert(IGlow.AddressNotSet.selector);
-    //     (uint256 a, uint256 b, uint256 c) = glw.gcaInflationData();
+    function test_InflationGettersShouldRevertIfContractsNotSet() public {
+        vm.expectRevert(IGlow.AddressNotSet.selector);
+        (uint256 a, uint256 b, uint256 c) = glw.gcaInflationData();
 
-    //     vm.expectRevert(IGlow.AddressNotSet.selector);
-    //     (a, b, c) = glw.vetoCouncilInflationData();
+        vm.expectRevert(IGlow.AddressNotSet.selector);
+        (a, b, c) = glw.vetoCouncilInflationData();
 
-    //     vm.expectRevert(IGlow.AddressNotSet.selector);
-    //     (a, b, c) = glw.grantsTreasuryInflationData();
+        vm.expectRevert(IGlow.AddressNotSet.selector);
+        (a, b, c) = glw.grantsTreasuryInflationData();
 
-    //     glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
+        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
 
-    //     //Should now work
-    //     (a, b, c) = glw.gcaInflationData();
-    //     (a, b, c) = glw.vetoCouncilInflationData();
-    //     (a, b, c) = glw.grantsTreasuryInflationData();
-    // }
+        //Should now work
+        (a, b, c) = glw.gcaInflationData();
+        (a, b, c) = glw.vetoCouncilInflationData();
+        (a, b, c) = glw.grantsTreasuryInflationData();
+    }
 
-    // function test_SetContractAddressesCannotBeZero() public {
-    //     //All combinations of 0 addresses should revert
-    //     vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-    //     glw.setContractAddresses(a(0), a(0), a(0));
-    //     vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-    //     glw.setContractAddresses(a(0), a(0), a(1));
-    //     vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-    //     glw.setContractAddresses(a(0), a(1), a(0));
-    //     vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-    //     glw.setContractAddresses(a(1), a(0), a(0));
+    function test_SetContractAddressesCannotBeZero() public {
+        //All combinations of 0 addresses should revert
+        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
+        glw.setContractAddresses(a(0), a(0), a(0));
+        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
+        glw.setContractAddresses(a(0), a(0), a(1));
+        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
+        glw.setContractAddresses(a(0), a(1), a(0));
+        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
+        glw.setContractAddresses(a(1), a(0), a(0));
 
-    //     vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-    //     glw.setContractAddresses(a(0), a(1), a(2));
-    //     vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-    //     glw.setContractAddresses(a(1), a(0), a(2));
-    //     vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-    //     glw.setContractAddresses(a(1), a(2), a(0));
-    // }
+        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
+        glw.setContractAddresses(a(0), a(1), a(2));
+        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
+        glw.setContractAddresses(a(1), a(0), a(2));
+        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
+        glw.setContractAddresses(a(1), a(2), a(0));
+    }
 
-    // function test_SetContractAddressesCannotBeDuplicates() public {
-    //     vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-    //     glw.setContractAddresses(VETO_COUNCIL, VETO_COUNCIL, VETO_COUNCIL);
-    //     vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-    //     glw.setContractAddresses(VETO_COUNCIL, VETO_COUNCIL, GRANTS_TREASURY);
-    //     vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-    //     glw.setContractAddresses(VETO_COUNCIL, GRANTS_TREASURY, VETO_COUNCIL);
-    //     vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-    //     glw.setContractAddresses(VETO_COUNCIL, GRANTS_TREASURY, GRANTS_TREASURY);
-    //     vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-    //     glw.setContractAddresses(GRANTS_TREASURY, VETO_COUNCIL, VETO_COUNCIL);
-    //     vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-    //     glw.setContractAddresses(GRANTS_TREASURY, VETO_COUNCIL, GRANTS_TREASURY);
-    //     vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-    //     glw.setContractAddresses(GRANTS_TREASURY, GRANTS_TREASURY, VETO_COUNCIL);
-    //     vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-    //     glw.setContractAddresses(GRANTS_TREASURY, GRANTS_TREASURY, GRANTS_TREASURY);
-    // }
+    function test_SetContractAddressesCannotBeDuplicates() public {
+        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
+        glw.setContractAddresses(VETO_COUNCIL, VETO_COUNCIL, VETO_COUNCIL);
+        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
+        glw.setContractAddresses(VETO_COUNCIL, VETO_COUNCIL, GRANTS_TREASURY);
+        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
+        glw.setContractAddresses(VETO_COUNCIL, GRANTS_TREASURY, VETO_COUNCIL);
+        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
+        glw.setContractAddresses(VETO_COUNCIL, GRANTS_TREASURY, GRANTS_TREASURY);
+        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
+        glw.setContractAddresses(GRANTS_TREASURY, VETO_COUNCIL, VETO_COUNCIL);
+        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
+        glw.setContractAddresses(GRANTS_TREASURY, VETO_COUNCIL, GRANTS_TREASURY);
+        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
+        glw.setContractAddresses(GRANTS_TREASURY, GRANTS_TREASURY, VETO_COUNCIL);
+        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
+        glw.setContractAddresses(GRANTS_TREASURY, GRANTS_TREASURY, GRANTS_TREASURY);
+    }
 
-    // function test_ShouldOnlyBeAbleToSetContractAddressesOnce() public {
-    //     glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
-    //     vm.expectRevert(IGlow.AddressAlreadySet.selector);
-    //     glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
-    // }
+    function test_ShouldOnlyBeAbleToSetContractAddressesOnce() public {
+        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
+        vm.expectRevert(IGlow.AddressAlreadySet.selector);
+        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
+    }
 
-    // function test_UnstakedPositionsOf() public {
-    //     vm.startPrank(SIMON);
-    //     uint256 amountToMint = 1e9 ether;
-    //     glw.mint(SIMON, amountToMint);
-    //     glw.stake(55 ether);
-    //     for (uint256 i; i < 10; ++i) {
-    //         glw.unstake(_calculateAmountToStakeForIndex(i));
-    //         vm.warp(block.timestamp + 5 minutes);
-    //     }
-    //     //Should have 10 unstaked positions and my tail should be 0
-    //     IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
-    //     assertEq(unstakedPositions.length, 10);
+    function test_UnstakedPositionsOf() public {
+        vm.startPrank(SIMON);
+        uint256 amountToMint = 1e9 ether;
+        glw.mint(SIMON, amountToMint);
+        glw.stake(55 ether);
+        for (uint256 i; i < 10; ++i) {
+            glw.unstake(_calculateAmountToStakeForIndex(i));
+            vm.warp(block.timestamp + 5 minutes);
+        }
+        //Should have 10 unstaked positions and my tail should be 0
+        IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        assertEq(unstakedPositions.length, 10);
 
-    //     //let's make sure all the values are correct
-    //     for (uint256 i; i < 10; ++i) {
-    //         assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i));
-    //     }
-    //     //Let's fast forward 5 years to claim some positions which should update the tail
-    //     vm.warp(block.timestamp + 365 days * 5);
+        //let's make sure all the values are correct
+        for (uint256 i; i < 10; ++i) {
+            assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i));
+        }
+        //Let's fast forward 5 years to claim some positions which should update the tail
+        vm.warp(block.timestamp + 365 days * 5);
 
-    //     //This should pop the first position (move the tail by 1)
-    //     uint256 amountToUnstake = _calculateAmountToStakeForIndex(0);
-    //     glw.claimUnstakedTokens(amountToUnstake);
+        //This should pop the first position (move the tail by 1)
+        uint256 amountToUnstake = _calculateAmountToStakeForIndex(0);
+        glw.claimUnstakedTokens(amountToUnstake);
 
-    //     //Now if we query we should only get 9 positions
-    //     unstakedPositions = glw.unstakedPositionsOf(SIMON);
-    //     assertEq(unstakedPositions.length, 9);
+        //Now if we query we should only get 9 positions
+        unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        assertEq(unstakedPositions.length, 9);
 
-    //     //assert that the values are correct ,
-    //     //we should have 9 positions and the first position should be _calculateAmountToStakeForIndex(1)
-    //     for (uint256 i; i < 9; ++i) {
-    //         assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i + 1));
-    //     }
+        //assert that the values are correct ,
+        //we should have 9 positions and the first position should be _calculateAmountToStakeForIndex(1)
+        for (uint256 i; i < 9; ++i) {
+            assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i + 1));
+        }
 
-    //     //Let's pop 2 positions
-    //     uint256 amountToPop2 = _calculateAmountToStakeForIndex(1) + _calculateAmountToStakeForIndex(2);
-    //     glw.claimUnstakedTokens(amountToPop2);
+        //Let's pop 2 positions
+        uint256 amountToPop2 = _calculateAmountToStakeForIndex(1) + _calculateAmountToStakeForIndex(2);
+        glw.claimUnstakedTokens(amountToPop2);
 
-    //     //Now if we query we should only get 7 positions
-    //     unstakedPositions = glw.unstakedPositionsOf(SIMON);
-    //     assertEq(unstakedPositions.length, 7);
+        //Now if we query we should only get 7 positions
+        unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        assertEq(unstakedPositions.length, 7);
 
-    //     //assert that the values are correct ,
-    //     //we should have 7 positions and the first position should be _calculateAmountToStakeForIndex(3)
-    //     for (uint256 i; i < 7; ++i) {
-    //         assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i + 3));
-    //     }
-    // }
+        //assert that the values are correct ,
+        //we should have 7 positions and the first position should be _calculateAmountToStakeForIndex(3)
+        for (uint256 i; i < 7; ++i) {
+            assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i + 3));
+        }
+    }
 
-    // function test_UnstakedPositionsOfPagination() public {
-    //     vm.startPrank(SIMON);
-    //     uint256 amountToMint = 1e9 ether;
-    //     glw.mint(SIMON, amountToMint);
-    //     glw.stake(55 ether);
-    //     for (uint256 i; i < 10; ++i) {
-    //         glw.unstake(_calculateAmountToStakeForIndex(i));
-    //         vm.warp(block.timestamp + 5 minutes);
-    //     }
-    //     //Should have 10 unstaked positions and my tail should be 0
-    //     IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
-    //     assertEq(unstakedPositions.length, 10);
+    function test_UnstakedPositionsOfPagination() public {
+        vm.startPrank(SIMON);
+        uint256 amountToMint = 1e9 ether;
+        glw.mint(SIMON, amountToMint);
+        glw.stake(55 ether);
+        for (uint256 i; i < 10; ++i) {
+            glw.unstake(_calculateAmountToStakeForIndex(i));
+            vm.warp(block.timestamp + 5 minutes);
+        }
+        //Should have 10 unstaked positions and my tail should be 0
+        IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
+        assertEq(unstakedPositions.length, 10);
 
-    //     unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 10);
-    //     assertEq(unstakedPositions.length, 10);
+        unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 10);
+        assertEq(unstakedPositions.length, 10);
 
-    //     //Sanity check to make sure we can correclty paginate
-    //     unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 5);
-    //     assertEq(unstakedPositions.length, 5);
+        //Sanity check to make sure we can correclty paginate
+        unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 5);
+        assertEq(unstakedPositions.length, 5);
 
-    //     //Let's check the pagination results to make sure they're consistent
-    //     for (uint256 i; i < 5; ++i) {
-    //         assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i));
-    //     }
+        //Let's check the pagination results to make sure they're consistent
+        for (uint256 i; i < 5; ++i) {
+            assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i));
+        }
 
-    //     //Let's get 5,10
-    //     unstakedPositions = glw.unstakedPositionsOf(SIMON, 5, 10);
-    //     assertEq(unstakedPositions.length, 5);
-    //     for (uint256 i; i < 5; ++i) {
-    //         assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i + 5));
-    //     }
+        //Let's get 5,10
+        unstakedPositions = glw.unstakedPositionsOf(SIMON, 5, 10);
+        assertEq(unstakedPositions.length, 5);
+        for (uint256 i; i < 5; ++i) {
+            assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i + 5));
+        }
 
-    //     //if we try to get more than 10 we should get only 10
-    //     unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 11);
-    //     assertEq(unstakedPositions.length, 10);
+        //if we try to get more than 10 we should get only 10
+        unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 11);
+        assertEq(unstakedPositions.length, 10);
 
-    //     //Let's fast forward 5 years to claim some positions which should update the tail
-    //     vm.warp(block.timestamp + 365 days * 5);
+        //Let's fast forward 5 years to claim some positions which should update the tail
+        vm.warp(block.timestamp + 365 days * 5);
 
-    //     uint256 amountToUnstake = _calculateAmountToStakeForIndex(0);
-    //     glw.claimUnstakedTokens(amountToUnstake);
+        uint256 amountToUnstake = _calculateAmountToStakeForIndex(0);
+        glw.claimUnstakedTokens(amountToUnstake);
 
-    //     //Now if we query 0,10 we should only get 9 positions
-    //     unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 10);
-    //     assertEq(unstakedPositions.length, 9);
+        //Now if we query 0,10 we should only get 9 positions
+        unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 10);
+        assertEq(unstakedPositions.length, 9);
 
-    //     //assert that the values are correct ,
-    //     //we should have 9 positions and the first position should be _calculateAmountToStakeForIndex(1)
-    //     for (uint256 i; i < 9; ++i) {
-    //         assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i + 1));
-    //     }
+        //assert that the values are correct ,
+        //we should have 9 positions and the first position should be _calculateAmountToStakeForIndex(1)
+        for (uint256 i; i < 9; ++i) {
+            assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i + 1));
+        }
 
-    //     //Let's unclaim 2
-    //     uint256 amountToPop2 = _calculateAmountToStakeForIndex(1) + _calculateAmountToStakeForIndex(2);
-    //     glw.claimUnstakedTokens(amountToPop2);
+        //Let's unclaim 2
+        uint256 amountToPop2 = _calculateAmountToStakeForIndex(1) + _calculateAmountToStakeForIndex(2);
+        glw.claimUnstakedTokens(amountToPop2);
 
-    //     //Now if we query 0,10 we should only get 7 positions
-    //     unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 10);
+        //Now if we query 0,10 we should only get 7 positions
+        unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 10);
 
-    //     //assert that the values are correct ,
-    //     //we should have 7 positions and the first position should be _calculateAmountToStakeForIndex(3)
-    //     assertEq(unstakedPositions.length, 7);
-    //     for (uint256 i; i < 7; ++i) {
-    //         assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i + 3));
-    //     }
+        //assert that the values are correct ,
+        //we should have 7 positions and the first position should be _calculateAmountToStakeForIndex(3)
+        assertEq(unstakedPositions.length, 7);
+        for (uint256 i; i < 7; ++i) {
+            assertEq(unstakedPositions[i].amount, _calculateAmountToStakeForIndex(i + 3));
+        }
 
-    //     //Let's query 0,7 to make sure we get the same results
-    //     unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 7);
-    //     assertEq(unstakedPositions.length, 7);
-    // }
+        //Let's query 0,7 to make sure we get the same results
+        unstakedPositions = glw.unstakedPositionsOf(SIMON, 0, 7);
+        assertEq(unstakedPositions.length, 7);
+    }
 
-    // function test_PaginationTailGreaterThanLengthShouldReturnEmptyArray() public {
-    //     vm.startPrank(SIMON);
-    //     uint256 amountToMint = 1e9 ether;
-    //     glw.mint(SIMON, amountToMint);
-    //     glw.stake(55 ether);
-    //     for (uint256 i; i < 10; ++i) {
-    //         glw.unstake(_calculateAmountToStakeForIndex(i));
-    //         vm.warp(block.timestamp + 5 minutes);
-    //     }
+    function test_PaginationTailGreaterThanLengthShouldReturnEmptyArray() public {
+        vm.startPrank(SIMON);
+        uint256 amountToMint = 1e9 ether;
+        glw.mint(SIMON, amountToMint);
+        glw.stake(55 ether);
+        for (uint256 i; i < 10; ++i) {
+            glw.unstake(_calculateAmountToStakeForIndex(i));
+            vm.warp(block.timestamp + 5 minutes);
+        }
 
-    //     // start should be > than length case 0
-    //     IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON, 11, 12);
-    //     assertEq(unstakedPositions.length, 0);
+        // start should be > than length case 0
+        IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON, 11, 12);
+        assertEq(unstakedPositions.length, 0);
 
-    //     //start should be == length, case 1
-    //     unstakedPositions = glw.unstakedPositionsOf(SIMON, 10, 12);
-    //     assertEq(unstakedPositions.length, 0);
-    // }
+        //start should be == length, case 1
+        unstakedPositions = glw.unstakedPositionsOf(SIMON, 10, 12);
+        assertEq(unstakedPositions.length, 0);
+    }
 
     //-------------------- Helpers --------------------
     function _fallsWithinBounds(uint256 actual, uint256 lowerBound, uint256 upperBound) internal pure returns (bool) {

@@ -492,47 +492,58 @@ contract GlowNew is ERC20, IGlow {
         view
         returns (UnstakedPosition[] memory)
     {
-        //Find the total length of the unstaked positions
         Pointers memory pointers = _unstakedPositionPointers[account];
-        uint256 length = pointers.head - pointers.tail + 1;
-        //Find the tail of the unstaked positions
-        uint256 tail = pointers.tail;
-
-        //Make sure the end is equal to the end + tail
-        //This is so because start only counts from the start of tail
-        end = end + tail;
-
-        //If the start is greater than the length, we return an empty array
-        if (start >= length) {
-            return new UnstakedPosition[](0);
+        start = start + pointers.tail;
+        end = end + pointers.tail;
+        if (end > pointers.head + 1) {
+            end = pointers.head + 1;
         }
 
-        // //If the end is greater than the length, we set the end to the length
-        // // so that we don't get an index out of bounds error
-        // if (end > length) {
-        //     end = length;
-        // }
+        //If the start is greater than the length, we return an empty array
+        if (start >= end) {
+            return new UnstakedPosition[](0);
+        }
+        UnstakedPosition[] memory positions = new UnstakedPosition[](end - start);
 
-        // //Make sure that start adjusts for the tail
-        // start = tail + start;
-
-        // //Calculate actu len
-        // uint256 len = end - start;
-
-        // //Init the positions array
-        // UnstakedPosition[] memory positions = new UnstakedPosition[](len);
-        // //Start is always less than end so no risk of underflow
-        // //start should also be close to end since we delete unstaked positions as we claim them
-        // // and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
-        // for (uint256 i = start; i < end;) {
-        //     positions[i - start] = _unstakedPositions[account][i];
-        //     //No risk of overflow since i is always less than end
-        //     unchecked {
-        //         ++i;
-        //     }
-        // }
-
-        // return positions;
+        if (pointers.tail == pointers.head) {
+            UnstakedPosition memory position = _unstakedPositions[account][pointers.head];
+            if (position.amount == 0) {
+                assembly {
+                    mstore(positions, 0)
+                }
+                return positions;
+            }
+            positions[0] = position;
+            ++start;
+        }
+        
+        unchecked {
+            //The sload is safe since it's in storage through {unstake}
+            //Start is always less than end so no risk of underflow
+            //start should also be close to end since we delete unstaked positions as we claim them
+            // and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
+            for (uint256 i = start; i < end; ++i) {
+                UnstakedPosition memory position = _unstakedPositions[account][i];
+                //If the tail is zero and the amount is zero, that means
+                //There has never been a stake, because if there had been a stake,
+                //The amount wouldn't be empty,
+                //And if the amount is empty that means that there has been a claim on that position
+                //And the tail would not be zero
+                if (i == 0) {
+                    if (position.amount == 0) {
+                        assembly {
+                            //set the length to 0 in memory
+                            mstore(positions, 0)
+                        }
+                        break;
+                    }
+                }
+                //No addittion, therefore no risk of overflow
+                //i always >= start so no risk of underflow
+                positions[i - start] = position;
+            }
+            return positions;
+        }
     }
 
     /**
@@ -607,7 +618,7 @@ contract GlowNew is ERC20, IGlow {
         if (_gcaAndMinerPoolAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
         if (_vetoCouncilAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
         gcaAndMinerPoolAddress = _gcaAndMinerPoolAddress;
-        _mint(grantsTreasuryAddress, 6_000_000 ether);
+        _mint(_grantsTreasuryAddress, 6_000_000 ether);
         vetoCouncilAddress = _vetoCouncilAddress;
         grantsTreasuryAddress = _grantsTreasuryAddress;
     }
