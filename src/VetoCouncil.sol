@@ -6,9 +6,7 @@ import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
-import "forge-std/console.sol";
 import {VetoCouncilSalaryHelper, PayoutHelper, Status} from "@/generic/VetoCouncilSalaryHelper.sol";
-//todo: vesting algorith for payout.....
 
 /**
  * @title VetoCouncil

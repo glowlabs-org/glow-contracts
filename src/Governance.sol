@@ -9,7 +9,6 @@ import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
-import "forge-std/console.sol";
 
 contract Governance is IGovernance {
     using ABDKMath64x64 for int128;

@@ -2,7 +2,6 @@
 pragma solidity 0.8.21;
 
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
-import "forge-std/console.sol";
 
 contract BucketSubmission {
     /**

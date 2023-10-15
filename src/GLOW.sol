@@ -3,7 +3,6 @@ pragma solidity 0.8.21;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
-import "forge-std/console.sol";
 
 struct Pointers {
     uint128 tail;
@@ -253,18 +252,11 @@ contract Glow is ERC20, IGlow {
 
         //Cache len]0
         Pointers memory pointers = _unstakedPositionPointers[msg.sender];
-        // uint256 len = pointers.head - pointers.tail + 1;
-        // //We don;t actually need this because it cant be greater than 100
-        // if (pointers.head == 0) {
-        //     if (_unstakedPositions[msg.sender][0].amount == 0) {
-        //         len = 0;
-        //     }
-        // }
+
         uint256 head = pointers.head;
         uint256 tail = pointers.tail;
         uint256 newHead = head;
         uint256 newTail = tail;
-        console.log("head = %s", head);
 
         //Loop through the unstaked positions until claimableTotal >= amount
         //Tail will also be <= len so no risk of underflow

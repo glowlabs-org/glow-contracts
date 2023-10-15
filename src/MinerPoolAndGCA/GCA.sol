@@ -5,7 +5,6 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import {GCASalaryHelper} from "./GCASalaryHelper.sol";
-import "forge-std/console.sol";
 
 /**
  * @title GCA (Glow Certification Agent)
