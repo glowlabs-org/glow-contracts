@@ -26,7 +26,7 @@ contract CarbonCreditDutchAuctionTest is Test {
         glow = new TestGLOW(earlyLiquidityAddress, vestingContract);
         gcc = new TestGCC(address(this), address(this), address(this),address(glow));
         //Starting price is 1:1
-        auction =  CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
     }
 
     function testReceiveGCC() public {
@@ -61,7 +61,7 @@ contract CarbonCreditDutchAuctionTest is Test {
 
         console.log("gcc balance after purchase = ", gcc.balanceOf(operator));
         // auction.logStateVariables();
-        console.log("new price per unit = " , auction.getPricePerUnit());
+        console.log("new price per unit = ", auction.getPricePerUnit());
         //add ten thousand more and warp 12 hours, and price should not change when we buy
         sendGCCToAuction(10_000 ether);
         // //12 hours

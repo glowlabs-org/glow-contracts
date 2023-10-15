@@ -11,7 +11,6 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         bytes32 _requirementsHash,
         address _earlyLiquidity,
         address _grcToken,
-        address _carbonCreditAuction,
         address _vetoCouncil,
         address _holdingContract
     )
@@ -22,7 +21,6 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
             _requirementsHash,
             _earlyLiquidity,
             _grcToken,
-            _carbonCreditAuction,
             _vetoCouncil,
             _holdingContract
         )

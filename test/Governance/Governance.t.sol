@@ -90,7 +90,7 @@ contract GovernanceTest is Test {
         holdingContract = new HoldingContract(vetoCouncilAddress);
 
         minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress,address(holdingContract));
+        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
         gcc = new TestGCC(carbonCreditAuction, address(minerPoolAndGCA), address(governance),address(glow));
@@ -178,7 +178,7 @@ contract GovernanceTest is Test {
         holdingContract = new HoldingContract(vetoCouncilAddress);
 
         minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress,
+        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,
         address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
@@ -209,7 +209,7 @@ contract GovernanceTest is Test {
         holdingContract = new HoldingContract(vetoCouncilAddress);
 
         minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),carbonCreditAuction,vetoCouncilAddress,
+        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,
         address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();

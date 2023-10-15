@@ -78,8 +78,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //*****************  CONSTRUCTOR   ************** */
     //************************************************************* */
 
-    //TODO: remove carbon credit auction from constructor.
-
     /**
      * @notice constructs a new GCA contract
      * @param _gcaAgents the addresses of the gca agents the contract starts with
@@ -97,7 +95,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         bytes32 _requirementsHash,
         address _earlyLiquidity,
         address _grcToken,
-        address _carbonCreditAuction,
         address _vetoCouncil,
         address _holdingContract
     ) GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
