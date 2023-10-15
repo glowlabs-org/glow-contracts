@@ -22,6 +22,7 @@ contract GrantsTreasuryTest is Test {
     address public constant GOVERNANCE = address(0x6);
     address public constant NOT_GOVERNANCE = address(0x7);
     uint256 public constant GRANTS_INFLATION_PER_WEEK = 40_000 ether;
+    uint256 constant STARTING_GRANTS_BALANCE = 6_000_000 ether;
 
     function setUp() public {
         glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
@@ -46,7 +47,8 @@ contract GrantsTreasuryTest is Test {
      */
     function test_AllocationShouldReturnFalse() public {
         vm.startPrank(GOVERNANCE);
-        bool succesfulCall = grantsTreasury.allocateGrantFunds(SIMON, 1 ether);
+        //The contract starts with 6 million tokens
+        bool succesfulCall = grantsTreasury.allocateGrantFunds(SIMON, STARTING_GRANTS_BALANCE + 1 ether);
         assertEq(succesfulCall, false);
         assertEq(grantsTreasury.recipientBalance(SIMON), 0 ether);
         assertEq(grantsTreasury.cumulativeAllocated(), 0 ether);
@@ -124,12 +126,19 @@ contract GrantsTreasuryTest is Test {
 
     function test_SyncShouldPullFromInflation() public {
         uint256 balBefore = glw.balanceOf(address(grantsTreasury));
-        assertEq(balBefore, 0);
+        assertEq(balBefore, STARTING_GRANTS_BALANCE);
         vm.warp(block.timestamp + 7 days);
         grantsTreasury.sync();
         uint256 balAfter = glw.balanceOf(address(grantsTreasury));
 
-        assertEq(_fallsWithinBounds(GRANTS_INFLATION_PER_WEEK, 39_999.9999 ether, 40_000.0001 ether), true);
+        assertEq(
+            _fallsWithinBounds(
+                balAfter,
+                STARTING_GRANTS_BALANCE + GRANTS_INFLATION_PER_WEEK - 1e10,
+                STARTING_GRANTS_BALANCE + GRANTS_INFLATION_PER_WEEK + 1e10
+            ),
+            true
+        );
     }
 
     //-----------------  HELPERS ---------------------//

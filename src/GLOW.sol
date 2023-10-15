@@ -5,11 +5,11 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
 import "forge-std/console.sol";
 
-/**
- * TODO:
- * 1. Pre-mine 6 million  pre-mine  grants
- *  2. changed unstaked positions to claim from the head of the array
- */
+struct Pointers {
+    uint128 tail;
+    uint128 head;
+}
+
 contract Glow is ERC20, IGlow {
     //----------------------- CONSTANTS -----------------------//
 
@@ -73,10 +73,12 @@ contract Glow is ERC20, IGlow {
     mapping(address => uint256) public numStaked;
 
     /// @notice stores the unstaked positions of a user
-    mapping(address => UnstakedPosition[]) private _unstakedPositions;
+    mapping(address => mapping(uint256 => UnstakedPosition)) private _unstakedPositions;
 
-    /// @notice stores the tail of the unstaked positions of a user
-    mapping(address => uint256) private _unstakedPositionTail;
+    /// @notice stores the head of the unstaked positions of a user
+    /// @dev the head is the last index with data. If we need to push, we push at head + 1
+    /// @dev if the head is zero, there may or may not be data.
+    mapping(address => Pointers) private _unstakedPositionPointers;
 
     /// @notice stores the last time a user staked in case the user has over 100 staked positions
     mapping(address => uint256) public emergencyLastUnstakeTimestamp;
@@ -93,7 +95,7 @@ contract Glow is ERC20, IGlow {
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
         _mint(EARLY_LIQUIDITY_ADDRESS, 12_000_000 ether);
         //TODO: pre-mine to 90 million
-        _mint(_vestingContract, 60_000_000 ether);
+        _mint(_vestingContract, 90_000_000 ether);
     }
 
     /**
@@ -105,129 +107,75 @@ contract Glow is ERC20, IGlow {
         //Cannot stake zero tokens
         if (stakeAmount == 0) _revert(IGlow.CannotStakeZeroTokens.selector);
 
-        //Find the tail in the mapping
-        uint256 tail = _unstakedPositionTail[msg.sender];
+        //Find head tail in the mapping
+        Pointers memory pointers = _unstakedPositionPointers[msg.sender];
+        uint256 head = pointers.head;
 
         //Init the unstakedTotal
-        uint256 unstakedTotal;
+        uint256 amountInUserUnstakePool;
 
-        //Init the newTail
+        //Init the neadHead
+        uint256 newHead = head;
+
+        uint256 tail = pointers.tail;
         uint256 newTail = tail;
 
-        //Cache len that we are traversing
-        //Unstaked positions should rarely be over 100 due to the cooldown period
-        uint256 len = _unstakedPositions[msg.sender].length;
+        //We need to loop through starting from the head (newest positions)
+        for (uint256 i = head; i >= tail; --i) {
+            UnstakedPosition memory position = _unstakedPositions[msg.sender][i];
+            //Check if there is amount claimable
+            uint256 iterAmountInUserStakePool = position.amount;
 
-        //Init the amountClaimable -
-        //  -   this is the amount of tokens that are claimable from unstaked positions that are ready to be claimed
-        // This can't overflow since amountClaimable < totlaSupply < type(uint256).max
-        uint256 amountClaimable;
+            amountInUserUnstakePool += iterAmountInUserStakePool;
 
-        //Tail will also be <= len so no risk of underflow
-        //Tail should also remain close to len since we delete unstaked positions as we claim them
-        //and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
-        for (uint256 i = tail; i < len; ++i) {
-            //Load position from storage
-            UnstakedPosition storage position = _unstakedPositions[msg.sender][i];
-            //Case 1: The position is ready to be claimed (block.timestamp > position.cooldownEnd)
-            //  -   we add the amount to the amountClaimable
-            //  -   we update the newTail in memory
-            //  -  we continue to the next iteration
-            if (block.timestamp > position.cooldownEnd) {
-                amountClaimable += position.amount;
-                newTail = i + 1;
-                continue;
-            }
+            if (amountInUserUnstakePool == stakeAmount) {
+                //If it's exactly equal, that means the data will be fully cleared
+                //And the head moves to i-1 or 0(if fully empty now)
 
-            //Case 2: The position is not ready to be claimed (block.timestamp <= position.cooldownEnd)
-
-            //cache the position amount (the amount of glow that is unstaked in the position)
-            //increment the unstakedTotal by the position amount
-            uint256 positionAmount = position.amount;
-            unstakedTotal += positionAmount;
-
-            //If the unstakedTotal is equal to the stakeAmount, we need to delete the old position and increment the newTail
-            // because the old stake positions EXACTLY fulfill the stakeAmount
-            // (this should be an extremely rare case)
-            // - we also need to break since we have fulfilled the stakeAmount
-            // the old "unstaked tokens" inside the position are now used to fulfill the stakeAmount
-            if (unstakedTotal == stakeAmount) {
-                newTail = i + 1;
-                delete _unstakedPositions[msg.sender][i];
+                if (i == 0) {
+                    newHead = 0;
+                    delete _unstakedPositions[msg.sender][newHead];
+                } else {
+                    newHead = i - 1;
+                }
                 break;
             }
 
-            /*
-                if claimableTotal > stakeAmount, it means that the user has more unstaked tokens than they need to fulfill the stakeAmount
-                and we need to ensure to partially deduct the user's unstaked position ao we dont over fulfill the stakeAmount 
-                the tail should not change since we are deducting "amount" from the current position and not deleting it
-                    -   this is so because the position does not need to be fully drained to fulfill the stakeAmount, so we need to keep it in the array with its new amount
-            */
-            if (unstakedTotal > stakeAmount) {
-                newTail = i;
-                uint256 amountThatIsNeededToFulfill = unstakedTotal - stakeAmount;
-                position.amount = uint192(amountThatIsNeededToFulfill);
+            if (amountInUserUnstakePool > stakeAmount) {
+                uint256 overshoot = amountInUserUnstakePool - stakeAmount;
+                //Let;s say we are at 49 in the stake pool, and then the current position has 10.
+                //and we wanted to stake a total of 50
+                //Once we add the amount in this pool, we have a total of 59 in the stake pool amount.
+                //That means we overshot by 59-50, and the new amount in the stake pool
+                //Should be the overshot amount.
+                //Instead of having 10 in the latest pool, we have 9 since we needed to pull 1
+                newHead = i; //If we overshot, the head stays the same and it does indeed still have data
+                _unstakedPositions[msg.sender][i].amount = uint192(overshoot);
                 break;
             }
 
-            //Case 4: If there aren't any more unstaked positions to check
-            // that means that we've used up all the unstaked positions to fulfill the stakeAmount
-            // and can remove them from the linked list
-            // we also delete  the position for a gas refund
-            newTail = i + 1;
-            delete _unstakedPositions[msg.sender][i];
+            if (i == 0) {
+                if (stakeAmount > amountInUserUnstakePool) {
+                    delete _unstakedPositions[msg.sender][0];
+                }
+                newHead = 0;
+                break;
+            }
         }
 
-        //Check if the newTail is different from the old tail
-        //If it is, we need to update the tail
-        // This conditional prevents redundant sstores
-        if (newTail != tail) {
-            _unstakedPositionTail[msg.sender] = newTail;
+        if (newHead != head) {
+            _unstakedPositionPointers[msg.sender].head = uint128(newHead);
         }
 
-        //set the unstakedTotal to the minimum of the stakeAmount and the unstakedTotal
-        //  -   so that amountToTransferFromUser is never negative and we don't revert for underflow
-        // we need to set it to min because there's a chance we overcounted unstakedTotal in the loop, so this line is a safety check
-        unstakedTotal = _min(unstakedTotal, stakeAmount);
-
-        //Calculate the amountToTransferFromUser which is the amount that the user needs to transfer to the contract
-        //This should be impossible to overflow since supply is 72 million ether with an inflation of 12 million ether / year
-        //It's impossible to overflow since unstakedTotal <= stakeAmount
-        uint256 amountToTransferFromUser = stakeAmount - unstakedTotal;
-
-        //Impossible to overflow since supply is 72 million ether
-        //  -   with 12 million ether inflation / year
-        // The amount the user owes is equal to the amount we need them to transfer - the amount they have claimable
-        int256 amountUserOwes = int256(amountToTransferFromUser) - int256(amountClaimable);
-        //numStaked shouldn't be able to overflow since supply is 72 million ether with 12 million ether inflation / year
-        numStaked[msg.sender] += stakeAmount;
-
-        //We now need to check if the user is owed tokens or if they owe the contrac tokens
-        //In most cases, the user should need to transfer tokens to the contract
-        //In the less rare cases, the user will receive claimable tokkens from the contract
-        //      -People should use the claimTokens function to claim tokens rather than using the staking function
-        //      -The staking function simply catches edge cases that would cause the user to incur a net loss of tokens
-
-        //If the user owes us tokens, we need to transfer it from them
-        if (amountUserOwes > 0) {
-            _transfer(msg.sender, address(this), uint256(amountUserOwes));
-        }
-
-        /**
-         *
-         *         You have like 10 glow that's no longer cooldown , so you can claim it.,
-         *         and then you request to stake 1 glow.
-         *         TODO: mathey functions hit all largest numbers
-         */
-
-        //If the user has claimable tokens, we need to transfer it to them
-        if (amountUserOwes < 0) {
-            _transfer(address(this), msg.sender, uint256(-amountUserOwes));
+        if (stakeAmount > amountInUserUnstakePool) {
+            uint256 amountGlowToTransfer = stakeAmount - amountInUserUnstakePool;
+            _transfer(msg.sender, address(this), amountGlowToTransfer);
         }
 
         //Note: We don't handle the zero case since that would be a redundant transfer
 
         //Emit the Stake event
+        numStaked[msg.sender] += stakeAmount;
         emit IGlow.Stake(msg.sender, stakeAmount);
     }
 
@@ -246,14 +194,19 @@ contract Glow is ERC20, IGlow {
             _revert(IGlow.UnstakeAmountExceedsStakedBalance.selector);
         }
 
-        //Cache the length of the unstaked positions
-        uint256 lenBefore = _unstakedPositions[msg.sender].length;
-        //Cache the tail of the unstaked positions
-        uint256 tail = _unstakedPositionTail[msg.sender];
-
         //Find the length of the unstaked positions starting at the tail
         //This gives us the # of unstaked positions that the user has
-        uint256 adjustedLenBefore = lenBefore - tail;
+        Pointers memory pointers = _unstakedPositionPointers[msg.sender];
+        uint256 adjustedLenBefore = pointers.head - pointers.tail + 1;
+
+        uint256 indexInMappingToPushTo = pointers.head + 1;
+        //We don;t actually need this because it cant be greater than 100
+        if (pointers.head == pointers.tail) {
+            if (_unstakedPositions[msg.sender][pointers.head].amount == 0) {
+                adjustedLenBefore = 0;
+                indexInMappingToPushTo = pointers.head;
+            }
+        }
 
         //if adjustlenBefore >= 99
         // we + 2 to proactively set emergencyLastUpdate when length will be 99 so the 100th unstake will trigger cooldown
@@ -275,14 +228,21 @@ contract Glow is ERC20, IGlow {
         //Decrease the number of tokens staked by the user
         numStaked[msg.sender] = numAccountStaked - amount;
 
-        //Push an unstaked position to the user's unstaked positions
-        _unstakedPositions[msg.sender].push(
-            UnstakedPosition({amount: uint192(amount), cooldownEnd: uint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)})
-        );
+        _unstakedPositions[msg.sender][indexInMappingToPushTo] =
+            UnstakedPosition({amount: uint192(amount), cooldownEnd: uint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)});
 
-        //Emit the Unstake event
+        pointers = Pointers({head: uint128(indexInMappingToPushTo), tail: pointers.tail});
+
+        _unstakedPositionPointers[msg.sender] = pointers;
         emit IGlow.Unstake(msg.sender, amount);
     }
+
+    // //The only way this could happen is if someone had claimed,
+    // //so this is clearly not the place
+    // if(iterAmountInUserStakePool == 0) {
+    //     newTail = i  == 0 ? 0 : i + 1;
+    //     break;
+    // }
 
     /**
      * @inheritdoc IGlow
@@ -290,21 +250,29 @@ contract Glow is ERC20, IGlow {
     function claimUnstakedTokens(uint256 amount) external {
         //Cannot claim zero tokens
         if (amount == 0) _revert(IGlow.CannotClaimZeroTokens.selector);
-        //read the tail of the msg.sender from storage
-        uint256 tail = _unstakedPositionTail[msg.sender];
-        //init the claimableTotal
         uint256 claimableTotal;
-        //init the newTail (cache tail)
-        uint256 newTail = tail;
 
-        //Cache len
-        uint256 len = _unstakedPositions[msg.sender].length;
+        //Cache len]0
+        Pointers memory pointers = _unstakedPositionPointers[msg.sender];
+        // uint256 len = pointers.head - pointers.tail + 1;
+        // //We don;t actually need this because it cant be greater than 100
+        // if (pointers.head == 0) {
+        //     if (_unstakedPositions[msg.sender][0].amount == 0) {
+        //         len = 0;
+        //     }
+        // }
+        uint256 head = pointers.head;
+        uint256 tail = pointers.tail;
+        uint256 newHead = head;
+        uint256 newTail = tail;
+        console.log("head = %s", head);
 
         //Loop through the unstaked positions until claimableTotal >= amount
         //Tail will also be <= len so no risk of underflow
         //Tail should also remain close to len since we delete unstaked positions as we claim them
         //and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
-        for (uint256 i = tail; i < len; ++i) {
+
+        for (uint256 i = tail; i <= head; ++i) {
             //Read the position from storage
             UnstakedPosition storage position = _unstakedPositions[msg.sender][i];
             //another way of saying this is block.timestamp >= position.cooldownEnd
@@ -326,8 +294,11 @@ contract Glow is ERC20, IGlow {
             // - since the old unstaked positions EXACTLY fulfill the amount
             if (claimableTotal == amount) {
                 newTail = i + 1;
-                //Update teh tail in storage
-                _unstakedPositionTail[msg.sender] = newTail;
+                if (newTail > head) {
+                    newTail = head;
+                }
+                //Update the tail in storage
+                _unstakedPositionPointers[msg.sender] = Pointers({head: uint128(head), tail: uint128(newTail)});
                 //delete the position for a gas refund
                 delete _unstakedPositions[msg.sender][i];
                 //transfer the amount to the user
@@ -344,7 +315,7 @@ contract Glow is ERC20, IGlow {
                 newTail = i;
                 //Check redundancy before sstoring the new tail
                 if (newTail != tail) {
-                    _unstakedPositionTail[msg.sender] = newTail;
+                    _unstakedPositionPointers[msg.sender] = Pointers({head: uint128(head), tail: uint128(newTail)});
                 }
                 //Calculate the amount that is left in the position after the claim
                 uint256 amountLeftInPosition = claimableTotal - amount;
@@ -458,18 +429,46 @@ contract Glow is ERC20, IGlow {
      * @inheritdoc IGlow
      */
     function unstakedPositionsOf(address account) external view returns (UnstakedPosition[] memory) {
-        uint256 start = _unstakedPositionTail[account];
-        uint256 end = _unstakedPositions[account].length;
+        Pointers memory pointers = _unstakedPositionPointers[account];
+        uint256 start = pointers.tail;
+        uint256 end = pointers.head + 1;
+        UnstakedPosition[] memory positions = new UnstakedPosition[](end - start);
+
+        if (pointers.tail == pointers.head) {
+            UnstakedPosition memory position = _unstakedPositions[account][pointers.head];
+            if (position.amount == 0) {
+                assembly {
+                    mstore(positions, 0)
+                }
+                return positions;
+            }
+            positions[0] = position;
+            ++start;
+        }
         unchecked {
             //The sload is safe since it's in storage through {unstake}
-            UnstakedPosition[] memory positions = new UnstakedPosition[](end - start);
             //Start is always less than end so no risk of underflow
             //start should also be close to end since we delete unstaked positions as we claim them
             // and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
             for (uint256 i = start; i < end; ++i) {
+                UnstakedPosition memory position = _unstakedPositions[account][i];
+                //If the tail is zero and the amount is zero, that means
+                //There has never been a stake, because if there had been a stake,
+                //The amount wouldn't be empty,
+                //And if the amount is empty that means that there has been a claim on that position
+                //And the tail would not be zero
+                if (i == 0) {
+                    if (position.amount == 0) {
+                        assembly {
+                            //set the length to 0 in memory
+                            mstore(positions, 0)
+                        }
+                        break;
+                    }
+                }
                 //No addittion, therefore no risk of overflow
                 //i always >= start so no risk of underflow
-                positions[i - start] = _unstakedPositions[account][i];
+                positions[i - start] = position;
             }
             return positions;
         }
@@ -480,8 +479,8 @@ contract Glow is ERC20, IGlow {
      * @param account the account to get the tail for
      * @return the tail of the unstaked positions for the user
      */
-    function tail(address account) external view returns (uint256) {
-        return _unstakedPositionTail[account];
+    function accountUnstakedPositionPointers(address account) external view returns (Pointers memory) {
+        return _unstakedPositionPointers[account];
     }
 
     /**
@@ -493,46 +492,58 @@ contract Glow is ERC20, IGlow {
         view
         returns (UnstakedPosition[] memory)
     {
-        //Find the total length of the unstaked positions
-        uint256 length = _unstakedPositions[account].length;
-        //Find the tail of the unstaked positions
-        uint256 tail = _unstakedPositionTail[account];
-
-        //Make sure the end is equal to the end + tail
-        //This is so because start only counts from the start of tail
-        end = end + tail;
+        Pointers memory pointers = _unstakedPositionPointers[account];
+        start = start + pointers.tail;
+        end = end + pointers.tail;
+        if (end > pointers.head + 1) {
+            end = pointers.head + 1;
+        }
 
         //If the start is greater than the length, we return an empty array
-        if (start >= length) {
+        if (start >= end) {
             return new UnstakedPosition[](0);
         }
+        UnstakedPosition[] memory positions = new UnstakedPosition[](end - start);
 
-        //If the end is greater than the length, we set the end to the length
-        // so that we don't get an index out of bounds error
-        if (end > length) {
-            end = length;
-        }
-
-        //Make sure that start adjusts for the tail
-        start = tail + start;
-
-        //Calculate actu len
-        uint256 len = end - start;
-
-        //Init the positions array
-        UnstakedPosition[] memory positions = new UnstakedPosition[](len);
-        //Start is always less than end so no risk of underflow
-        //start should also be close to end since we delete unstaked positions as we claim them
-        // and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
-        for (uint256 i = start; i < end;) {
-            positions[i - start] = _unstakedPositions[account][i];
-            //No risk of overflow since i is always less than end
-            unchecked {
-                ++i;
+        if (pointers.tail == pointers.head) {
+            UnstakedPosition memory position = _unstakedPositions[account][pointers.head];
+            if (position.amount == 0) {
+                assembly {
+                    mstore(positions, 0)
+                }
+                return positions;
             }
+            positions[0] = position;
+            ++start;
         }
 
-        return positions;
+        unchecked {
+            //The sload is safe since it's in storage through {unstake}
+            //Start is always less than end so no risk of underflow
+            //start should also be close to end since we delete unstaked positions as we claim them
+            // and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
+            for (uint256 i = start; i < end; ++i) {
+                UnstakedPosition memory position = _unstakedPositions[account][i];
+                //If the tail is zero and the amount is zero, that means
+                //There has never been a stake, because if there had been a stake,
+                //The amount wouldn't be empty,
+                //And if the amount is empty that means that there has been a claim on that position
+                //And the tail would not be zero
+                if (i == 0) {
+                    if (position.amount == 0) {
+                        assembly {
+                            //set the length to 0 in memory
+                            mstore(positions, 0)
+                        }
+                        break;
+                    }
+                }
+                //No addittion, therefore no risk of overflow
+                //i always >= start so no risk of underflow
+                positions[i - start] = position;
+            }
+            return positions;
+        }
     }
 
     /**
@@ -607,6 +618,7 @@ contract Glow is ERC20, IGlow {
         if (_gcaAndMinerPoolAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
         if (_vetoCouncilAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
         gcaAndMinerPoolAddress = _gcaAndMinerPoolAddress;
+        _mint(_grantsTreasuryAddress, 6_000_000 ether);
         vetoCouncilAddress = _vetoCouncilAddress;
         grantsTreasuryAddress = _grantsTreasuryAddress;
     }
@@ -635,6 +647,10 @@ contract Glow is ERC20, IGlow {
         }
     }
 
+    function unstakedPosition(address account, uint256 rawPos) external view returns (UnstakedPosition memory) {
+        return _unstakedPositions[account][rawPos];
+    }
+
     /**
      * @notice More efficient address(0) check
      */
@@ -644,3 +660,62 @@ contract Glow is ERC20, IGlow {
         }
     }
 }
+
+// /**
+//      * @inheritdoc IGlow
+//      * @dev if the user has unstaked positions that have already expired,
+//      *         -   the function will auto claim those tokens for the user
+//      */
+//     function stake(uint256 stakeAmount) external {
+//         //Cannot stake zero tokens
+//         if (stakeAmount == 0) _revert(IGlow.CannotStakeZeroTokens.selector);
+
+//         //Find head tail in the mapping
+//         uint256 head = _unstakedPositionHead[msg.sender];
+
+//         //Init the unstakedTotal
+//         uint256 amountInUserUnstakePool;
+
+//         //Init the neadHead
+//         uint256 newHead = head;
+
+//         //Init the amountClaimable -
+//         //  -   this is the amount of tokens that are claimable from unstaked positions that are ready to be claimed
+//         // This can't overflow since amountClaimable < totlaSupply < type(uint256).max
+//         uint256 amountClaimable;
+
+//         //We need to loop through starting from the head (newest positions)
+//         for (uint256 i = head; i >= 0; --i) {
+//             UnstakedPosition memory position = _unstakedPositions[msg.sender][i];
+//             //Check if there is amount claimable
+//             uint256 iterAmountClaimable;
+//             uint256 iterAmountInUserUnstakePool;
+//             if (block.timestamp > position.cooldownEnd) {
+//                 iterAmountClaimable += position.amount;
+//             } else {
+//                 iterAmountInUserUnstakePool += position.amount;
+//             }
+//             amountClaimable += iterAmountClaimable;
+//             amountInUserUnstakePool += iterAmountInUserUnstakePool;
+
+//             if (amountInUserUnstakePool + amountClaimable == stakeAmount) {
+//                 //If it's exactly equal, that means the data will be fully cleared
+//                 //And the head moves to i-1 or 0(if fully empty now)
+//                 newHead = i == 0 ? 0 : i - 1;
+//                 break;
+//             }
+//             if (amountInUserUnstakePool + amountClaimable > stakeAmount) {
+//                 newHead = i; //If we overshot, the head stays the same and it does indeed still have data
+//                 _unstakedPositions[msg.sender][i].amount -= (iterAmountClaimable + iterAmountInUserUnstakePool);
+//                 break;
+//             }
+//         }
+//         if (newHead != head) {
+//             _unstakedPositionHead[msg.sender] = newHead;
+//         }
+
+//         //Note: We don't handle the zero case since that would be a redundant transfer
+
+//         //Emit the Stake event
+//         emit IGlow.Stake(msg.sender, stakeAmount);
+//     }

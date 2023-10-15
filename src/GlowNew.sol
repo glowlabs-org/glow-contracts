@@ -10,7 +10,7 @@ struct Pointers {
     uint128 head;
 }
 
-contract GlowNew is ERC20, IGlow {
+contract Glow is ERC20, IGlow {
     //----------------------- CONSTANTS -----------------------//
 
     /// @notice The cooldown period after unstaking before a user can claim their tokens
@@ -516,7 +516,7 @@ contract GlowNew is ERC20, IGlow {
             positions[0] = position;
             ++start;
         }
-        
+
         unchecked {
             //The sload is safe since it's in storage through {unstake}
             //Start is always less than end so no risk of underflow
