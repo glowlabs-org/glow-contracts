@@ -22,6 +22,7 @@ interface IGCA {
     error EmptyRoot();
     error CallerNotGCAAtIndex();
     error GCCAlreadySet();
+    error BucketIndexOutOfBounds();
     // error BucketNotReinitilizable();
 
     /**

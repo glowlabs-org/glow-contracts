@@ -485,6 +485,12 @@ contract GCA is IGCA, GCASalaryHelper {
             mstore(0x20, _buckets.slot)
             //Find storage slot where bucket starts
             let slot := keccak256(0x0, 0x40)
+            let len := sload(slot)
+            if gt(add(index, 1), len) {
+                //cast sig "BucketIndexOutOfBounds()"
+                mstore(0x0, 0xfdbe8876)
+                revert(0x0, 0x4)
+            }
             //Reports start at the second slot so we add 1
             slot := add(slot, 1)
             mstore(0x0, slot)
