@@ -289,9 +289,9 @@ contract BucketSubmission {
         //The tracker helps us prevent uneccessary backward lookups
         uint256 firstUpdatedBucket = _bucketTracker.firstAddedBucketId;
         while (true) {
-            // if the firstupdatedbucket is greater than the last bucket id
+            // if the firstUpdatedbucket is greater than the last bucket id
             //then we break out of the loop
-            //This happens in the cae where the bucket has not been initialized yet
+            //This happens in the case where the bucket has not been initialized yet
             //And also in the case where we re-add a grc token to the contract
             // after all its vesting periods have ended
             if (firstUpdatedBucket > lastBucketId) {
@@ -309,7 +309,7 @@ contract BucketSubmission {
                 //It's also important to keep in mind that this algorithm only works
                 //because we know that the last bucket will always have a value
                 //If it does not have a value -- that means that the bucket has not been initialized
-                // and thefefore there are no rewards that need to be accounted for in those buckets
+                // and therefore there are no rewards that need to be accounted for in those buckets
                 bucket.amountInBucket = lastBucket.amountInBucket - amountToSubtract;
                 break;
             }
