@@ -42,7 +42,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     /// @dev a helper used in a bitmap
     uint256 private constant _BITS_IN_UINT = 256;
 
-
     bytes32 private constant CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
         "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,address[] grcTokens,bool claimFromInflation)"
     );
@@ -60,7 +59,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     /// @notice the GCC contract
     IGCC public gccContract;
-
 
     //----------------- MAPPINGS -----------------//
 
@@ -84,8 +82,15 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint64 pushedGlwWeight;
         uint64 pushedGrcWeight;
     }
-    
-    
+
+    /**
+     * @dev a mapping of bucketId -> pushed weights
+     * - we could split this up into a packed map of pushedGlwWeight and pushedGrcWeight
+     *         and use one slot to fit 4 (uint32 pushedGlwWeight, uint32 pushedGrcWeight) tuples,
+     *         but since this slot will only be cold for the first write of each bucket claim,
+     *         it's not worth the additional complexity and gas costs on each subsequent write
+     *         to handle the packing and unpacking.
+     */
     mapping(uint256 => PushedWeights) private _weightsPushed;
 
     //************************************************************* */
@@ -290,35 +295,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
     }
 
-    /**
-     * @dev checks to make sure the weights in the report
-     *         - dont overflow the total weights that have been set for the bucket
-     *         - Without this check, a malicious weight could be used to overflow the total weights
-     *         - and grab rewards from other buckets
-     * @param bucketId - the id of the bucket
-     * @param totalGlwWeight - the total amount of glw weight for the bucket
-     * @param totalGrcWeight - the total amount of grc weight for the bucket
-     * @param glwWeight - the glw weight of the leaf in the report being claimed
-     * @param grcWeight - the grc weight of the leaf in the report being claimed
-     */
-    function _checkWeightsForOverflow(
-        uint256 bucketId,
-        uint256 totalGlwWeight,
-        uint256 totalGrcWeight,
-        uint256 glwWeight,
-        uint256 grcWeight
-    ) internal {
-        PushedWeights memory pushedWeights = _weightsPushed[bucketId];
-        pushedWeights.pushedGlwWeight += uint64(glwWeight);
-        pushedWeights.pushedGrcWeight += uint64(grcWeight);
-        if (pushedWeights.pushedGlwWeight > totalGlwWeight) {
-            _revert(IMinerPool.GlowWeightOverflow.selector);
-        }
-        if (pushedWeights.pushedGrcWeight > totalGrcWeight) {
-            _revert(IMinerPool.GRCWeightOverflow.selector);
-        }
-        _weightsPushed[bucketId] = pushedWeights;
-    }
     //----------------- BUCKET DELAY -----------------//
 
     /**
@@ -496,6 +472,36 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         if (!MerkleProofLib.verifyCalldata(proof, root, leaf)) {
             _revert(IMinerPool.InvalidProof.selector);
         }
+    }
+
+    /**
+     * @dev checks to make sure the weights in the report
+     *         - dont overflow the total weights that have been set for the bucket
+     *         - Without this check, a malicious weight could be used to overflow the total weights
+     *         - and grab rewards from other buckets
+     * @param bucketId - the id of the bucket
+     * @param totalGlwWeight - the total amount of glw weight for the bucket
+     * @param totalGrcWeight - the total amount of grc weight for the bucket
+     * @param glwWeight - the glw weight of the leaf in the report being claimed
+     * @param grcWeight - the grc weight of the leaf in the report being claimed
+     */
+    function _checkWeightsForOverflow(
+        uint256 bucketId,
+        uint256 totalGlwWeight,
+        uint256 totalGrcWeight,
+        uint256 glwWeight,
+        uint256 grcWeight
+    ) internal {
+        PushedWeights memory pushedWeights = _weightsPushed[bucketId];
+        pushedWeights.pushedGlwWeight += uint64(glwWeight);
+        pushedWeights.pushedGrcWeight += uint64(grcWeight);
+        if (pushedWeights.pushedGlwWeight > totalGlwWeight) {
+            _revert(IMinerPool.GlowWeightOverflow.selector);
+        }
+        if (pushedWeights.pushedGrcWeight > totalGrcWeight) {
+            _revert(IMinerPool.GRCWeightOverflow.selector);
+        }
+        _weightsPushed[bucketId] = pushedWeights;
     }
 
     /**
