@@ -9,6 +9,17 @@ import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/Signa
 import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+/**
+ * @title GCC (Glow Carbon Credit)
+ * @author DavidVorick
+ * @author 0xSimon
+ * @notice This contract is the ERC20 token for Glow Carbon Credits (GCC).
+ *         - 1e18 GCC represents 1 metric ton of CO2 offsets
+ *         - GCC is minted by the Glow protocol as farms produce clean solar
+ *         - GCC can be retired for nominations and karma
+ *         - Once GCC is retired, it can't be unretired
+ *         - GCC is sold in the carbon credit auction
+ */
 
 contract GCC is ERC20, IGCC, EIP712 {
     /// @notice The address of the CarbonCreditAuction contract
@@ -225,6 +236,7 @@ contract GCC is ERC20, IGCC, EIP712 {
     /// @notice handles the storage writes and event emissions relating to retiring carbon credits.
     /// @dev should only be used internally and by function that require a transfer of {amount} to address(this)
     function _handleRetirement(address from, address rewardAddress, uint256 amount) private {
+        //Retiring GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
         totalCreditsRetired[rewardAddress] += amount;
         GOVERNANCE.grantNominations(rewardAddress, amount);
@@ -240,6 +252,9 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @dev overflow auto-reverts due to built in safemath
      */
     function _increaseRetiringAllowance(address from, address spender, uint256 amount, bool emitEvent) private {
+        if(amount == 0) {
+            _revert(IGCC.MustIncreaseRetiringAllowanceByAtLeastOne.selector);
+        }
         uint256 currentAllowance = _retireGCCAllowances[from][spender];
         uint256 newAllowance;
         unchecked {

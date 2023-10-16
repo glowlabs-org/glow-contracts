@@ -9,6 +9,7 @@ interface IGCC is IERC20 {
     error RetiringPermitSignatureExpired();
     error RetiringSignatureInvalid();
     error RetiringAllowanceUnderflow();
+    error MustIncreaseRetiringAllowanceByAtLeastOne();
 
     /**
      * @notice allows gca contract to mint GCC to the carbon credit auction
