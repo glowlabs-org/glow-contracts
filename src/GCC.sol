@@ -249,7 +249,6 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @param spender the address of the spender to increase the allowance for
      * @param amount the amount to increase the allowance by
      * @param emitEvent whether or not to emit the event
-     * @dev overflow auto-reverts due to built in safemath
      */
     function _increaseRetiringAllowance(address from, address spender, uint256 amount, bool emitEvent) private {
         if(amount == 0) {
