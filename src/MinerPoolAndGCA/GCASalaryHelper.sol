@@ -127,7 +127,6 @@ contract GCASalaryHelper {
             //Make sure that all the hashes are updated
             bytes32 gcaHash = _payoutNonceToGCAs[_paymentNonce];
             _payoutNonceToGCAs[nextPaymentNonce] = gcaHash;
-            _paymentNonceToCompensationPlan[nextPaymentNonce][indexOfGCA] = compPlan;
             //The gca proposing the comp plan is the one in the index and also is responsible for
             //porting over the past hash of the gca's as well as the payment plans.
             for (uint256 i; i < totalGCAs; ++i) {

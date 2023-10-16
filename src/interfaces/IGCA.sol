@@ -14,7 +14,6 @@ interface IGCA {
     error ProposalHashesEmpty();
     error ProposalAlreadyUpdated();
     error BucketAlreadyFinalized();
-    // error BucketNotInitialized();
     error ReportGCCMustBeLT200Billion();
     error ReportWeightMustBeLTUint64MaxDiv5();
     error BucketSubmissionNotOpen();
@@ -23,7 +22,6 @@ interface IGCA {
     error CallerNotGCAAtIndex();
     error GCCAlreadySet();
     error BucketIndexOutOfBounds();
-    // error BucketNotReinitilizable();
 
     /**
      * @return = true if the account is a gca , false otherwise
