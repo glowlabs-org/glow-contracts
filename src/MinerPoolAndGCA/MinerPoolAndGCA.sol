@@ -39,22 +39,28 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     uint256 private constant _BUCKET_DELAY_LENGTH = uint256(7 days) * 13;
 
+    /// @dev a helper used in a bitmap
     uint256 private constant _BITS_IN_UINT = 256;
+
+
+    bytes32 private constant CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
+        "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,address[] grcTokens,bool claimFromInflation)"
+    );
 
     /**
      * @notice the total amount of glow rewards available for farms per bucket
      */
     uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
 
+    /// @dev the maximum amount of reserve currencies concurrently allowed at a single time
     uint256 private constant _MAX_RESERVE_CURRENCIES = 3;
 
+    /// @notice the number of reserve currencies currently active
     uint256 public numReserveCurrencies;
 
+    /// @notice the GCC contract
     IGCC public gccContract;
 
-    bytes32 private constant CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
-        "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,address[] grcTokens,bool claimFromInflation)"
-    );
 
     //----------------- MAPPINGS -----------------//
 
@@ -78,7 +84,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint64 pushedGlwWeight;
         uint64 pushedGrcWeight;
     }
-
+    
+    
     mapping(uint256 => PushedWeights) private _weightsPushed;
 
     //************************************************************* */
@@ -283,6 +290,17 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
     }
 
+    /**
+     * @dev checks to make sure the weights in the report
+     *         - dont overflow the total weights that have been set for the bucket
+     *         - Without this check, a malicious weight could be used to overflow the total weights
+     *         - and grab rewards from other buckets
+     * @param bucketId - the id of the bucket
+     * @param totalGlwWeight - the total amount of glw weight for the bucket
+     * @param totalGrcWeight - the total amount of grc weight for the bucket
+     * @param glwWeight - the glw weight of the leaf in the report being claimed
+     * @param grcWeight - the grc weight of the leaf in the report being claimed
+     */
     function _checkWeightsForOverflow(
         uint256 bucketId,
         uint256 totalGlwWeight,
