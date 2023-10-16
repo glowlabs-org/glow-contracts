@@ -96,7 +96,6 @@ contract GCASalaryHelper {
         uint256 nextPaymentNonce = _paymentNonce + 1;
 
         uint256 currentShiftStartTimestamp = _paymentNonceToShiftStartTimestamp[_paymentNonce];
-        uint256 nextShiftStartTimestamp = _paymentNonceToShiftStartTimestamp[nextPaymentNonce];
 
         /**
          * When we create a new comp plan, we increment the payment nonce by 1.
