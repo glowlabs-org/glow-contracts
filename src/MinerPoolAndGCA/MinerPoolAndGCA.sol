@@ -74,6 +74,13 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     mapping(uint256 => uint256) private _bucketDelayedBitmap;
 
+    struct PushedWeights {
+        uint64 pushedGlwWeight;
+        uint64 pushedGrcWeight;
+    }
+
+    mapping(uint256 => PushedWeights) private _weightsPushed;
+
     //************************************************************* */
     //*****************  CONSTRUCTOR   ************** */
     //************************************************************* */
@@ -234,10 +241,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint256 globalStatePackedData = getPackedBucketGlobalState(bucketId);
 
         _handleMintToCarbonCreditAuction(bucketId, globalStatePackedData & _UINT128_MASK);
-        // Vulnerability if user does not put in all the correct grc tokens
+        uint256 totalGRCWeight = globalStatePackedData >> 192;
         {
             //no need to use a mask since totalGRCWeight uses the last 64 bits, so we can just shift
-            uint256 totalGRCWeight = globalStatePackedData >> 192;
             for (uint256 i; i < grcTokens.length;) {
                 {
                     address token = grcTokens[i];
@@ -263,13 +269,38 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             uint256 totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
             //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
             // so that we don't overflow the available glow rewards
-            uint256 amountGlowToSend = GLOW_REWARDS_PER_BUCKET * _min(glwWeight, totalGlwWeight) / totalGlwWeight;
+            _checkWeightsForOverflow({
+                bucketId: bucketId,
+                totalGlwWeight: totalGlwWeight,
+                totalGrcWeight: totalGRCWeight,
+                glwWeight: glwWeight,
+                grcWeight: grcWeight
+            });
+            uint256 amountGlowToSend = GLOW_REWARDS_PER_BUCKET * glwWeight / totalGlwWeight;
             if (amountGlowToSend > 0) {
                 SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), user, amountGlowToSend);
             }
         }
     }
 
+    function _checkWeightsForOverflow(
+        uint256 bucketId,
+        uint256 totalGlwWeight,
+        uint256 totalGrcWeight,
+        uint256 glwWeight,
+        uint256 grcWeight
+    ) internal {
+        PushedWeights memory pushedWeights = _weightsPushed[bucketId];
+        pushedWeights.pushedGlwWeight += uint64(glwWeight);
+        pushedWeights.pushedGrcWeight += uint64(grcWeight);
+        if (pushedWeights.pushedGlwWeight > totalGlwWeight) {
+            _revert(IMinerPool.GlowWeightOverflow.selector);
+        }
+        if (pushedWeights.pushedGrcWeight > totalGrcWeight) {
+            _revert(IMinerPool.GRCWeightOverflow.selector);
+        }
+        _weightsPushed[bucketId] = pushedWeights;
+    }
     //----------------- BUCKET DELAY -----------------//
 
     /**

@@ -18,6 +18,8 @@ interface IMinerPool {
     error BucketAlreadyDelayed();
     error SignerNotGCA();
     error SignatureDoesNotMatchUser();
+    error GlowWeightOverflow();
+    error GRCWeightOverflow();
 
     /**
      * @notice Allows anyone to donate GRC into the miner grc rewards pool
