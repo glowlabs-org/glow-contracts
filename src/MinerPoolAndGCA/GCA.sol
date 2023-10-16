@@ -90,6 +90,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @param _requirementsHash the requirements hash of GCA Agents
      */
     constructor(address[] memory _gcaAgents, address _glowToken, address _governance, bytes32 _requirementsHash)
+        payable
         GCASalaryHelper(_gcaAgents)
     {
         GLOW_TOKEN = IGlow(_glowToken);

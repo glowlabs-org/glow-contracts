@@ -129,7 +129,7 @@ contract HoldingContract {
     /**
      * @param _vetoCouncil the address of the veto council
      */
-    constructor(address _vetoCouncil) {
+    constructor(address _vetoCouncil) payable {
         VETO_COUNCIL = IVetoCouncil(_vetoCouncil);
     }
 

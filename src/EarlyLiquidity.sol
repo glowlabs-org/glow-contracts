@@ -116,7 +116,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
      * @param _holdingContract The address of the holding contract
      * @dev does not take in Glow token since it is not deployed yet
      */
-    constructor(address _usdcAddress, address _holdingContract) {
+    constructor(address _usdcAddress, address _holdingContract) payable {
         USDC_TOKEN = IERC20(_usdcAddress);
         uint256 decimals = uint256(IDecimals(_usdcAddress).decimals());
         if (decimals != USDC_DECIMALS) {

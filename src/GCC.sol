@@ -73,6 +73,7 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @param _governance The address of the governance contract
      */
     constructor(address _gcaAndMinerPoolContract, address _governance, address _glowToken)
+        payable
         ERC20("Glow Carbon Credit", "GCC")
         EIP712("Glow Carbon Credit", "1")
     {

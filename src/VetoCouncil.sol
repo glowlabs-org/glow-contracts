@@ -44,7 +44,7 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
      * @param _glowToken the address of the GLOW token
      * @param _startingAgents the addresses of the starting council members
      */
-    constructor(address governance, address _glowToken, address[] memory _startingAgents) {
+    constructor(address governance, address _glowToken, address[] memory _startingAgents) payable {
         if (_isZeroAddress(governance)) {
             _revert(IVetoCouncil.ZeroAddressInConstructor.selector);
         }

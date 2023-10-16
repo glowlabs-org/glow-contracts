@@ -110,7 +110,7 @@ contract Glow is ERC20, IGlow {
     /// @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
     /// @notice sends 12 million GLW to the Early Liquidity Contract
     /// @param _earlyLiquidityAddress The address of the Early Liquidity Contract
-    constructor(address _earlyLiquidityAddress, address _vestingContract) ERC20("Glow", "GLOW") {
+    constructor(address _earlyLiquidityAddress, address _vestingContract) payable ERC20("Glow", "GLOW") {
         GENESIS_TIMESTAMP = block.timestamp;
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
         _mint(EARLY_LIQUIDITY_ADDRESS, 12_000_000 ether);

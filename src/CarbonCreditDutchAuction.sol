@@ -87,7 +87,7 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
      * @param minerPool the miner pool contract
      * @param startingPrice the starting price of 1 unit of GCC
      */
-    constructor(IERC20 glow, IERC20 gcc, address minerPool, uint256 startingPrice) {
+    constructor(IERC20 glow, IERC20 gcc, address minerPool, uint256 startingPrice) payable {
         GLOW = glow;
         GCC = gcc;
         pricePerSaleUnit = startingPrice;

@@ -40,7 +40,7 @@ contract GrantsTreasury is IGrantsTreasury {
      *     @param _glowToken The address of the Glow token
      *     @param _governance The address of the Governance contract
      */
-    constructor(address _glowToken, address _governance) {
+    constructor(address _glowToken, address _governance) payable {
         GLOW_TOKEN = IGlow(_glowToken);
         GOVERNANCE = _governance;
         GENESIS_TIMESTAMP = GLOW_TOKEN.GENESIS_TIMESTAMP();
