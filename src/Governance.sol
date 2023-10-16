@@ -10,6 +10,25 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 
+/**
+ * @title Governance
+ * @author DavidVorick
+ * @author 0xSimon , 0xSimbo
+ * @notice This contract is used to manage the Glow governance
+ *               - The governance contract is used to manage the Glow protocol
+ *               - Proposals are denoted by their types in {ProposalType} enum
+ *               - Proposals can be created by anyone and cost nominations
+ *               - It should cost (1.1)^n nominations where n = # of active proposals
+ *                 - Proposals can be ratified or rejected by long stakers
+ *                 - Veto council members can veto proposals (besides elections)
+ *                 - Proposals can be executed if they are ratified
+ *                     -   RFC Proposals and Grants Proposals don't need to be ratified to be executed
+ *                 - Once created, proposals are active for 16 weeks
+ *                 - Each week, a most popular proposal is selected
+ *                 - Governance also handles rewarding and depreciating nominations
+ *                 - Nominations have a half-life of 52 weeks and are earned by retiring GCC
+ *                 - Nominations are used to create and vote on proposals
+ */
 contract Governance is IGovernance {
     using ABDKMath64x64 for int128;
 

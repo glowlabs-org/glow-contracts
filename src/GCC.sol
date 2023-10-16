@@ -251,7 +251,7 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @param emitEvent whether or not to emit the event
      */
     function _increaseRetiringAllowance(address from, address spender, uint256 amount, bool emitEvent) private {
-        if(amount == 0) {
+        if (amount == 0) {
             _revert(IGCC.MustIncreaseRetiringAllowanceByAtLeastOne.selector);
         }
         uint256 currentAllowance = _retireGCCAllowances[from][spender];

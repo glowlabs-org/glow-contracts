@@ -4,11 +4,32 @@ pragma solidity 0.8.21;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
 
+/**
+ * @dev helper for managing tail and head in a mapping
+ * @param tail the tail of the mapping
+ * @param head the head of the mapping
+ * @dev the head is the last index with data. If we need to push, we push at head + 1
+ * @dev there are edge cases where head == tail and there is data,
+ *         -   and conversely, head == tail and there is no data
+ *         - These special cases are handled in the code
+ */
 struct Pointers {
     uint128 tail;
     uint128 head;
 }
 
+/**
+ * @title Glow
+ * @author DavidVorick
+ * @author 0xSimon , 0xSimbo
+ * @notice The Glow token is the backbone of the protocol
+ *         - Solar farms are rewarded with glow tokens as they produce solar
+ *         - GCA's (Glow Certification Agents) and Veto Council Members are rewarded in GLOW
+ *             - for their contributions
+ *         - The Grants Treasury is rewarded in GLOW for their contributions
+ *         - Holders can anchor (stake) glow to earn voting power in governance
+ *             - anchoring lasts 5 years from the point of unstaking
+ */
 contract Glow is ERC20, IGlow {
     //----------------------- CONSTANTS -----------------------//
 

@@ -4,6 +4,13 @@ pragma solidity 0.8.21;
 import {IGlow} from "./interfaces/IGlow.sol";
 import {IGrantsTreasury} from "./interfaces/IGrantsTreasury.sol";
 
+/**
+ * @title GrantsTreasury
+ * @author DavidVorick
+ * @author 0xSimon, 0xSimbo
+ * @notice The GreantsTreasury contract is used to manage the distribution of GLW to grant recipients
+ *                 - rewards are allocated through Governance
+ */
 contract GrantsTreasury is IGrantsTreasury {
     /// @notice glow token
     IGlow public immutable GLOW_TOKEN;

@@ -32,6 +32,15 @@ interface IHoldingContract {
     function setMinerPool(address _minerPool) external;
 }
 
+/**
+ * @title HoldingContract
+ * @notice This contract is used to hold tokens for users
+ *         - This contract holds all GRC tokens that are part of the protocol
+ *         - Once farms withdraw, there is a 1 week delay before they can claim their tokens
+ *         - The Miner Pool Contract assigns these holdings as part of the withdraw process
+ *         - Veto Agents can delay all withdrawals by 13 weeks
+ *         - A holding can be max delayed for 97 days
+ */
 contract HoldingContract {
     error OnlyMinerPoolCanAddHoldings();
     error WithdrawalNotReady();
