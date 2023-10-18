@@ -315,6 +315,14 @@ contract GCCTest is Test {
         gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
     }
 
+    function test_cannotIncreaseRetiringAllowanceByZero() public {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGCC.MustIncreaseRetiringAllowanceByAtLeastOne.selector);
+        gcc.increaseRetiringAllowance(other, 0);
+        vm.stopPrank();
+    
+    }
+
     function test_retireGCC_signatureReplayShouldFail() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1e20 ether);
@@ -356,4 +364,5 @@ contract GCCTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, messageHash);
         signature = abi.encodePacked(r, s, v);
     }
+    
 }
