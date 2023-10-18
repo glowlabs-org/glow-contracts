@@ -256,6 +256,99 @@ contract HoldingContractTest is Test {
         holdingContract.claimHoldings(args);
     }
 
+    function testFuzz_claimBefore7Days_shouldAlwaysFail(uint256 secondsToWarp) public {
+        vm.assume(secondsToWarp < 7 days);
+        addHolding(address(0x1), 10 ether);
+        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
+    }
+
+    function testFuzz_claimAfter7Days_shouldAlwaysWork(uint256 secondsToWarp) public {
+        vm.assume(secondsToWarp >= 7 days);
+        addHolding(address(0x1), 10 ether);
+        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
+    }
+
+    function testFuzz_claimBefore97Days_networkFrozen_shouldRevert(uint256 secondsToWarp) public {
+        vm.assume(secondsToWarp < 90 days);
+        addHolding(address(0x1), 10 ether);
+        vm.warp(block.timestamp + 1 weeks);
+        vm.startPrank(SIMON);
+        holdingContract.delayNetwork();
+        vm.stopPrank();
+        vm.warp(block.timestamp + secondsToWarp);
+        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
+    }
+
+    function testFuzz_claimAfter97Days_networkFrozen_shouldWork(uint32 secondsToWarp) public {
+        vm.assume(secondsToWarp > 90 days);
+        addHolding(address(0x1), 10 ether);
+        vm.warp(block.timestamp + 1 weeks);
+        vm.startPrank(SIMON);
+        holdingContract.delayNetwork();
+        vm.stopPrank();
+        vm.warp(block.timestamp + secondsToWarp);
+        holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
+    }
+
+    function testFuzz_claimHoldingsBefore7Days_shouldAlwaysFail(uint256 secondsToWarp) public {
+        vm.assume(secondsToWarp < 7 days);
+        addHolding(address(0x1), 10 ether);
+        addHolding(address(0x2), 10 ether);
+        ClaimHoldingArgs[] memory args = new ClaimHoldingArgs[](2);
+        args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
+        args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
+        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        holdingContract.claimHoldings(args);
+    }
+
+    function testFuzz_claimHoldingsAfter7Days_shouldAlwaysWork(uint32 secondsToWarp) public {
+        vm.assume(secondsToWarp > 7 days);
+        addHolding(address(0x1), 10 ether);
+        addHolding(address(0x2), 10 ether);
+        ClaimHoldingArgs[] memory args = new ClaimHoldingArgs[](2);
+
+        vm.warp(block.timestamp + secondsToWarp);
+        args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
+        args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
+        holdingContract.claimHoldings(args);
+    }
+
+    function testFuzz_claimHoldingsBefore97Days_networkFrozen_shouldRevert(uint32 secondsToWarp) public {
+        vm.assume(secondsToWarp < 90 days);
+        addHolding(address(0x1), 10 ether);
+        addHolding(address(0x2), 10 ether);
+        ClaimHoldingArgs[] memory args = new ClaimHoldingArgs[](2);
+
+        args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
+        args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
+        vm.warp(block.timestamp + 1 weeks);
+        vm.startPrank(SIMON);
+        holdingContract.delayNetwork();
+        vm.stopPrank();
+        vm.warp(block.timestamp + secondsToWarp);
+        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        holdingContract.claimHoldings(args);
+    }
+
+    function testFuzz_claimHoldingsAfter97Days_networkFrozen_shouldWork(uint32 secondsToWarp) public {
+        vm.assume(secondsToWarp > 90 days);
+        addHolding(address(0x1), 10 ether);
+        addHolding(address(0x2), 10 ether);
+        ClaimHoldingArgs[] memory args = new ClaimHoldingArgs[](2);
+
+        args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
+        args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
+        vm.warp(block.timestamp + 1 weeks);
+        vm.startPrank(SIMON);
+        holdingContract.delayNetwork();
+        vm.stopPrank();
+        vm.warp(block.timestamp + secondsToWarp);
+        holdingContract.claimHoldings(args);
+    }
+
     function test_claimHoldingArgs_oneWeek_shouldClaim() public {
         addHolding(address(0x1), 10 ether);
         addHolding(address(0x2), 10 ether);
