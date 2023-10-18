@@ -907,7 +907,7 @@ contract MinerPoolAndGCATest is Test {
             }
         }
     }
-    //git commit -S -m "[miner pool tests] reducing runs on invariant"
+  
 
     function test_delayBucketFinalization_bucketNotInitialized_shouldRevert() public {
         vm.expectRevert(IMinerPool.CannotDelayEmptyBucket.selector);
