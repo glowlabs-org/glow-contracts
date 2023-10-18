@@ -320,7 +320,6 @@ contract GCCTest is Test {
         vm.expectRevert(IGCC.MustIncreaseRetiringAllowanceByAtLeastOne.selector);
         gcc.increaseRetiringAllowance(other, 0);
         vm.stopPrank();
-    
     }
 
     function test_retireGCC_signatureReplayShouldFail() public {
@@ -364,5 +363,4 @@ contract GCCTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, messageHash);
         signature = abi.encodePacked(r, s, v);
     }
-    
 }

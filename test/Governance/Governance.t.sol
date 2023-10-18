@@ -2075,6 +2075,39 @@ contract GovernanceTest is Test {
         assertEq(governance.lastExecutedWeek(), 1);
     }
 
+    function test_setMostPopularProposalAtWeek() public {
+        //Create 2 proposals
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 10000 ether);
+        gcc.retireGCC(10000 ether, SIMON);
+        uint256 nomCost = governance.costForNewProposal();
+        governance.createChangeGCARequirementsProposal(keccak256("new requirements"), nomCost);
+        nomCost = governance.costForNewProposal();
+        governance.createChangeGCARequirementsProposal(keccak256("new requirements 2"), nomCost);
+        nomCost = governance.costForNewProposal();
+        governance.createChangeGCARequirementsProposal(keccak256("new requirements 3"), nomCost);
+
+        vm.warp(block.timestamp + ONE_WEEK);
+
+        //1 will be the most popular proposal for week 1,
+        //set the most popular proposal to 2 even though it should be 3
+        //Then we should be able to update it to 3
+        governance.setMostPopularProposalForCurrentWeek(2);
+        uint256 mostPopularProposal = governance.mostPopularProposal(governance.currentWeek());
+        assertEq(mostPopularProposal, 2);
+        governance.setMostPopularProposalForCurrentWeek(3);
+        mostPopularProposal = governance.mostPopularProposal(governance.currentWeek());
+        vm.expectRevert(IGovernance.ProposalNotMostPopular.selector);
+        governance.setMostPopularProposalForCurrentWeek(2);
+
+        vm.stopPrank();
+    }
+
+    function test_setMostPopularProposalAtWeek_proposalNotCreated_shouldRevert() public {
+        vm.expectRevert(IGovernance.ProposalExpired.selector);
+        governance.setMostPopularProposalForCurrentWeek(3);
+    }
+
     //-----------------  HELPERS -----------------//
     function divergenceCheck(uint128 a, uint128 b) internal returns (bool) {
         string[] memory inputsForDivergenceCheck = new string[](3);

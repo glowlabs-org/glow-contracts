@@ -196,9 +196,7 @@ contract Governance is IGovernance {
      */
     mapping(uint256 => uint256) public mostPopularProposal;
 
-    /// @dev The most popular proposal status at a given week
-    /// @dev for example, if the most popular proposal at week 0 is 5,
-    ///     -   then mostPopularProposalStatusByWeek[0] =  Proposal 5 Status
+    /// @dev The most popular proposal status at a proposal id
     /// @dev since there are only 8 proposal statuses, we can use a uint256 to store the status
     /// @dev each uint256 is 32 bytes, so we can store 32 statuses in a single uint256
     mapping(uint256 => uint256) private _packedProposalStatus;
