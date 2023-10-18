@@ -185,6 +185,100 @@ contract HoldingContractTest is Test {
         vm.stopPrank();
     }
 
+    function test_claimHolding_networkFrozen_lt97Days_shouldRevert() public {
+        mintToHoldingContract(address(usdc), 1_000_000_000 ether);
+        vm.startPrank(address(minerPoolAndGCA));
+        holdingContract.addHolding(SIMON, address(usdc), 10 ether);
+        vm.stopPrank();
+
+        uint256 originalTimestamp = block.timestamp;
+        vm.startPrank(SIMON);
+        holdingContract.delayNetwork();
+        uint256 newTimestamp = holdingContract.minimumWithdrawTimestamp();
+        assert(originalTimestamp + holdingContract.VETO_HOLDING_DELAY() == newTimestamp);
+
+        //Warp past the expiration on the holding
+        vm.warp(block.timestamp + 8 days);
+        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        holdingContract.claimHoldingSingleton(SIMON, address(usdc));
+        vm.stopPrank();
+    }
+
+    function test_claimHolding_networkFrozen_gt97Days_shouldWork() public {
+        mintToHoldingContract(address(usdc), 1_000_000_000 ether);
+        vm.startPrank(address(minerPoolAndGCA));
+        holdingContract.addHolding(SIMON, address(usdc), 10 ether);
+        vm.stopPrank();
+
+        uint256 originalTimestamp = block.timestamp;
+        vm.startPrank(SIMON);
+        holdingContract.delayNetwork();
+        uint256 newTimestamp = holdingContract.minimumWithdrawTimestamp();
+        assert(originalTimestamp + holdingContract.VETO_HOLDING_DELAY() == newTimestamp);
+
+        //Warp past the expiration on the holding
+        vm.warp(block.timestamp + 97.1 days);
+        holdingContract.claimHoldingSingleton(SIMON, address(usdc));
+        vm.stopPrank();
+    }
+
+    function test_claimHoldingArgs_networkDelay_shouldRevert() public {
+        addHolding(address(0x1), 10 ether);
+        addHolding(address(0x2), 10 ether);
+
+        ClaimHoldingArgs[] memory args = new ClaimHoldingArgs[](2);
+        args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
+        args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
+
+        vm.startPrank(SIMON);
+        holdingContract.delayNetwork();
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + ONE_WEEK);
+
+        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        holdingContract.claimHoldings(args);
+    }
+
+    function test_claimHoldingArgs_networkDelay_gt97DaysExpiration_shouldClaim() public {
+        addHolding(address(0x1), 10 ether);
+        addHolding(address(0x2), 10 ether);
+
+        ClaimHoldingArgs[] memory args = new ClaimHoldingArgs[](2);
+        args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
+        args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
+
+        vm.startPrank(SIMON);
+        holdingContract.delayNetwork();
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 97.1 days);
+        holdingContract.claimHoldings(args);
+    }
+
+    function test_claimHoldingArgs_oneWeek_shouldClaim() public {
+        addHolding(address(0x1), 10 ether);
+        addHolding(address(0x2), 10 ether);
+
+        ClaimHoldingArgs[] memory args = new ClaimHoldingArgs[](2);
+        args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
+        args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
+
+        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        holdingContract.claimHoldings(args);
+
+        vm.warp(block.timestamp + ONE_WEEK);
+
+        holdingContract.claimHoldings(args);
+    }
+
+    function addHolding(address to, uint192 amount) public {
+        mintToHoldingContract(address(usdc), amount);
+        vm.startPrank(address(minerPoolAndGCA));
+        holdingContract.addHolding(to, address(usdc), amount);
+        vm.stopPrank();
+    }
+
     function _createAccount(uint256 privateKey, uint256 amount)
         internal
         returns (address addr, uint256 signerPrivateKey)

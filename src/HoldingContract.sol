@@ -197,13 +197,25 @@ contract HoldingContract {
     }
 
     function claimHoldingSingleton(address user, address token) external {
+        bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
+
         //If the network is frozen, don't allow withdrawals
-        if (block.timestamp < minimumWithdrawTimestamp) {
-            _revert(NetworkIsFrozen.selector);
-        }
         Holding memory holding = _holdings[user][token];
         if (block.timestamp < holding.expirationTimestamp) {
             _revert(WithdrawalNotReady.selector);
+        }
+        //Can't underflow because of the check above
+        //No claim should be able to be held for more than 97 days
+        //If it's been less than than 97 days since the proposal has expired,
+        //(expiration timestamp is always claim timestamp + 1 week, so )
+        //in order for proposal to be held maximum 97 days,
+        //We need to check if the diff is 90 days
+        if (block.timestamp - holding.expirationTimestamp < NINETY_DAYS) {
+            //If it's been less than 90 days and the network is frozen,
+            //we need to revert
+            if (networkIsFrozen) {
+                _revert(NetworkIsFrozen.selector);
+            }
         }
         //Delete the holding args.
         //Should set all the data to zero.
