@@ -617,7 +617,6 @@ contract GCA is IGCA, GCASalaryHelper {
      * @param bucketLastUpdatedNonce the last updated nonce of the bucket
      * @param bucketFinalizationTimestamp the finalization timestamp of the bucket
      * @return true if the bucket is finalized, false otherwise
-     *  TODO: Revisit this and implement logic from Bucket.py in scratchpad.
      */
     function _isBucketFinalized(
         uint256 bucketLastUpdatedNonce,
