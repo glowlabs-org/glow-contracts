@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
 interface IGCA {
     error NotGCA();
@@ -119,6 +119,13 @@ interface IGCA {
         Report[] reports;
     }
 
+    /**
+     * @dev a struct to represent a bucket global state
+     * @dev its used as a caching mechanism to avoid iterating over all buckets
+     * @param totalNewGCC - the total amount of new gcc
+     * @param totalGLWRewardsWeight - the total amount of glw rewards weight
+     * @param totalGRCRewardsWeight - the total amount of grc rewards weight
+     */
     struct BucketGlobalState {
         uint128 totalNewGCC;
         uint64 totalGLWRewardsWeight;

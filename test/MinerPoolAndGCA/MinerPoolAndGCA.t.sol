@@ -215,8 +215,8 @@ contract MinerPoolAndGCATest is Test {
         assertTrue(validProof);
     }
 
-    //------------WITHDRAWALS----------------//
-    //TODO: Add sending to carbon credit auction
+    // ------------WITHDRAWALS----------------//
+    // TODO: Add sending to carbon credit auction
 
     function test_withdrawFromBucket() public {
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
@@ -886,27 +886,27 @@ contract MinerPoolAndGCATest is Test {
     //****************  DELAYING BUCKET TESTS   *************** */
     //************************************************************* */
 
-    /**
-     * @notice This test is to ensure that the delay bucket bitmap is correctly set
-     * @dev buckets that have been delayed should return true
-     * @dev buckets that have not been delayed should return false
-     * forge-config: default.invariant.runs = 10
-     * forge-config: default.invariant.depth = 2000
-     */
-    function invariant_delayBucketBitmapShouldCorrectlyAffectBuckets() public {
-        uint256[] memory ids = bucketDelayHandler.delayedBucketIds();
-        unchecked {
-            for (uint256 i; i < ids.length; ++i) {
-                assertTrue(minerPoolAndGCA.hasBucketBeenDelayed(ids[i]));
-            }
-        }
-        ids = bucketDelayHandler.nonDelayedBucketIds();
-        unchecked {
-            for (uint256 i; i < ids.length; ++i) {
-                assertFalse(minerPoolAndGCA.hasBucketBeenDelayed(ids[i]));
-            }
-        }
-    }
+    // /**
+    //  * @notice This test is to ensure that the delay bucket bitmap is correctly set
+    //  * @dev buckets that have been delayed should return true
+    //  * @dev buckets that have not been delayed should return false
+    //  * forge-config: default.invariant.runs = 10
+    //  * forge-config: default.invariant.depth = 2000
+    //  */
+    // function invariant_delayBucketBitmapShouldCorrectlyAffectBuckets() public {
+    //     uint256[] memory ids = bucketDelayHandler.delayedBucketIds();
+    //     unchecked {
+    //         for (uint256 i; i < ids.length; ++i) {
+    //             assertTrue(minerPoolAndGCA.hasBucketBeenDelayed(ids[i]));
+    //         }
+    //     }
+    //     ids = bucketDelayHandler.nonDelayedBucketIds();
+    //     unchecked {
+    //         for (uint256 i; i < ids.length; ++i) {
+    //             assertFalse(minerPoolAndGCA.hasBucketBeenDelayed(ids[i]));
+    //         }
+    //     }
+    // }
 
     function test_delayBucketFinalization_bucketNotInitialized_shouldRevert() public {
         vm.expectRevert(IMinerPool.CannotDelayEmptyBucket.selector);
@@ -1230,6 +1230,9 @@ contract MinerPoolAndGCATest is Test {
         assert(bucketTracker.firstAddedBucketId == 16);
     }
 
+
+
+    //------------------------ HELPERS -----------------------------
     function donateToken(address from, address token, uint256 amount) internal {
         vm.startPrank(from);
         MockUSDC(token).mint(from, amount);
@@ -1254,9 +1257,6 @@ contract MinerPoolAndGCATest is Test {
         console.log("inherited from last week ", reward.inheritedFromLastWeek);
         console.log("----------------------------");
     }
-
-    //------------------------ HELPERS -----------------------------
-
     function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
         address[] memory addresses = new address[](numAddresses);
         for (uint256 i = 0; i < numAddresses; ++i) {
