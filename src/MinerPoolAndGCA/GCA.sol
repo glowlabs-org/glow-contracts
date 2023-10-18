@@ -108,7 +108,6 @@ contract GCA is IGCA, GCASalaryHelper {
     function isGCA(address account) public view returns (bool) {
         if (_isFrozen()) return false;
         uint256 len = gcaAgents.length;
-        //could gas optimize this.
         unchecked {
             for (uint256 i; i < len; ++i) {
                 if (gcaAgents[i] == account) return true;
@@ -117,6 +116,7 @@ contract GCA is IGCA, GCASalaryHelper {
         return false;
     }
 
+    /// @inheritdoc IGCA
     function isGCA(address account, uint256 index) public view returns (bool) {
         if (_isFrozen()) return false;
         return gcaAgents[index] == account;
@@ -449,8 +449,8 @@ contract GCA is IGCA, GCASalaryHelper {
      * @return the start submission timestamp of a bucket
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
-    function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint184) {
-        return uint184(bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP);
+    function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
+        return _castToUint128OrMax(bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP);
     }
 
     /**
@@ -460,8 +460,8 @@ contract GCA is IGCA, GCASalaryHelper {
      * @return the end submission timestamp of a bucket
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
-    function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint184) {
-        return uint184(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
+    function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
+        return _castToUint128OrMax(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
     }
 
     /**
@@ -470,8 +470,8 @@ contract GCA is IGCA, GCASalaryHelper {
      * @return the finalization timestamp of a bucket
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
-    function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint184) {
-        return uint184(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
+    function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
+        return _castToUint128OrMax(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
     }
 
     function bucket(uint256 bucketId) public view returns (IGCA.Bucket memory bucket) {
@@ -546,15 +546,19 @@ contract GCA is IGCA, GCASalaryHelper {
         returns (uint256 shares, uint256 totalShares)
     {
         uint256 indexOfAgent;
-        for (uint256 i; i < gcas.length; i++) {
-            if (gcas[i] == agent) {
-                indexOfAgent = i;
-                break;
+        unchecked {
+            for (uint256 i; i < gcas.length; ++i) {
+                if (gcas[i] == agent) {
+                    indexOfAgent = i;
+                    break;
+                }
             }
         }
-        for (uint256 i; i < gcas.length; i++) {
-            uint256 bitpackedPlans = _compensationPlans[gcas[i]];
-            shares += (bitpackedPlans >> _calculateShift(indexOfAgent)) & _UINT24_MASK;
+        unchecked {
+            for (uint256 i; i < gcas.length; ++i) {
+                uint256 bitpackedPlans = _compensationPlans[gcas[i]];
+                shares += (bitpackedPlans >> _calculateShift(indexOfAgent)) & _UINT24_MASK;
+            }
         }
         totalShares = SHARES_REQUIRED_PER_COMP_PLAN * gcas.length;
     }
@@ -567,12 +571,15 @@ contract GCA is IGCA, GCASalaryHelper {
      *         -  remove all previous compensation plans
      *         -  sets the new gca agents
      *         -  sets the new compensation plans
-     *     TODO: Make sure this pays out all GCA's and handles slashes
      */
     function _setGCAs(address[] memory gcaAddresses) internal {
         gcaAgents = gcaAddresses;
     }
 
+    /**
+     * @dev slashes the gca agents
+     * @param gcasToSlash - the gca agents to slash
+     */
     function _slashGCAs(address[] memory gcasToSlash) internal {
         //todo: put logic here
         unchecked {
@@ -742,5 +749,9 @@ contract GCA is IGCA, GCASalaryHelper {
 
     function _domainSeperatorV4Main() internal view virtual override(GCASalaryHelper) returns (bytes32) {
         revert();
+    }
+
+    function _castToUint128OrMax(uint256 a) internal pure returns (uint128) {
+        return a > type(uint128).max ? type(uint128).max : uint128(a);
     }
 }

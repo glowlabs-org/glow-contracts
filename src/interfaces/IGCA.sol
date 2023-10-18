@@ -24,9 +24,19 @@ interface IGCA {
     error BucketIndexOutOfBounds();
 
     /**
-     * @return = true if the account is a gca , false otherwise
+     * @notice returns true if the caller is a gca
+     * @param account - the address of the account to check
+     * @return status -  true if the account is a gca , false otherwise
      */
     function isGCA(address account) external view returns (bool);
+
+    /**
+     * @notice returns true if the caller is a gca
+     * @param account - the address of the account to check
+     * @param index - the index of the gca in the gca array
+     * @return status -  true if the account is a gca , false otherwise
+     */
+    function isGCA(address account, uint256 index) external view returns (bool);
 
     /// @dev allows GCAs to submit a compensation plan
     function submitCompensationPlan(uint32[5] calldata plan, uint256 indexOfGCA) external;

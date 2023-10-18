@@ -1,4 +1,6 @@
 
+-include .env
+
 # --- [ Solc ] -----------------------------------------------------------------------------------
 install-solc :; pip install solc-select
 install-solc-0.8.21 :; solc-select install 0.8.21
@@ -30,3 +32,7 @@ test.minerPoolAndGCA :; forge test --match-contract MinerPoolAndGCATest --ffi -v
 
 # --- [ Gas Snapshot] -----------------------------------------------------------------------------------
 gas.snapshot :; forge snapshot --gas-report --ffi 
+
+#---- [Deployments] -----------------------------------------------------------------------------------
+deploy.testnet.gcc :; forge script script/Testnet/DeployGCC.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
