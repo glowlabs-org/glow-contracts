@@ -112,8 +112,7 @@ contract CarbonCreditDutchAuctionTest is Test {
     }
 
     function test_buyGCC_userPriceTooLow_shouldRevert() public {
-
-         uint256 startingPrice = auction.getPricePerUnit();
+        uint256 startingPrice = auction.getPricePerUnit();
         sendGCCToAuction(10_000 ether);
         console.log("starting price = ", startingPrice);
         vm.warp(block.timestamp + ONE_WEEK);
@@ -122,14 +121,11 @@ contract CarbonCreditDutchAuctionTest is Test {
         glow.mint(operator, 100_000_000_000_000_000 ether);
         glow.approve(address(auction), 100_000_000_000_000_000 ether);
         vm.expectRevert(CarbonCreditDutchAuction.UserPriceNotHighEnough.selector);
-        auction.buyGCC({unitsToBuy: 10_000 ether / SALE_UNIT, maxPricePerUnit: price-1});
+        auction.buyGCC({unitsToBuy: 10_000 ether / SALE_UNIT, maxPricePerUnit: price - 1});
         vm.stopPrank();
-
-
     }
 
     function test_buyGCC_overpurchasingGCC_shouldRevert() public {
-
         uint256 startingPrice = auction.getPricePerUnit();
         sendGCCToAuction(10_000 ether);
         console.log("starting price = ", startingPrice);
@@ -141,9 +137,8 @@ contract CarbonCreditDutchAuctionTest is Test {
         vm.expectRevert(CarbonCreditDutchAuction.NotEnoughGCCForSale.selector);
         auction.buyGCC({unitsToBuy: (10_000 ether / SALE_UNIT) + 1, maxPricePerUnit: price});
         vm.stopPrank();
-
-
     }
+
     function valFallsInRange(uint256 val, uint256 min, uint256 max) internal pure returns (bool) {
         return val >= min && val <= max;
     }
@@ -155,5 +150,3 @@ contract CarbonCreditDutchAuctionTest is Test {
         vm.stopPrank();
     }
 }
-
-

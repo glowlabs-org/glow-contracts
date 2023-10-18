@@ -223,6 +223,42 @@ contract NewGlowTest is Test {
         vm.stopPrank();
     }
 
+    function test_stake_withEnoughInAnUnstakedPosition_notAtPosiiton0_shouldTrigger_newHead()
+        public
+        mintTokens(SIMON, 1e9 ether)
+        stakeTokens(SIMON, 1 ether)
+        unstakeTokens(SIMON, 0.2 ether)
+        unstakeTokens(SIMON, 0.2 ether)
+        unstakeTokens(SIMON, 0.6 ether)
+    {
+        //Get pointers
+        Pointers memory pointers = glw.accountUnstakedPositionPointers(SIMON);
+        assert(pointers.head == 2);
+        //We should have 3 unstaked positions
+        //with [.2,.2,.6]
+        //Let's stake .6 and see if the head is now equal to 1
+        //Since the .6 should consume everything in the most recent unstaked position
+        vm.startPrank(SIMON);
+        glw.stake(0.6 ether);
+        pointers = glw.accountUnstakedPositionPointers(SIMON);
+        assert(pointers.head == 1);
+        vm.stopPrank();
+    }
+
+    function test_unstakedPositionsOfPagination_headEqualsTail_emptyPosition_shouldReturnLengthZeroArray() public {
+        IGlow.UnstakedPosition[] memory unstakedPosition = glw.unstakedPositionsOf(SIMON, 0, 10);
+        assert(unstakedPosition.length == 0);
+    }
+
+    function test_unstakedPositionsOfPaginations_headEqualTails_notEmptyPosition_shouldReturnLengthOneArray()
+        public
+        mintTokens(SIMON, 1e9 ether)
+        stakeTokens(SIMON, 1 ether)
+        unstakeTokens(SIMON, 1 ether)
+    {
+        IGlow.UnstakedPosition[] memory unstakedPosition = glw.unstakedPositionsOf(SIMON, 0, 10);
+        assert(unstakedPosition.length == 1);
+    }
     /**
      * @dev When users stake glow, they are allowed to pull from their unstaked positions. For example, if a user has 100 tokens in their unstaked positions,
      *         -   they can reuse those pending tokens to stake. This means that users do not need to put up fresh tokens every single time they stake.
@@ -242,6 +278,7 @@ contract NewGlowTest is Test {
      *         -           The expected behavior is that SIMON receives .5 of that unstaked token and uses the rest to cover his new stake
      *         -   6. Ensure that unstaked positons is correctly updated and that there are now no unstaked positions left.
      */
+
     function test_NewStakeAndUnstake_SinglePosition_stakingShouldClaimGLOW() public {
         test_StakeAndUnstake_SinglePosition();
         vm.startPrank(SIMON);

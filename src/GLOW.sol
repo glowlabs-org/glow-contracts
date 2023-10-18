@@ -659,10 +659,6 @@ contract Glow is ERC20, IGlow {
         }
     }
 
-    function unstakedPosition(address account, uint256 rawPos) external view returns (UnstakedPosition memory) {
-        return _unstakedPositions[account][rawPos];
-    }
-
     /**
      * @notice More efficient address(0) check
      */
