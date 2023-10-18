@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "../../src/testing/TestGLOW.sol";
@@ -43,7 +43,6 @@ contract CarbonCreditDutchAuctionTest is Test {
         uint256 startingPrice = auction.getPricePerUnit();
         vm.warp(block.timestamp + ONE_WEEK * weeksToWarp);
         uint256 expectedPrice = startingPrice / (2 ** weeksToWarp);
-        // assert(auction.getPricePerUnit() == expectedPrice);
         assert(valFallsInRange(auction.getPricePerUnit(), expectedPrice * 99 / 100, expectedPrice * 101 / 100));
     }
 
@@ -71,6 +70,9 @@ contract CarbonCreditDutchAuctionTest is Test {
         vm.warp(block.timestamp + (3600 * 12));
         uint256 unitsForSale = auction.unitsForSale();
         console.log("total supply = ", auction.totalSupply());
+        assert(auction.totalSupply() == 10714285714285714285714);
+        assert(auction.totalSaleUnits() == auction.totalSupply() / SALE_UNIT);
+
         console.log("units for sale = ", unitsForSale);
         vm.startPrank(operator);
         price = auction.getPricePerUnit();
@@ -88,6 +90,60 @@ contract CarbonCreditDutchAuctionTest is Test {
         vm.warp(block.timestamp + ONE_WEEK);
     }
 
+    function test_receiveGCC_callerNotGCC_shouldRvert() public {
+        vm.startPrank(address(0xdead));
+        gcc.mint(address(auction), 1 ether);
+        vm.expectRevert(CarbonCreditDutchAuction.CallerNotGCC.selector);
+        auction.receiveGCC(1 ether);
+        vm.stopPrank();
+    }
+
+    function test_buyGCC_buyingZeroUnits_shouldFail() public {
+        uint256 startingPrice = auction.getPricePerUnit();
+        sendGCCToAuction(10_000 ether);
+        vm.warp(block.timestamp + ONE_WEEK);
+        vm.startPrank(operator);
+        uint256 price = auction.getPricePerUnit();
+        glow.mint(operator, 100_000_000_000_000_000 ether);
+        glow.approve(address(auction), 100_000_000_000_000_000 ether);
+        vm.expectRevert(CarbonCreditDutchAuction.CannotBuyZeroUnits.selector);
+        auction.buyGCC({unitsToBuy: 0, maxPricePerUnit: price});
+        vm.stopPrank();
+    }
+
+    function test_buyGCC_userPriceTooLow_shouldRevert() public {
+
+         uint256 startingPrice = auction.getPricePerUnit();
+        sendGCCToAuction(10_000 ether);
+        console.log("starting price = ", startingPrice);
+        vm.warp(block.timestamp + ONE_WEEK);
+        vm.startPrank(operator);
+        uint256 price = auction.getPricePerUnit();
+        glow.mint(operator, 100_000_000_000_000_000 ether);
+        glow.approve(address(auction), 100_000_000_000_000_000 ether);
+        vm.expectRevert(CarbonCreditDutchAuction.UserPriceNotHighEnough.selector);
+        auction.buyGCC({unitsToBuy: 10_000 ether / SALE_UNIT, maxPricePerUnit: price-1});
+        vm.stopPrank();
+
+
+    }
+
+    function test_buyGCC_overpurchasingGCC_shouldRevert() public {
+
+        uint256 startingPrice = auction.getPricePerUnit();
+        sendGCCToAuction(10_000 ether);
+        console.log("starting price = ", startingPrice);
+        vm.warp(block.timestamp + ONE_WEEK);
+        vm.startPrank(operator);
+        uint256 price = auction.getPricePerUnit();
+        glow.mint(operator, 100_000_000_000_000_000 ether);
+        glow.approve(address(auction), 100_000_000_000_000_000 ether);
+        vm.expectRevert(CarbonCreditDutchAuction.NotEnoughGCCForSale.selector);
+        auction.buyGCC({unitsToBuy: (10_000 ether / SALE_UNIT) + 1, maxPricePerUnit: price});
+        vm.stopPrank();
+
+
+    }
     function valFallsInRange(uint256 val, uint256 min, uint256 max) internal pure returns (bool) {
         return val >= min && val <= max;
     }
@@ -99,3 +155,5 @@ contract CarbonCreditDutchAuctionTest is Test {
         vm.stopPrank();
     }
 }
+
+

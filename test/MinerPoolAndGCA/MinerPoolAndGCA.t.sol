@@ -907,7 +907,6 @@ contract MinerPoolAndGCATest is Test {
             }
         }
     }
-  
 
     function test_delayBucketFinalization_bucketNotInitialized_shouldRevert() public {
         vm.expectRevert(IMinerPool.CannotDelayEmptyBucket.selector);
@@ -1231,8 +1230,6 @@ contract MinerPoolAndGCATest is Test {
         assert(bucketTracker.firstAddedBucketId == 16);
     }
 
-
-
     //------------------------ HELPERS -----------------------------
     function donateToken(address from, address token, uint256 amount) internal {
         vm.startPrank(from);
@@ -1258,6 +1255,7 @@ contract MinerPoolAndGCATest is Test {
         console.log("inherited from last week ", reward.inheritedFromLastWeek);
         console.log("----------------------------");
     }
+
     function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {
         address[] memory addresses = new address[](numAddresses);
         for (uint256 i = 0; i < numAddresses; ++i) {
