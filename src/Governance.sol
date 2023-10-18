@@ -72,6 +72,17 @@ contract Governance is IGovernance {
     uint256 private constant _MAX_ENDORSEMENTS_ON_GCA_PROPOSALS = 5;
 
     /**
+     * @dev the maximum number of GCA council members that can be concurrently active
+     */
+    uint256 private constant _MAX_GCAS_AT_ONE_POINT_IN_TIME = 5;
+
+    /**
+     * @dev the maximum number of slashes that can be executed in a single GCA election
+     * @dev this is to prevent DoS attacks that could cause the execution to run out of gas
+     */
+    uint256 private constant _MAX_SLASHES_IN_ONE_GCA_ELECTION = 10;
+
+    /**
      * @dev the maximum number of concurrently actibe GCA council members
      */
     uint256 private constant _MAX_GCAS = 5;
@@ -702,7 +713,7 @@ contract Governance is IGovernance {
         external
     {
         uint256 proposalId = _proposalCount;
-        uint256 nominationCost = costForNewProposal();
+        uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
@@ -733,7 +744,7 @@ contract Governance is IGovernance {
      */
     function createChangeGCARequirementsProposal(bytes32 newRequirementsHash, uint256 maxNominations) external {
         uint256 proposalId = _proposalCount;
-        uint256 nominationCost = costForNewProposal();
+        uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
@@ -768,7 +779,7 @@ contract Governance is IGovernance {
      */
     function createRFCProposal(bytes32 hash, uint256 maxNominations) external {
         uint256 proposalId = _proposalCount;
-        uint256 nominationCost = costForNewProposal();
+        uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
@@ -807,13 +818,16 @@ contract Governance is IGovernance {
         address[] calldata newGCAs,
         uint256 maxNominations
     ) external {
-        if (newGCAs.length > _MAX_ENDORSEMENTS_ON_GCA_PROPOSALS) {
-            _revert(IGovernance.MaximumSevenGCAsAllowed.selector);
+        if (newGCAs.length > _MAX_GCAS_AT_ONE_POINT_IN_TIME) {
+            _revert(IGovernance.MaximumNumberOfGCAS.selector);
+        }
+        if (agentsToSlash.length > _MAX_SLASHES_IN_ONE_GCA_ELECTION) {
+            _revert(IGovernance.MaxSlashesInGCAElection.selector);
         }
         //[agentsToSlash,newGCAs,proposalCreationTimestamp]
         bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
         uint256 proposalId = _proposalCount;
-        uint256 nominationCost = costForNewProposal();
+        uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
@@ -858,7 +872,7 @@ contract Governance is IGovernance {
             _revert(IGovernance.VetoCouncilProposalCreationOldAgentCannotEqualNewAgent.selector);
         }
         uint256 proposalId = _proposalCount;
-        uint256 nominationCost = costForNewProposal();
+        uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
@@ -896,7 +910,7 @@ contract Governance is IGovernance {
         uint256 maxNominations
     ) external {
         uint256 proposalId = _proposalCount;
-        uint256 nominationCost = costForNewProposal();
+        uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
@@ -926,7 +940,7 @@ contract Governance is IGovernance {
      *         - so that _numActiveProposalsAndLastExpiredProposalId() is more efficient
      */
     function updateLastExpiredProposalId() public {
-        (, uint256 _lastExpiredProposalId) = _numActiveProposalsAndLastExpiredProposalId();
+        (, uint256 _lastExpiredProposalId,) = _numActiveProposalsAndLastExpiredProposalId();
         lastExpiredProposalId = _lastExpiredProposalId;
     }
 
@@ -953,7 +967,7 @@ contract Governance is IGovernance {
      */
     function costForNewProposal() public view returns (uint256) {
         uint256 numActiveProposals;
-        (numActiveProposals,) = _numActiveProposalsAndLastExpiredProposalId();
+        (numActiveProposals,,) = _numActiveProposalsAndLastExpiredProposalId();
         return _getNominationCostForProposalCreation(numActiveProposals);
     }
 
@@ -1018,6 +1032,16 @@ contract Governance is IGovernance {
     //************************************************************* */
 
     /**
+     * @dev internal function to get the cost for a new proposal and also update the
+     *         -  last expired proposal id if need be
+     */
+    function costForNewProposalAndUpdateLastExpiredProposalId() internal returns (uint256) {
+        (uint256 numActiveProposals, uint256 _lastExpiredProposalId) =
+            _numActiveProposalsAndLastExpiredProposalIdAndUpdateState();
+        return _getNominationCostForProposalCreation(numActiveProposals);
+    }
+
+    /**
      * @notice Gets the nomination cost for proposal creation based on {numActiveProposals}
      * @param numActiveProposals the number of active proposals
      * @return res the nomination cost for proposal creation
@@ -1065,13 +1089,15 @@ contract Governance is IGovernance {
      * @notice Gets the number of active proposals and the last expired proposal id
      * @return numActiveProposals the number of active proposals
      * @return _lastExpiredProposalId the last expired proposal id
+     * @return updateState whether or not to update the state
      */
     function _numActiveProposalsAndLastExpiredProposalId()
         internal
         view
-        returns (uint256 numActiveProposals, uint256 _lastExpiredProposalId)
+        returns (uint256 numActiveProposals, uint256 _lastExpiredProposalId, bool updateState)
     {
-        _lastExpiredProposalId = lastExpiredProposalId;
+        uint256 cachedLastExpiredProposalId = lastExpiredProposalId;
+        _lastExpiredProposalId = cachedLastExpiredProposalId;
         uint256 __proposalCount = _proposalCount;
         _lastExpiredProposalId = _lastExpiredProposalId == 0 ? 1 : _lastExpiredProposalId;
         unchecked {
@@ -1084,7 +1110,24 @@ contract Governance is IGovernance {
             }
         }
         numActiveProposals = _proposalCount - _lastExpiredProposalId;
-        _lastExpiredProposalId = _lastExpiredProposalId;
+        updateState = _lastExpiredProposalId != cachedLastExpiredProposalId;
+    }
+    /**
+     * @notice Gets the number of active proposals and the last expired proposal id
+     * @dev also updates state
+     * @return numActiveProposals the number of active proposals
+     * @return _lastExpiredProposalId the last expired proposal id
+     */
+
+    function _numActiveProposalsAndLastExpiredProposalIdAndUpdateState()
+        internal
+        returns (uint256 numActiveProposals, uint256 _lastExpiredProposalId)
+    {
+        bool updateState;
+        (numActiveProposals, _lastExpiredProposalId, updateState) = _numActiveProposalsAndLastExpiredProposalId();
+        if (updateState) {
+            lastExpiredProposalId = _lastExpiredProposalId;
+        }
     }
 
     /**

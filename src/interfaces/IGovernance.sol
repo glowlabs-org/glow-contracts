@@ -32,7 +32,9 @@ interface IGovernance {
     error ProposalIdDoesNotMatchMostPopularProposal();
     error ProposalNotMostPopular();
     error VetoCouncilProposalCreationOldAgentCannotEqualNewAgent();
-    error MaximumSevenGCAsAllowed();
+    error MaximumNumberOfGCAS();
+
+    error MaxSlashesInGCAElection();
 
     enum ProposalType {
         NONE, //default value for unset proposals

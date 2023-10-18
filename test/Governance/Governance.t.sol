@@ -589,6 +589,23 @@ contract GovernanceTest is Test {
         vm.stopPrank();
     }
 
+    function test_createGCAElectionOrSlashProposal_tooManySlashes_shouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+        address[] memory agentsToSlash = new address[](11);
+        agentsToSlash[0] = address(0x1);
+        address[] memory newGCAs = new address[](1);
+        newGCAs[0] = address(0x2);
+        uint256 maxNominations = nominationsOfSimon;
+        uint256 creationTimestamp = block.timestamp;
+        uint256 nominationsToUse = governance.costForNewProposal();
+        vm.expectRevert(IGovernance.MaxSlashesInGCAElection.selector);
+        governance.createGCACouncilElectionOrSlashProposal(agentsToSlash, newGCAs, nominationsToUse);
+        vm.stopPrank();
+    }
+
     function test_createGCAElectionOrSlashProposal_secondOneShouldBecomeMostPopular() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
