@@ -59,6 +59,31 @@ contract VetoCouncilTest is Test {
         assertTrue(vetoCouncil.isCouncilMember(OTHER_2));
     }
 
+    //Testing so we can coverage in iloc
+    function test_removingAnAgent_whenThereAreZeroAgent_shouldReturnFalse() public {
+        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        address[] memory startingAgents = new address[](1);
+        startingAgents[0] = address(SIMON);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vm.startPrank(GOVERNANCE);
+        address oldAgent = address(SIMON);
+        address newAgent = address(2);
+        bool slashOldAgent = false;
+        assert(vetoCouncil.addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent));
+        oldAgent = address(0x1);
+        newAgent = address(0x3);
+        slashOldAgent = false;
+        assert(vetoCouncil.addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent) == false);
+        vm.stopPrank();
+    }
+
+    function test_vetoCouncil_claimFromInflation() public {
+        vm.warp(block.timestamp + 1 weeks);
+        vetoCouncil.pullGlowFromInflation();
+        uint256 balance = glw.balanceOf(address(vetoCouncil));
+        assert(4999.95 ether <= balance && balance <= 5_000 ether);
+    }
+
     function test_setUp_zeroAddressShouldFailInConstructor_governance() public {
         address[] memory startingAgents = new address[](3);
         startingAgents[0] = address(SIMON);
