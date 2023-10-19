@@ -4,8 +4,12 @@ pragma solidity ^0.8.19;
 import "@/libraries/ABDKMath64x64.sol";
 
 library HalfLifeCarbonCreditAuction {
-    /// @dev 1 week in seconds
-    uint256 constant SECONDS_IN_YEAR = uint256(7 days);
+    /**
+     * @dev the halving period in seconds (7 days)
+     * @dev the price of the carbon credit auction decays with a half-life or 7 days
+     *         - the price will shrink exponentially every 7 days unless there are purchases
+     */
+    uint256 constant HALVING_PERIOD = uint256(7 days);
 
     /**
      * @notice calculates the value remaining after a given amount of time has elapsed
@@ -19,7 +23,7 @@ library HalfLifeCarbonCreditAuction {
             return initialValue;
         }
         // Convert the half-life from months to seconds
-        uint256 halfLifeSeconds = SECONDS_IN_YEAR;
+        uint256 halfLifeSeconds = HALVING_PERIOD;
 
         // Calculate the ratio of elapsed time to half-life in fixed point format
         int128 tOverT =

@@ -4,7 +4,10 @@ pragma solidity ^0.8.19;
 import "@/libraries/ABDKMath64x64.sol";
 
 library HalfLife {
-    /// @dev 1 year in seconds
+    /**
+     * @dev the halving period in seconds (1 year)
+     * @dev nominations have a half-life of 1 year
+     */
     uint256 constant SECONDS_IN_YEAR = 365 * uint256(1 days);
 
     /**
