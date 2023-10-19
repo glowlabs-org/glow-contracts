@@ -4,13 +4,12 @@ pragma solidity ^0.8.19;
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "forge-std/console.sol";
+
 /**
  * @dev Struct representing a holding of tokens in the HoldingContract.
  * @param amount The amount of tokens being held.
  * @param expirationTimestamp The timestamp at which the holding expires and can be withdrawn.
  */
-
 struct Holding {
     uint192 amount;
     uint64 expirationTimestamp;
