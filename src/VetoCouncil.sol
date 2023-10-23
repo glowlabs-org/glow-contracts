@@ -35,6 +35,13 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
     /// @notice the genesis timestamp of the glow protocol
     uint256 public immutable GENESIS_TIMESTAMP;
 
+    /**
+     * @notice the number of council members
+     * @dev this is equivalent to `vetoCouncilAgents`.length
+     * @dev we use this variable to avoid having to call `vetoCouncilAgents.length` in the `addAndRemoveCouncilMember` function
+     *         - it reduces gas by not having to iterate over the _vetoCouncilAgents array in VetoCouncilSalaryHelper
+     *         - To find the true number of council members
+     */
     uint256 public numberOfCouncilMembers;
 
     //-------------- CONSTRUCTOR -----------------
@@ -43,6 +50,8 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
      * @param governance the address of the governance contract
      * @param _glowToken the address of the GLOW token
      * @param _startingAgents the addresses of the starting council members
+     * @dev starting with zero agents will cause a divide by zero error
+     *     - It's expected that _startingAgents will never be empty
      */
     constructor(address governance, address _glowToken, address[] memory _startingAgents) payable {
         if (_isZeroAddress(governance)) {
