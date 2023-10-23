@@ -120,9 +120,13 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
     }
 
     /// @inheritdoc IVetoCouncil
-    function payoutCouncilMember() external {
-        _payoutCouncilMember(msg.sender, true);
+    function claimPayout(address agent, uint256 nonce, bool sync, address[] memory agents) public {
+        if (sync) {
+            pullGlowFromInflation();
+        }
+        VetoCouncilSalaryHelper.claimPayout(agent, nonce, GLOW_TOKEN, agents);
     }
+
     //----------------- GETTERS -----------------
 
     /// @inheritdoc IVetoCouncil
@@ -135,24 +139,6 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
     }
 
     //----------------- PRIVATE -----------------
-
-    /**
-     * @dev handles the payout according to the vesting algorithm
-     */
-    function _payoutCouncilMember(address account, bool claimFromInflation) private {
-        if (claimFromInflation) {
-            pullGlowFromInflation();
-        }
-
-        // emit IVetoCouncil.CouncilMemberPayout(account, rewardNow, vestingAmount);
-    }
-
-    function claimPayout(address agent, uint256 nonce, bool sync, address[] memory agents) public {
-        if (sync) {
-            pullGlowFromInflation();
-        }
-        VetoCouncilSalaryHelper.claimPayout(agent, nonce, GLOW_TOKEN, agents);
-    }
 
     //----------------- UTILS -----------------
 

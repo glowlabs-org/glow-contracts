@@ -13,29 +13,6 @@ import "forge-std/console.sol";
 //      - to avoid deleting a slot and having to reinitialize it with a cold sstore
 address constant NULL_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
 uint8 constant NULL_INDEX = type(uint8).max;
-/**
- * @param rewardPerSecond - the amount of tokens to be distributed per second
- * @param lastApplicableTimestamp - the last time the rewardPerSecond is applicable
- * @dev all agents share the same `rewardPerSecond` for each `nonce` since they all earn at the same rate
- *             - so it's not necessary to track rewardPerSecond on an individual basis.
- */
-
-// struct NonceHelper {
-//     uint64 rewardPerSecond;
-//     uint64 lastApplicableTimestamp;
-// }
-
-// /**
-//  * @param shiftStartTimestamp - marks the start of a shift
-//  * @param shiftEndTimestamp - marks the end of a shift
-//  * @param amountAlreadyWithdrawn - the amount of tokens an agent has already withdrawn from this shift
-//  */
-// struct PayoutHelper {
-//     uint64 shiftStartTimestamp;
-//     uint128 amountAlreadyWithdrawn;
-// }
-//amount already withdrawn can be packed into 128 bits
-//2**128-1 / 1e18 = 3.4e20. It would take 1307692307692307.8 years to overflow at 5000 glow per week
 
 /**
  * @param isActive - whether or not the agent is active
@@ -69,11 +46,6 @@ contract VetoCouncilSalaryHelper {
      * @dev store as 1 to avoid cold sstore for the first proposal
      */
     uint256 public paymentNonce = 1;
-
-    // /**
-    //  * @dev (Nonce -> NonceHelper)
-    //  */
-    // mapping(uint256 => NonceHelper) internal _nonceHelper;
 
     /**
      * @dev (Agent -> Status)

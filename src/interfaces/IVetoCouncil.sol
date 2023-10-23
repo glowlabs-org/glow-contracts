@@ -25,8 +25,12 @@ interface IVetoCouncil {
 
     /**
      * @notice Payout the council member
+     * @param agent The address of the council member
+     * @param nonce The payout nonce to claim from
+     * @param sync Whether to sync the vesting schedule or not
+     * @param agents The addresses of the council members that were active at `nonce`
      */
-    function payoutCouncilMember() external;
+    function claimPayout(address agent, uint256 nonce, bool sync, address[] memory agents) external;
 
     /**
      * @notice returns true if the agent is a council member
@@ -34,26 +38,6 @@ interface IVetoCouncil {
      * @return - true if the agent is a council member
      */
     function isCouncilMember(address agent) external view returns (bool);
-
-    // /**
-    //  * @dev returns the next reward of the council member
-    //  * @param account - the address of the council member
-    //  * @return rewardNow - the amount of tokens to be paid out now
-    //  * @return vestingAmount - the amount of tokens to be added into their vesting schedule
-    //  */
-    // function nextReward(address account) external view returns (uint256 rewardNow, uint256 vestingAmount);
-
-    // /**
-    //  * @notice a struct to hold the payment details of a council member
-    //  * @param lastUpdatedTimestamp - the timestamp of the last update
-    //  * @param payout - the amount of tokens to be paid out that are being vested
-    //  * @param isActive - whether the council member is active or not
-    //  */
-    // struct MemberData {
-    //     uint64 lastUpdatedTimestamp;
-    //     uint184 vestingAmount;
-    //     bool isActive;
-    // } // 1 slot
 
     /**
      * @param oldAgent The address of the agent to be slashed or removed
