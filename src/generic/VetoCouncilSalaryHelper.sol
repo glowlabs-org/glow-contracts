@@ -224,6 +224,9 @@ contract VetoCouncilSalaryHelper {
                 revert("Agent not found");
             }
         }
+
+        //Should not get a divison by zero error,
+        //Since found should have reverted beforehand.
         uint256 rewardPerSecond = REWARDS_PER_SECOND / agents.length;
         uint256 shiftStartTimestamp = _paymentNonceToShiftStartTimestamp[nonce];
         if (shiftStartTimestamp == 0) {
