@@ -317,12 +317,12 @@ contract VetoCouncilTest is Test {
 
         //Fast forward 99 weeks
         vm.warp(block.timestamp + 99 weeks);
-        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1,agents);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1, agents);
         totalBalance = withdrawableAmount + slashableAmount;
 
         //warp 1 week
         vm.warp(block.timestamp + 1 weeks);
-        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1,agents);
+        (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1, agents);
         totalBalance = withdrawableAmount + slashableAmount;
         // console.log("withdrawableAmount", withdrawableAmount);
         // console.log("slashableAmount", slashableAmount);

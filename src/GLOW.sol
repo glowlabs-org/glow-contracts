@@ -173,11 +173,11 @@ contract Glow is ERC20, IGlow {
                 break;
             }
 
-            if (i == 0) {
+            if (i == tail) {
                 if (stakeAmount > amountInUserUnstakePool) {
-                    delete _unstakedPositions[msg.sender][0];
+                    delete _unstakedPositions[msg.sender][tail];
                 }
-                newHead = 0;
+                newHead = tail;
                 break;
             }
         }

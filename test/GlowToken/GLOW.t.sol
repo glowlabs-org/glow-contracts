@@ -154,6 +154,41 @@ contract NewGlowTest is Test {
         assertEq(glw.balanceOf(SIMON), amountToMint);
     }
 
+    function test_DoubleStake2() public {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 15 ether);
+        assert(glw.balanceOf(SIMON) == 15 ether);
+
+        // Stake 12, create two unstaking positions 1 + 12, wait, claim only the first 1 GLOW position
+        glw.stake(13 ether);
+        glw.unstake(1 ether);
+        glw.unstake(12 ether);
+        vm.warp(block.timestamp + FIVE_YEARS + 5 minutes);
+        glw.claimUnstakedTokens(1 ether);
+        assertEq(glw.balanceOf(SIMON), 3 ether); // 15 - 1 - 12 + 1
+        assertEq(glw.numStaked(SIMON), 0);
+
+        /*
+    Pointers head: 1
+    Pointers tail: 1
+    Unstaking:
+        - 1 @ t0 (claimed)
+        - 12 @ t0
+        */
+
+        // !!! Restake reusing unstaking position three times
+        // Each time Simon reuses the 12 unstaking GLOW for free, plus he has to spend extra 1 GLOW,
+        // so he ends up with zero GLOW balance (but 39 staked GLOW)
+
+        glw.stake(13 ether);
+        vm.expectRevert();
+        glw.stake(13 ether);
+        vm.expectRevert();
+        glw.stake(13 ether);
+        // assertEq(glw.balanceOf(SIMON), 0);
+        // assertEq(glw.numStaked(SIMON), 13 ether);
+    }
+
     //-------------------- SINGLE POSITION TESTING --------------------
 
     /**
