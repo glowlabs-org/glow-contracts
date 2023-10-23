@@ -192,11 +192,12 @@ contract VetoCouncilSalaryHelper {
         //We need to loop until we find the first position in the array
         //Until we find a null address as that's where
         //we'll write the new agent to
+        //We start from the back of the array as that's where the null address will most likely be
         if (isOldAgentZeroAddress) {
             unchecked {
-                for (uint8 i = 1; i <= 7; ++i) {
-                    uint8 index = 7 - i;
-                    address _vetoAgent = _vetoCouncilAgents[i];
+                for (uint8 i; i < 7; ++i) {
+                    uint8 index = 6 - i;
+                    address _vetoAgent = _vetoCouncilAgents[index];
                     if (_vetoAgent == NULL_ADDRESS) {
                         agentOldIndex = index;
                         break;
