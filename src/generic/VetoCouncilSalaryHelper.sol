@@ -5,9 +5,7 @@ import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
-import "forge-std/console.sol";
 
-//TODO: Error logic bug where the payout wont carry over when a new nonce is started.....
 
 /// @dev we use a > 0 value as the null address
 //      - to avoid deleting a slot and having to reinitialize it with a cold sstore
