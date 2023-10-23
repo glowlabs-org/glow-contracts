@@ -198,6 +198,21 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     //----------------- CLAIMING -----------------//
 
+
+    /**
+     * @notice Handles minting to the carbon credit auction in case the bucket is finalized and no one has claimed from it
+     * @param bucketId - the id of the bucket
+     */
+    function handleMintToCarbonCreditAuction(uint256 bucketId) external {
+        if (!isBucketFinalized(bucketId)) {
+            _revert(IMinerPool.BucketNotFinalized.selector);
+        }
+        uint256 globalPackedState = getPackedBucketGlobalState(bucketId);
+        uint256 amountToMint = globalPackedState & _UINT128_MASK;
+        _handleMintToCarbonCreditAuction(bucketId, amountToMint);
+    }
+
+
     /**
      * @notice allows a user to claim their rewards for a bucket
      * @dev It's highly recommended to use a CLI or UI to call this function.
