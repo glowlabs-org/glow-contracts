@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/console.sol";
 
 uint256 constant VESTING_PERIODS = 100;
 /// @dev the maximum amount of seconds a second can vest for
