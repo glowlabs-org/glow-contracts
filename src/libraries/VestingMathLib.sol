@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-
 uint256 constant VESTING_PERIODS = 100;
 /// @dev the maximum amount of seconds a second can vest for
 /// @dev this is to prevent a second from over-vesting in payout

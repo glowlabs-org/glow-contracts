@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 interface IVetoCouncil {
     error CallerNotGovernance();
     error NoRewards();
-    error NotInArray(); //see if we need this....
     error ZeroAddressInConstructor();
     error MaxCouncilMembersExceeded();
 
