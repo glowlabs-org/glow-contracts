@@ -27,6 +27,11 @@ import {DivergenceHandler} from "./Handlers/DivergenceHandler.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
 import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
 
+struct AccountWithPK {
+    uint256 privateKey;
+    address account;
+}
+
 contract GovernanceTest is Test {
     //--------  CONTRACTS ---------//
     MockMinerPoolAndGCA minerPoolAndGCA;
@@ -38,6 +43,7 @@ contract GovernanceTest is Test {
     DivergenceHandler divergenceHandler;
     GrantsTreasury grantsTreasury;
     HoldingContract holdingContract;
+    AccountWithPK[10] accounts;
 
     //--------  ADDRESSES ---------//
     address earlyLiquidity = address(0x2);
@@ -73,6 +79,10 @@ contract GovernanceTest is Test {
         //Make sure we don't start at 0
         governance = new MockGovernance();
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
+        for (uint256 i = 0; i < 10; i++) {
+            (address account, uint256 privateKey) = _createAccount(0x44444 + i, type(uint256).max);
+            accounts[i] = AccountWithPK(privateKey, account);
+        }
         vm.warp(10);
         usdc = new MockUSDC();
         glow = new TestGLOW(earlyLiquidity,vestingContract);
@@ -2159,6 +2169,10 @@ contract GovernanceTest is Test {
         signerPrivateKey = privateKey;
         return (addr, signerPrivateKey);
     }
+
+    // function signCreateProposalDigest(
+    //     uint256 nonce,
+    //     uint
 
     function expectedProposalCost(uint256 numActiveProposals) internal pure returns (uint256) {
         uint256 cost = 1e18;

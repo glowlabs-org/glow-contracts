@@ -12,4 +12,14 @@ contract MockGovernance is Governance {
     function getNominationCostForProposalCreation(uint256 numActiveProposals) public pure returns (uint256) {
         return super._getNominationCostForProposalCreation(numActiveProposals);
     }
+
+    function createSpendNominationsOnProposalDigest(
+        IGovernance.ProposalType proposalType,
+        uint256 nominationsToSpend,
+        uint256 nonce,
+        uint256 deadline,
+        bytes memory data
+    ) external view returns (bytes32) {
+        return _createSpendNominationsOnProposalDigest(proposalType, nominationsToSpend, nonce, deadline, data);
+    }
 }

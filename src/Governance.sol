@@ -37,8 +37,9 @@ contract Governance is IGovernance, EIP712 {
      * @notice  Spend nominations EIP712 Typehash
      */
 
-    bytes32 public constant SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH =
-        keccak256("SpendNominationsOnProposal(uint256 nominationsToSpend,uint256 nonce,uint256 deadline,bytes data)");
+    bytes32 public constant SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH = keccak256(
+        "SpendNominationsOnProposal(uint8 proposalType,uint256 nominationsToSpend,uint256 nonce,uint256 deadline,bytes data)"
+    );
 
     /**
      * @notice The next nonce of a user to use in a spend nominations on proposal transaction
@@ -1304,7 +1305,9 @@ contract Governance is IGovernance, EIP712 {
         uint256 proposalId = _proposalCount;
         uint256 totalNominationsToSpend;
         for (uint256 i; i < signers.length;) {
-            _checkSpendNominationsOnProposalDigest(nominationsToSpend[i], deadlines[i], signers[i], sigs[i], data);
+            _checkSpendNominationsOnProposalDigest(
+                proposalType, nominationsToSpend[i], deadlines[i], signers[i], sigs[i], data
+            );
             _spendNominations(signers[i], nominationsToSpend[i]);
             totalNominationsToSpend += nominationsToSpend[i];
             unchecked {
@@ -1335,6 +1338,7 @@ contract Governance is IGovernance, EIP712 {
 
     /**
      * @dev helper function that checks the signature of a signer
+     * @param proposalType the type of the proposal
      * @param nominationsToSpend the nominations to spend of the signature
      * @param deadline the deadline of the signature
      * @param signer the signer of the signature
@@ -1342,6 +1346,7 @@ contract Governance is IGovernance, EIP712 {
      * @param data the data of the proposal
      */
     function _checkSpendNominationsOnProposalDigest(
+        ProposalType proposalType,
         uint256 nominationsToSpend,
         uint256 deadline,
         address signer,
@@ -1352,7 +1357,8 @@ contract Governance is IGovernance, EIP712 {
         if (block.timestamp > deadline) {
             _revert(IGovernance.SpendNominationsOnProposalSignatureExpired.selector);
         }
-        bytes32 digest = _createSpendNominationsOnProposalDigest(nominationsToSpend, nonce, deadline, data);
+        bytes32 digest =
+            _createSpendNominationsOnProposalDigest(proposalType, nominationsToSpend, nonce, deadline, data);
         if (!SignatureChecker.isValidSignatureNow(signer, digest, sig)) {
             _revert(IGovernance.InvalidSpendNominationsOnProposalSignature.selector);
         }
@@ -1469,6 +1475,7 @@ contract Governance is IGovernance, EIP712 {
 
     /**
      * @dev helper function that creates the digest for a spend nominations on proposal signature
+     * @param proposalType the type of the proposal
      * @param nominationsToSpend the nominations to spend of the signature
      * @param nonce the nonce of the signature
      * @param deadline the deadline of the signature
@@ -1476,6 +1483,7 @@ contract Governance is IGovernance, EIP712 {
      * @return digest the digest of the signature
      */
     function _createSpendNominationsOnProposalDigest(
+        ProposalType proposalType,
         uint256 nominationsToSpend,
         uint256 nonce,
         uint256 deadline,
@@ -1487,7 +1495,12 @@ contract Governance is IGovernance, EIP712 {
                 _domainSeparatorV4(),
                 keccak256(
                     abi.encode(
-                        SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH, nominationsToSpend, nonce, deadline, keccak256(data)
+                        SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH,
+                        uint8(proposalType),
+                        nominationsToSpend,
+                        nonce,
+                        deadline,
+                        keccak256(data)
                     )
                 )
             )
