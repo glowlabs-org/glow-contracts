@@ -9,6 +9,8 @@ import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 /**
  * @title Governance
@@ -29,9 +31,13 @@ import {IMinerPool} from "@/interfaces/IMinerPool.sol";
  *                 - Nominations have a half-life of 52 weeks and are earned by retiring GCC
  *                 - Nominations are used to create and vote on proposals
  */
-contract Governance is IGovernance {
+contract Governance is IGovernance, EIP712 {
     using ABDKMath64x64 for int128;
 
+    bytes32 public constant SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH =
+        keccak256("SpendNominationsOnProposal(uint256 nominationsToSpend,uint256 nonce,uint256 deadline,bytes data)");
+
+    mapping(address => uint256) public spendNominationsOnProposalNonce;
     /**
      * @dev one in 64x64 fixed point
      */
@@ -231,6 +237,11 @@ contract Governance is IGovernance {
      *             - if the bit is set, then the veto council agent has vetoed the most popular proposal for that week
      */
     mapping(address => mapping(uint256 => uint256)) private _hasEndorsedProposalBitmap;
+    //************************************************************* */
+    //*****************  CONSTRUCTOR   ************** */
+    //************************************************************* */
+
+    constructor() payable EIP712("Glow Governance", "1") {}
 
     /**
      * @inheritdoc IGovernance
@@ -937,6 +948,157 @@ contract Governance is IGovernance {
     }
 
     /**
+     * @notice Creates a proposal to send a grant to a recipient
+     */
+    function createGrantsProposalSigs(
+        address grantsRecipient,
+        uint256 amount,
+        bytes32 hash,
+        uint256[] memory deadlines,
+        uint256[] memory nominationsToSpend,
+        address[] memory signers,
+        bytes[] memory sigs
+    ) external {
+        bytes memory data = abi.encode(grantsRecipient, amount, hash);
+        (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
+            deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.GRANTS_PROPOSAL
+        );
+        emit IGovernance.GrantsProposalCreation(proposalId, msg.sender, grantsRecipient, amount, hash, nominationsSpent);
+    }
+
+    /**
+     * @notice Creates a proposal to change the GCA requirements
+     */
+    function createChangeGCARequirementsProposalSigs(
+        bytes32 newRequirementsHash,
+        uint256[] memory deadlines,
+        uint256[] memory nominationsToSpend,
+        address[] memory signers,
+        bytes[] memory sigs
+    ) external {
+        bytes memory data = abi.encode(newRequirementsHash);
+        (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
+            deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS
+        );
+
+        emit IGovernance.ChangeGCARequirementsProposalCreation(
+            proposalId, msg.sender, newRequirementsHash, nominationsSpent
+        );
+    }
+
+    /**
+     * @notice Creates a proposal to create an RFC
+     *     - the pre-image should be made public off-chain
+     *     - if accepted, veto council members must read the RFC (up to 10k Words) and provide a written statement on their thoughts
+     */
+    function createRFCProposalSigs(
+        bytes32 hash,
+        uint256[] memory deadlines,
+        uint256[] memory nominationsToSpend,
+        address[] memory signers,
+        bytes[] memory sigs
+    ) external {
+        bytes memory data = abi.encode(hash);
+        (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
+            deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.REQUEST_FOR_COMMENT
+        );
+        emit IGovernance.RFCProposalCreation(proposalId, msg.sender, hash, nominationsSpent);
+    }
+
+    /**
+     * @notice Creates a proposal to add, replace, or slash GCA council members
+     * @param agentsToSlash an array of all gca's that are to be slashed
+     *         - could be empty
+     *         - could be a subset of the current GCAs
+     *         - could be any address [in order to account for previous GCA's]
+     * @param newGCAs the new GCAs
+     *     -   can be empty if all GCA's are bad actors
+     */
+    function createGCACouncilElectionOrSlashProposalSigs(
+        address[] memory agentsToSlash,
+        address[] memory newGCAs,
+        uint256[] memory deadlines,
+        uint256[] memory nominationsToSpend,
+        address[] memory signers,
+        bytes[] memory sigs
+    ) external {
+        {
+            if (newGCAs.length > _MAX_GCAS_AT_ONE_POINT_IN_TIME) {
+                _revert(IGovernance.MaximumNumberOfGCAS.selector);
+            }
+            if (agentsToSlash.length > _MAX_SLASHES_IN_ONE_GCA_ELECTION) {
+                _revert(IGovernance.MaxSlashesInGCAElection.selector);
+            }
+        }
+
+        bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
+        bool incrementSlashNonce = agentsToSlash.length > 0;
+        bytes memory data = abi.encode(hash, incrementSlashNonce);
+
+        (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
+            deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH
+        );
+        emit IGovernance.GCACouncilElectionOrSlashCreation(
+            proposalId, msg.sender, agentsToSlash, newGCAs, block.timestamp, nominationsSpent
+        );
+    }
+
+    /**
+     * @notice Creates a proposal to add, replace, or slash Veto a single veto council member
+     * @param oldAgent the old agent to be replaced
+     *         -   If the agent is address(0), it means we are simply adding a new agent
+     * @param newAgent the new agent to replace the old agent
+     *         -   If the agent is address(0), it means we are simply removing an agent
+     * @param slashOldAgent whether or not to slash the old agent
+     */
+    function createVetoCouncilElectionOrSlashSigs(
+        address oldAgent,
+        address newAgent,
+        bool slashOldAgent,
+        uint256[] memory deadlines,
+        uint256[] memory nominationsToSpend,
+        address[] memory signers,
+        bytes[] memory sigs
+    ) external {
+        if (oldAgent == newAgent) {
+            _revert(IGovernance.VetoCouncilProposalCreationOldAgentCannotEqualNewAgent.selector);
+        }
+
+        bytes memory data = abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp);
+        (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
+            deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH
+        );
+
+        emit IGovernance.VetoCouncilElectionOrSlash(
+            proposalId, msg.sender, oldAgent, newAgent, slashOldAgent, nominationsSpent
+        );
+    }
+
+    /**
+     * @notice Creates a proposal to change a reserve currency
+     * @param currencyToRemove the currency to remove
+     *     -   If the currency is address(0), it means we are simply adding a new reserve currency
+     * @param newReserveCurrency the new reserve currency
+     *     -   If the currency is address(0), it means we are simply removing a reserve currency
+     */
+    function createChangeReserveCurrencyProposalSigs(
+        address currencyToRemove,
+        address newReserveCurrency,
+        uint256[] memory deadlines,
+        uint256[] memory nominationsToSpend,
+        address[] memory signers,
+        bytes[] memory sigs
+    ) external {
+        bytes memory data = abi.encode(currencyToRemove, newReserveCurrency);
+        (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
+            deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES
+        );
+        emit IGovernance.ChangeReserveCurrenciesProposal(
+            proposalId, msg.sender, currencyToRemove, newReserveCurrency, nominationsSpent
+        );
+    }
+
+    /**
      * @notice Updates the last expired proposal id
      *         - could be called by a good actor to update the last expired proposal id
      *         - so that _numActiveProposalsAndLastExpiredProposalId() is more efficient
@@ -1208,5 +1370,82 @@ contract Governance is IGovernance {
             mstore(0x0, selector)
             revert(0x0, 0x04)
         }
+    }
+
+    function checkBulkSignaturesAndCheckSufficientNominations(
+        uint256[] memory deadlines,
+        uint256[] memory nominationsToSpend,
+        address[] memory signers,
+        bytes[] memory sigs,
+        bytes memory data,
+        IGovernance.ProposalType proposalType
+    ) internal returns (uint256, uint256) {
+        uint256 proposalId = _proposalCount;
+        uint256 totalNominationsToSpend;
+        for (uint256 i; i < signers.length;) {
+            _checkSpendNominationsOnProposalDigest(nominationsToSpend[i], deadlines[i], signers[i], sigs[i], data);
+            _spendNominations(signers[i], nominationsToSpend[i]);
+            totalNominationsToSpend += nominationsToSpend[i];
+            unchecked {
+                ++i;
+            }
+        }
+        uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
+
+        if (totalNominationsToSpend < nominationCost) {
+            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
+        }
+
+        uint256 currentWeek = currentWeek();
+        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposal].votes) {
+            mostPopularProposal[currentWeek] = proposalId;
+        }
+
+        ++proposalId;
+        _proposalCount = proposalId;
+
+        _proposals[proposalId] = IGovernance.Proposal(
+            proposalType, uint64(block.timestamp + _MAX_PROPOSAL_DURATION), uint184(nominationCost), data
+        );
+
+        return (proposalId, totalNominationsToSpend);
+    }
+
+    function _checkSpendNominationsOnProposalDigest(
+        uint256 nominationsToSpend,
+        uint256 deadline,
+        address signer,
+        bytes memory sig,
+        bytes memory data
+    ) internal {
+        uint256 nonce = spendNominationsOnProposalNonce[signer];
+        if (block.timestamp > deadline) {
+            _revert(IGovernance.SpendNominationsOnProposalSignatureExpired.selector);
+        }
+        bytes32 digest = _createSpendNominationsOnProposalDigest(nominationsToSpend, nonce, deadline, data);
+        if (!SignatureChecker.isValidSignatureNow(signer, digest, sig)) {
+            _revert(IGovernance.InvalidSpendNominationsOnProposalSignature.selector);
+        }
+        spendNominationsOnProposalNonce[signer] = nonce + 1;
+    }
+
+    function _createSpendNominationsOnProposalDigest(
+        uint256 nominationsToSpend,
+        uint256 nonce,
+        uint256 deadline,
+        bytes memory data
+    ) internal view returns (bytes32) {
+        return keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                _domainSeparatorV4(),
+                keccak256(
+                    abi.encode(
+                        SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH, nominationsToSpend, nonce, deadline, keccak256(data)
+                    )
+                )
+            )
+        );
     }
 }
