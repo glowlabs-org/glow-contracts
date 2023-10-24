@@ -33,10 +33,17 @@ import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/Signa
  */
 contract Governance is IGovernance, EIP712 {
     using ABDKMath64x64 for int128;
+    /**
+     * @notice  Spend nominations EIP712 Typehash
+     */
 
     bytes32 public constant SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH =
         keccak256("SpendNominationsOnProposal(uint256 nominationsToSpend,uint256 nonce,uint256 deadline,bytes data)");
 
+    /**
+     * @notice The next nonce of a user to use in a spend nominations on proposal transaction
+     * @dev This is used to prevent replay attacks
+     */
     mapping(address => uint256) public spendNominationsOnProposalNonce;
     /**
      * @dev one in 64x64 fixed point
@@ -492,6 +499,15 @@ contract Governance is IGovernance, EIP712 {
         }
 
         numEndorsementsOnWeek[weekId] = numEndorsements;
+    }
+
+    /**
+     * @notice Allows a user to increase their nonce
+     * - This is in case they set a deadline that is too far in the future
+     * - The user can increase their nonce to invalidate the previous signature
+     */
+    function selfIncrementNonce() external {
+        ++spendNominationsOnProposalNonce[msg.sender];
     }
 
     /**
