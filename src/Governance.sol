@@ -1362,16 +1362,22 @@ contract Governance is IGovernance, EIP712 {
     }
 
     /**
-     * @notice More efficiently reverts with a bytes4 selector
-     * @param selector The selector to revert with
+     * @dev helper function that
+     *             1. Checks the signatures of the signers
+     *             2. Checks that the total nominations to spend is greater than the nomination cost
+     *             3. Checks that the deadline has not passed
+     *             4. Spends the nominations
+     *             5. Updates the most popular proposal
+     *             6. Creates the proposal
+     * @param deadlines the deadlines of the signatures
+     * @param nominationsToSpend the nominations to spend of the signatures
+     * @param signers the signers of the signatures
+     * @param sigs the sigs of the signatures
+     * @param data the data of the proposal
+     * @param proposalType the type of the proposal
+     * @return proposalId the id of the proposal that was created
+     * @return totalNominationsToSpend the total nominations that were spent on the proposal
      */
-    function _revert(bytes4 selector) private pure {
-        assembly {
-            mstore(0x0, selector)
-            revert(0x0, 0x04)
-        }
-    }
-
     function checkBulkSignaturesAndCheckSufficientNominations(
         uint256[] memory deadlines,
         uint256[] memory nominationsToSpend,
@@ -1412,6 +1418,14 @@ contract Governance is IGovernance, EIP712 {
         return (proposalId, totalNominationsToSpend);
     }
 
+    /**
+     * @dev helper function that checks the signature of a signer
+     * @param nominationsToSpend the nominations to spend of the signature
+     * @param deadline the deadline of the signature
+     * @param signer the signer of the signature
+     * @param sig the sig of the signature
+     * @param data the data of the proposal
+     */
     function _checkSpendNominationsOnProposalDigest(
         uint256 nominationsToSpend,
         uint256 deadline,
@@ -1430,6 +1444,14 @@ contract Governance is IGovernance, EIP712 {
         spendNominationsOnProposalNonce[signer] = nonce + 1;
     }
 
+    /**
+     * @dev helper function that creates the digest for a spend nominations on proposal signature
+     * @param nominationsToSpend the nominations to spend of the signature
+     * @param nonce the nonce of the signature
+     * @param deadline the deadline of the signature
+     * @param data the data of the proposal
+     * @return digest the digest of the signature
+     */
     function _createSpendNominationsOnProposalDigest(
         uint256 nominationsToSpend,
         uint256 nonce,
@@ -1447,5 +1469,16 @@ contract Governance is IGovernance, EIP712 {
                 )
             )
         );
+    }
+
+    /**
+     * @notice More efficiently reverts with a bytes4 selector
+     * @param selector The selector to revert with
+     */
+    function _revert(bytes4 selector) private pure {
+        assembly {
+            mstore(0x0, selector)
+            revert(0x0, 0x04)
+        }
     }
 }
