@@ -532,8 +532,8 @@ contract Governance is IGovernance, EIP712 {
      * @dev also syncs proposals if need be.
      */
     function useNominationsOnProposal(uint256 proposalId, uint256 amount) public {
-        _revertIfProposalExecuted(proposalId);
         syncProposals();
+        _revertIfProposalExecuted(proposalId);
         uint256 currentBalance = nominationsOf(msg.sender);
         uint256 nominationEndTimestamp = _proposals[proposalId].expirationTimestamp;
         /// @dev we don't need this check, but we add it for clarity on the revert reason
@@ -570,8 +570,8 @@ contract Governance is IGovernance, EIP712 {
      * @param proposalId The ID of the proposal to set as the most popular.
      */
     function setMostPopularProposalForCurrentWeek(uint256 proposalId) external {
-        _revertIfProposalExecuted(proposalId);
         syncProposals();
+        _revertIfProposalExecuted(proposalId);
         // get the current week
         uint256 currentWeek = currentWeek();
         // get the most popular proposal for the current week
