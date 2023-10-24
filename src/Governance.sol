@@ -250,6 +250,10 @@ contract Governance is IGovernance, EIP712 {
 
     constructor() payable EIP712("Glow Governance", "1") {}
 
+    //************************************************************* */
+    //************  EXTERNAL/STATE CHANGING FUNCS    ************* */
+    //************************************************************* */
+
     /**
      * @inheritdoc IGovernance
      * @dev proposal execution should be sub-100k gas
@@ -413,53 +417,6 @@ contract Governance is IGovernance, EIP712 {
         }
     }
 
-    function handleProposalExecution(uint256 proposalId, IGovernance.ProposalType proposalType, bytes memory data)
-        internal
-    {
-        bool success;
-        if (proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
-            (address oldAgent, address newAgent, bool slashOldAgent) = abi.decode(data, (address, address, bool));
-            success = IVetoCouncil(_vetoCouncil).addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent);
-        }
-
-        if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
-            (bytes32 hash, bool incrementSlashNonce) = abi.decode(data, (bytes32, bool));
-            //push hash should never revert;
-            IGCA(_gca).pushHash(hash, incrementSlashNonce);
-            success = true;
-        }
-
-        if (proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES) {
-            (address oldReserveCurrency, address newReserveCurrency) = abi.decode(data, (address, address));
-            success = IMinerPool(_gca).editReserveCurrencies(oldReserveCurrency, newReserveCurrency);
-        }
-
-        if (proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL) {
-            (address grantsRecipient, uint256 amount,) = abi.decode(data, (address, uint256, bytes32));
-            success = IGrantsTreasury(_grantsTreasury).allocateGrantFunds(grantsRecipient, amount);
-        }
-
-        if (proposalType == IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS) {
-            (bytes32 newRequirementsHash) = abi.decode(data, (bytes32));
-            //setRequirementsHash should never revert
-            IGCA(_gca).setRequirementsHash(newRequirementsHash);
-            success = true;
-        }
-
-        if (proposalType == IGovernance.ProposalType.REQUEST_FOR_COMMENT) {
-            bytes32 rfcHash = abi.decode(data, (bytes32));
-            //Emitting the event should never revert
-            emit IGovernance.RFCProposalExecuted(proposalId, rfcHash);
-            success = true;
-        }
-
-        if (success) {
-            _setProposalStatus(proposalId, IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY);
-        } else {
-            _setProposalStatus(proposalId, IGovernance.ProposalStatus.EXECUTED_WITH_ERROR);
-        }
-    }
-
     /**
      * @inheritdoc IGovernance
      */
@@ -510,18 +467,6 @@ contract Governance is IGovernance, EIP712 {
         ++spendNominationsOnProposalNonce[msg.sender];
     }
 
-    /**
-     * @notice returns {true} if a gca has endorsed the proposal at {weekId}
-     */
-    function hasEndorsedProposal(address gca, uint256 weekId) external view returns (bool) {
-        uint256 key = weekId / 256;
-        uint256 shift = weekId % 256;
-        return _hasEndorsedProposalBitmap[gca][key] & (1 << shift) != 0;
-    }
-
-    //************************************************************* */
-    //************  EXTERNAL/STATE CHANGING FUNCS    ************* */
-    //************************************************************* */
     /**
      * @notice entrypoint for veto council members to veto a most popular proposal
      * @param weekId - the id of the week to veto the most popular proposal in
@@ -1127,6 +1072,14 @@ contract Governance is IGovernance, EIP712 {
     //************************************************************* */
     //***************  PUBLIC/EXTERNAL VIEW FUNCTIONS    **************** */
     //************************************************************* */
+    /**
+     * @notice returns {true} if a gca has endorsed the proposal at {weekId}
+     */
+    function hasEndorsedProposal(address gca, uint256 weekId) external view returns (bool) {
+        uint256 key = weekId / 256;
+        uint256 shift = weekId % 256;
+        return _hasEndorsedProposalBitmap[gca][key] & (1 << shift) != 0;
+    }
 
     /**
      * @notice Gets the amount of nominations that an account has
@@ -1212,6 +1165,59 @@ contract Governance is IGovernance, EIP712 {
     //************************************************************* */
 
     /**
+     * @dev internal function to execute a proposal
+     * @param proposalId the id of the proposal
+     * @param proposalType the type of the proposal
+     * @param data the data of the proposal
+     */
+    function handleProposalExecution(uint256 proposalId, IGovernance.ProposalType proposalType, bytes memory data)
+        internal
+    {
+        bool success;
+        if (proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
+            (address oldAgent, address newAgent, bool slashOldAgent) = abi.decode(data, (address, address, bool));
+            success = IVetoCouncil(_vetoCouncil).addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent);
+        }
+
+        if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
+            (bytes32 hash, bool incrementSlashNonce) = abi.decode(data, (bytes32, bool));
+            //push hash should never revert;
+            IGCA(_gca).pushHash(hash, incrementSlashNonce);
+            success = true;
+        }
+
+        if (proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES) {
+            (address oldReserveCurrency, address newReserveCurrency) = abi.decode(data, (address, address));
+            success = IMinerPool(_gca).editReserveCurrencies(oldReserveCurrency, newReserveCurrency);
+        }
+
+        if (proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL) {
+            (address grantsRecipient, uint256 amount,) = abi.decode(data, (address, uint256, bytes32));
+            success = IGrantsTreasury(_grantsTreasury).allocateGrantFunds(grantsRecipient, amount);
+        }
+
+        if (proposalType == IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS) {
+            (bytes32 newRequirementsHash) = abi.decode(data, (bytes32));
+            //setRequirementsHash should never revert
+            IGCA(_gca).setRequirementsHash(newRequirementsHash);
+            success = true;
+        }
+
+        if (proposalType == IGovernance.ProposalType.REQUEST_FOR_COMMENT) {
+            bytes32 rfcHash = abi.decode(data, (bytes32));
+            //Emitting the event should never revert
+            emit IGovernance.RFCProposalExecuted(proposalId, rfcHash);
+            success = true;
+        }
+
+        if (success) {
+            _setProposalStatus(proposalId, IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY);
+        } else {
+            _setProposalStatus(proposalId, IGovernance.ProposalStatus.EXECUTED_WITH_ERROR);
+        }
+    }
+
+    /**
      * @dev internal function to get the cost for a new proposal and also update the
      *         -  last expired proposal id if need be
      */
@@ -1222,16 +1228,17 @@ contract Governance is IGovernance, EIP712 {
     }
 
     /**
-     * @notice Gets the nomination cost for proposal creation based on {numActiveProposals}
-     * @param numActiveProposals the number of active proposals
-     * @return res the nomination cost for proposal creation
-     * @dev calculates cost as 1 * 1.1^numActiveProposals
-     * @dev we only use 4 decimals of precision
+     * @dev helper func to spend nominations from an account
+     *         -   should never be public
+     * @param account the account to spend nominations from
+     * @param amount the amount of nominations to spend
      */
-    function _getNominationCostForProposalCreation(uint256 numActiveProposals) internal pure returns (uint256) {
-        uint256 res = _ONE_64x64.mul(ABDKMath64x64.pow(_ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
-        // uint256 resInt = res.toUInt();
-        return res * 1e14;
+    function _spendNominations(address account, uint256 amount) internal {
+        uint256 currentBalance = nominationsOf(account);
+        if (currentBalance < amount) {
+            _revert(IGovernance.InsufficientNominations.selector);
+        }
+        _nominations[account] = Nominations(uint192(currentBalance - amount), uint64(block.timestamp));
     }
 
     /**
@@ -1252,47 +1259,6 @@ contract Governance is IGovernance, EIP712 {
     }
 
     /**
-     * @dev helper func to spend nominations from an account
-     *         -   should never be public
-     * @param account the account to spend nominations from
-     * @param amount the amount of nominations to spend
-     */
-    function _spendNominations(address account, uint256 amount) private {
-        uint256 currentBalance = nominationsOf(account);
-        if (currentBalance < amount) {
-            _revert(IGovernance.InsufficientNominations.selector);
-        }
-        _nominations[account] = Nominations(uint192(currentBalance - amount), uint64(block.timestamp));
-    }
-
-    /**
-     * @notice Gets the number of active proposals and the last expired proposal id
-     * @return numActiveProposals the number of active proposals
-     * @return _lastExpiredProposalId the last expired proposal id
-     * @return updateState whether or not to update the state
-     */
-    function _numActiveProposalsAndLastExpiredProposalId()
-        internal
-        view
-        returns (uint256 numActiveProposals, uint256 _lastExpiredProposalId, bool updateState)
-    {
-        uint256 cachedLastExpiredProposalId = lastExpiredProposalId;
-        _lastExpiredProposalId = cachedLastExpiredProposalId;
-        uint256 __proposalCount = _proposalCount;
-        _lastExpiredProposalId = _lastExpiredProposalId == 0 ? 1 : _lastExpiredProposalId;
-        unchecked {
-            for (uint256 i = _lastExpiredProposalId; i < _proposalCount; ++i) {
-                if (_proposals[i].expirationTimestamp < block.timestamp) {
-                    _lastExpiredProposalId = i;
-                } else {
-                    break;
-                }
-            }
-        }
-        numActiveProposals = _proposalCount - _lastExpiredProposalId;
-        updateState = _lastExpiredProposalId != cachedLastExpiredProposalId;
-    }
-    /**
      * @notice Gets the number of active proposals and the last expired proposal id
      * @dev also updates state
      * @return numActiveProposals the number of active proposals
@@ -1307,73 +1273,6 @@ contract Governance is IGovernance, EIP712 {
         (numActiveProposals, _lastExpiredProposalId, updateState) = _numActiveProposalsAndLastExpiredProposalId();
         if (updateState) {
             lastExpiredProposalId = _lastExpiredProposalId;
-        }
-    }
-
-    /**
-     * @dev returns true if the proposal is eligible for execution
-     * returns false otherwise
-     * @param proposalId - the proposal id to check
-     */
-    function isProposalEligibleForExecution(uint256 proposalId) internal view returns (bool) {
-        //If the proposal is vetoed, we can skip the execution
-        //We still need to update the lastExecutedWeek so the next proposal can be executed
-        //We also skip execution if the proposal somehow gets elected twice for execution
-        IGovernance.ProposalStatus status = getProposalStatus(proposalId);
-        if (status == IGovernance.ProposalStatus.VETOED) {
-            return false;
-        }
-        if (
-            status == IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY
-                || status == IGovernance.ProposalStatus.EXECUTED_WITH_ERROR
-        ) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @notice finds the time at which the week ends
-     * @dev for example, {weekNumber = 1} would give the timestamp at which week 1 would be over
-     * @param weekNumber - the week number to find the end timestamp for
-     * @return endTimestamp - the end timestamp of the week number
-     */
-    function _weekEndTime(uint256 weekNumber) internal view returns (uint256) {
-        return _genesisTimestamp + ((weekNumber + 1) * _ONE_WEEK);
-    }
-
-    /**
-     * @dev reverts if the address is the zero address
-     * @param a the address to check
-     */
-    function _checkZeroAddress(address a) private pure {
-        if (_isZeroAddress(a)) {
-            _revert(IGovernance.ZeroAddressNotAllowed.selector);
-        }
-    }
-
-    /**
-     * @dev efficiently determines if an address is the zero address
-     * @param a the address to check
-     */
-    function _isZeroAddress(address a) private pure returns (bool isZero) {
-        assembly {
-            isZero := iszero(a)
-        }
-    }
-
-    /**
-     * @dev reverts if the proposal has already been executed
-     * @param proposalId the id of the proposal
-     */
-    function _revertIfProposalExecuted(uint256 proposalId) internal view {
-        IGovernance.ProposalStatus status = getProposalStatus(proposalId);
-        if (
-            status == IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY
-                || status == IGovernance.ProposalStatus.EXECUTED_WITH_ERROR
-        ) {
-            _revert(IGovernance.ProposalAlreadyExecuted.selector);
         }
     }
 
@@ -1458,6 +1357,114 @@ contract Governance is IGovernance, EIP712 {
             _revert(IGovernance.InvalidSpendNominationsOnProposalSignature.selector);
         }
         spendNominationsOnProposalNonce[signer] = nonce + 1;
+    }
+
+    /**
+     * @notice Gets the nomination cost for proposal creation based on {numActiveProposals}
+     * @param numActiveProposals the number of active proposals
+     * @return res the nomination cost for proposal creation
+     * @dev calculates cost as 1 * 1.1^numActiveProposals
+     * @dev we only use 4 decimals of precision
+     */
+    function _getNominationCostForProposalCreation(uint256 numActiveProposals) internal pure returns (uint256) {
+        uint256 res = _ONE_64x64.mul(ABDKMath64x64.pow(_ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
+        // uint256 resInt = res.toUInt();
+        return res * 1e14;
+    }
+
+    /**
+     * @notice Gets the number of active proposals and the last expired proposal id
+     * @return numActiveProposals the number of active proposals
+     * @return _lastExpiredProposalId the last expired proposal id
+     * @return updateState whether or not to update the state
+     */
+    function _numActiveProposalsAndLastExpiredProposalId()
+        internal
+        view
+        returns (uint256 numActiveProposals, uint256 _lastExpiredProposalId, bool updateState)
+    {
+        uint256 cachedLastExpiredProposalId = lastExpiredProposalId;
+        _lastExpiredProposalId = cachedLastExpiredProposalId;
+        uint256 __proposalCount = _proposalCount;
+        _lastExpiredProposalId = _lastExpiredProposalId == 0 ? 1 : _lastExpiredProposalId;
+        unchecked {
+            for (uint256 i = _lastExpiredProposalId; i < _proposalCount; ++i) {
+                if (_proposals[i].expirationTimestamp < block.timestamp) {
+                    _lastExpiredProposalId = i;
+                } else {
+                    break;
+                }
+            }
+        }
+        numActiveProposals = _proposalCount - _lastExpiredProposalId;
+        updateState = _lastExpiredProposalId != cachedLastExpiredProposalId;
+    }
+
+    /**
+     * @dev returns true if the proposal is eligible for execution
+     * returns false otherwise
+     * @param proposalId - the proposal id to check
+     */
+    function isProposalEligibleForExecution(uint256 proposalId) internal view returns (bool) {
+        //If the proposal is vetoed, we can skip the execution
+        //We still need to update the lastExecutedWeek so the next proposal can be executed
+        //We also skip execution if the proposal somehow gets elected twice for execution
+        IGovernance.ProposalStatus status = getProposalStatus(proposalId);
+        if (status == IGovernance.ProposalStatus.VETOED) {
+            return false;
+        }
+        if (
+            status == IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY
+                || status == IGovernance.ProposalStatus.EXECUTED_WITH_ERROR
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+    /**
+     * @dev reverts if the proposal has already been executed
+     * @param proposalId the id of the proposal
+     */
+
+    function _revertIfProposalExecuted(uint256 proposalId) internal view {
+        IGovernance.ProposalStatus status = getProposalStatus(proposalId);
+        if (
+            status == IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY
+                || status == IGovernance.ProposalStatus.EXECUTED_WITH_ERROR
+        ) {
+            _revert(IGovernance.ProposalAlreadyExecuted.selector);
+        }
+    }
+    /**
+     * @notice finds the time at which the week ends
+     * @dev for example, {weekNumber = 1} would give the timestamp at which week 1 would be over
+     * @param weekNumber - the week number to find the end timestamp for
+     * @return endTimestamp - the end timestamp of the week number
+     */
+
+    function _weekEndTime(uint256 weekNumber) internal view returns (uint256) {
+        return _genesisTimestamp + ((weekNumber + 1) * _ONE_WEEK);
+    }
+
+    /**
+     * @dev reverts if the address is the zero address
+     * @param a the address to check
+     */
+    function _checkZeroAddress(address a) private pure {
+        if (_isZeroAddress(a)) {
+            _revert(IGovernance.ZeroAddressNotAllowed.selector);
+        }
+    }
+
+    /**
+     * @dev efficiently determines if an address is the zero address
+     * @param a the address to check
+     */
+    function _isZeroAddress(address a) private pure returns (bool isZero) {
+        assembly {
+            isZero := iszero(a)
+        }
     }
 
     /**
