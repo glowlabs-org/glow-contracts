@@ -560,6 +560,7 @@ contract Governance is IGovernance {
      * @dev also syncs proposals if need be.
      */
     function useNominationsOnProposal(uint256 proposalId, uint256 amount) public {
+        _revertIfProposalExecuted(proposalId);
         syncProposals();
         uint256 currentBalance = nominationsOf(msg.sender);
         uint256 nominationEndTimestamp = _proposals[proposalId].expirationTimestamp;
@@ -597,6 +598,7 @@ contract Governance is IGovernance {
      * @param proposalId The ID of the proposal to set as the most popular.
      */
     function setMostPopularProposalForCurrentWeek(uint256 proposalId) external {
+        _revertIfProposalExecuted(proposalId);
         syncProposals();
         // get the current week
         uint256 currentWeek = currentWeek();
@@ -1180,6 +1182,20 @@ contract Governance is IGovernance {
     function _isZeroAddress(address a) private pure returns (bool isZero) {
         assembly {
             isZero := iszero(a)
+        }
+    }
+
+    /**
+     * @dev reverts if the proposal has already been executed
+     * @param proposalId the id of the proposal
+     */
+    function _revertIfProposalExecuted(uint256 proposalId) internal view {
+        IGovernance.ProposalStatus status = getProposalStatus(proposalId);
+        if (
+            status == IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY
+                || status == IGovernance.ProposalStatus.EXECUTED_WITH_ERROR
+        ) {
+            _revert(IGovernance.ProposalAlreadyExecuted.selector);
         }
     }
 

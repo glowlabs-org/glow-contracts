@@ -198,7 +198,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     //----------------- CLAIMING -----------------//
 
-
     /**
      * @notice Handles minting to the carbon credit auction in case the bucket is finalized and no one has claimed from it
      * @param bucketId - the id of the bucket
@@ -211,7 +210,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint256 amountToMint = globalPackedState & _UINT128_MASK;
         _handleMintToCarbonCreditAuction(bucketId, amountToMint);
     }
-
 
     /**
      * @notice allows a user to claim their rewards for a bucket
