@@ -11,7 +11,7 @@ import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-
+import "forge-std/console.sol";
 /**
  * @title Governance
  * @author DavidVorick
@@ -31,6 +31,7 @@ import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/Signa
  *                 - Nominations have a half-life of 52 weeks and are earned by retiring GCC
  *                 - Nominations are used to create and vote on proposals
  */
+
 contract Governance is IGovernance, EIP712 {
     using ABDKMath64x64 for int128;
     /**
@@ -922,6 +923,7 @@ contract Governance is IGovernance, EIP712 {
         bytes[] memory sigs
     ) external {
         bytes memory data = abi.encode(grantsRecipient, amount, hash);
+
         (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
             deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.GRANTS_PROPOSAL
         );
@@ -1326,12 +1328,12 @@ contract Governance is IGovernance, EIP712 {
             mostPopularProposal[currentWeek] = proposalId;
         }
 
-        ++proposalId;
-        _proposalCount = proposalId;
-
         _proposals[proposalId] = IGovernance.Proposal(
             proposalType, uint64(block.timestamp + _MAX_PROPOSAL_DURATION), uint184(nominationCost), data
         );
+
+        ++proposalId;
+        _proposalCount = proposalId;
 
         return (proposalId, totalNominationsToSpend);
     }

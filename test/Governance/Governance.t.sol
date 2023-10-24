@@ -287,6 +287,51 @@ contract GovernanceTest is Test {
     //----------------  CREATE PROPOSALS -----------------//
     //----------------------------------------------------//
 
+    function test_signatures_createGrantsProposal() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+
+        uint256 amount = 10 ether; //10 gcc
+        bytes32 hash = keccak256("test info");
+
+        uint256 creationTimestamp = block.timestamp;
+
+        uint256 nominationsToUse = governance.costForNewProposal();
+        bytes memory data = abi.encode(grantsRecipient, amount, hash);
+        uint256 signingTimestamp = block.timestamp + 10;
+        bytes memory signature = signCreateProposalDigest(
+            SIMON_PRIVATE_KEY,
+            IGovernance.ProposalType.GRANTS_PROPOSAL,
+            nominationsToUse,
+            governance.spendNominationsOnProposalNonce(SIMON),
+            signingTimestamp,
+            data
+        );
+        {
+            uint256[] memory deadlines = new uint256[](1);
+            deadlines[0] = signingTimestamp;
+            address[] memory signers = new address[](1);
+            signers[0] = SIMON;
+            bytes[] memory sigs = new bytes[](1);
+            sigs[0] = signature;
+            uint256[] memory noms = new uint256[](1);
+            noms[0] = nominationsToUse;
+            governance.createGrantsProposalSigs(grantsRecipient, amount, hash, deadlines, noms, signers, sigs);
+        }
+        IGovernance.Proposal memory proposal = governance.proposals(1);
+        (address recipient, uint256 amount_, bytes32 hash_) = abi.decode(proposal.data, (address, uint256, bytes32));
+        assertEq(recipient, grantsRecipient);
+        assertEq(amount_, amount);
+        assertEq(hash_, hash);
+        assertEq(governance.proposalCount(), 1);
+        assertTrue(proposal.proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL);
+        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        assertEq(proposal.votes, nominationsToUse);
+        vm.stopPrank();
+    }
+
     function test_createGrantsProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
@@ -2170,9 +2215,31 @@ contract GovernanceTest is Test {
         return (addr, signerPrivateKey);
     }
 
-    // function signCreateProposalDigest(
-    //     uint256 nonce,
-    //     uint
+    function signCreateProposalDigestLessParams(
+        AccountWithPK memory account,
+        IGovernance.ProposalType proposalType,
+        uint256 nominationsToSpend,
+        bytes memory data
+    ) internal view returns (bytes memory signature) {
+        uint256 deadline = block.timestamp + ONE_WEEK;
+        uint256 nonce = governance.spendNominationsOnProposalNonce(account.account);
+        return signCreateProposalDigest(account.privateKey, proposalType, nominationsToSpend, nonce, deadline, data);
+    }
+
+    function signCreateProposalDigest(
+        uint256 privateKey,
+        IGovernance.ProposalType proposalType,
+        uint256 nominationsToSpend,
+        uint256 nonce,
+        uint256 deadline,
+        bytes memory data
+    ) internal view returns (bytes memory signature) {
+        bytes32 digest =
+            governance.createSpendNominationsOnProposalDigest(proposalType, nominationsToSpend, nonce, deadline, data);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+        signature = abi.encodePacked(r, s, v);
+        return signature;
+    }
 
     function expectedProposalCost(uint256 numActiveProposals) internal pure returns (uint256) {
         uint256 cost = 1e18;
