@@ -1025,6 +1025,40 @@ contract MinerPoolAndGCATest is Test {
         vm.stopPrank();
     }
 
+    function test_delayBucketFinalization_bucketAlreadyFinalized_shouldRevert() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 101 * 1e15;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.startPrank(SIMON);
+        //simon is a council member in the `setUp` function
+        uint256 finalizationTimestampBefore = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+        vm.warp(block.timestamp + (604800 * 2));
+        vm.expectRevert(IGCA.BucketAlreadyFinalized.selector);
+        minerPoolAndGCA.delayBucketFinalization(0);
+        vm.stopPrank();
+    }
+
     function test_delayBucketFinalization_twoDelaysShouldRevert() public {
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
         uint256 totalGlwWeight;
