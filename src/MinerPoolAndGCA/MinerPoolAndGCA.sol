@@ -89,7 +89,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      *         it's not worth the additional complexity and gas costs on each subsequent write
      *         to handle the packing and unpacking.
      */
-    mapping(uint256 => PushedWeights) private _weightsPushed;
+    mapping(uint256 => PushedWeights) internal _weightsPushed;
 
     //************************************************************* */
     //*****************  CONSTRUCTOR   ************** */

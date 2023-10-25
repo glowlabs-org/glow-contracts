@@ -55,4 +55,29 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
     function setGRCToken(address grcToken, bool adding, uint256 currentBucket) public {
         _setGRCToken(grcToken, adding, currentBucket);
     }
+
+    /**
+     * @dev checks to make sure the weights in the report
+     *         - dont overflow the total weights that have been set for the bucket
+     *         - Without this check, a malicious weight could be used to overflow the total weights
+     *         - and grab rewards from other buckets
+     * @param bucketId - the id of the bucket
+     * @param totalGlwWeight - the total amount of glw weight for the bucket
+     * @param totalGrcWeight - the total amount of grc weight for the bucket
+     * @param glwWeight - the glw weight of the leaf in the report being claimed
+     * @param grcWeight - the grc weight of the leaf in the report being claimed
+     */
+    function checkWeightsForOverflow(
+        uint256 bucketId,
+        uint256 totalGlwWeight,
+        uint256 totalGrcWeight,
+        uint256 glwWeight,
+        uint256 grcWeight
+    ) external {
+        _checkWeightsForOverflow(bucketId, totalGlwWeight, totalGrcWeight, glwWeight, grcWeight);
+    }
+
+    function pushedWeights(uint256 bucketId) external view returns (uint64, uint64) {
+        return (_weightsPushed[bucketId].pushedGlwWeight, _weightsPushed[bucketId].pushedGrcWeight);
+    }
 }

@@ -190,6 +190,70 @@ contract MinerPoolAndGCATest is Test {
         str = string(abi.encodePacked(str, "]"));
     }
 
+    function test_setGCC() public {
+        //Make sure we don't start at 0
+        (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
+        vm.warp(10);
+        usdc = new MockUSDC();
+        (defaultAddressInWithdraw, defaultAddressPrivateKey) = _createAccount(2313141231, type(uint256).max);
+        glow = new TestGLOW(earlyLiquidity,vestingContract);
+        bucketDelayHandler = new BucketDelayHandler();
+        address[] memory temp = new address[](0);
+        address[] memory startingAgents = new address[](2);
+        startingAgents[0] = address(SIMON);
+        startingAgents[1] = address(bucketDelayHandler);
+        vetoCouncil = new VetoCouncil(governance, address(glow),startingAgents);
+        vetoCouncilAddress = address(vetoCouncil);
+        holdingContract = new HoldingContract(vetoCouncilAddress);
+        minerPoolAndGCA =
+        new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
+        gcc = new TestGCC(address(minerPoolAndGCA),governance,address(glow));
+
+        minerPoolAndGCA.setGCC(address(gcc));
+        vm.expectRevert(IGCA.GCCAlreadySet.selector);
+        minerPoolAndGCA.setGCC(address(gcc));
+    }
+
+    function test_checkWeightsForOverflow() public {
+        uint256 bucketId = 0;
+        uint256 totalGlwWeight = type(uint64).max;
+        uint256 totalGrcWeight = type(uint64).max;
+        uint256 glwWeight = type(uint64).max;
+        uint256 grcWeight = type(uint64).max;
+
+        minerPoolAndGCA.checkWeightsForOverflow(bucketId, totalGlwWeight, totalGrcWeight, glwWeight, grcWeight);
+
+        //Any overflow to totalGlwWeight should revert
+        vm.expectRevert(stdError.arithmeticError);
+        minerPoolAndGCA.checkWeightsForOverflow(bucketId, 1, totalGrcWeight, glwWeight, grcWeight);
+        vm.expectRevert(stdError.arithmeticError);
+        minerPoolAndGCA.checkWeightsForOverflow(bucketId, totalGlwWeight, 1, glwWeight, grcWeight);
+
+        // //Any overflow to totalGlwWeight should revert
+        vm.expectRevert(stdError.arithmeticError);
+        minerPoolAndGCA.checkWeightsForOverflow(bucketId, type(uint256).max, totalGrcWeight, glwWeight, grcWeight);
+        vm.expectRevert(stdError.arithmeticError);
+        minerPoolAndGCA.checkWeightsForOverflow(bucketId, totalGlwWeight, type(uint256).max, glwWeight, grcWeight);
+    }
+
+    function testFuzz_checkWeightsForOverflow2(uint256 weight) public {
+        //We check to make sure even if weights > uint64.max make it in,
+        //those will be cast to uint64.max and not overflow
+        //Ultimately, this should result in a revert because the weights are too high
+        vm.assume(weight > uint256(type(uint64).max));
+        uint256 bucketId = 0;
+        uint256 totalGlwWeight = weight;
+        uint256 totalGrcWeight = weight;
+        uint256 glwWeight = type(uint64).max;
+        uint256 grcWeight = type(uint64).max;
+
+        // vm.expectRevert(stdError.arithmeticError);
+        minerPoolAndGCA.checkWeightsForOverflow(bucketId, totalGlwWeight, totalGrcWeight, glwWeight, grcWeight);
+        (uint256 a, uint256 b) = minerPoolAndGCA.pushedWeights(0);
+        assert(a == type(uint64).max);
+        assert(b == type(uint64).max);
+    }
+
     function test_CreateClaimLeafProof() public {
         ClaimLeaf[] memory leaves = new ClaimLeaf[](5);
         for (uint256 i; i < leaves.length; ++i) {
