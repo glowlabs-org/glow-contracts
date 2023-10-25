@@ -780,6 +780,31 @@ contract GCATest is Test {
         }
     }
 
+    function test_isGCA_shouldReturnTrue_ifGCA() public {
+        addGCA(SIMON);
+        assertTrue(gca.isGCA(SIMON));
+    }
+
+    function test_isGCA_whenProposalHashesNotUpdated_shouldReturnFalse() public {
+        addGCA(SIMON);
+        vm.startPrank(SIMON);
+        bytes32 proposalHash = keccak256("proposal hash");
+        gca.pushRequirementsHashMock(proposalHash);
+        assert(!gca.isGCA(SIMON));
+    }
+
+    function test_isGCA_whenProposalHashesUpdated_shouldReturnTrue() public {
+        addGCA(SIMON);
+        address[] memory gcasToSlash = new address[](0);
+        address[] memory newGCAs = new address[](1);
+        newGCAs[0] = SIMON;
+        uint ts = block.timestamp;
+        bytes32 hash = keccak256(abi.encode(gcasToSlash,newGCAs,ts));
+        gca.pushRequirementsHashMock(hash);
+        gca.executeAgainstHash(gcasToSlash, newGCAs, ts);
+        assert(gca.isGCA(SIMON));
+    }
+
     /**
      * note: the arithmetic checks for sending correct amounts is done
      *             - in the glow tests
