@@ -333,6 +333,17 @@ contract MinerPoolAndGCATest is Test {
         vm.stopPrank();
     }
 
+    function testFuzz_currentWeekInternal_makeCoverageHappy(uint256 warpSeconds) public {
+        vm.assume(warpSeconds < 500_000 weeks);
+        vm.warp(block.timestamp + warpSeconds);
+        uint256 currentWeek = minerPoolAndGCA.currentWeekInternal();
+        assertEq(minerPoolAndGCA.currentBucket(), currentWeek);
+    }
+
+    function test_domainSeperatorV4_makeCoverageHappy() public {
+        assert(minerPoolAndGCA.domainSeperatorOZ() == minerPoolAndGCA.domainSeperatorV4MainInternal());
+    }
+
     function test_withdrawFromBucket_shouldAddToHoldings() public {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
