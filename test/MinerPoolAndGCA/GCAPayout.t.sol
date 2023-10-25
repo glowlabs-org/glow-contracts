@@ -16,6 +16,8 @@ import {TestGLOW} from "@/testing/TestGLOW.sol";
 import {Handler} from "./Handlers/Handler.GCA.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
+import {GCASalaryHelper} from "@/MinerPoolAndGCA/GCASalaryHelper.sol";
+import {MockGovernance} from "@/testing/MockGovernance.sol";
 
 contract GCAPayoutTest is Test {
     //--------  CONTRACTS ---------//
@@ -222,6 +224,87 @@ contract GCAPayoutTest is Test {
         // console.log("nonce 1 shift start", gca.paymentNonceToShiftStartTimestamp(1));
         // console.log("withdrawableBalance: %s", withdrawableBalance);
         // console.log("slashableBalance: %s", slashableBalance);
+        vm.stopPrank();
+    }
+
+    function test_claimPayout_slashedAgent_claimPayout_shouldRevert() public {
+        vm.warp(block.timestamp + 5 weeks);
+        //Claiming before should be ok.
+        vm.startPrank(startingGCAs[0]);
+        gca.claimPayout({
+            user: startingGCAs[0],
+            paymentNonce: 0,
+            activeGCAsAtPaymentNonce: startingGCAs,
+            userIndex: 0,
+            claimFromInflation: true,
+            sig: bytes("")
+        });
+        vm.stopPrank();
+        vm.warp(block.timestamp + 5 weeks);
+
+        address[] memory gcasToSlash = new address[](1);
+        gcasToSlash[0] = startingGCAs[0];
+
+        address[] memory newGCAs = _getAddressArray(5, 9000000);
+        uint256 timestamp = block.timestamp;
+        bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, timestamp));
+        gca.pushRequirementsHashMock(hash);
+        gca.incrementSlashNonce();
+        gca.executeAgainstHash(gcasToSlash, newGCAs, timestamp);
+
+        vm.expectRevert(GCASalaryHelper.SlashedAgentCannotClaimReward.selector);
+        gca.claimPayout({
+            user: startingGCAs[0],
+            paymentNonce: 0,
+            activeGCAsAtPaymentNonce: startingGCAs,
+            userIndex: 0,
+            claimFromInflation: true,
+            sig: bytes("")
+        });
+    }
+
+    function test_claimPayout_activeGCAsAtPaymentNonce_doNotMatch_shouldRevert() public {
+        startingGCAs[1] = address(0xdeddd);
+        vm.warp(block.timestamp + 5 weeks);
+        vm.expectRevert(GCASalaryHelper.InvalidGCAHash.selector);
+        vm.startPrank(startingGCAs[0]);
+        gca.claimPayout({
+            user: startingGCAs[0],
+            paymentNonce: 0,
+            activeGCAsAtPaymentNonce: startingGCAs,
+            userIndex: 0,
+            claimFromInflation: true,
+            sig: bytes("")
+        });
+        vm.stopPrank();
+    }
+
+    function test_claimPayout_invalidGCAIndex_shouldRevert() public {
+        vm.warp(block.timestamp + 5 weeks);
+        vm.expectRevert(GCASalaryHelper.InvalidUserIndex.selector);
+        vm.startPrank(startingGCAs[0]);
+        gca.claimPayout({
+            user: startingGCAs[0],
+            paymentNonce: 0,
+            activeGCAsAtPaymentNonce: startingGCAs,
+            userIndex: 1, //user index is 0, not 1, so we should revert
+            claimFromInflation: true,
+            sig: bytes("")
+        });
+        vm.stopPrank();
+    }
+
+    function test_sharesDoNotAddUpTo100_000_shouldRevert() public {
+        vm.startPrank(startingGCAs[0]);
+        //for the new comp plan, i want to distribute the shares as follows:
+        //  1. 50% to me (the first GCA)
+        //  2. 25% to the second GCA
+        //  3. 25% to the third GCA
+        //  4. 0% to the fourth GCA
+        //  5. 0% to the fifth GCA
+        uint32[5] memory newCompPlan = [uint32(50_000), 24_999, 25_000, 0, 0];
+        vm.expectRevert(GCASalaryHelper.InvalidShares.selector);
+        gca.submitCompensationPlan(newCompPlan, 0);
         vm.stopPrank();
     }
 
