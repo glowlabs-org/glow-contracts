@@ -10,6 +10,7 @@ contract MD2 is BucketSubmission {
     }
 
     function addGRCToken(address grcToken) external {
-        _setGRCToken(grcToken, true, currentBucket());
+        (bool res, BucketSubmission.BucketTracker memory tracker) = _setGRCTokenCheck(grcToken, true, currentBucket());
+        _setGRCToken(grcToken, tracker);
     }
 }

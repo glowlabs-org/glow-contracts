@@ -117,7 +117,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     ) payable GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _VETO_COUNCIL = _vetoCouncil;
-        _setGRCToken(_grcToken, true, 0);
+        (, BucketSubmission.BucketTracker memory _tracker) = _setGRCTokenCheck(_grcToken, true, 0);
+        _setGRCToken(_grcToken, _tracker);
         HOLDING_CONTRACT = IHoldingContract(_holdingContract);
         HOLDING_CONTRACT.setMinerPool(address(this));
         ++numReserveCurrencies;
@@ -156,8 +157,13 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint256 _currentBucket = currentBucket();
         //If we're not dealing with the zero address,
         // then we add the new currency to the current bucket
+        BucketSubmission.BucketTracker memory newCurrencyTracker;
+        BucketSubmission.BucketTracker memory oldCurrencyTracker;
+        bool resOne;
+        bool resTwo;
         if (numCurrenciesToAdd > 0) {
-            if (!_setGRCToken(newReserveCurrency, true, _currentBucket)) {
+            (resOne, newCurrencyTracker) = _setGRCTokenCheck(newReserveCurrency, true, _currentBucket);
+            if (!resOne) {
                 return false;
             }
         }
@@ -165,11 +171,15 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         //if we're not dealing with the zero address,
         // then we remove the old currency from the current bucket
         if (numCurrenciesToRemove > 0) {
-            if (!_setGRCToken(oldReserveCurrency, false, _currentBucket)) {
+            (resTwo, oldCurrencyTracker) = _setGRCTokenCheck(oldReserveCurrency, false, _currentBucket);
+            if (!resTwo) {
                 return false;
             }
         }
+
         numReserveCurrencies = _numReserveCurrencies;
+        _setGRCToken(oldReserveCurrency, oldCurrencyTracker);
+        _setGRCToken(newReserveCurrency, newCurrencyTracker);
         //emit an event
         return true;
     }

@@ -1311,6 +1311,32 @@ contract MinerPoolAndGCATest is Test {
         assertEq(minerPoolAndGCA.numReserveCurrencies(), 3);
     }
 
+    function test_editReserveCurrencies_tryReaddingExistingCurrency_shouldReturnFalse() public {
+        vm.startPrank(governance);
+        bool res = minerPoolAndGCA.editReserveCurrencies(address(usdc), address(usdc));
+        assert(!res);
+    }
+
+    //Tests to make sure that either both currencies are updated, or none are updated
+    function test_editReserveCurrency_addReserveCurrencyGoesThrough_butRemoveReserveCurrencyFails_shouldNotUpdateState()
+        public
+    {
+        vm.startPrank(governance);
+        address notAGrc = address(0x1235);
+        address grcTryingToPush = address(0x1234);
+        //We can't remove a grc that is not already a grc
+        bool res = minerPoolAndGCA.editReserveCurrencies(notAGrc, grcTryingToPush);
+        BucketSubmission.BucketTracker memory trackerNotGRC = minerPoolAndGCA.bucketTracker(notAGrc);
+        // assert(!res);
+        trackerNotGRC = minerPoolAndGCA.bucketTracker(notAGrc);
+        //Should still be a GRC since the second edit failed
+        assert(!trackerNotGRC.isGRC);
+        assertEq(minerPoolAndGCA.numReserveCurrencies(), 1);
+
+        BucketSubmission.BucketTracker memory trackerTryingToPush = minerPoolAndGCA.bucketTracker(grcTryingToPush);
+        assert(!trackerTryingToPush.isGRC);
+    }
+
     // the general rule for setting grc token is ---.....
     // If it's the first time adding the grc token,
     // then, the first added bucket id becomes current bucket + 16
@@ -1337,6 +1363,17 @@ contract MinerPoolAndGCATest is Test {
         minerPoolAndGCA.setGRCToken(address(usdc), false, currentBucket);
         BucketSubmission.BucketTracker memory bucketTracker = minerPoolAndGCA.bucketTracker(address(usdc));
         assert(bucketTracker.firstAddedBucketId == 16);
+    }
+
+    function test_setGRCToken_readdingExistingCurrency_shouldReturnFalse() public {
+        bool res = minerPoolAndGCA.setGRCToken(address(usdc), true, 0);
+        assert(!res);
+    }
+
+    function test_setGRCToken_removingNonExistingCurrency_shouldReturnFalse() public {
+        address notGRC = address(0xdead);
+        bool res = minerPoolAndGCA.setGRCToken(address(notGRC), false, 0);
+        assert(!res);
     }
 
     //------------------------ HELPERS -----------------------------

@@ -2,6 +2,7 @@
 pragma solidity 0.8.21;
 
 import "../MinerPoolAndGCA.sol";
+import {BucketSubmission} from "../BucketSubmission.sol";
 
 contract MockMinerPoolAndGCA is MinerPoolAndGCA {
     constructor(
@@ -52,8 +53,9 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         return _getUserBitmapForBucket(bucketId, user, token);
     }
 
-    function setGRCToken(address grcToken, bool adding, uint256 currentBucket) public {
-        _setGRCToken(grcToken, adding, currentBucket);
+    function setGRCToken(address grcToken, bool adding, uint256 currentBucket) public returns (bool) {
+        (bool res, BucketSubmission.BucketTracker memory tracker) = _setGRCTokenCheck(grcToken, adding, currentBucket);
+        _setGRCToken(grcToken, tracker);
     }
 
     /**

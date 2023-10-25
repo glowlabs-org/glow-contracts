@@ -336,8 +336,11 @@ contract BucketSubmission {
      *  if the current bucket is not greater than the max bucket,
      *  then we don't change the {firstAddedBucketId} since it still has periods to vest
      */
-    function _setGRCToken(address grcToken, bool adding, uint256 currentBucket) internal returns (bool) {
-        BucketTracker storage _bucketTracker = bucketTrackerStorage[grcToken];
+    function _setGRCTokenCheck(address grcToken, bool adding, uint256 currentBucket)
+        internal
+        returns (bool, BucketTracker memory)
+    {
+        BucketTracker memory _bucketTracker = bucketTrackerStorage[grcToken];
         bool isGRC = _bucketTracker.isGRC;
 
         if (adding) {
@@ -348,14 +351,14 @@ contract BucketSubmission {
             if (isGRC) {
                 //we return false if the token is already a GRC
                 //because we cant add a token that is already a grc
-                return false;
+                return (false, _bucketTracker);
             }
             _bucketTracker.isGRC = true;
         } else {
             //we return false if the token is not a grc
             //because we cant remove a token that is not a grc
             if (!isGRC) {
-                return false;
+                return (false, _bucketTracker);
             }
 
             _bucketTracker.isGRC = false;
@@ -364,7 +367,18 @@ contract BucketSubmission {
         if (_bucketTracker.firstAddedBucketId == 0 || currentBucket > _bucketTracker.maxBucketId) {
             _bucketTracker.firstAddedBucketId = uint48(currentBucket + OFFSET_LEFT);
         }
-        return true;
+        return (true, _bucketTracker);
+    }
+
+    /**
+     * @dev used after `_setGRCTokenCheck` to set the grc token
+     * @param grcToken - the address of the token
+     * @param tracker - the bucket tracker struct returned from `_setGRCTokenCheck`
+     * @dev we seperate the steps to make sure that both trackers for `oldToken` and `newToken` are updated
+     *         - can be either both updated or both not updated
+     */
+    function _setGRCToken(address grcToken, BucketTracker memory tracker) internal {
+        bucketTrackerStorage[grcToken] = tracker;
     }
 
     /**
