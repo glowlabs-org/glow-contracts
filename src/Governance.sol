@@ -997,7 +997,12 @@ contract Governance is IGovernance, EIP712 {
 
         bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
         bool incrementSlashNonce = agentsToSlash.length > 0;
-        bytes memory data = abi.encode(hash, incrementSlashNonce);
+        /// Note: these bytes do not match the bytes that will be saved in storage through the
+        /// `checkBulkSignaturesAndCheckSufficientNominations` function
+        /// We need to encode this data to check the signatures
+        /// Checking `data` as processed in `createGCACouncilElectionOrSlashProposal` would be painful
+        /// As signers would need to align on the `block.timestamp`
+        bytes memory data = abi.encode(agentsToSlash, newGCAs);
 
         (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
             deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH
@@ -1027,8 +1032,12 @@ contract Governance is IGovernance, EIP712 {
         if (oldAgent == newAgent) {
             _revert(IGovernance.VetoCouncilProposalCreationOldAgentCannotEqualNewAgent.selector);
         }
-
-        bytes memory data = abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp);
+        /// Note: these bytes do not match the bytes that will be saved in storage through the
+        /// `checkBulkSignaturesAndCheckSufficientNominations` function
+        /// We need to encode this data to check the signatures
+        /// Checking `data` as processed in `createVetoCouncilElectionOrSlash` would be painful
+        /// As signers would need to align on the `block.timestamp`
+        bytes memory data = abi.encode(oldAgent, newAgent, slashOldAgent);
         (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
             deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH
         );
@@ -1319,13 +1328,25 @@ contract Governance is IGovernance, EIP712 {
         uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
 
         if (totalNominationsToSpend < nominationCost) {
-            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
+            _revert(IGovernance.InsufficientNominations.selector);
         }
 
         uint256 currentWeek = currentWeek();
         uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
         if (nominationCost > _proposals[_mostPopularProposal].votes) {
             mostPopularProposal[currentWeek] = proposalId;
+        }
+
+        if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
+            (address[] memory agentsToSlash, address[] memory newGCAs) = abi.decode(data, (address[], address[]));
+            bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
+            bool incrementSlashNonce = agentsToSlash.length > 0;
+            data = abi.encode(hash, incrementSlashNonce);
+        }
+
+        if (proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
+            (address oldAgent, address newAgent, bool slashOldAgent) = abi.decode(data, (address, address, bool));
+            data = abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp);
         }
 
         _proposals[proposalId] = IGovernance.Proposal(
