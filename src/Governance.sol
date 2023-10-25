@@ -11,7 +11,7 @@ import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import "forge-std/console.sol";
+
 /**
  * @title Governance
  * @author DavidVorick
