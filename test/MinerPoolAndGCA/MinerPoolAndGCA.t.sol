@@ -236,22 +236,22 @@ contract MinerPoolAndGCATest is Test {
         minerPoolAndGCA.checkWeightsForOverflow(bucketId, totalGlwWeight, type(uint256).max, glwWeight, grcWeight);
     }
 
-    function testFuzz_checkWeightsForOverflow2(uint256 weight) public {
-        //We check to make sure even if weights > uint64.max make it in,
-        //those will be cast to uint64.max and not overflow
-        //Ultimately, this should result in a revert because the weights are too high
-        vm.assume(weight > uint256(type(uint64).max));
+    function test_checkWeightsForOverflow_gtThanSubmittedWeights() public {
         uint256 bucketId = 0;
-        uint256 totalGlwWeight = weight;
-        uint256 totalGrcWeight = weight;
-        uint256 glwWeight = type(uint64).max;
-        uint256 grcWeight = type(uint64).max;
+        uint256 totalGlwWeight = 5000;
+        uint256 totalGrcWeight = 5000;
+        uint256 glwWeight = 5001;
+        uint256 grcWeight = 5000;
 
-        // vm.expectRevert(stdError.arithmeticError);
+        //glw weight should overflow since it's > totalGlwWeight
+        vm.expectRevert(IMinerPool.GlowWeightOverflow.selector);
         minerPoolAndGCA.checkWeightsForOverflow(bucketId, totalGlwWeight, totalGrcWeight, glwWeight, grcWeight);
-        (uint256 a, uint256 b) = minerPoolAndGCA.pushedWeights(0);
-        assert(a == type(uint64).max);
-        assert(b == type(uint64).max);
+
+        ++grcWeight; //grc weight will now be greater than tha allowed
+        --glwWeight; // and glw weight will be ok
+        //so the grc weight should revert
+        vm.expectRevert(IMinerPool.GRCWeightOverflow.selector);
+        minerPoolAndGCA.checkWeightsForOverflow(bucketId, totalGlwWeight, totalGrcWeight, glwWeight, grcWeight);
     }
 
     function test_CreateClaimLeafProof() public {
