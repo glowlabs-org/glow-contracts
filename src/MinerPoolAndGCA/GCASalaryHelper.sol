@@ -331,26 +331,6 @@ contract GCASalaryHelper {
     }
 
     /**
-     * @dev returns the min of (a,b)
-     * @param a the first number
-     * @param b the second number
-     * @return min - the min of (a,b)
-     */
-    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
-    }
-
-    /**
-     * @notice transfers glow to an address
-     * @param to the address to transfer glow to
-     * @param amount the amount of glow to transfer
-     * @dev the function must be overriden by the parent contract
-     */
-    function _transferGlow(address to, uint256 amount) internal virtual {
-        revert();
-    }
-
-    /**
      * @notice slashes an agent
      * @param user the user to slash
      */
@@ -359,14 +339,13 @@ contract GCASalaryHelper {
     }
 
     /**
-     * @notice More efficiently reverts with a bytes4 selector
-     * @param selector The selector to revert with
+     * @dev returns the min of (a,b)
+     * @param a the first number
+     * @param b the second number
+     * @return min - the min of (a,b)
      */
-    function _revert(bytes4 selector) internal pure {
-        assembly {
-            mstore(0x0, selector)
-            revert(0x0, 0x04)
-        }
+    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
     }
 
     /**
@@ -402,5 +381,26 @@ contract GCASalaryHelper {
      */
     function _currentWeek() internal view virtual returns (uint256) {
         revert();
+    }
+
+    /**
+     * @notice transfers glow to an address
+     * @param to the address to transfer glow to
+     * @param amount the amount of glow to transfer
+     * @dev the function must be overriden by the parent contract
+     */
+    function _transferGlow(address to, uint256 amount) internal virtual {
+        revert();
+    }
+
+    /**
+     * @notice More efficiently reverts with a bytes4 selector
+     * @param selector The selector to revert with
+     */
+    function _revert(bytes4 selector) internal pure {
+        assembly {
+            mstore(0x0, selector)
+            revert(0x0, 0x04)
+        }
     }
 }

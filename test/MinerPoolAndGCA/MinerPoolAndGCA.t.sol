@@ -367,12 +367,14 @@ contract MinerPoolAndGCATest is Test {
 
         vm.stopPrank();
 
-        address[] memory gcasToSlash = new address[](0);
+        address[] memory gcasToSlash = new address[](1);
+        gcasToSlash[0] = OTHER_GCA;
         address[] memory newGCAs = new address[](1);
         newGCAs[0] = SIMON;
         uint256 ts = block.timestamp;
         bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, ts));
         minerPoolAndGCA.pushRequirementsHashMock(hash);
+        minerPoolAndGCA.incrementSlashNonce();
         minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs, ts);
 
         assert(minerPoolAndGCA.isBucketFinalized(bucketId));
@@ -412,14 +414,20 @@ contract MinerPoolAndGCATest is Test {
 
         vm.stopPrank();
 
-        address[] memory gcasToSlash = new address[](0);
+        address[] memory gcasToSlash = new address[](1);
+        gcasToSlash[0] = OTHER_GCA;
         address[] memory newGCAs = new address[](1);
         newGCAs[0] = SIMON;
         uint256 ts = block.timestamp;
         bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, ts));
         minerPoolAndGCA.pushRequirementsHashMock(hash);
+        minerPoolAndGCA.incrementSlashNonce();
         minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs, ts);
 
+        //Warp past the original expiration
+        vm.warp(block.timestamp + 21);
+        //It should not be finalized since the slash nonce does not match
+        //and the bucket has not been reinstated.
         assert(!minerPoolAndGCA.isBucketFinalized(bucketId));
     }
 

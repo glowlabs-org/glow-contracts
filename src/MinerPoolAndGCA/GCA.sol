@@ -678,23 +678,11 @@ contract GCA is IGCA, GCASalaryHelper {
      * @param a the number to check
      * @param b the lower bound
      * @param c the upper bound
+     * @return true if `a` is between `b` and `c`, false otherwise
      */
     function _between(uint256 a, uint256 b, uint256 c) internal pure returns (bool) {
         return a >= b && a <= c;
     }
-
-    /**
-     * @dev returns the max of two numbers
-     * @param a the first number
-     * @param b the second number
-     */
-    function _max(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a > b ? a : b;
-    }
-
-    // function paymentNonce() internal view virtual override(GCASalaryHelper) returns (uint256) {
-    //     return proposalHashes.length + super.paymentNonce();
-    // }
 
     function _currentWeek() internal view virtual override(GCASalaryHelper) returns (uint256) {
         revert();

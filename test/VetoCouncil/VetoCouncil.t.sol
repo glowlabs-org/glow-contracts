@@ -68,11 +68,11 @@ contract VetoCouncilTest is Test {
         vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
         vm.startPrank(GOVERNANCE);
         address oldAgent = address(SIMON);
-        address newAgent = address(2);
+        address newAgent = address(0);
         bool slashOldAgent = false;
         assert(vetoCouncil.addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent));
         oldAgent = address(0x1);
-        newAgent = address(0x3);
+        newAgent = address(0x0);
         slashOldAgent = false;
         assert(vetoCouncil.addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent) == false);
         vm.stopPrank();

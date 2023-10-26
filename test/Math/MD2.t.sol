@@ -237,6 +237,27 @@ contract MD2Test is Test {
         assert(rewardAfterInit2.amountToDeduct == rewardAfterInit.amountToDeduct);
     }
 
+    function test_addTwiceToBucket_shouldCorrectlyCalculateRewards() public {
+        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
+        uint256 expectedAmount = uint256(10 ether) / uint256(192);
+        vm.warp(block.timestamp + 7 days);
+        uint256 currentBucket = minerMath.currentBucket();
+        assert(currentBucket == 1);
+        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
+
+        uint256 amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
+        assert(amountInBucket == expectedAmount * 2);
+
+        //Add again to make sure
+        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
+        amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
+        assert(amountInBucket == expectedAmount * 3);
+    }
+
+    function test_internalGenesisTimestamp_shouldAlwaysReturnZero() public {
+        assert(minerMath.genesisTimestampInternal() == 0);
+    }
+
     // /**
     //  * @dev function to test the addRewardsToBucket function
     //  *         -   we loop over 300 weeks,

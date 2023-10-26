@@ -53,4 +53,8 @@ contract MockGCA is EIP712, GCA {
     function _domainSeperatorV4Main() internal view override returns (bytes32) {
         return _domainSeparatorV4();
     }
+
+    function currentWeekInternal() public view returns (uint256) {
+        _currentWeek();
+    }
 }

@@ -87,6 +87,11 @@ contract GCATest is Test {
         }
     }
 
+    function test_expectCurrentWeek_toRevert_becauseItIsNotOverriden() public {
+        vm.expectRevert();
+        gca.currentWeekInternal();
+    }
+
     /**
      * forge-config: default.invariant.runs = 100
      * forge-config: default.invariant.depth = 100

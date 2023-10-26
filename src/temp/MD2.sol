@@ -22,4 +22,8 @@ contract MD2 is BucketSubmission {
         BucketSubmission.WeeklyReward memory reward = rewards[bucketId][grcToken];
         return (reward.inheritedFromLastWeek, reward.amountInBucket, reward.amountToDeduct);
     }
+
+    function genesisTimestampInternal() public view returns (uint256) {
+        return _genesisTimestamp();
+    }
 }

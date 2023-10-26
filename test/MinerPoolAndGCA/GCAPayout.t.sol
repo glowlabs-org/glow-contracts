@@ -18,6 +18,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import {GCASalaryHelper} from "@/MinerPoolAndGCA/GCASalaryHelper.sol";
 import {MockGovernance} from "@/testing/MockGovernance.sol";
+import {MockSalaryHelper} from "@/MinerPoolAndGCA/mock/MockSalaryHelper.sol";
 
 contract GCAPayoutTest is Test {
     //--------  CONTRACTS ---------//
@@ -407,6 +408,19 @@ contract GCAPayoutTest is Test {
         gca.setGCAs(temp);
         allGCAs = gca.allGcas();
         assertTrue(_containsElement(allGCAs, newGCA));
+    }
+
+    function test_GCASalaryHelper_allBaseFunctions_shouldRevertWhenNotOverriden() public {
+        address[] memory startingAgents = _getAddressArray(5, 50);
+        MockSalaryHelper helper = new MockSalaryHelper(startingAgents);
+        vm.expectRevert();
+        uint256 x = helper.genesisTimestampWithin();
+        vm.expectRevert();
+        bytes32 y = helper.domainSeperatorV4Main();
+        vm.expectRevert();
+        helper.claimGlowFromInflation();
+        vm.expectRevert();
+        helper.transferGlow(address(0x1), 100);
     }
 
     function _containsElement(address[] memory arr, address element) private pure returns (bool) {
