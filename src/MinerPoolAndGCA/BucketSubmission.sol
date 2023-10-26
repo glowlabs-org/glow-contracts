@@ -189,48 +189,6 @@ contract BucketSubmission {
     }
 
     /**
-     * @notice returns all buckets between start and end for a given grc token
-     * @param start - the start bucket
-     * @param end - the end bucket
-     * @param grcToken - the address of the grc token
-     * @return _rewards - an array of weekly rewards
-     */
-    function getRewards(uint256 start, uint256 end, address grcToken) public view returns (WeeklyReward[] memory) {
-        WeeklyReward[] memory _rewards = new WeeklyReward[](end - start);
-        for (uint256 i = start; i < end; i++) {
-            _rewards[i] = this.reward(grcToken, i);
-        }
-        return _rewards;
-    }
-
-    /**
-     * @notice returns all buckets between start and end for a group of grc tokens
-     * @param start - the start bucket
-     * @param end - the end bucket
-     * @param tokens - the array of grc tokens
-     * @return _rewards - an array of TokenWithWeeklyReward structs
-     */
-    function getBatchAddressesRewards(uint256 start, uint256 end, address[] calldata tokens)
-        external
-        view
-        returns (TokenWithWeeklyReward[] memory)
-    {
-        unchecked {
-            uint256 totalRewards = tokens.length * (end - start);
-            TokenWithWeeklyReward[] memory _rewards = new TokenWithWeeklyReward[](totalRewards);
-
-            uint256 counter;
-            for (uint256 i; i < tokens.length; ++i) {
-                for (uint256 j = start; j < end; ++j) {
-                    WeeklyReward memory wReward = this.reward(tokens[i], j);
-                    _rewards[counter++] = TokenWithWeeklyReward(tokens[i], wReward);
-                }
-            }
-            return _rewards;
-        }
-    }
-
-    /**
      * @notice returns the bucket tracker for a given grc token
      * @param grcToken - the address of the grc token
      * @return bucketTracker - the bucket tracker struct
@@ -245,7 +203,7 @@ contract BucketSubmission {
      * @param id - the bucketId (week) to query for
      * @return bucket - the  weekly reward struct for the bucket
      */
-    function reward(address grcToken, uint256 id) external view returns (WeeklyReward memory) {
+    function reward(address grcToken, uint256 id) public view returns (WeeklyReward memory) {
         (WeeklyReward memory bucket,) = _rewardWithNeedsInitializing(grcToken, id);
         return bucket;
     }

@@ -50,9 +50,29 @@ contract MD2Test is Test {
 
     //-----------------INVARIANTS-----------------
 
+    // /**
+    //  * @dev we test that all ghost buckets match the manual array
+    //  */
+    // function invariant_paginatedGetRewards_shouldMatchSingleReward() public {
+    //     for (uint256 i; i < grcTokens.length; ++i) {
+    //         uint256[] memory allGhostBucketIds = handler.allGhostBucketIds(grcTokens[i]);
+    //         address grcToken = grcTokens[i];
+    //         for (uint256 j; j < allGhostBucketIds.length; ++j) {
+    //             uint256 bucketId = allGhostBucketIds[j];
+    //             uint256 rewardInGhostMapping = handler.ghost_amountInBucket(bucketId, grcToken);
+    //             MD2.WeeklyReward memory reward = minerMath.reward(grcToken, bucketId);
+    //             MD2.WeeklyReward memory rewardPaginated = minerMath.getRewards(bucketId, bucketId + 1, grcToken)[0];
+    //             assert(rewardPaginated.inheritedFromLastWeek == reward.inheritedFromLastWeek);
+    //             assert(rewardPaginated.amountInBucket == reward.amountInBucket);
+    //             assert(rewardPaginated.amountToDeduct == reward.amountToDeduct);
+    //         }
+    //     }
+    // }
+
     /**
      * @dev we test that all ghost buckets match the manual array
      */
+
     function invariant_bucketMath_shouldMatchManualArray() public {
         for (uint256 i; i < grcTokens.length; ++i) {
             uint256[] memory allGhostBucketIds = handler.allGhostBucketIds(grcTokens[i]);
@@ -73,7 +93,6 @@ contract MD2Test is Test {
                 MD2.WeeklyReward memory reward = minerMath.reward(grcToken, bucketId);
                 // string memory keyAddress = vm.serializeAddress(string(abi.encodePacked(Strings.toString(j))), "grcToken", grcToken);
                 // vm.writeLine(fileName, keyAddress);
-
                 // string memory key0 = vm.serializeUint(string(abi.encodePacked(Strings.toString(j))), "bucketId", bucketId);
                 // string memory key1 = vm.serializeUint(string(abi.encodePacked(Strings.toString(j))), "id", j);
                 // vm.writeLine(fileName, key1);
@@ -98,6 +117,7 @@ contract MD2Test is Test {
                     // vm.writeLine(fileName, "]");
                 }
             }
+
             assertEq(totalForToken, handler.totalDeposited(grcToken));
         }
     }
