@@ -40,3 +40,16 @@ deploy.testnet.gcc :; forge script script/Testnet/DeployGCC.s.sol --rpc-url ${GO
 
 #---- [solhint] -----------------------------------------------------------------------------------
 solhint :; find ./src -type f \( -name "*.sol" ! -path "./src/temp/*" ! -path "./src/testing/*" ! -path "./src/libraries/ABDKMath64x64.sol" ! -path "./src/MinerPoolAndGCA/mock/*" \) -exec solhint {} +
+
+
+cloc:
+	@FILES=$$(find ./src -type f \( -name "*.sol" ! -path "./src/temp/*" ! -path "./src/testing/*" ! -path "./src/libraries/ABDKMath64x64.sol" ! -path "./src/MinerPoolAndGCA/mock/*" \)); \
+	if [ -n "$$FILES" ]; then \
+		for file in $$FILES; do \
+			echo "Processing $$file"; \
+			BASENAME=$$(basename $$file .sol); \
+			cloc --json $$file >> "cloc_outputs/$$BASENAME.json"; \
+		done; \
+	else \
+		echo "No files found."; \
+	fi
