@@ -336,8 +336,6 @@ contract GCCTest is Test {
         gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
     }
 
-    
-
     /* -------------------------------------------------------------------------- */
     /*                                   helpers                                  */
     /* -------------------------------------------------------------------------- */

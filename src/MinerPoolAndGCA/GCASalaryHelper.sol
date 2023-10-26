@@ -5,7 +5,6 @@ import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-
 /**
  */
 
@@ -189,13 +188,14 @@ contract GCASalaryHelper {
         view
         returns (bytes32)
     {
-        return keccak256(
+        bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 _domainSeperatorV4Main(),
                 keccak256(abi.encode(CLAIM_PAYOUT_RELAY_PERMIT_TYPEHASH, relayer, paymentNonce, relayNonce))
             )
         );
+        return digest;
     }
 
     /**

@@ -32,6 +32,7 @@ contract GCAPayoutTest is Test {
     address vetoCouncilAddress = address(0x4);
     address grantsTreasuryAddress = address(0x5);
     address SIMON = address(0x6);
+    uint256 SIMON_PK;
     address OTHER_GCA = address(0x7);
     address OTHER_GCA_2 = address(0x8);
     address OTHER_GCA_3 = address(0x9);
@@ -46,8 +47,10 @@ contract GCAPayoutTest is Test {
     function setUp() public {
         //Make sure we don't start at 0
         vm.warp(10);
+        (SIMON, SIMON_PK) = _createAccount(6, 100_000_000_000 * 1e18);
         glow = new TestGLOW(earlyLiquidity,vestingContract);
         startingGCAs = _getAddressArray(5, 50);
+        startingGCAs[0] = SIMON;
         gca = new MockGCA(startingGCAs,address(glow),governance);
         address[] memory allGCAs = gca.allGcas();
         glow.setContractAddresses(address(gca), vetoCouncilAddress, grantsTreasuryAddress);
@@ -294,6 +297,70 @@ contract GCAPayoutTest is Test {
         vm.stopPrank();
     }
 
+    function test_claimPayout_relaySignature_ShouldWork() public {
+        vm.warp(block.timestamp + 5 weeks);
+        //Claiming before should be ok.
+        //simon is also starting gca at zero
+        address relayer = address(0x55555);
+        bytes memory sig = signRelayDigest(startingGCAs[0], SIMON_PK, relayer, 0);
+        vm.startPrank(relayer);
+        gca.claimPayout({
+            user: startingGCAs[0],
+            paymentNonce: 0,
+            activeGCAsAtPaymentNonce: startingGCAs,
+            userIndex: 0,
+            claimFromInflation: true,
+            sig: sig
+        });
+        vm.stopPrank();
+    }
+
+    function test_claimPayout_relaySignature_wrongNonce_shouldRevert() public {
+        vm.warp(block.timestamp + 5 weeks);
+        //Claiming before should be ok.
+        //simon is also starting gca at zero
+        address relayer = address(0x55555);
+        bytes memory sig = signRelayDigest(startingGCAs[0], SIMON_PK, relayer, 0);
+        vm.startPrank(relayer);
+        gca.claimPayout({
+            user: startingGCAs[0],
+            paymentNonce: 0,
+            activeGCAsAtPaymentNonce: startingGCAs,
+            userIndex: 0,
+            claimFromInflation: true,
+            sig: sig
+        });
+        vm.expectRevert(GCASalaryHelper.InvalidRelaySignature.selector);
+        gca.claimPayout({
+            user: startingGCAs[0],
+            paymentNonce: 0,
+            activeGCAsAtPaymentNonce: startingGCAs,
+            userIndex: 0,
+            claimFromInflation: true,
+            sig: sig
+        });
+        vm.stopPrank();
+    }
+
+    function test_claimPayout_relaySignature_wrongPaymentNonce_shouldRevert() public {
+        vm.warp(block.timestamp + 5 weeks);
+        //Claiming before should be ok.
+        //simon is also starting gca at zero
+        address relayer = address(0x55555);
+        bytes memory sig = signRelayDigest(startingGCAs[0], SIMON_PK, relayer, 0);
+        vm.startPrank(relayer);
+        vm.expectRevert(GCASalaryHelper.InvalidRelaySignature.selector);
+        gca.claimPayout({
+            user: startingGCAs[0],
+            paymentNonce: 1,
+            activeGCAsAtPaymentNonce: startingGCAs,
+            userIndex: 0,
+            claimFromInflation: true,
+            sig: sig
+        });
+        vm.stopPrank();
+    }
+
     function test_sharesDoNotAddUpTo100_000_shouldRevert() public {
         vm.startPrank(startingGCAs[0]);
         //for the new comp plan, i want to distribute the shares as follows:
@@ -349,5 +416,27 @@ contract GCAPayoutTest is Test {
             }
         }
         return false;
+    }
+
+    function signRelayDigest(address from, uint256 privateKey, address relayer, uint256 paymentNonce)
+        public
+        view
+        returns (bytes memory)
+    {
+        uint256 nextNonce = gca.nextRelayNonce(from);
+        bytes32 digest = gca.createRelayDigest(relayer, paymentNonce, nextNonce);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+        return sig;
+    }
+
+    function _createAccount(uint256 privateKey, uint256 amount)
+        internal
+        returns (address addr, uint256 signerPrivateKey)
+    {
+        addr = vm.addr(privateKey);
+        vm.deal(addr, amount);
+        signerPrivateKey = privateKey;
+        return (addr, signerPrivateKey);
     }
 }

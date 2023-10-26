@@ -783,6 +783,9 @@ contract GCATest is Test {
     function test_isGCA_shouldReturnTrue_ifGCA() public {
         addGCA(SIMON);
         assertTrue(gca.isGCA(SIMON));
+        //simon should be the second gca
+        assertTrue(gca.isGCA(SIMON, 1));
+        assert(!gca.isGCA(SIMON, 0));
     }
 
     function test_isGCA_whenProposalHashesNotUpdated_shouldReturnFalse() public {
@@ -791,6 +794,7 @@ contract GCATest is Test {
         bytes32 proposalHash = keccak256("proposal hash");
         gca.pushRequirementsHashMock(proposalHash);
         assert(!gca.isGCA(SIMON));
+        assert(!gca.isGCA(SIMON, 1));
     }
 
     function test_isGCA_whenProposalHashesUpdated_shouldReturnTrue() public {
@@ -798,11 +802,12 @@ contract GCATest is Test {
         address[] memory gcasToSlash = new address[](0);
         address[] memory newGCAs = new address[](1);
         newGCAs[0] = SIMON;
-        uint ts = block.timestamp;
-        bytes32 hash = keccak256(abi.encode(gcasToSlash,newGCAs,ts));
+        uint256 ts = block.timestamp;
+        bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, ts));
         gca.pushRequirementsHashMock(hash);
         gca.executeAgainstHash(gcasToSlash, newGCAs, ts);
         assert(gca.isGCA(SIMON));
+        assert(gca.isGCA(SIMON, 0));
     }
 
     /**
@@ -945,7 +950,6 @@ contract GCATest is Test {
         assertEq(proposalHashes[1], randomHash2);
     }
 
-    //TODO: Fix the function to include payouts
     function test_executeAgainstHash() public {
         //Warp to random timestamp
         vm.warp(501);

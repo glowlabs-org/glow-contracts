@@ -66,20 +66,13 @@ contract GCA is IGCA, GCASalaryHelper {
      */
     mapping(uint256 => uint256) public slashNonceToSlashTimestamp;
 
-    /**
-     * @notice the bitpacked compensation plans
-     *  [0...23] weight for gca at index position 0,
-     *  [24...47] weight for gca at index position 1
-     *  .......
-     *  [96...119] weight for gca at index position 4
-     */
-    mapping(address => uint256) public _compensationPlans;
-
     /// @notice the gca payouts
     mapping(address => IGCA.GCAPayout) private _gcaPayouts;
 
+    /// @notice bucket -> Bucket Struct
     mapping(uint256 => IGCA.Bucket) internal _buckets;
 
+    /// @notice bucket -> Global State
     mapping(uint256 => IGCA.BucketGlobalState) internal _bucketGlobalState;
 
     /**
@@ -512,10 +505,6 @@ contract GCA is IGCA, GCASalaryHelper {
         if (uint256(root) == 0) _revert(IGCA.EmptyRoot.selector);
     }
 
-    function getShares(address agent) external view returns (uint256 shares, uint256 totalShares) {
-        return _getShares(agent, gcaAgents);
-    }
-
     function isBucketFinalized(uint256 bucketId) public view returns (bool) {
         uint256 packedData;
         assembly {
@@ -539,29 +528,6 @@ contract GCA is IGCA, GCASalaryHelper {
     //************************************************************* */
     //***************  INTERNAL  ********************** */
     //************************************************************* */
-
-    function _getShares(address agent, address[] memory gcas)
-        internal
-        view
-        returns (uint256 shares, uint256 totalShares)
-    {
-        uint256 indexOfAgent;
-        unchecked {
-            for (uint256 i; i < gcas.length; ++i) {
-                if (gcas[i] == agent) {
-                    indexOfAgent = i;
-                    break;
-                }
-            }
-        }
-        unchecked {
-            for (uint256 i; i < gcas.length; ++i) {
-                uint256 bitpackedPlans = _compensationPlans[gcas[i]];
-                shares += (bitpackedPlans >> _calculateShift(indexOfAgent)) & _UINT24_MASK;
-            }
-        }
-        totalShares = SHARES_REQUIRED_PER_COMP_PLAN * gcas.length;
-    }
 
     //---------------------------- HELPERS ----------------------------------
 

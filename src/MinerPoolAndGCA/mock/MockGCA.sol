@@ -4,8 +4,9 @@ import "../GCA.sol";
 pragma solidity 0.8.21;
 
 import {GCASalaryHelper} from "../GCASalaryHelper.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
-contract MockGCA is GCA {
+contract MockGCA is EIP712, GCA {
     /**
      * @notice constructs a new GCA contract
      * @param _gcaAgents the addresses of the gca agents
@@ -13,6 +14,7 @@ contract MockGCA is GCA {
      * @param _governance the address of the governance contract
      */
     constructor(address[] memory _gcaAgents, address _glowToken, address _governance)
+        EIP712("GCA", "1.0")
         GCA(_gcaAgents, _glowToken, _governance, keccak256("FAKE DATA"))
     {}
 
@@ -46,5 +48,9 @@ contract MockGCA is GCA {
             slashNonce,
             _buckets[id].finalizationTimestamp
         );
+    }
+
+    function _domainSeperatorV4Main() internal view override returns (bytes32) {
+        return _domainSeparatorV4();
     }
 }
