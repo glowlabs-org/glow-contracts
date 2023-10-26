@@ -84,10 +84,9 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
     /**
      * @param glow the GLOW token
      * @param gcc the GCC token
-     * @param minerPool the miner pool contract
      * @param startingPrice the starting price of 1 unit of GCC
      */
-    constructor(IERC20 glow, IERC20 gcc, address minerPool, uint256 startingPrice) payable {
+    constructor(IERC20 glow, IERC20 gcc, uint256 startingPrice) payable {
         GLOW = glow;
         GCC = gcc;
         pricePerSaleUnit = startingPrice;
@@ -199,7 +198,6 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
         Timestamps memory _timestamps = timestamps;
         uint256 _lastReceivedTimestamp = _timestamps.lastReceivedTimestamp;
         uint256 _totalAmountReceived = totalAmountReceived;
-        uint256 _totalUnitsSold = totalUnitsSold;
         uint256 amountThatNeedsToVest = _totalAmountReceived - totalAmountFullyAvailableForSale;
         uint256 timeDiff = min(ONE_WEEK, block.timestamp - _lastReceivedTimestamp);
         return (totalAmountFullyAvailableForSale + amountThatNeedsToVest * timeDiff / ONE_WEEK);
@@ -236,6 +234,7 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
      * @param selector The selector to revert with
      */
     function _revert(bytes4 selector) private pure {
+      // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, selector)
             revert(0x0, 0x04)

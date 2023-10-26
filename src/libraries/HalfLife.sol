@@ -8,7 +8,7 @@ library HalfLife {
      * @dev the halving period in seconds (1 year)
      * @dev nominations have a half-life of 1 year
      */
-    uint256 constant SECONDS_IN_YEAR = 365 * uint256(1 days);
+    uint256 private constant SECONDS_IN_YEAR = 365 * uint256(1 days);
 
     /**
      * @notice calculates the value remaining after a given amount of time has elapsed

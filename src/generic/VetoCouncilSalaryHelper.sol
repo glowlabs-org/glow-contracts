@@ -373,7 +373,8 @@ contract VetoCouncilSalaryHelper {
      * @return res - true if the address is the zero address
      */
     function isZero(address a) private pure returns (bool res) {
-        assembly {
+        // solhint-disable-next-line no-inline-assembly
+        assembly("memory-safe") {
             res := iszero(a)
         }
     }
@@ -394,7 +395,9 @@ contract VetoCouncilSalaryHelper {
                     ++numNotNulls;
                 }
             }
+        
         }
+        // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
             mstore(sanitizedArray, numNotNulls)
         }
@@ -409,7 +412,8 @@ contract VetoCouncilSalaryHelper {
      */
     function isNull(address a) internal pure returns (bool res) {
         address _null = NULL_ADDRESS;
-        assembly {
+        // solhint-disable-next-line no-inline-assembly
+        assembly("memory-safe") {
             res := eq(a, _null)
         }
     }
@@ -419,7 +423,8 @@ contract VetoCouncilSalaryHelper {
      * @param selector The selector to revert with
      */
     function _revert(bytes4 selector) internal pure {
-        assembly {
+        // solhint-disable-next-line no-inline-assembly
+        assembly("memory-safe") {
             mstore(0x0, selector)
             revert(0x0, 0x04)
         }

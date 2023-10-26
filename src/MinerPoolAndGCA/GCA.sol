@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
-import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import {GCASalaryHelper} from "./GCASalaryHelper.sol";
 
 /**
@@ -183,6 +182,7 @@ contract GCA is IGCA, GCASalaryHelper {
                             len = 0;
                             //delete all reports in storage
                             //by setting the length to 0
+                            // solhint-disable-next-line no-inline-assembly
                             assembly {
                                 //1 slot offset for buckets length
                                 sstore(add(1, bucket.slot), 0)
@@ -194,6 +194,7 @@ contract GCA is IGCA, GCASalaryHelper {
             }
         }
         uint256 reportArrayStartSlot;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             //add 1 for reports offset
             mstore(0x0, add(bucket.slot, 1))
@@ -218,6 +219,7 @@ contract GCA is IGCA, GCASalaryHelper {
     ) internal {
         uint256 packedGlobalState;
         uint256 slot;
+                // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, bucketId)
             mstore(0x20, _bucketGlobalState.slot)
@@ -234,15 +236,16 @@ contract GCA is IGCA, GCASalaryHelper {
             //gcc is uint128, glwWeight is uint64, grcWeight is uint64
             packedGlobalState = gccInBucketPlusGcaGcc | (glwWeightInBucketPlusGcaGlwWeight << 128)
                 | (grcWeightInBucketPlusGcaGrcWeight << 192);
+            // solhint-disable-next-line no-inline-assembly
             assembly {
                 sstore(slot, packedGlobalState)
             }
             return;
         }
 
-        // foundIndex = foundIndex == type(uint256).max ? 0 : foundIndex;
 
         uint256 packedDataInReport;
+                // solhint-disable-next-line no-inline-assembly
         assembly {
             packedDataInReport := sload(gcaReportStartSlot)
         }
@@ -254,6 +257,7 @@ contract GCA is IGCA, GCASalaryHelper {
 
         packedGlobalState = gccInBucketPlusGcaGcc | (glwWeightInBucketPlusGcaGlwWeight << 128)
             | (grcWeightInBucketPlusGcaGrcWeight << 192);
+                    // solhint-disable-next-line no-inline-assembly
         assembly {
             sstore(slot, packedGlobalState)
         }
@@ -284,6 +288,7 @@ contract GCA is IGCA, GCASalaryHelper {
             {
                 for (uint256 i; i < len; ++i) {
                     address proposingAgent;
+                            // solhint-disable-next-line no-inline-assembly
                     assembly {
                         //the address is stored in the [0,1,2] - 3rd slot
                         //                                  ^
@@ -293,6 +298,7 @@ contract GCA is IGCA, GCASalaryHelper {
                     }
                     if (proposingAgent == msg.sender) {
                         foundIndex = i == 0 ? type(uint256).max : i;
+                                // solhint-disable-next-line no-inline-assembly
                         assembly {
                             //since we incremented the slot by 3, we need to decrement it by 3 to get the start of the packed data
                             reportArrayStartSlot := sub(reportArrayStartSlot, 3)
@@ -317,7 +323,6 @@ contract GCA is IGCA, GCASalaryHelper {
         //If the array was empty
         // we need to push
         if (foundIndex == 0) {
-            {}
             bucket.reports.push(
                 IGCA.Report({
                     proposingAgent: msg.sender,
@@ -472,6 +477,7 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     function getBucketRootAtIndexEfficient(uint256 bucketId, uint256 index) internal view returns (bytes32 root) {
+                // solhint-disable-next-line no-inline-assembly
         assembly {
             //Store the key
             mstore(0x0, bucketId)
@@ -507,6 +513,7 @@ contract GCA is IGCA, GCASalaryHelper {
 
     function isBucketFinalized(uint256 bucketId) public view returns (bool) {
         uint256 packedData;
+                // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, bucketId)
             mstore(0x20, _buckets.slot)
@@ -635,6 +642,7 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     function getPackedBucketGlobalState(uint256 bucketId) internal view returns (uint256 packedGlobalState) {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, bucketId)
             mstore(0x20, _bucketGlobalState.slot)
@@ -685,6 +693,7 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     function _currentWeek() internal view virtual override(GCASalaryHelper) returns (uint256) {
+        // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 
@@ -701,6 +710,7 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     function _domainSeperatorV4Main() internal view virtual override(GCASalaryHelper) returns (bytes32) {
+        // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 

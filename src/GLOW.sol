@@ -137,7 +137,6 @@ contract Glow is ERC20, IGlow {
         uint256 newHead = head;
 
         uint256 tail = pointers.tail;
-        uint256 newTail = tail;
 
         //We need to loop through starting from the head (newest positions)
         for (uint256 i = head; i >= tail; --i) {
@@ -276,8 +275,8 @@ contract Glow is ERC20, IGlow {
 
         uint256 head = pointers.head;
         uint256 tail = pointers.tail;
-        uint256 newHead = head;
-        uint256 newTail = tail;
+        uint newHead = head;
+        uint newTail = tail;
 
         //Loop through the unstaked positions until claimableTotal >= amount
         //Tail will also be <= len so no risk of underflow
@@ -449,6 +448,7 @@ contract Glow is ERC20, IGlow {
         if (pointers.tail == pointers.head) {
             UnstakedPosition memory position = _unstakedPositions[account][pointers.head];
             if (position.amount == 0) {
+                // solhint-disable-next-line no-inline-assembly
                 assembly {
                     mstore(positions, 0)
                 }
@@ -471,6 +471,7 @@ contract Glow is ERC20, IGlow {
                 //And the tail would not be zero
                 if (i == 0) {
                     if (position.amount == 0) {
+                        // solhint-disable-next-line no-inline-assembly
                         assembly {
                             //set the length to 0 in memory
                             mstore(positions, 0)
@@ -520,6 +521,7 @@ contract Glow is ERC20, IGlow {
         if (pointers.tail == pointers.head) {
             UnstakedPosition memory position = _unstakedPositions[account][pointers.head];
             if (position.amount == 0) {
+                // solhint-disable-next-line no-inline-assembly
                 assembly {
                     mstore(positions, 0)
                 }
@@ -543,6 +545,7 @@ contract Glow is ERC20, IGlow {
                 //And the tail would not be zero
                 if (i == 0) {
                     if (position.amount == 0) {
+                        // solhint-disable-next-line no-inline-assembly
                         assembly {
                             //set the length to 0 in memory
                             mstore(positions, 0)
@@ -653,6 +656,7 @@ contract Glow is ERC20, IGlow {
      * @param selector The selector to revert with
      */
     function _revert(bytes4 selector) private pure {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, selector)
             revert(0x0, 0x04)
@@ -663,6 +667,7 @@ contract Glow is ERC20, IGlow {
      * @notice More efficient address(0) check
      */
     function _isZeroAddress(address _address) private pure returns (bool isZero) {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             isZero := iszero(_address)
         }

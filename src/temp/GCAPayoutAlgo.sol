@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "forge-std/console.sol";
 
 error NotAnAgent();
 error AlreadyAnAgent();
@@ -24,7 +23,7 @@ contract GCAPayoutAlgo {
     mapping(address => uint256) public balance; //mock GLW
     mapping(address => CompensationI[]) public proposedCompensationPlans;
     uint256 public totalShares;
-    uint256 constant SHARES_REQUIRED_ON_SUBMISSION = 10_000;
+    uint256 private constant SHARES_REQUIRED_ON_SUBMISSION = 10_000;
     uint256 public rewardsPerSecondForAll = 1 ether;
 
     /// @dev not yet optimized -- this is a PoC
@@ -40,6 +39,7 @@ contract GCAPayoutAlgo {
         for (uint256 i; i < len; ++i) {
             _helpers[oldCompensationPlan[i].agent].shares -= oldCompensationPlan[i].shares;
         }
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             let slot := oldCompensationPlan.slot
             //clear the array by overriding the length to 0

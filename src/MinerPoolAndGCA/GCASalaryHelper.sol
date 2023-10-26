@@ -2,8 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 /**
  */
@@ -353,6 +351,7 @@ contract GCASalaryHelper {
      * @dev the function must be overriden by the parent contract
      */
     function _claimGlowFromInflation() internal virtual {
+        // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 
@@ -362,6 +361,7 @@ contract GCASalaryHelper {
      * @return domainSeperator - the domain seperator for the relay signature
      */
     function _domainSeperatorV4Main() internal view virtual returns (bytes32) {
+                // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 
@@ -371,6 +371,7 @@ contract GCASalaryHelper {
      * @dev the function must be overriden by the parent contract
      */
     function _genesisTimestamp() internal view virtual returns (uint256) {
+                        // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 
@@ -380,6 +381,7 @@ contract GCASalaryHelper {
      * @dev the function must be overriden by the parent contract
      */
     function _currentWeek() internal view virtual returns (uint256) {
+                        // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 
@@ -390,6 +392,7 @@ contract GCASalaryHelper {
      * @dev the function must be overriden by the parent contract
      */
     function _transferGlow(address to, uint256 amount) internal virtual {
+                        // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 
@@ -398,6 +401,7 @@ contract GCASalaryHelper {
      * @param selector The selector to revert with
      */
     function _revert(bytes4 selector) internal pure {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, selector)
             revert(0x0, 0x04)

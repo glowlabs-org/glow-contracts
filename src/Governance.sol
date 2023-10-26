@@ -50,23 +50,23 @@ contract Governance is IGovernance, EIP712 {
     /**
      * @dev one in 64x64 fixed point
      */
-    int128 private constant _ONE_64x64 = (1 << 64);
+    int128 private constant ONE_64x64 = (1 << 64);
 
     /**
      * @dev 1.1 in 128x128 fixed point
      * @dev used in the nomination cost calculation
      */
-    int128 private constant _ONE_POINT_ONE_128 = (1 << 64) + 0x1999999999999a00;
+    int128 private constant ONE_POINT_ONE_128 = (1 << 64) + 0x1999999999999a00;
 
     /**
      * @dev The duration of a bucket: 1 week
      */
-    uint256 private constant _ONE_WEEK = uint256(7 days);
+    uint256 private constant ONE_WEEK = uint256(7 days);
 
     /**
      * @dev The maximum duration of a proposal: 16 weeks
      */
-    uint256 private constant _MAX_PROPOSAL_DURATION = 9676800;
+    uint256 private constant MAX_PROPOSAL_DURATION = 9676800;
 
     /**
      *   @dev the maximum number of weeks a proposal can be ratified or rejected
@@ -79,33 +79,33 @@ contract Governance is IGovernance, EIP712 {
      * @dev The percentage of ratify to reject votes that is required to execute a proposal
      * @dev exceptions are noted in the implemntation of executeProposalAtWeek
      */
-    uint256 private constant _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL = 60; //60%
+    uint256 private constant DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL = 60; //60%
 
     /**
      * @dev there can be a maximum of 5 endorsements on a GCA election proposal
      */
-    uint256 private constant _MAX_ENDORSEMENTS_ON_GCA_PROPOSALS = 5;
+    uint256 private constant MAXENDORSEMENTS_ON_GCA_PROPOSALS = 5;
 
     /**
      * @dev the maximum number of GCA council members that can be concurrently active
      */
-    uint256 private constant _MAX_GCAS_AT_ONE_POINT_IN_TIME = 5;
+    uint256 private constant MAX_GCAS_AT_ONE_POINT_IN_TIME = 5;
 
     /**
      * @dev the maximum number of slashes that can be executed in a single GCA election
      * @dev this is to prevent DoS attacks that could cause the execution to run out of gas
      */
-    uint256 private constant _MAX_SLASHES_IN_ONE_GCA_ELECTION = 10;
+    uint256 private constant MAX_SLASHES_IN_ONE_GCA_ELECTION = 10;
 
     /**
      * @dev the maximum number of concurrently actibe GCA council members
      */
-    uint256 private constant _MAX_GCAS = 5;
+    uint256 private constant MAX_GCAS = 5;
 
     /**
      * @dev each endorsement decreases the required percentage to execute a GCA election proposal by 5%
      */
-    uint256 private constant _ENDORSEMENT_WEIGHT = 5;
+    uint256 private constant ENDORSEMENT_WEIGHT = 5;
 
     /**
      * @dev The total number of proposals created
@@ -298,7 +298,7 @@ contract Governance is IGovernance, EIP712 {
         //RFC and Grants Treasury proposals don't need to be ratified to pass
         if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
             uint256 numEndorsements = numEndorsementsOnWeek[week];
-            uint256 requiredWeight = _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL - (numEndorsements * _ENDORSEMENT_WEIGHT);
+            uint256 requiredWeight = DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL - (numEndorsements * ENDORSEMENT_WEIGHT);
             uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
             //If no one votes, we don't execute the proposal
             if (totalVotes == 0) {
@@ -323,7 +323,7 @@ contract Governance is IGovernance, EIP712 {
                     return;
                 }
                 uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
-                if (percentage < _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL) {
+                if (percentage < DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL) {
                     lastExecutedWeek = week;
                     return;
                 }
@@ -385,7 +385,7 @@ contract Governance is IGovernance, EIP712 {
             if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
                 uint256 numEndorsements = numEndorsementsOnWeek[_nextWeekToExecute];
                 uint256 requiredWeight =
-                    _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL - (numEndorsements * _ENDORSEMENT_WEIGHT);
+                    DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL - (numEndorsements * ENDORSEMENT_WEIGHT);
                 uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
                 //If no one votes, we don't execute the proposal
                 //This also prevents division by zero error
@@ -410,7 +410,7 @@ contract Governance is IGovernance, EIP712 {
                         continue;
                     }
                     uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
-                    if (percentage < _DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL) {
+                    if (percentage < DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL) {
                         continue;
                     }
                 }
@@ -453,7 +453,7 @@ contract Governance is IGovernance, EIP712 {
         }
 
         numEndorsements += 1;
-        if (numEndorsements > _MAX_ENDORSEMENTS_ON_GCA_PROPOSALS) {
+        if (numEndorsements > MAXENDORSEMENTS_ON_GCA_PROPOSALS) {
             _revert(IGovernance.MaxGCAEndorsementsReached.selector);
         }
 
@@ -536,7 +536,6 @@ contract Governance is IGovernance, EIP712 {
     function useNominationsOnProposal(uint256 proposalId, uint256 amount) public {
         syncProposals();
         _revertIfProposalExecuted(proposalId);
-        uint256 currentBalance = nominationsOf(msg.sender);
         uint256 nominationEndTimestamp = _proposals[proposalId].expirationTimestamp;
         /// @dev we don't need this check, but we add it for clarity on the revert reason
         if (nominationEndTimestamp == 0) {
@@ -696,7 +695,7 @@ contract Governance is IGovernance, EIP712 {
         _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.GRANTS_PROPOSAL,
-            uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
+            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
             uint184(nominationCost),
             abi.encode(grantsRecipient, amount, hash)
         );
@@ -727,7 +726,7 @@ contract Governance is IGovernance, EIP712 {
         _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS,
-            uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
+            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
             uint184(nominationCost),
             abi.encode(newRequirementsHash)
         );
@@ -763,7 +762,7 @@ contract Governance is IGovernance, EIP712 {
 
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.REQUEST_FOR_COMMENT,
-            uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
+            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
             uint184(nominationCost),
             abi.encode(hash)
         );
@@ -794,10 +793,10 @@ contract Governance is IGovernance, EIP712 {
         address[] calldata newGCAs,
         uint256 maxNominations
     ) external {
-        if (newGCAs.length > _MAX_GCAS_AT_ONE_POINT_IN_TIME) {
+        if (newGCAs.length > MAX_GCAS_AT_ONE_POINT_IN_TIME) {
             _revert(IGovernance.MaximumNumberOfGCAS.selector);
         }
-        if (agentsToSlash.length > _MAX_SLASHES_IN_ONE_GCA_ELECTION) {
+        if (agentsToSlash.length > MAX_SLASHES_IN_ONE_GCA_ELECTION) {
             _revert(IGovernance.MaxSlashesInGCAElection.selector);
         }
         //[agentsToSlash,newGCAs,proposalCreationTimestamp]
@@ -811,7 +810,7 @@ contract Governance is IGovernance, EIP712 {
         _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
-            uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
+            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
             uint184(nominationCost),
             abi.encode(hash, incrementSlashNonce)
         );
@@ -855,7 +854,7 @@ contract Governance is IGovernance, EIP712 {
         _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
-            uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
+            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
             uint184(nominationCost),
             abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp)
         );
@@ -892,7 +891,7 @@ contract Governance is IGovernance, EIP712 {
         }
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES,
-            uint64(block.timestamp + _MAX_PROPOSAL_DURATION),
+            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
             uint184(nominationCost),
             abi.encode(currencyToRemove, newReserveCurrency)
         );
@@ -987,16 +986,14 @@ contract Governance is IGovernance, EIP712 {
         bytes[] memory sigs
     ) external {
         {
-            if (newGCAs.length > _MAX_GCAS_AT_ONE_POINT_IN_TIME) {
+            if (newGCAs.length > MAX_GCAS_AT_ONE_POINT_IN_TIME) {
                 _revert(IGovernance.MaximumNumberOfGCAS.selector);
             }
-            if (agentsToSlash.length > _MAX_SLASHES_IN_ONE_GCA_ELECTION) {
+            if (agentsToSlash.length > MAX_SLASHES_IN_ONE_GCA_ELECTION) {
                 _revert(IGovernance.MaxSlashesInGCAElection.selector);
             }
         }
 
-        bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
-        bool incrementSlashNonce = agentsToSlash.length > 0;
         /// Note: these bytes do not match the bytes that will be saved in storage through the
         /// `checkBulkSignaturesAndCheckSufficientNominations` function
         /// We need to encode this data to check the signatures
@@ -1121,7 +1118,7 @@ contract Governance is IGovernance, EIP712 {
      * @return currentWeek - the current week (since genesis)
      */
     function currentWeek() public view returns (uint256) {
-        return (block.timestamp - _genesisTimestamp) / _ONE_WEEK;
+        return (block.timestamp - _genesisTimestamp) / ONE_WEEK;
     }
 
     /**
@@ -1137,6 +1134,7 @@ contract Governance is IGovernance, EIP712 {
         return IGovernance.ProposalStatus(value);
     }
 
+    //TODO: come back to this implementation
     /// @inheritdoc IGovernance
     function getProposalWithStatus(uint256 proposalId)
         public
@@ -1234,7 +1232,7 @@ contract Governance is IGovernance, EIP712 {
      *         -  last expired proposal id if need be
      */
     function costForNewProposalAndUpdateLastExpiredProposalId() internal returns (uint256) {
-        (uint256 numActiveProposals, uint256 _lastExpiredProposalId) =
+        (uint256 numActiveProposals,) =
             _numActiveProposalsAndLastExpiredProposalIdAndUpdateState();
         return _getNominationCostForProposalCreation(numActiveProposals);
     }
@@ -1350,7 +1348,7 @@ contract Governance is IGovernance, EIP712 {
         }
 
         _proposals[proposalId] = IGovernance.Proposal(
-            proposalType, uint64(block.timestamp + _MAX_PROPOSAL_DURATION), uint184(nominationCost), data
+            proposalType, uint64(block.timestamp + MAX_PROPOSAL_DURATION), uint184(nominationCost), data
         );
 
         ++proposalId;
@@ -1396,7 +1394,7 @@ contract Governance is IGovernance, EIP712 {
      * @dev we only use 4 decimals of precision
      */
     function _getNominationCostForProposalCreation(uint256 numActiveProposals) internal pure returns (uint256) {
-        uint256 res = _ONE_64x64.mul(ABDKMath64x64.pow(_ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
+        uint256 res = ONE_64x64.mul(ABDKMath64x64.pow(ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
         // uint256 resInt = res.toUInt();
         return res * 1e14;
     }
@@ -1414,7 +1412,6 @@ contract Governance is IGovernance, EIP712 {
     {
         uint256 cachedLastExpiredProposalId = lastExpiredProposalId;
         _lastExpiredProposalId = cachedLastExpiredProposalId;
-        uint256 __proposalCount = _proposalCount;
         _lastExpiredProposalId = _lastExpiredProposalId == 0 ? 1 : _lastExpiredProposalId;
         unchecked {
             for (uint256 i = _lastExpiredProposalId; i < _proposalCount; ++i) {
@@ -1473,7 +1470,7 @@ contract Governance is IGovernance, EIP712 {
      */
 
     function _weekEndTime(uint256 weekNumber) internal view returns (uint256) {
-        return _genesisTimestamp + ((weekNumber + 1) * _ONE_WEEK);
+        return _genesisTimestamp + ((weekNumber + 1) * ONE_WEEK);
     }
 
     /**
@@ -1491,7 +1488,8 @@ contract Governance is IGovernance, EIP712 {
      * @param a the address to check
      */
     function _isZeroAddress(address a) private pure returns (bool isZero) {
-        assembly {
+        // solhint-disable-next-line no-inline-assembly
+        assembly("memory-safe") {
             isZero := iszero(a)
         }
     }
@@ -1535,6 +1533,7 @@ contract Governance is IGovernance, EIP712 {
      * @param selector The selector to revert with
      */
     function _revert(bytes4 selector) private pure {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, selector)
             revert(0x0, 0x04)

@@ -82,7 +82,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         GOVERNANCE = IGovernance(_governance);
         GLOW = _glowToken;
         CarbonCreditDutchAuction cccAuction =
-            new CarbonCreditDutchAuction(IERC20(_glowToken), IERC20(address(this)), _gcaAndMinerPoolContract, 1e6);
+            new CarbonCreditDutchAuction(IERC20(_glowToken), IERC20(address(this)), 1e6);
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));
     }
 
@@ -164,7 +164,6 @@ contract GCC is ERC20, IGCC, EIP712 {
 
     /// @inheritdoc IGCC
     function decreaseAllowances(address spender, uint256 requestedDecrease) public {
-        address owner = _msgSender();
         uint256 currentAllowance = allowance(_msgSender(), spender);
         if (currentAllowance < requestedDecrease) {
             revert ERC20.ERC20FailedDecreaseAllowance(spender, currentAllowance, requestedDecrease);
@@ -342,7 +341,8 @@ contract GCC is ERC20, IGCC, EIP712 {
      */
 
     function _revert(bytes4 selector) private pure {
-        assembly {
+        // solhint-disable-next-line no-inline-assembly
+        assembly("memory-safe") {
             mstore(0x0, selector)
             revert(0x0, 0x04)
         }

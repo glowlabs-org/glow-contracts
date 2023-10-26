@@ -267,6 +267,7 @@ contract HoldingContract {
      * @param selector the selector of the error
      */
     function _revert(bytes4 selector) internal pure {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0, selector)
             revert(0, 4)

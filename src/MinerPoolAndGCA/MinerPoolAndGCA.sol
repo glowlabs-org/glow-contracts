@@ -3,11 +3,9 @@ pragma solidity ^0.8.19;
 
 import {GCA} from "./GCA.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
-import {IGlow} from "@/interfaces/IGlow.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -559,6 +557,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @return res - whether or not the address is the zero address
      */
     function _isZeroAddress(address addr) internal pure returns (bool res) {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             res := iszero(addr)
         }

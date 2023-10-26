@@ -2,8 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
-import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {VetoCouncilSalaryHelper, Status} from "@/generic/VetoCouncilSalaryHelper.sol";
@@ -157,6 +155,7 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
      * @return isZero if the address is the zero address
      */
     function _isZeroAddress(address a) private pure returns (bool isZero) {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             isZero := iszero(a)
         }
