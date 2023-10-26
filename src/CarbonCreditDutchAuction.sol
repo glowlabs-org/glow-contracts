@@ -234,7 +234,7 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
      * @param selector The selector to revert with
      */
     function _revert(bytes4 selector) private pure {
-      // solhint-disable-next-line no-inline-assembly
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, selector)
             revert(0x0, 0x04)

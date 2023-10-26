@@ -361,7 +361,7 @@ contract GCASalaryHelper {
      * @return domainSeperator - the domain seperator for the relay signature
      */
     function _domainSeperatorV4Main() internal view virtual returns (bytes32) {
-                // solhint-disable-next-line reason-string, custom-errors
+        // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 
@@ -371,7 +371,7 @@ contract GCASalaryHelper {
      * @dev the function must be overriden by the parent contract
      */
     function _genesisTimestamp() internal view virtual returns (uint256) {
-                        // solhint-disable-next-line reason-string, custom-errors
+        // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 
@@ -381,7 +381,7 @@ contract GCASalaryHelper {
      * @dev the function must be overriden by the parent contract
      */
     function _currentWeek() internal view virtual returns (uint256) {
-                        // solhint-disable-next-line reason-string, custom-errors
+        // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 
@@ -392,7 +392,7 @@ contract GCASalaryHelper {
      * @dev the function must be overriden by the parent contract
      */
     function _transferGlow(address to, uint256 amount) internal virtual {
-                        // solhint-disable-next-line reason-string, custom-errors
+        // solhint-disable-next-line reason-string, custom-errors
         revert();
     }
 

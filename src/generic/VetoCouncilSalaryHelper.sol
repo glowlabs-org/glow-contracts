@@ -306,10 +306,9 @@ contract VetoCouncilSalaryHelper {
         //Since found should have reverted beforehand.
         uint256 rewardPerSecond = REWARDS_PER_SECOND / agents.length;
         uint256 shiftStartTimestamp = _paymentNonceToShiftStartTimestamp[nonce];
-        if (shiftStartTimestamp == 0) {
-            _revert(ShiftHasNotStarted.selector);
-        }
-
+        //We dont need to check the shift start timestamp
+        //Since the hash for an uninitialized nonce will always be zero
+        //and there will be no data
         uint256 shiftEndTimestamp = _paymentNonceToShiftStartTimestamp[nonce + 1];
 
         //This means the shift has ended
@@ -374,7 +373,7 @@ contract VetoCouncilSalaryHelper {
      */
     function isZero(address a) private pure returns (bool res) {
         // solhint-disable-next-line no-inline-assembly
-        assembly("memory-safe") {
+        assembly ("memory-safe") {
             res := iszero(a)
         }
     }
@@ -395,7 +394,6 @@ contract VetoCouncilSalaryHelper {
                     ++numNotNulls;
                 }
             }
-        
         }
         // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
@@ -413,7 +411,7 @@ contract VetoCouncilSalaryHelper {
     function isNull(address a) internal pure returns (bool res) {
         address _null = NULL_ADDRESS;
         // solhint-disable-next-line no-inline-assembly
-        assembly("memory-safe") {
+        assembly ("memory-safe") {
             res := eq(a, _null)
         }
     }
@@ -424,7 +422,7 @@ contract VetoCouncilSalaryHelper {
      */
     function _revert(bytes4 selector) internal pure {
         // solhint-disable-next-line no-inline-assembly
-        assembly("memory-safe") {
+        assembly ("memory-safe") {
             mstore(0x0, selector)
             revert(0x0, 0x04)
         }

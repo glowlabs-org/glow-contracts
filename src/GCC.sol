@@ -342,7 +342,7 @@ contract GCC is ERC20, IGCC, EIP712 {
 
     function _revert(bytes4 selector) private pure {
         // solhint-disable-next-line no-inline-assembly
-        assembly("memory-safe") {
+        assembly ("memory-safe") {
             mstore(0x0, selector)
             revert(0x0, 0x04)
         }

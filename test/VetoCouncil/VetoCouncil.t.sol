@@ -78,6 +78,48 @@ contract VetoCouncilTest is Test {
         vm.stopPrank();
     }
 
+    function test_newAgentIsAlreadySlashed_shouldReturnFalse() public {
+        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        address[] memory startingAgents = new address[](1);
+        startingAgents[0] = address(SIMON);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vm.startPrank(GOVERNANCE);
+        address oldAgent = address(SIMON);
+        address newAgent = address(0);
+        bool slashOldAgent = true;
+        assert(vetoCouncil.addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent));
+        oldAgent = address(0);
+        newAgent = SIMON;
+        slashOldAgent = false;
+        assert(!vetoCouncil.addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent) == false);
+        Status memory simonStatus = vetoCouncil.agentStatus(SIMON);
+        assert(simonStatus.isActive == false);
+        assert(simonStatus.indexInArray == type(uint8).max); //this is the null index
+        assert(simonStatus.isSlashed);
+        vm.stopPrank();
+    }
+
+    function test_newAgentIsAlreadyActive_shouldReturnFalse() public {
+        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        address[] memory startingAgents = new address[](2);
+        startingAgents[0] = address(SIMON);
+        startingAgents[1] = address(0x33333);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vm.startPrank(GOVERNANCE);
+        address oldAgent = address(0x33333);
+        bool slashOldAgent = false;
+        //Remove simon
+        assert(vetoCouncil.addAndRemoveCouncilMember(SIMON, address(0), slashOldAgent));
+        //Try re-adding the already active `oldAgent`
+        assert(!vetoCouncil.addAndRemoveCouncilMember(address(0), oldAgent, slashOldAgent) == false);
+        Status memory oldAgentStatus = vetoCouncil.agentStatus(oldAgent);
+        //None of the old agent status should have changed
+        assert(oldAgentStatus.isActive);
+        assert(oldAgentStatus.indexInArray == 1);
+        assert(!oldAgentStatus.isSlashed);
+        vm.stopPrank();
+    }
+
     function test_vetoCouncil_claimFromInflation() public {
         vm.warp(block.timestamp + 1 weeks);
         vetoCouncil.pullGlowFromInflation();
@@ -334,7 +376,28 @@ contract VetoCouncilTest is Test {
         //Since we have never claimed;
     }
 
-    //test not changing # of agents should not change rwps at any nonce
+    function test_claimPayoutInputArrayDoesNotMatchActualArray_shouldRevert() public {
+        vm.startPrank(SIMON);
+        address[] memory agents = vetoCouncil.vetoCouncilAgents();
+        agents[0] = address(0xdeadddadadadadada);
+        vm.expectRevert(VetoCouncilSalaryHelper.HashMismatch.selector);
+        vetoCouncil.claimPayout({agent: SIMON, nonce: 1, sync: true, agents: agents});
+    }
+
+    function test_claimPayout_recipientNotInArray_shouldRevert() public {
+        vm.startPrank(SIMON);
+        address[] memory agents = vetoCouncil.vetoCouncilAgents();
+        address notInArray = address(0xdeadddadadadadada);
+        vm.expectRevert(VetoCouncilSalaryHelper.AgentNotFound.selector);
+        vetoCouncil.claimPayout({agent: notInArray, nonce: 1, sync: true, agents: agents});
+    }
+
+    // function test_claimPayout_futureNonce_shouldRevert() public {
+    //     vm.startPrank(address(0));
+    //     address[] memory agents = vetoCouncil.vetoCouncilAgents();
+    //     // vm.expectRevert(VetoCouncilSalaryHelper.ShiftHasNotStarted.selector);
+    //     vetoCouncil.claimPayout({agent: address(0), nonce: 2, sync: true, agents: new address[](0)});
+    // }
 
     // //-------------------  HELPERS  -----------------------------
     function _containsElement(address[] memory array, address element) internal pure returns (bool) {

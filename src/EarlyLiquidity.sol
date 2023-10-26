@@ -346,7 +346,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
      */
     function _revert(bytes4 selector) private pure {
         // solhint-disable-next-line no-inline-assembly
-        assembly("memory-safe") {
+        assembly ("memory-safe") {
             mstore(0x0, selector)
             revert(0x0, 0x04)
         }
@@ -357,7 +357,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
      */
     function _isZeroAddress(address a) private pure returns (bool isZero) {
         // solhint-disable-next-line no-inline-assembly
-        assembly("memory-safe") {
+        assembly ("memory-safe") {
             isZero := iszero(a)
         }
     }

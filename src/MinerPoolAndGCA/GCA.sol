@@ -219,7 +219,7 @@ contract GCA is IGCA, GCASalaryHelper {
     ) internal {
         uint256 packedGlobalState;
         uint256 slot;
-                // solhint-disable-next-line no-inline-assembly
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, bucketId)
             mstore(0x20, _bucketGlobalState.slot)
@@ -243,9 +243,8 @@ contract GCA is IGCA, GCASalaryHelper {
             return;
         }
 
-
         uint256 packedDataInReport;
-                // solhint-disable-next-line no-inline-assembly
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             packedDataInReport := sload(gcaReportStartSlot)
         }
@@ -257,7 +256,7 @@ contract GCA is IGCA, GCASalaryHelper {
 
         packedGlobalState = gccInBucketPlusGcaGcc | (glwWeightInBucketPlusGcaGlwWeight << 128)
             | (grcWeightInBucketPlusGcaGrcWeight << 192);
-                    // solhint-disable-next-line no-inline-assembly
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             sstore(slot, packedGlobalState)
         }
@@ -288,7 +287,7 @@ contract GCA is IGCA, GCASalaryHelper {
             {
                 for (uint256 i; i < len; ++i) {
                     address proposingAgent;
-                            // solhint-disable-next-line no-inline-assembly
+                    // solhint-disable-next-line no-inline-assembly
                     assembly {
                         //the address is stored in the [0,1,2] - 3rd slot
                         //                                  ^
@@ -298,7 +297,7 @@ contract GCA is IGCA, GCASalaryHelper {
                     }
                     if (proposingAgent == msg.sender) {
                         foundIndex = i == 0 ? type(uint256).max : i;
-                                // solhint-disable-next-line no-inline-assembly
+                        // solhint-disable-next-line no-inline-assembly
                         assembly {
                             //since we incremented the slot by 3, we need to decrement it by 3 to get the start of the packed data
                             reportArrayStartSlot := sub(reportArrayStartSlot, 3)
@@ -477,7 +476,7 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     function getBucketRootAtIndexEfficient(uint256 bucketId, uint256 index) internal view returns (bytes32 root) {
-                // solhint-disable-next-line no-inline-assembly
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             //Store the key
             mstore(0x0, bucketId)
@@ -513,7 +512,7 @@ contract GCA is IGCA, GCASalaryHelper {
 
     function isBucketFinalized(uint256 bucketId) public view returns (bool) {
         uint256 packedData;
-                // solhint-disable-next-line no-inline-assembly
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, bucketId)
             mstore(0x20, _buckets.slot)

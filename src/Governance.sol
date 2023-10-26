@@ -384,8 +384,7 @@ contract Governance is IGovernance, EIP712 {
             //RFC and Grants Treasury proposals don't need to be ratified to pass
             if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
                 uint256 numEndorsements = numEndorsementsOnWeek[_nextWeekToExecute];
-                uint256 requiredWeight =
-                    DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL - (numEndorsements * ENDORSEMENT_WEIGHT);
+                uint256 requiredWeight = DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL - (numEndorsements * ENDORSEMENT_WEIGHT);
                 uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
                 //If no one votes, we don't execute the proposal
                 //This also prevents division by zero error
@@ -1232,8 +1231,7 @@ contract Governance is IGovernance, EIP712 {
      *         -  last expired proposal id if need be
      */
     function costForNewProposalAndUpdateLastExpiredProposalId() internal returns (uint256) {
-        (uint256 numActiveProposals,) =
-            _numActiveProposalsAndLastExpiredProposalIdAndUpdateState();
+        (uint256 numActiveProposals,) = _numActiveProposalsAndLastExpiredProposalIdAndUpdateState();
         return _getNominationCostForProposalCreation(numActiveProposals);
     }
 
@@ -1489,7 +1487,7 @@ contract Governance is IGovernance, EIP712 {
      */
     function _isZeroAddress(address a) private pure returns (bool isZero) {
         // solhint-disable-next-line no-inline-assembly
-        assembly("memory-safe") {
+        assembly ("memory-safe") {
             isZero := iszero(a)
         }
     }
