@@ -434,6 +434,17 @@ contract MinerPoolAndGCATest is Test {
         assert(minerPoolAndGCA.domainSeperatorOZ() == minerPoolAndGCA.domainSeperatorV4MainInternal());
     }
 
+    function test_donateNotGRC_shouldRevert() public {
+        vm.startPrank(SIMON);
+        uint256 amountGRCToDonate = 1_000_000 * 1e6;
+        MockUSDC notGRC = new MockUSDC();
+        notGRC.mint(SIMON, amountGRCToDonate);
+        notGRC.approve(address(minerPoolAndGCA), amountGRCToDonate);
+        vm.expectRevert(IMinerPool.NotGRCToken.selector);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(notGRC), amountGRCToDonate);
+        vm.stopPrank();
+    }
+
     function test_withdrawFromBucket_shouldAddToHoldings() public {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;

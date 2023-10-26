@@ -207,6 +207,36 @@ contract MD2Test is Test {
         assertTrue(totalDepositedUsdc2 == amountForContract2b + amountForContract2a);
     }
 
+    function test_getAmountForTokenAndInitIfNot() public {
+        //Add to bucker 16 (since 0 + 16)
+        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
+        //vested amt is divided by 192 for vesting purposes
+        uint256 expectedAmount = uint256(10 ether) / uint256(192);
+        //Read the raw reward from the contract
+        (bool inherited, uint256 amtInBucket, uint256 amountToDeduct) =
+            minerMath.rawRewardInStorage(address(mockUsdc1), 17);
+        //Inherited should be false, since we havent technically gotten to bucket 17 yet
+        assert(!inherited);
+
+        //This call will actually init the bucket
+        uint256 amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
+        assert(amountInBucket == expectedAmount);
+        (inherited, amtInBucket, amountToDeduct) = minerMath.rawRewardInStorage(address(mockUsdc1), 17);
+        //The raw inherited should be true and the rest should match the `reward`
+        assert(inherited);
+        MD2.WeeklyReward memory rewardAfterInit = minerMath.reward(address(mockUsdc1), 17);
+        assert(rewardAfterInit.amountInBucket == amtInBucket);
+        assert(rewardAfterInit.amountToDeduct == amountToDeduct);
+        // assert(rewardAfterInit.inheritedFromLastWeek);
+
+        minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
+        //If already inheirted nothing should change
+        MD2.WeeklyReward memory rewardAfterInit2 = minerMath.reward(address(mockUsdc1), 17);
+        assert(rewardAfterInit2.inheritedFromLastWeek);
+        assert(rewardAfterInit2.amountInBucket == rewardAfterInit.amountInBucket);
+        assert(rewardAfterInit2.amountToDeduct == rewardAfterInit.amountToDeduct);
+    }
+
     // /**
     //  * @dev function to test the addRewardsToBucket function
     //  *         -   we loop over 300 weeks,

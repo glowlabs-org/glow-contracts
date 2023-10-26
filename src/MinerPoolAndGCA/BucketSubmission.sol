@@ -27,7 +27,7 @@ contract BucketSubmission {
     uint256 public constant TOTAL_VESTING_PERIODS = OFFSET_RIGHT - OFFSET_LEFT;
 
     /// @notice mappings bucketId -> grcToken -> WeeklyReward
-    mapping(uint256 => mapping(address => WeeklyReward)) public rewards;
+    mapping(uint256 => mapping(address => WeeklyReward)) internal rewards;
 
     /// @notice grcToken -> bucketTracker
     mapping(address => BucketTracker) internal bucketTrackerStorage;
@@ -363,7 +363,7 @@ contract BucketSubmission {
         return 0;
     }
 
-    function _revertIfNotGRC(address grc) internal {
+    function _revertIfNotGRC(address grc) internal view {
         if (!bucketTrackerStorage[grc].isGRC) {
             revert IMinerPool.NotGRCToken();
         }
