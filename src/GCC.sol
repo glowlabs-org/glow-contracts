@@ -37,8 +37,9 @@ contract GCC is ERC20, IGCC, EIP712 {
     uint256 private constant _BITS_IN_UINT = 256;
 
     /// @notice The EIP712 typehash for the RetiringPermit struct used by the permit
-    bytes32 public constant RETIRING_PERMIT_TYPEHASH =
-        keccak256("RetiringPermit(address owner,address spender,uint256 amount,uint256 nonce,uint256 deadline)");
+    bytes32 public constant RETIRING_PERMIT_TYPEHASH = keccak256(
+        "RetiringPermit(address owner,address spender,address rewardAddress,address referralAddress,uint256 amount,uint256 nonce,uint256 deadline)"
+    );
 
     /**
      * @notice The bitmap of minted buckets
@@ -104,23 +105,56 @@ contract GCC is ERC20, IGCC, EIP712 {
 
     //-----------------  RETIRING -----------------//
 
+    function retireGCC(uint256 amount, address rewardAddress, address referralAddress) public {
+        _transfer(_msgSender(), address(this), amount);
+        _handleRetirement(_msgSender(), rewardAddress, amount, referralAddress);
+    }
+
     /**
      * @inheritdoc IGCC
      */
     function retireGCC(uint256 amount, address rewardAddress) external {
-        _transfer(_msgSender(), address(this), amount);
-        _handleRetirement(_msgSender(), rewardAddress, amount);
+        retireGCC(amount, rewardAddress, address(0));
+    }
+
+    function retireGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress) public {
+        transferFrom(from, address(this), amount);
+        if (_msgSender() != from) {
+            _decreaseRetiringAllowance(from, _msgSender(), amount, false);
+        }
+        _handleRetirement(from, rewardAddress, amount, referralAddress);
     }
 
     /**
      * @inheritdoc IGCC
      */
     function retireGCCFor(address from, address rewardAddress, uint256 amount) public {
-        transferFrom(from, address(this), amount);
-        if (_msgSender() != from) {
-            _decreaseRetiringAllowance(from, _msgSender(), amount, false);
+        retireGCCFor(from, rewardAddress, amount, address(0));
+    }
+
+    function retireGCCForAuthorized(
+        address from,
+        address rewardAddress,
+        uint256 amount,
+        uint256 deadline,
+        bytes calldata signature,
+        address referralAddress
+    ) public {
+        if (block.timestamp > deadline) {
+            _revert(IGCC.RetiringPermitSignatureExpired.selector);
         }
-        _handleRetirement(from, rewardAddress, amount);
+        bytes32 message = _constructRetiringPermitDigest(
+            from, _msgSender(), rewardAddress, referralAddress, amount, nextRetiringNonce[from]++, deadline
+        );
+        if (!_checkRetiringPermitSignature(from, message, signature)) {
+            _revert(IGCC.RetiringSignatureInvalid.selector);
+        }
+        _increaseRetiringAllowance(from, _msgSender(), amount, false);
+        uint256 transferAllowance = allowance(from, _msgSender());
+        if (transferAllowance < amount) {
+            _approve(from, _msgSender(), amount, false);
+        }
+        retireGCCFor(from, rewardAddress, amount, referralAddress);
     }
 
     /// @inheritdoc IGCC
@@ -131,20 +165,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         uint256 deadline,
         bytes calldata signature
     ) external {
-        if (block.timestamp > deadline) {
-            _revert(IGCC.RetiringPermitSignatureExpired.selector);
-        }
-        bytes32 message =
-            _constructRetiringPermitDigest(from, _msgSender(), amount, nextRetiringNonce[from]++, deadline);
-        if (!_checkRetiringPermitSignature(from, message, signature)) {
-            _revert(IGCC.RetiringSignatureInvalid.selector);
-        }
-        _increaseRetiringAllowance(from, _msgSender(), amount, false);
-        uint256 transferAllowance = allowance(from, _msgSender());
-        if (transferAllowance < amount) {
-            _approve(from, _msgSender(), amount, false);
-        }
-        retireGCCFor(from, rewardAddress, amount);
+        retireGCCForAuthorized(from, rewardAddress, amount, deadline, signature, address(0));
     }
 
     //-----------------  ALLOWANCES -----------------//
@@ -235,12 +256,13 @@ contract GCC is ERC20, IGCC, EIP712 {
 
     /// @notice handles the storage writes and event emissions relating to retiring carbon credits.
     /// @dev should only be used internally and by function that require a transfer of {amount} to address(this)
-    function _handleRetirement(address from, address rewardAddress, uint256 amount) private {
+    function _handleRetirement(address from, address rewardAddress, uint256 amount, address referralAddress) private {
+        if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
         //Retiring GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
         totalCreditsRetired[rewardAddress] += amount;
         GOVERNANCE.grantNominations(rewardAddress, amount);
-        emit IGCC.GCCRetired(from, rewardAddress, amount);
+        emit IGCC.GCCRetired(from, rewardAddress, amount, referralAddress);
     }
 
     /**
@@ -304,6 +326,8 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @dev Constructs a retiring permit EIP712 message hash to be signed
      * @param owner The owner of the funds
      * @param spender The spender
+     * @param rewardAddress - the address to receive the benefits of retiring
+     * @param referralAddress - the address of the referrer
      * @param amount The amount of funds
      * @param nonce The next nonce
      * @param deadline The deadline for the signature to be valid
@@ -312,12 +336,19 @@ contract GCC is ERC20, IGCC, EIP712 {
     function _constructRetiringPermitDigest(
         address owner,
         address spender,
+        address rewardAddress,
+        address referralAddress,
         uint256 amount,
         uint256 nonce,
         uint256 deadline
     ) private view returns (bytes32) {
-        return
-            _hashTypedDataV4(keccak256(abi.encode(RETIRING_PERMIT_TYPEHASH, owner, spender, amount, nonce, deadline)));
+        return _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    RETIRING_PERMIT_TYPEHASH, owner, spender, rewardAddress, referralAddress, amount, nonce, deadline
+                )
+            )
+        );
     }
 
     /**

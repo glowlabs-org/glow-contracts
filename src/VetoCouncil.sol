@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
-import {VetoCouncilSalaryHelper, Status} from "@/generic/VetoCouncilSalaryHelper.sol";
+import {VetoCouncilSalaryHelper} from "@/generic/VetoCouncilSalaryHelper.sol";
 
 /**
  * @title VetoCouncil

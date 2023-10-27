@@ -10,6 +10,7 @@ interface IGCC is IERC20 {
     error RetiringSignatureInvalid();
     error RetiringAllowanceUnderflow();
     error MustIncreaseRetiringAllowanceByAtLeastOne();
+    error CannotReferSelf();
 
     /**
      * @notice allows gca contract to mint GCC to the carbon credit auction
@@ -129,8 +130,10 @@ interface IGCC is IERC20 {
      * @param account the account that retired credits
      * @param rewardAddress the address that earned the credits and nominations
      * @param amount the amount of credits retired
+     * @param referralAddress the address that referred the account
+     *             - zero address if no referral
      */
-    event GCCRetired(address indexed account, address indexed rewardAddress, uint256 amount);
+    event GCCRetired(address indexed account, address indexed rewardAddress, uint256 amount, address referralAddress);
 
     /**
      * @notice is emitted when a user approves a spender to retire credits on their behalf

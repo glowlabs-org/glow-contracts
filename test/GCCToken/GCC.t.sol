@@ -257,8 +257,9 @@ contract GCCTest is Test {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1e20 ether);
         vm.stopPrank();
-        bytes memory signature =
-            _signPermit(SIMON, other, 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK);
+        bytes memory signature = _signPermit(
+            SIMON, other, other, address(0), 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+        );
 
         vm.startPrank(other);
         gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, block.timestamp + 1000, signature);
@@ -269,14 +270,28 @@ contract GCCTest is Test {
         assertEq(gcc.retiringAllowance(SIMON, other), 0);
     }
 
+    function test_retireGCC_Signature_referSelf_shouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1e20 ether);
+        vm.stopPrank();
+        bytes memory signature = _signPermit(
+            SIMON, other, other, SIMON, 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+        );
+
+        vm.startPrank(other);
+        vm.expectRevert(IGCC.CannotReferSelf.selector);
+        gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, block.timestamp + 1000, signature, SIMON);
+    }
+
     function test_retireGCC_Signature_expirationInPast_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1e20 ether);
         vm.stopPrank();
         uint256 currentTimestamp = block.timestamp;
         uint256 sigTimestamp = block.timestamp + 1000;
-        bytes memory signature =
-            _signPermit(SIMON, other, 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK);
+        bytes memory signature = _signPermit(
+            SIMON, other, SIMON, address(0), 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+        );
 
         vm.startPrank(other);
         vm.warp(sigTimestamp + 1);
@@ -291,8 +306,9 @@ contract GCCTest is Test {
         vm.stopPrank();
         uint256 currentTimestamp = block.timestamp;
         uint256 sigTimestamp = block.timestamp + 1000;
-        bytes memory signature =
-            _signPermit(SIMON, other, 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK);
+        bytes memory signature = _signPermit(
+            SIMON, other, SIMON, address(0), 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+        );
 
         vm.startPrank(other);
         vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
@@ -306,8 +322,16 @@ contract GCCTest is Test {
         uint256 currentTimestamp = block.timestamp;
         uint256 sigTimestamp = block.timestamp + 1000;
         (address badActor, uint256 badActorPk) = _createAccount(9998, 1e20 ether);
-        bytes memory signature =
-            _signPermit(badActor, other, 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, badActorPk);
+        bytes memory signature = _signPermit(
+            badActor,
+            other,
+            badActor,
+            address(0),
+            1e20 ether,
+            gcc.nextRetiringNonce(SIMON),
+            block.timestamp + 1000,
+            badActorPk
+        );
 
         vm.startPrank(other);
         vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
@@ -327,8 +351,9 @@ contract GCCTest is Test {
         vm.stopPrank();
         uint256 currentTimestamp = block.timestamp;
         uint256 sigTimestamp = block.timestamp + 1000;
-        bytes memory signature =
-            _signPermit(SIMON, other, 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK);
+        bytes memory signature = _signPermit(
+            SIMON, other, other, address(0), 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+        );
 
         vm.startPrank(other);
         gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
@@ -350,13 +375,18 @@ contract GCCTest is Test {
     function _signPermit(
         address owner,
         address spender,
+        address rewardAddress,
+        address referralAddress,
         uint256 amount,
         uint256 nonce,
         uint256 deadline,
         uint256 privateKey
     ) internal returns (bytes memory signature) {
-        bytes32 structHash =
-            keccak256(abi.encode(gcc.RETIRING_PERMIT_TYPEHASH(), owner, spender, amount, nonce, deadline));
+        bytes32 structHash = keccak256(
+            abi.encode(
+                gcc.RETIRING_PERMIT_TYPEHASH(), owner, spender, rewardAddress, referralAddress, amount, nonce, deadline
+            )
+        );
         bytes32 messageHash = MessageHashUtils.toTypedDataHash(gcc.domainSeparatorV4(), structHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, messageHash);
