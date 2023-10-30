@@ -13,6 +13,10 @@ import {Handler} from "./Handler.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 
 contract GCCTest is Test {
     TestGCC public gcc;
@@ -30,8 +34,13 @@ contract GCCTest is Test {
     address vestingContract = address(0x412412);
     address earlyLiquidity = address(0x412412);
     address other = address(0xdead);
+    address accountWithLotsOfUSDC = 0xcEe284F754E854890e311e3280b767F80797180d; //arbitrum bridge
+    string forkUrl = vm.envString("MAINNET_RPC");
+    uint256 mainnetFork;
+    address UNISWAP_V2_FACTORY = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
 
     function setUp() public {
+        mainnetFork = vm.createFork(forkUrl);
         glwContract = new TestGLOW(earlyLiquidity,vestingContract);
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
@@ -391,5 +400,87 @@ contract GCCTest is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, messageHash);
         signature = abi.encodePacked(r, s, v);
+    }
+
+    function test_swap() public {
+        vm.startPrank(accountWithLotsOfUSDC);
+        vm.selectFork(mainnetFork);
+        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glw = address(glwContract);
+        (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
+        gov = new Governance();
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw);
+        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
+        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
+
+        gcc.mint(accountWithLotsOfUSDC, 1e20 ether);
+        address usdc = gcc.USDC();
+        //Assume that 1 GCC = $20
+        IUniswapRouterV2 router = gcc.UNISWAP_ROUTER();
+        uint256 amountA = 100 ether; //100 gcc
+        uint256 amountB = 2000 * 1e6; //2000 usdc
+        gcc.approve(address(router), amountA);
+        IERC20(usdc).approve(address(router), amountB);
+        uint256 gccBalanceBefore = 1e20 ether;
+        uint256 usdcBalanceBefore = IERC20(usdc).balanceOf(accountWithLotsOfUSDC);
+        router.addLiquidity(
+            address(gcc), usdc, amountA, amountB, amountA, amountB, accountWithLotsOfUSDC, block.timestamp
+        );
+        uint256 gccBalanceAfter = gcc.balanceOf(accountWithLotsOfUSDC);
+        uint256 usdcBalanceAfter = IERC20(usdc).balanceOf(accountWithLotsOfUSDC);
+
+        address pairAddress = UniswapV2Library.pairFor(UNISWAP_V2_FACTORY, address(gcc), usdc);
+        uint256 balanceOfLPTokens = IERC20(pairAddress).balanceOf(accountWithLotsOfUSDC);
+        // console.log("balance of LP tokens = %s", balanceOfLPTokens);
+        // //log the diffs
+        // console.log("Gcc diff = %s", gccBalanceBefore - gccBalanceAfter);
+        // console.log("USDC diff = %s", usdcBalanceBefore - usdcBalanceAfter);
+
+        //Perform a swap
+
+        gcc.simonSwap(10 ether);
+        address swapper = address(gcc.SWAPPER());
+    }
+
+    function test_swap2() public {
+        vm.startPrank(accountWithLotsOfUSDC);
+        vm.selectFork(mainnetFork);
+        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glw = address(glwContract);
+        (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
+        gov = new Governance();
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw);
+        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
+        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
+
+        gcc.mint(accountWithLotsOfUSDC, 1e20 ether);
+        address usdc = gcc.USDC();
+        //Assume that 1 GCC = $20
+        IUniswapRouterV2 router = gcc.UNISWAP_ROUTER();
+        uint256 amountA = 100 ether; //100 gcc
+        uint256 amountB = 2000 * 1e6; //2000 usdc
+        gcc.approve(address(router), amountA);
+        IERC20(usdc).approve(address(router), amountB);
+        uint256 gccBalanceBefore = 1e20 ether;
+        uint256 usdcBalanceBefore = IERC20(usdc).balanceOf(accountWithLotsOfUSDC);
+        router.addLiquidity(
+            address(gcc), usdc, amountA, amountB, amountA, amountB, accountWithLotsOfUSDC, block.timestamp
+        );
+        uint256 gccBalanceAfter = gcc.balanceOf(accountWithLotsOfUSDC);
+        uint256 usdcBalanceAfter = IERC20(usdc).balanceOf(accountWithLotsOfUSDC);
+
+        address pairAddress = UniswapV2Library.pairFor(UNISWAP_V2_FACTORY, address(gcc), usdc);
+        uint256 balanceOfLPTokens = IERC20(pairAddress).balanceOf(accountWithLotsOfUSDC);
+        // console.log("balance of LP tokens = %s", balanceOfLPTokens);
+        // //log the diffs
+        // console.log("Gcc diff = %s", gccBalanceBefore - gccBalanceAfter);
+        // console.log("USDC diff = %s", usdcBalanceBefore - usdcBalanceAfter);
+
+        //Perform a swap
+        IERC20(usdc).approve(address(gcc), type(uint256).max);
+        gcc.swapUSDC(500 * 1e6);
+        address swapper = address(gcc.SWAPPER());
     }
 }

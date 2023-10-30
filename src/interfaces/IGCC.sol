@@ -136,6 +136,16 @@ interface IGCC is IERC20 {
     event GCCRetired(address indexed account, address indexed rewardAddress, uint256 amount, address referralAddress);
 
     /**
+     * @notice is emitted when a user retires USDC
+     * @param account the account that retired the USDC
+     * @param rewardAddress the address that earns nominations
+     * @param amount the amount of USDC retired
+     * @param referralAddress the address that referred the account
+     *             - zero address if no referral
+     */
+    event USDCRetired(address indexed account, address indexed rewardAddress, uint256 amount, address referralAddress);
+
+    /**
      * @notice is emitted when a user approves a spender to retire credits on their behalf
      * @param account the account that approved a spender
      * @param spender the address of the spender

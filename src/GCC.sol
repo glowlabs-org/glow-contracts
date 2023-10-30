@@ -9,6 +9,9 @@ import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/Signa
 import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
+import "forge-std/console.sol";
+import {Swapper} from "@/Swapper.sol";
 /**
  * @title GCC (Glow Carbon Credit)
  * @author DavidVorick
@@ -33,8 +36,12 @@ contract GCC is ERC20, IGCC, EIP712 {
 
     address public immutable GLOW;
 
+    Swapper public immutable SWAPPER;
     /// @notice The maximum shift for a bucketId
     uint256 private constant _BITS_IN_UINT = 256;
+
+    IUniswapRouterV2 public constant UNISWAP_ROUTER = IUniswapRouterV2(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+    address public constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     /// @notice The EIP712 typehash for the RetiringPermit struct used by the permit
     bytes32 public constant RETIRING_PERMIT_TYPEHASH = keccak256(
@@ -85,6 +92,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         CarbonCreditDutchAuction cccAuction =
             new CarbonCreditDutchAuction(IERC20(_glowToken), IERC20(address(this)), 1e6);
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));
+        SWAPPER = new Swapper(USDC);
     }
 
     //************************************************************* */
@@ -108,6 +116,22 @@ contract GCC is ERC20, IGCC, EIP712 {
     function retireGCC(uint256 amount, address rewardAddress, address referralAddress) public {
         _transfer(_msgSender(), address(this), amount);
         _handleRetirement(_msgSender(), rewardAddress, amount, referralAddress);
+    }
+
+    function simonSwap(uint256 amount) public {
+        _transfer(_msgSender(), address(SWAPPER), amount);
+        uint256 usdcEffect = SWAPPER.retireGCC(amount);
+        _handleRetirement(msg.sender, msg.sender, usdcEffect, address(0));
+        //do something with usdc effect
+    }
+
+    function swapUSDC(uint256 amount) public {
+        uint256 swapperBalBefore = IERC20(USDC).balanceOf(address(SWAPPER));
+        IERC20(USDC).transferFrom(msg.sender, address(SWAPPER), amount);
+        uint256 swapperBalAfter = IERC20(USDC).balanceOf(address(SWAPPER));
+        uint256 usdcUsing = swapperBalAfter - swapperBalBefore;
+        SWAPPER.retireUSDC(usdcUsing);
+        _handleUSDCRetirement(msg.sender, msg.sender, usdcUsing, address(0));
     }
 
     /**
@@ -263,6 +287,17 @@ contract GCC is ERC20, IGCC, EIP712 {
         totalCreditsRetired[rewardAddress] += amount;
         GOVERNANCE.grantNominations(rewardAddress, amount);
         emit IGCC.GCCRetired(from, rewardAddress, amount, referralAddress);
+    }
+
+    function _handleUSDCRetirement(address from, address rewardAddress, uint256 amount, address referralAddress)
+        private
+    {
+        if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
+        //Retiring GCC is also responsible for syncing proposals in governance.
+        GOVERNANCE.syncProposals();
+        totalCreditsRetired[rewardAddress] += amount;
+        GOVERNANCE.grantNominations(rewardAddress, amount);
+        emit IGCC.USDCRetired(from, rewardAddress, amount, referralAddress);
     }
 
     /**
