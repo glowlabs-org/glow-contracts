@@ -1394,7 +1394,8 @@ contract Governance is IGovernance, EIP712 {
     function _getNominationCostForProposalCreation(uint256 numActiveProposals) internal pure returns (uint256) {
         uint256 res = ONE_64x64.mul(ABDKMath64x64.pow(ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
         // uint256 resInt = res.toUInt();
-        return res * 1e14;
+        //Multiply by 1e2 to get it in 6 decimals (similar to USDC)
+        return res * 1e2;
     }
 
     /**

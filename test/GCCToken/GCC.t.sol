@@ -69,7 +69,7 @@ contract GCCTest is Test {
         console.logBytes32(initCodePair);
 
         targetContract(address(handler));
-        seedLP(10000 ether, 200000 * 1e6);
+        seedLP(400 ether, 1000 * 1e6);
         address pair = uniswapFactory.pairs(address(usdc), address(gcc));
 
         (uint256 reserveA, uint256 reserveB,) = UnifapV2Pair(pair).getReserves();
@@ -143,8 +143,8 @@ contract GCCTest is Test {
 
     function test_retireGCC() public {
         vm.startPrank(SIMON);
-        gcc.mint(SIMON, 1e20 ether);
-        gcc.retireGCC(1e20 ether, SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.retireGCC(100 ether, SIMON);
         // assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
         // assertEq(gcc.totalCreditsRetired(SIMON), 1e20 ether);
@@ -436,7 +436,7 @@ contract GCCTest is Test {
         //     auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         //     handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
         //     gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
-    
+
         gcc.mint(accountWithLotsOfUSDC, 1e20 ether);
         usdc.mint(accountWithLotsOfUSDC, 2000 * 1e6);
         usdc.approve(address(uniswapRouter), 2000 * 1e6);

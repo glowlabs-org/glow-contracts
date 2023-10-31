@@ -10,7 +10,7 @@ interface IUnifapV2Pair {
 
     function burn(address) external returns (uint256, uint256);
 
-    function swap(uint256, uint256, address,bytes memory) external;
+    function swap(uint256, uint256, address, bytes memory) external;
 
     function sync() external;
 }
