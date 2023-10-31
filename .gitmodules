@@ -22,3 +22,9 @@
 	url = https://github.com/Vectorized/solady
 [submodule "lib\\solady"]
 	branch = v0.0.113
+[submodule "lib/unifap-v2"]
+	path = lib/unifap-v2
+	url = https://github.com/lonerapier/unifap-v2
+[submodule "lib/clones-with-immutable-args"]
+	path = lib/clones-with-immutable-args
+	url = https://github.com/wighawag/clones-with-immutable-args

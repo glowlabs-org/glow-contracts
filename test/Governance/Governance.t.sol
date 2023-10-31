@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "@/testing/TestGCC.sol";
@@ -26,6 +26,9 @@ import {HalfLife} from "@/libraries/HalfLife.sol";
 import {DivergenceHandler} from "./Handlers/DivergenceHandler.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
 import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
+import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
+import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
 
 struct AccountWithPK {
     uint256 privateKey;
@@ -34,6 +37,9 @@ struct AccountWithPK {
 
 contract GovernanceTest is Test {
     //--------  CONTRACTS ---------//
+    UnifapV2Factory public uniswapFactory;
+    WETH9 public weth;
+    UnifapV2Router public uniswapRouter;
     MockMinerPoolAndGCA minerPoolAndGCA;
     TestGLOW glow;
     MockUSDC usdc;
@@ -76,6 +82,9 @@ contract GovernanceTest is Test {
     uint256 ONE_YEAR = 365 * uint256(1 days);
 
     function setUp() public {
+        uniswapFactory = new UnifapV2Factory();
+        weth = new WETH9();
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         //Make sure we don't start at 0
         governance = new MockGovernance();
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
@@ -103,7 +112,8 @@ contract GovernanceTest is Test {
         new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
-        gcc = new TestGCC( address(minerPoolAndGCA), address(governance),address(glow));
+        gcc =
+        new TestGCC( address(minerPoolAndGCA), address(governance),address(glow),address(usdc),address(uniswapRouter));
         // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
         governance.setContractAddresses(
             address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
@@ -192,7 +202,8 @@ contract GovernanceTest is Test {
         address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
-        gcc = new TestGCC( address(minerPoolAndGCA), address(governance),address(glow));
+        gcc =
+        new TestGCC( address(minerPoolAndGCA), address(governance),address(glow),address(usdc),address(uniswapRouter));
         // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
         governance.setContractAddresses(
             address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
@@ -223,7 +234,7 @@ contract GovernanceTest is Test {
         address(holdingContract));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
-        gcc = new TestGCC(address(minerPoolAndGCA), address(governance),address(glow));
+        gcc = new TestGCC(address(minerPoolAndGCA), address(governance),address(glow),address(0x10),address(0x11));
         // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
         address _zero = address(0x0);
 

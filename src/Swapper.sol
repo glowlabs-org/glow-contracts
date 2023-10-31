@@ -10,22 +10,24 @@ import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
 contract Swapper {
     address public immutable GCC;
     address public immutable USDC;
-    IUniswapRouterV2 public constant UNISWAP_ROUTER = IUniswapRouterV2(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
-    address public constant UNISWAP_V2_FACTORY = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+    IUniswapRouterV2 public immutable UNISWAP_ROUTER;
+    address public immutable UNISWAP_V2_FACTORY;
     address public immutable UNISWAP_V2_PAIR;
 
-    constructor(address _usdc) payable {
+    constructor(address _usdc, address router, address factory, address pair) payable {
         GCC = msg.sender;
         USDC = _usdc;
-        UNISWAP_V2_PAIR = UniswapV2Library.pairFor(UNISWAP_V2_FACTORY, GCC, USDC);
+        UNISWAP_V2_FACTORY = factory;
+        UNISWAP_ROUTER = IUniswapRouterV2(router);
+        UNISWAP_V2_PAIR = pair;
     }
 
     function retireGCC(uint256 amount) external returns (uint256 usdcReceivedTimesTwo) {
         if (msg.sender != GCC) {
             revert("Only GCC can retire GCC");
         }
-        address pair = UNISWAP_V2_PAIR;
-        (uint256 reserveGCC,,) = IUniswapV2Pair(pair).getReserves();
+        (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
+        uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
 
         //x = (sqrt(b) sqrt(3988000 a + 3988009 b) - 1997 b)/1994
         uint256 amountToSwap = findOptimalAmountToRetire(amount, reserveGCC);
@@ -39,6 +41,8 @@ contract Swapper {
         uint256 amountUSDCReceived = amounts[1];
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amountUSDCReceived);
 
+        console.log("amounts[0]", amounts[0]);
+        console.log("amounts[1]", amounts[1]);
         UNISWAP_ROUTER.addLiquidity(
             GCC, USDC, amountToAddInLiquidity, amountUSDCReceived, 0, 0, address(this), block.timestamp
         );
@@ -51,9 +55,8 @@ contract Swapper {
         if (msg.sender != GCC) {
             revert("Only GCC can retire GCC");
         }
-        address pair = UNISWAP_V2_PAIR;
-        (, uint256 reserveUSDC,) = IUniswapV2Pair(pair).getReserves();
-
+        (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
+        uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
         //Magnify by 1e12 to increase precision on sqrt
         uint256 amountToSwap = findOptimalAmountToRetire(amount * 1e12, reserveUSDC * 1e12);
         amountToSwap /= 1e12;
