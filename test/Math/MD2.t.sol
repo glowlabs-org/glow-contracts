@@ -10,6 +10,9 @@ import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 
+/// @dev previous test suite had multiple grc tokens
+/// - we now only have 1 grc token -- USDC
+/// that is why tests are done with arrays
 contract MD2Test is Test {
     address[] public grcTokens;
 
@@ -33,12 +36,9 @@ contract MD2Test is Test {
         mockUsdc2 = new MockUSDC();
         mockUsdcTax1 = new MockUSDCTax();
         notGrcToken = new MockUSDC();
-        minerMath.addGRCToken(address(mockUsdc1));
-        minerMath.addGRCToken(address(mockUsdc2));
-        minerMath.addGRCToken(address(mockUsdcTax1));
         grcTokens.push(address(mockUsdc1));
-        grcTokens.push(address(mockUsdc2));
-        grcTokens.push(address(mockUsdcTax1));
+        // grcTokens.push(address(mockUsdc2));
+        // grcTokens.push(address(mockUsdcTax1));
 
         handler = new MD2Handler(address(minerMath),grcTokens);
         bytes4[] memory selectors = new bytes4[](2);
@@ -90,7 +90,7 @@ contract MD2Test is Test {
 
                 uint256 bucketId = allGhostBucketIds[j];
                 uint256 rewardInGhostMapping = handler.ghost_amountInBucket(bucketId, grcToken);
-                MD2.WeeklyReward memory reward = minerMath.reward(grcToken, bucketId);
+                MD2.WeeklyReward memory reward = minerMath.reward(bucketId);
                 // string memory keyAddress = vm.serializeAddress(string(abi.encodePacked(Strings.toString(j))), "grcToken", grcToken);
                 // vm.writeLine(fileName, keyAddress);
                 // string memory key0 = vm.serializeUint(string(abi.encodePacked(Strings.toString(j))), "bucketId", bucketId);
@@ -135,7 +135,7 @@ contract MD2Test is Test {
             for (uint256 j; j < allGhostBucketIds.length; ++j) {
                 uint256 bucketId = allGhostBucketIds[j];
                 uint256 rewardInGhostMapping = handler.ghost_amountInBucket(bucketId, grcToken);
-                MD2.WeeklyReward memory reward = minerMath.reward(grcToken, bucketId);
+                MD2.WeeklyReward memory reward = minerMath.reward(bucketId);
                 totalForToken += reward.amountInBucket;
                 assertFalse(reward.amountInBucket + 1 == rewardInGhostMapping);
             }
@@ -152,105 +152,79 @@ contract MD2Test is Test {
         //Forward 100 weeks
         //Make sure that amount %  vesting periods = 0 so we dont get rounding errors in tests
         uint256 amountForContract1a = 12903890128321 * minerMath.TOTAL_VESTING_PERIODS();
-        handler.addRewardsToBucketWithToken(address(mockUsdc1), 100 * 7, amountForContract1a);
-        uint256 amountForContract2a = 2131312312 * minerMath.TOTAL_VESTING_PERIODS();
-        handler.addRewardsToBucketWithToken(address(mockUsdc2), 50 * 7, amountForContract2a);
+        handler.addRewardsToBucketWithToken(100 * 7, amountForContract1a);
 
         uint256[] memory allGhostBucketIdsUsdc1 = handler.allGhostBucketIds(address(mockUsdc1));
-        uint256[] memory allGhostBucketIdsUsdc2 = handler.allGhostBucketIds(address(mockUsdc2));
 
         for (uint256 i; i < allGhostBucketIdsUsdc1.length; ++i) {
             uint256 bucketId = allGhostBucketIdsUsdc1[i];
-            MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), bucketId);
+            MD2.WeeklyReward memory reward = minerMath.reward(bucketId);
             uint256 rewardInGhostMapping = handler.ghost_amountInBucket(bucketId, address(mockUsdc1));
             assertTrue(reward.amountInBucket == rewardInGhostMapping);
         }
         uint256 totalDepositedUsdc1 = handler.totalDeposited(address(mockUsdc1));
         assertTrue(totalDepositedUsdc1 == amountForContract1a);
 
-        uint256 totalDepositedUsdc2 = handler.totalDeposited(address(mockUsdc2));
-        assertTrue(totalDepositedUsdc2 == amountForContract2a);
-
-        for (uint256 i; i < allGhostBucketIdsUsdc2.length; ++i) {
-            uint256 bucketId = allGhostBucketIdsUsdc2[i];
-            MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc2), bucketId);
-            uint256 rewardInGhostMapping = handler.ghost_amountInBucket(bucketId, address(mockUsdc2));
-            assertTrue(reward.amountInBucket == rewardInGhostMapping);
-        }
-
         uint256 amountForContract1b = 543252545 * minerMath.TOTAL_VESTING_PERIODS();
-        handler.addRewardsToBucketWithToken(address(mockUsdc1), 0, amountForContract1b);
-        uint256 amountForContract2b = 2131312312 * minerMath.TOTAL_VESTING_PERIODS();
-        handler.addRewardsToBucketWithToken(address(mockUsdc2), 0, amountForContract2b);
+        handler.addRewardsToBucketWithToken(0, amountForContract1b);
         allGhostBucketIdsUsdc1 = handler.allGhostBucketIds(address(mockUsdc1));
-        allGhostBucketIdsUsdc2 = handler.allGhostBucketIds(address(mockUsdc2));
 
         //Contract uses round robin
         for (uint256 i; i < allGhostBucketIdsUsdc1.length; ++i) {
             uint256 bucketId = allGhostBucketIdsUsdc1[i];
-            MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), bucketId);
+            MD2.WeeklyReward memory reward = minerMath.reward(bucketId);
             uint256 rewardInGhostMapping = handler.ghost_amountInBucket(bucketId, address(mockUsdc1));
             assertTrue(reward.amountInBucket == rewardInGhostMapping);
             bool failed = reward.amountInBucket != rewardInGhostMapping;
         }
 
-        for (uint256 i; i < allGhostBucketIdsUsdc2.length; ++i) {
-            uint256 bucketId = allGhostBucketIdsUsdc2[i];
-            MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc2), bucketId);
-            uint256 rewardInGhostMapping = handler.ghost_amountInBucket(bucketId, address(mockUsdc2));
-            assertTrue(reward.amountInBucket == rewardInGhostMapping);
-        }
-
         totalDepositedUsdc1 = handler.totalDeposited(address(mockUsdc1));
         assertTrue(totalDepositedUsdc1 == amountForContract1b + amountForContract1a);
-        totalDepositedUsdc2 = handler.totalDeposited(address(mockUsdc2));
-        assertTrue(totalDepositedUsdc2 == amountForContract2b + amountForContract2a);
     }
 
     function test_getAmountForTokenAndInitIfNot() public {
         //Add to bucker 16 (since 0 + 16)
-        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
+        minerMath.addToCurrentBucket(10 ether);
         //vested amt is divided by 192 for vesting purposes
         uint256 expectedAmount = uint256(10 ether) / uint256(192);
         //Read the raw reward from the contract
-        (bool inherited, uint256 amtInBucket, uint256 amountToDeduct) =
-            minerMath.rawRewardInStorage(address(mockUsdc1), 17);
+        (bool inherited, uint256 amtInBucket, uint256 amountToDeduct) = minerMath.rawRewardInStorage(17);
         //Inherited should be false, since we havent technically gotten to bucket 17 yet
         assert(!inherited);
 
         //This call will actually init the bucket
-        uint256 amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
+        uint256 amountInBucket = minerMath.getAmountForTokenAndInitIfNot(17);
         assert(amountInBucket == expectedAmount);
-        (inherited, amtInBucket, amountToDeduct) = minerMath.rawRewardInStorage(address(mockUsdc1), 17);
+        (inherited, amtInBucket, amountToDeduct) = minerMath.rawRewardInStorage(17);
         //The raw inherited should be true and the rest should match the `reward`
         assert(inherited);
-        MD2.WeeklyReward memory rewardAfterInit = minerMath.reward(address(mockUsdc1), 17);
+        MD2.WeeklyReward memory rewardAfterInit = minerMath.reward(17);
         assert(rewardAfterInit.amountInBucket == amtInBucket);
         assert(rewardAfterInit.amountToDeduct == amountToDeduct);
         // assert(rewardAfterInit.inheritedFromLastWeek);
 
-        minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
+        minerMath.getAmountForTokenAndInitIfNot(17);
         //If already inheirted nothing should change
-        MD2.WeeklyReward memory rewardAfterInit2 = minerMath.reward(address(mockUsdc1), 17);
+        MD2.WeeklyReward memory rewardAfterInit2 = minerMath.reward(17);
         assert(rewardAfterInit2.inheritedFromLastWeek);
         assert(rewardAfterInit2.amountInBucket == rewardAfterInit.amountInBucket);
         assert(rewardAfterInit2.amountToDeduct == rewardAfterInit.amountToDeduct);
     }
 
     function test_addTwiceToBucket_shouldCorrectlyCalculateRewards() public {
-        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
+        minerMath.addToCurrentBucket(10 ether);
         uint256 expectedAmount = uint256(10 ether) / uint256(192);
         vm.warp(block.timestamp + 7 days);
         uint256 currentBucket = minerMath.currentBucket();
         assert(currentBucket == 1);
-        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
+        minerMath.addToCurrentBucket(10 ether);
 
-        uint256 amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
+        uint256 amountInBucket = minerMath.getAmountForTokenAndInitIfNot(17);
         assert(amountInBucket == expectedAmount * 2);
 
         //Add again to make sure
-        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
-        amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
+        minerMath.addToCurrentBucket(10 ether);
+        amountInBucket = minerMath.getAmountForTokenAndInitIfNot(17);
         assert(amountInBucket == expectedAmount * 3);
     }
 

@@ -168,7 +168,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
         SafeERC20.safeTransfer(glowToken, msg.sender, glowToSend);
 
         // Donate the received USDC to the miner rewards pool, possibly accounting for a tax or fee.
-        pool.donateToGRCMinerRewardsPoolEarlyLiquidity(address(USDC_TOKEN), diff);
+        pool.donateToGRCMinerRewardsPoolEarlyLiquidity(diff);
 
         // Update the total amount of tokens sold by adding the normalized amount to the total.
         _totalIncrements += increments;

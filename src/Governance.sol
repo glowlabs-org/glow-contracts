@@ -1195,11 +1195,6 @@ contract Governance is IGovernance, EIP712 {
             success = true;
         }
 
-        if (proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES) {
-            (address oldReserveCurrency, address newReserveCurrency) = abi.decode(data, (address, address));
-            success = IMinerPool(_gca).editReserveCurrencies(oldReserveCurrency, newReserveCurrency);
-        }
-
         if (proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL) {
             (address grantsRecipient, uint256 amount,) = abi.decode(data, (address, uint256, bytes32));
             success = IGrantsTreasury(_grantsTreasury).allocateGrantFunds(grantsRecipient, amount);

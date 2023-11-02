@@ -53,11 +53,6 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         return _getUserBitmapForBucket(bucketId, user, token);
     }
 
-    function setGRCToken(address grcToken, bool adding, uint256 currentBucket) public returns (bool) {
-        (bool res, BucketSubmission.BucketTracker memory tracker) = _setGRCTokenCheck(grcToken, adding, currentBucket);
-        _setGRCToken(grcToken, tracker);
-    }
-
     /**
      * @dev checks to make sure the weights in the report
      *         - dont overflow the total weights that have been set for the bucket
