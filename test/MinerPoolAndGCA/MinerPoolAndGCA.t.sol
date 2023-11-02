@@ -332,7 +332,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -503,7 +502,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -639,7 +637,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -700,7 +697,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: sig
         });
@@ -747,7 +743,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -802,7 +797,6 @@ contract MinerPoolAndGCATest is Test {
             proof: arbitraryProof,
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -852,7 +846,6 @@ contract MinerPoolAndGCATest is Test {
             proof: badProof,
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -908,12 +901,11 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
 
-        uint256 bitmap = minerPoolAndGCA.getUserBitmapForBucket(0, (defaultAddressInWithdraw), grcTokens[0]);
+        uint256 bitmap = minerPoolAndGCA.getUserBitmapForBucket(0, (defaultAddressInWithdraw));
         assertTrue(bitmap == 1);
 
         vm.warp(block.timestamp + ONE_WEEK);
@@ -925,12 +917,11 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
 
-        bitmap = minerPoolAndGCA.getUserBitmapForBucket(1, (defaultAddressInWithdraw), grcTokens[0]);
+        bitmap = minerPoolAndGCA.getUserBitmapForBucket(1, (defaultAddressInWithdraw));
         assertTrue(bitmap == 0x3);
         vm.stopPrank();
     }
@@ -976,7 +967,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -989,7 +979,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -1417,7 +1406,6 @@ contract MinerPoolAndGCATest is Test {
             glwWeight: glwWeight,
             grcWeight: grcWeight,
             index: index,
-            grcTokens: grcTokens,
             claimFromInflation: claimFromInflation
         });
         console.log("hash from tests  =", uint256(hash));

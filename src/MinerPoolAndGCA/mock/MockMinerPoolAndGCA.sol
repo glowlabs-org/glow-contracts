@@ -49,8 +49,8 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         proposalHashes.push(hash);
     }
 
-    function getUserBitmapForBucket(uint256 bucketId, address user, address token) public view returns (uint256) {
-        return _getUserBitmapForBucket(bucketId, user, token);
+    function getUserBitmapForBucket(uint256 bucketId, address user) public view returns (uint256) {
+        return _getUserBitmapForBucket(bucketId, user);
     }
 
     /**

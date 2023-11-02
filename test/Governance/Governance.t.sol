@@ -1232,147 +1232,6 @@ contract GovernanceTest is Test {
         vm.stopPrank();
     }
 
-    /*
-     function createChangeReserveCurrencyProposal(
-        address currencyToRemove,
-        address newReserveCurrency,
-        uint256 maxNominations
-    ) 
-    */
-    function test_signatures_createChangeReserveCurrencyProposal() public {
-        vm.startPrank(SIMON);
-        gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
-
-        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        address currencyToRemove = address(0x1);
-        address newReserveCurrency = address(0x2);
-        uint256 maxNominations = nominationsOfSimon;
-        uint256 creationTimestamp = block.timestamp;
-        uint256 nominationsToUse = governance.costForNewProposal();
-        bytes memory data = abi.encode(currencyToRemove, newReserveCurrency);
-        uint256 signingTimestamp = block.timestamp + 10;
-        bytes memory signature = signCreateProposalDigest(
-            SIMON_PRIVATE_KEY,
-            IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES,
-            nominationsToUse,
-            governance.spendNominationsOnProposalNonce(SIMON),
-            signingTimestamp,
-            data
-        );
-        {
-            uint256[] memory deadlines = new uint256[](1);
-            deadlines[0] = signingTimestamp;
-            address[] memory signers = new address[](1);
-            signers[0] = SIMON;
-            bytes[] memory sigs = new bytes[](1);
-            sigs[0] = signature;
-            uint256[] memory noms = new uint256[](1);
-            noms[0] = nominationsToUse;
-            governance.createChangeReserveCurrencyProposalSigs(
-                currencyToRemove, newReserveCurrency, deadlines, noms, signers, sigs
-            );
-        }
-        IGovernance.Proposal memory proposal = governance.proposals(1);
-        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(proposal.data, (address, address));
-        assertEq(governance.proposalCount(), 1);
-        assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES);
-        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
-        assertEq(proposal.votes, nominationsToUse);
-        assertEq(currencyToRemove_, currencyToRemove);
-        assertEq(newReserveCurrency_, newReserveCurrency);
-    }
-
-    function test_createChangeReserveCurrencyProposal() public {
-        vm.startPrank(SIMON);
-        gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
-
-        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        address currencyToRemove = address(0x1);
-        address newReserveCurrency = address(0x2);
-        uint256 maxNominations = nominationsOfSimon;
-        uint256 creationTimestamp = block.timestamp;
-        uint256 nominationsToUse = governance.costForNewProposal();
-        governance.createChangeReserveCurrencyProposal(currencyToRemove, newReserveCurrency, nominationsToUse);
-        IGovernance.Proposal memory proposal = governance.proposals(1);
-        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(proposal.data, (address, address));
-        assertEq(governance.proposalCount(), 1);
-        assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES);
-        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
-        assertEq(proposal.votes, nominationsToUse);
-        assertEq(currencyToRemove_, currencyToRemove);
-        assertEq(newReserveCurrency_, newReserveCurrency);
-    }
-
-    function test_createChangeReserveCurrencyProposal_secondOneShouldBecomeMostPopular() public {
-        vm.startPrank(SIMON);
-        gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
-
-        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        address currencyToRemove = address(0x1);
-        address newReserveCurrency = address(0x2);
-        uint256 maxNominations = nominationsOfSimon;
-        uint256 creationTimestamp = block.timestamp;
-        uint256 nominationsToUse = governance.costForNewProposal();
-        governance.createChangeReserveCurrencyProposal(currencyToRemove, newReserveCurrency, nominationsToUse);
-        IGovernance.Proposal memory proposal = governance.proposals(1);
-        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(proposal.data, (address, address));
-        assertEq(governance.proposalCount(), 1);
-        assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES);
-        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
-        assertEq(proposal.votes, nominationsToUse);
-        assertEq(currencyToRemove_, currencyToRemove);
-        assertEq(newReserveCurrency_, newReserveCurrency);
-
-        //Create another one and make sure it becomes the most popular
-        nominationsToUse = governance.costForNewProposal();
-        governance.createChangeReserveCurrencyProposal(currencyToRemove, newReserveCurrency, nominationsToUse);
-        proposal = governance.proposals(2);
-        (currencyToRemove_, newReserveCurrency_) = abi.decode(proposal.data, (address, address));
-        assertEq(governance.proposalCount(), 2);
-        assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES);
-        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
-        assertEq(proposal.votes, nominationsToUse);
-        assertEq(currencyToRemove_, currencyToRemove);
-        assertEq(newReserveCurrency_, newReserveCurrency);
-
-        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
-
-        vm.stopPrank();
-    }
-
-    function test_createChangeReserveCurrencyProposal_notEnoughNominationsShouldRevert() public {
-        vm.startPrank(SIMON);
-        gcc.mint(SIMON, 0.01 ether);
-        gcc.retireGCC(0.0000001 ether, SIMON);
-
-        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        address currencyToRemove = address(0x1);
-        address newReserveCurrency = address(0x2);
-        uint256 maxNominations = nominationsOfSimon;
-        uint256 creationTimestamp = block.timestamp;
-        uint256 nominationsToUse = governance.costForNewProposal();
-        vm.expectRevert(IGovernance.InsufficientNominations.selector);
-        governance.createChangeReserveCurrencyProposal(currencyToRemove, newReserveCurrency, nominationsToUse);
-    }
-
-    function test_createChangeReserveCurrencyProposal_nominationsGreaterThanAllowance_shouldRevert() public {
-        vm.startPrank(SIMON);
-        gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
-
-        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        address currencyToRemove = address(0x1);
-        address newReserveCurrency = address(0x2);
-        uint256 maxNominations = nominationsOfSimon;
-        uint256 creationTimestamp = block.timestamp;
-        uint256 nominationsToUse = governance.costForNewProposal() - 1;
-        vm.expectRevert(IGovernance.NominationCostGreaterThanAllowance.selector);
-        governance.createChangeReserveCurrencyProposal(currencyToRemove, newReserveCurrency, nominationsToUse);
-    }
-
     //----------------------------------------------------//
     //----------------  USING NOMINATIONS -----------------//
     //----------------------------------------------------//
@@ -1976,50 +1835,6 @@ contract GovernanceTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncChangeReserveCurrencyProposal() public {
-        test_createChangeReserveCurrencyProposal();
-        vm.warp(block.timestamp + ONE_WEEK + 1);
-        castLongStakedVotes(SIMON, 0, true, 1);
-        vm.warp(block.timestamp + ONE_WEEK * 4);
-        bytes memory data = governance.proposals(1).data;
-        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(data, (address, address));
-        governance.syncProposals();
-        // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
-        // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 0);
-    }
-
-    function test_syncChangeReserveCurrencyProposal_rejectionShouldNotUpdateState() public {
-        test_createChangeReserveCurrencyProposal();
-        vm.warp(block.timestamp + ONE_WEEK + 1);
-        castLongStakedVotes(SIMON, 0, false, 1);
-        vm.warp(block.timestamp + ONE_WEEK * 4);
-        bytes memory data = governance.proposals(1).data;
-        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(data, (address, address));
-        governance.syncProposals();
-        // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
-        // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 0);
-    }
-
-    function test_syncChangeReserveCurrencyProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
-    ) public {
-        test_createChangeReserveCurrencyProposal();
-        vm.warp(block.timestamp + ONE_WEEK + 1);
-        castLongStakedVotes(SIMON, 0, true, 1);
-        createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
-        vm.warp(block.timestamp + ONE_WEEK * 4);
-        bytes memory data = governance.proposals(1).data;
-        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(data, (address, address));
-        governance.syncProposals();
-        // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
-        // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 0);
-    }
-
     function test_syncGCAElectionOrSlashProposal() public {
         test_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -2234,20 +2049,6 @@ contract GovernanceTest is Test {
         assert(!vetoCouncil.isCouncilMember(oldAgent_));
         // uint256 lastExecutedWeek = governance.lastExecutedWeek();
         // assertEq(lastExecutedWeek, 0);
-    }
-
-    function test_executeChangeReserveCurrencyProposal() public {
-        test_createChangeReserveCurrencyProposal();
-        vm.warp(block.timestamp + ONE_WEEK + 1);
-        castLongStakedVotes(SIMON, 0, true, 1);
-        vm.warp(block.timestamp + ONE_WEEK * 4);
-        bytes memory data = governance.proposals(1).data;
-        (address currencyToRemove_, address newReserveCurrency_) = abi.decode(data, (address, address));
-        governance.executeProposalAtWeek(0);
-        // assertEq(minerPoolAndGCA.currencyToRemove(), currencyToRemove_);
-        // assertEq(minerPoolAndGCA.newReserveCurrency(), newReserveCurrency_);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
-        assertEq(lastExecutedWeek, 0);
     }
 
     function test_executeGrantsProposal_rejectionShouldUpdateStateInTarget() public {
@@ -2486,13 +2287,6 @@ contract GovernanceTest is Test {
 
     function test_executeVetoCouncilElectionOrSlash_shouldRevert_ifNotRatifyEnd_shouldRevert() public {
         test_createVetoCouncilElectionOrSlash();
-        vm.warp(block.timestamp + (ONE_WEEK * 4) - 1);
-        vm.expectRevert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
-        governance.executeProposalAtWeek(0);
-    }
-
-    function test_executeChangeReserveCurrencyProposal_shouldRevert_ifNotRatifyEnd_shouldRevert() public {
-        test_createChangeReserveCurrencyProposal();
         vm.warp(block.timestamp + (ONE_WEEK * 4) - 1);
         vm.expectRevert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
         governance.executeProposalAtWeek(0);
