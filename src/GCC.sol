@@ -122,17 +122,18 @@ contract GCC is ERC20, IGCC, EIP712 {
 
     //-----------------  RETIRING -----------------//
 
-    // function retireGCC(uint256 amount, address rewardAddress, address referralAddress) public {
-    //     _transfer(_msgSender(), address(this), amount);
-    //     _handleRetirement(_msgSender(), rewardAddress, amount, referralAddress);
-    // }
-
+    /**
+     * @inheritdoc IGCC
+     */
     function retireGCC(uint256 amount, address rewardAddress, address referralAddress) public {
         _transfer(_msgSender(), address(SWAPPER), amount);
         uint256 usdcEffect = SWAPPER.retireGCC(amount);
         _handleRetirement(_msgSender(), rewardAddress, amount, usdcEffect, referralAddress);
     }
 
+    /**
+     * @inheritdoc IGCC
+     */
     function retireUSDC(uint256 amount, address rewardAddress, address referralAddress) public {
         uint256 swapperBalBefore = IERC20(USDC).balanceOf(address(SWAPPER));
         IERC20(USDC).transferFrom(msg.sender, address(SWAPPER), amount);
@@ -142,6 +143,16 @@ contract GCC is ERC20, IGCC, EIP712 {
         _handleUSDCRetirement(_msgSender(), rewardAddress, usdcUsing, referralAddress);
     }
 
+    /**
+     * @inheritdoc IGCC
+     */
+    function retireUSDC(uint256 amount, address rewardAddress) external {
+        retireUSDC(amount, rewardAddress, address(0));
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
     function retireUSDCSignature(
         uint256 amount,
         address rewardAddress,
@@ -167,6 +178,9 @@ contract GCC is ERC20, IGCC, EIP712 {
         retireGCC(amount, rewardAddress, address(0));
     }
 
+    /**
+     * @inheritdoc IGCC
+     */
     function retireGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress) public {
         transferFrom(from, address(SWAPPER), amount);
         if (_msgSender() != from) {
@@ -183,6 +197,9 @@ contract GCC is ERC20, IGCC, EIP712 {
         retireGCCFor(from, rewardAddress, amount, address(0));
     }
 
+    /**
+     * @inheritdoc IGCC
+     */
     function retireGCCForAuthorized(
         address from,
         address rewardAddress,
