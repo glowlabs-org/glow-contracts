@@ -21,8 +21,13 @@ import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {UnifapV2Pair} from "@unifapv2/UnifapV2Pair.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+
+uint256 constant GCC_MAGNIFICATION = 1e18;
+uint256 constant USDC_MAGNIFICATION = 1e24;
 
 contract GCCTest is Test {
+    bool saveLogs = vm.envBool("SAVE_RETIRE_RUNS");
     UnifapV2Factory public uniswapFactory;
     WETH9 public weth;
     UnifapV2Router public uniswapRouter;
@@ -81,6 +86,350 @@ contract GCCTest is Test {
         // targetSender(GCA_AND_MINER_POOL_CONTRACT);
     }
 
+    /**
+     * forge-config: default.fuzz.runs = 250
+     */
+    function testFuzz_getStuff(uint256 a, uint256 b) public {
+        vm.assume(a > 0.01 ether && a < 1_000_000_000_000 * 1e6 ether);
+        vm.assume(b > 0.01 ether && b < 1_000_000_000_000 * 1e6 ether);
+
+        Swapper swapper = gcc.SWAPPER();
+        uint256 amount = a;
+        uint256 totalReserves = b;
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+        optimalAmount /= GCC_MAGNIFICATION;
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+
+        if (success == 0) {
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(success)
+                )
+            );
+            if (saveLogs) {
+                vm.writeLine("gcc.csv", stringToWrite);
+            }
+        }
+        assert(amount > optimalAmount);
+
+        //95_140_9250
+        //3_715_946_953_796
+    }
+
+    /**
+     * forge-config: default.fuzz.runs = 1000
+     */
+    function testFuzz_uniswapManualRetiring(uint256 a, uint256 b) public {
+        // a = amount to retire
+        // b = total reserves
+        vm.assume(a > 0.01 ether && a < 1_000_000_000_000 ether);
+        vm.assume(b > 0.01 ether && b < 1_000_000_000_000 ether);
+
+        uniswapFactory = new UnifapV2Factory();
+        weth = new WETH9();
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+        usdc = new MockUSDC();
+        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glw = address(glwContract);
+        (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
+        gov = new Governance();
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+
+        uint256 totalReserves = b;
+        seedLP(totalReserves, 1000 * 1e6);
+
+        Swapper swapper = gcc.SWAPPER();
+        uint256 amount = a;
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+        optimalAmount /= GCC_MAGNIFICATION;
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+
+        address[] memory path = new address[](2);
+        path[0] = address(gcc);
+        path[1] = gcc.USDC();
+
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, amount);
+        gcc.approve(address(uniswapRouter), amount);
+        // uint256[] memory amounts =
+        //     uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp);
+        try uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp) returns (
+            uint256[] memory amounts
+        ) {
+            // Success. Do something with `amounts` if needed.
+
+            IERC20(gcc.USDC()).approve(address(uniswapRouter), amounts[1]);
+            uint256 amountLiquidityToAdd = amount - optimalAmount;
+
+            uniswapRouter.addLiquidity(
+                address(gcc), gcc.USDC(), amountLiquidityToAdd, amounts[1], 0, 0, SIMON, block.timestamp
+            );
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+            //totalReserves,amount,optimalAmount,leftoverGCC,leftoverUSDC,success,optimalAmountGreaterThanReserves
+
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(leftoverGCC),
+                    ",",
+                    Strings.toString(leftoverUSDC),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves)
+                )
+            );
+
+            if (saveLogs) {
+                vm.writeLine("swap-succeses.csv", stringToWrite);
+            }
+        } catch Error(string memory reason) {
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+            /**
+             * CSV Headers:
+             *     totalReserves,amount,optimalAmount,,success,optimalAmountGreaterThanReserves,reason
+             */
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves),
+                    ",",
+                    reason
+                )
+            );
+
+            if (saveLogs) {
+                vm.writeLine("swap-errors.csv", stringToWrite);
+            }
+        }
+
+        // uniswapRouter.addLiquidity(
+        //     address(gcc), gcc.USDC(), amountLiquidityToAdd, amounts[1], 0, 0, SIMON, block.timestamp
+        // );
+
+        // if (success == 0) {
+        //     string memory stringToWrite = string(
+        //         abi.encodePacked(
+        //             Strings.toString(totalReserves),
+        //             ",",
+        //             Strings.toString(amount),
+        //             ",",
+        //             Strings.toString(optimalAmount),
+        //             ",",
+        //             Strings.toString(success)
+        //         )
+        //     );
+        //     vm.writeLine("gcc2.csv", stringToWrite);
+        // }
+
+        // //95_140_9250
+        //3_715_946_953_796
+    }
+
+    function test_RetiregetStuff() public {
+        Swapper swapper = gcc.SWAPPER();
+        uint256 amount = 9392183157865769199004733;
+        uint256 totalReserves;
+
+        {
+            (uint256 reserveA, uint256 reserveB,) =
+                UnifapV2Pair(uniswapFactory.pairs(address(gcc), address(usdc))).getReserves();
+            uint256 gccReserve = address(gcc) < address(usdc) ? reserveA : reserveB;
+            uint256 usdcReserve = address(gcc) < address(usdc) ? reserveB : reserveA;
+            totalReserves = gccReserve;
+        }
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+        optimalAmount /= GCC_MAGNIFICATION;
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+
+        address[] memory path = new address[](2);
+        path[0] = address(gcc);
+        path[1] = gcc.USDC();
+
+        address receiver = address(0xfffaaadeaadd);
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, amount);
+        gcc.approve(address(uniswapRouter), amount);
+        // uint256[] memory amounts =
+
+        {
+            (uint256 reserveA, uint256 reserveB,) =
+                UnifapV2Pair(uniswapFactory.pairs(address(gcc), address(usdc))).getReserves();
+            uint256 gccReserve = address(gcc) < address(usdc) ? reserveA : reserveB;
+            uint256 usdcReserve = address(gcc) < address(usdc) ? reserveB : reserveA;
+
+            console.log("gccReserve before swap= %s", gccReserve);
+            console.log("usdcReserve  before swap= %s", usdcReserve);
+            console.log("gcc swapping = %s", optimalAmount);
+        }
+        //     uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp);
+        try uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp) returns (
+            uint256[] memory amounts
+        ) {
+            // Success. Do something with `amounts` if needed.
+
+            uint256 amountUSDCBeforeLiquidityEvent = usdc.balanceOf(SIMON);
+
+            IERC20(gcc.USDC()).approve(address(uniswapRouter), amounts[1]);
+
+            uint256 amountLiquidityToAdd = amount - optimalAmount;
+
+            {
+                (uint256 reserveA, uint256 reserveB,) =
+                    UnifapV2Pair(uniswapFactory.pairs(address(gcc), address(usdc))).getReserves();
+                uint256 gccReserve = address(gcc) < address(usdc) ? reserveA : reserveB;
+                uint256 usdcReserve = address(gcc) < address(usdc) ? reserveB : reserveA;
+
+                console.log("gccReserve after swap= %s", gccReserve);
+                console.log("usdcReserve  after swap= %s", usdcReserve);
+                console.log("gccLiquidityToAdd = %s", amountLiquidityToAdd);
+                console.log("usdcLiquidityToAdd = %s", amounts[1]);
+            }
+
+            uniswapRouter.addLiquidity(
+                address(gcc), gcc.USDC(), amountLiquidityToAdd, amounts[1], 0, 0, SIMON, block.timestamp
+            );
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+
+            // console.log("amountUSDCBeforeLiquidityEvent = %s", amountUSDCBeforeLiquidityEvent);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+
+            //totalReserves,amount,optimalAmount,leftoverGCC,leftoverUSDC,success,optimalAmountGreaterThanReserves
+
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(leftoverGCC),
+                    ",",
+                    Strings.toString(leftoverUSDC),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves)
+                )
+            );
+
+            // vm.writeLine("swap-succeses.csv", stringToWrite);
+            console.log("SUCCESS");
+            console.log("GCC DUST  = %s", leftoverGCC);
+            console.log("USDC DUST = %s", leftoverUSDC);
+        } catch Error(string memory reason) {
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+            console.log("FAIL");
+
+            /**
+             * CSV Headers:
+             *     totalReserves,amount,optimalAmount,,success,optimalAmountGreaterThanReserves,reason
+             */
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves),
+                    ",",
+                    reason
+                )
+            );
+
+            if (saveLogs) {
+                vm.writeLine("swap-errors.csv", stringToWrite);
+            }
+        }
+    }
+
+    function test_getStuff() public {
+        uint256 a = 0.01 ether;
+        uint256 b = 1_000_000_000_000 * 1e6 ether;
+        Swapper swapper = gcc.SWAPPER();
+        uint256 MAGNIFIER = 1e18;
+        uint256 amount = a;
+        uint256 totalReserves = b;
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+        optimalAmount /= MAGNIFIER;
+
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+        string memory stringToWrite = string(
+            abi.encodePacked(
+                Strings.toString(totalReserves),
+                ",",
+                Strings.toString(amount),
+                ",",
+                Strings.toString(optimalAmount),
+                ",",
+                Strings.toString(success)
+            )
+        );
+        if (saveLogs) {
+            vm.writeLine("gcc.csv", stringToWrite);
+        }
+        /*
+        args=[1000000000000000000000000000000001 [1e33], 
+        569316204070399230977136833119242087930906411821164 [5.693e50]]] 
+        testFuzz_getStuff(uint256,uint256) (runs: 89, μ: 17220, ~: 17220)
+        */
+
+        console.log("amount = %s", amount);
+        console.log("optimal amount = %s", optimalAmount);
+        assertTrue(amount > optimalAmount, "amount is less than optimal amount");
+    }
+
     // /// forge-config: default.invariant.depth = 1000
     // // We make sure that the bucketMintedBitmap is set correctly by creating
     // /// a stateful fuzz that tracks all used bucketIds
@@ -108,38 +457,38 @@ contract GCCTest is Test {
         vm.stopPrank();
     }
 
-    // /**
-    //  * This test ensures that the GCC contract
-    //  * is correctly minting to the carbon credit auction contract.
-    //  */
-    // function test_sendToCarbonCreditAuction() public {
-    //     vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
-    //     gcc.mintToCarbonCreditAuction(1, 1e20 ether);
-    //     assertEq(gcc.balanceOf(address(auction)), 1e20 ether);
-    //     assertEq(gcc.isBucketMinted(1), true);
-    //     //Let's have a sanity check and make sure that bucketMinted(2) is false
-    //     assertEq(gcc.isBucketMinted(2), false);
-    //     vm.stopPrank();
-    // }
+    /**
+     * This test ensures that the GCC contract
+     * is correctly minting to the carbon credit auction contract.
+     */
+    function test_sendToCarbonCreditAuction() public {
+        vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
+        gcc.mintToCarbonCreditAuction(1, 1e20 ether);
+        assertEq(gcc.balanceOf(address(auction)), 1e20 ether);
+        assertEq(gcc.isBucketMinted(1), true);
+        //Let's have a sanity check and make sure that bucketMinted(2) is false
+        assertEq(gcc.isBucketMinted(2), false);
+        vm.stopPrank();
+    }
 
-    // /**
-    //  * This test ensures that only the GCA and
-    //  *     Miner Pool contract can use the ```mintToCarbonCredit``` function.
-    //  */
-    // function test_sendToCarbonCreditAuction_callerNotGCA_shouldRevert() public {
-    //     vm.startPrank(SIMON);
-    //     vm.expectRevert(IGCC.CallerNotGCAContract.selector);
-    //     gcc.mintToCarbonCreditAuction(1, 1e20 ether);
-    //     vm.stopPrank();
-    // }
+    /**
+     * This test ensures that only the GCA and
+     *     Miner Pool contract can use the ```mintToCarbonCredit``` function.
+     */
+    function test_sendToCarbonCreditAuction_callerNotGCA_shouldRevert() public {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGCC.CallerNotGCAContract.selector);
+        gcc.mintToCarbonCreditAuction(1, 1e20 ether);
+        vm.stopPrank();
+    }
 
-    // //This test ensures that we can only mint from a bucket once
-    // function test_sendToCarbonCreditAuctionSameBucketShouldRevert() public {
-    //     test_sendToCarbonCreditAuction();
-    //     vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
-    //     vm.expectRevert(IGCC.BucketAlreadyMinted.selector);
-    //     gcc.mintToCarbonCreditAuction(1, 1e20 ether);
-    // }
+    //This test ensures that we can only mint from a bucket once
+    function test_sendToCarbonCreditAuctionSameBucketShouldRevert() public {
+        test_sendToCarbonCreditAuction();
+        vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
+        vm.expectRevert(IGCC.BucketAlreadyMinted.selector);
+        gcc.mintToCarbonCreditAuction(1, 1e20 ether);
+    }
 
     function test_retireGCC() public {
         vm.startPrank(SIMON);
@@ -151,247 +500,244 @@ contract GCCTest is Test {
         // assertEq(gcc.balanceOf(address(gcc)), 1e20 ether);
     }
 
-    // function test_retireGCC_GiveRewardsToOthers() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     gcc.retireGCC(1e20 ether, other);
-    //     assertEq(gcc.balanceOf(SIMON), 0);
-    //     //make sure i get neutrality
-    //     // assertEq(gcc.totalCreditsRetired(other), 1e20 ether);
-    //     // assertEq(gcc.balanceOf(address(gcc)), 1e20 ether);
-    // }
+    function test_retireGCC_GiveRewardsToOthers() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1 ether);
+        gcc.retireGCC(1 ether, other);
+        assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        assertEq(gcc.totalCreditsRetired(other), 1 ether);
+    }
 
-    // //TODO: Check if we handle downstream case for errro
-    // function test_retireGCC_ApprovalShouldRevert() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     vm.stopPrank();
+    function test_retireGCC_ApprovalShouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1e20 ether);
+        vm.stopPrank();
 
-    //     vm.startPrank(other);
-    //     /// spender,allowance,needed
-    //     vm.expectRevert(
-    //         abi.encodeWithSelector(
-    //             IERC20Errors.ERC20InsufficientAllowance.selector,
-    //             other, //spender
-    //             0, //allowance
-    //             1e20 ether //needed
-    //         )
-    //     );
-    //     gcc.retireGCCFor(SIMON, other, 1e20 ether);
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(other);
+        /// spender,allowance,needed
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientAllowance.selector,
+                other, //spender
+                0, //allowance
+                1e20 ether //needed
+            )
+        );
+        gcc.retireGCCFor(SIMON, other, 1e20 ether);
+        vm.stopPrank();
+    }
 
-    // function test_setRetiringAllowance_single() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.increaseRetiringAllowance(other, 500_000);
+    function test_setRetiringAllowance_single() public {
+        vm.startPrank(SIMON);
+        gcc.increaseRetiringAllowance(other, 500_000);
 
-    //     assertEq(gcc.retiringAllowance(SIMON, other), 500_000);
+        assertEq(gcc.retiringAllowance(SIMON, other), 500_000);
 
-    //     gcc.decreaseRetiringAllowance(other, 250_000);
-    //     assertEq(gcc.retiringAllowance(SIMON, other), 250_000);
+        gcc.decreaseRetiringAllowance(other, 250_000);
+        assertEq(gcc.retiringAllowance(SIMON, other), 250_000);
 
-    //     gcc.decreaseRetiringAllowance(other, 250_000);
-    //     assertEq(gcc.retiringAllowance(SIMON, other), 0);
+        gcc.decreaseRetiringAllowance(other, 250_000);
+        assertEq(gcc.retiringAllowance(SIMON, other), 0);
 
-    //     vm.expectRevert(stdError.arithmeticError);
-    //     gcc.decreaseRetiringAllowance(other, 1);
-    // }
+        vm.expectRevert(stdError.arithmeticError);
+        gcc.decreaseRetiringAllowance(other, 1);
+    }
 
-    // function test_setRetiringAllowances_overflowShouldSetToUintMax() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.increaseRetiringAllowance(other, type(uint256).max);
-    //     gcc.increaseRetiringAllowance(other, 5 ether);
-    //     assertEq(gcc.retiringAllowance(SIMON, other), type(uint256).max);
-    // }
+    function test_setRetiringAllowances_overflowShouldSetToUintMax() public {
+        vm.startPrank(SIMON);
+        gcc.increaseRetiringAllowance(other, type(uint256).max);
+        gcc.increaseRetiringAllowance(other, 5 ether);
+        assertEq(gcc.retiringAllowance(SIMON, other), type(uint256).max);
+    }
 
-    // function test_setAllowances() public {
-    //     uint256 transferApproval = 500_000;
-    //     uint256 retiringApproval = 900_000;
-    //     vm.startPrank(SIMON);
-    //     gcc.setAllowances(other, transferApproval, retiringApproval);
-    //     assertEq(gcc.retiringAllowance(SIMON, other), retiringApproval);
-    //     assertEq(gcc.allowance(SIMON, other), transferApproval);
-    // }
+    function test_setAllowances() public {
+        uint256 transferApproval = 500_000;
+        uint256 retiringApproval = 900_000;
+        vm.startPrank(SIMON);
+        gcc.setAllowances(other, transferApproval, retiringApproval);
+        assertEq(gcc.retiringAllowance(SIMON, other), retiringApproval);
+        assertEq(gcc.allowance(SIMON, other), transferApproval);
+    }
 
-    // function test_setRetiringAllowances_underflowShouldRevert() public {
-    //     vm.startPrank(SIMON);
-    //     vm.expectRevert(stdError.arithmeticError);
-    //     gcc.decreaseRetiringAllowance(other, 1 ether);
-    // }
+    function test_setRetiringAllowances_underflowShouldRevert() public {
+        vm.startPrank(SIMON);
+        vm.expectRevert(stdError.arithmeticError);
+        gcc.decreaseRetiringAllowance(other, 1 ether);
+    }
 
-    // // Sets transfer allowance and retiring allowance in one
-    // function test_setRetiringAllowance_Double() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.increaseAllowances(other, 500_000);
+    // Sets transfer allowance and retiring allowance in one
+    function test_setRetiringAllowance_Double() public {
+        vm.startPrank(SIMON);
+        gcc.increaseAllowances(other, 500_000);
 
-    //     assertEq(gcc.retiringAllowance(SIMON, other), 500_000);
-    //     assertEq(gcc.allowance(SIMON, other), 500_000);
+        assertEq(gcc.retiringAllowance(SIMON, other), 500_000);
+        assertEq(gcc.allowance(SIMON, other), 500_000);
 
-    //     gcc.decreaseAllowances(other, 250_000);
-    //     assertEq(gcc.retiringAllowance(SIMON, other), 250_000);
-    //     assertEq(gcc.allowance(SIMON, other), 250_000);
+        gcc.decreaseAllowances(other, 250_000);
+        assertEq(gcc.retiringAllowance(SIMON, other), 250_000);
+        assertEq(gcc.allowance(SIMON, other), 250_000);
 
-    //     gcc.decreaseAllowances(other, 250_000);
-    //     assertEq(gcc.retiringAllowance(SIMON, other), 0);
-    //     assertEq(gcc.allowance(SIMON, other), 0);
+        gcc.decreaseAllowances(other, 250_000);
+        assertEq(gcc.retiringAllowance(SIMON, other), 0);
+        assertEq(gcc.allowance(SIMON, other), 0);
 
-    //     vm.expectRevert();
-    //     gcc.decreaseAllowances(other, 1);
-    // }
+        vm.expectRevert();
+        gcc.decreaseAllowances(other, 1);
+    }
 
-    // function test_retireGCC_onlyRetiringApproval_shouldRevert() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     gcc.increaseRetiringAllowance(other, 1e20 ether);
-    //     vm.stopPrank();
+    function test_retireGCC_onlyRetiringApproval_shouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1e20 ether);
+        gcc.increaseRetiringAllowance(other, 1e20 ether);
+        vm.stopPrank();
 
-    //     vm.startPrank(other);
-    //     /// spender,allowance,needed
-    //     vm.expectRevert(
-    //         abi.encodeWithSelector(
-    //             IERC20Errors.ERC20InsufficientAllowance.selector,
-    //             other, //spender
-    //             0, //allowance
-    //             1e20 ether //needed
-    //         )
-    //     );
-    //     gcc.retireGCCFor(SIMON, other, 1e20 ether);
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(other);
+        /// spender,allowance,needed
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientAllowance.selector,
+                other, //spender
+                0, //allowance
+                1e20 ether //needed
+            )
+        );
+        gcc.retireGCCFor(SIMON, other, 1e20 ether);
+        vm.stopPrank();
+    }
 
-    // function test_retireGCC_onlyTransferApproval_shouldRevert() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     gcc.increaseAllowance(other, 1e20 ether);
-    //     vm.stopPrank();
+    function test_retireGCC_onlyTransferApproval_shouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1e20 ether);
+        gcc.increaseAllowance(other, 1e20 ether);
+        vm.stopPrank();
 
-    //     vm.startPrank(other);
-    //     /// spender,allowance,needed
-    //     vm.expectRevert(stdError.arithmeticError);
-    //     gcc.retireGCCFor(SIMON, other, 1e20 ether);
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(other);
+        /// spender,allowance,needed
+        vm.expectRevert(stdError.arithmeticError);
+        gcc.retireGCCFor(SIMON, other, 1e20 ether);
+        vm.stopPrank();
+    }
 
-    // function test_retireGCC_ApprovalShouldWork() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     gcc.increaseAllowances(other, 1e20 ether);
-    //     assertEq(gcc.retiringAllowance(SIMON, other), 1e20 ether);
-    //     assertEq(gcc.allowance(SIMON, other), 1e20 ether);
-    //     vm.stopPrank();
+    function test_retireGCC_ApprovalShouldWork() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1 ether);
+        gcc.increaseAllowances(other, 1 ether);
+        assertEq(gcc.retiringAllowance(SIMON, other), 1 ether);
+        assertEq(gcc.allowance(SIMON, other), 1 ether);
+        vm.stopPrank();
 
-    //     vm.startPrank(other);
-    //     gcc.retireGCCFor(SIMON, other, 1e20 ether);
-    //     vm.stopPrank();
-    // }
+        vm.startPrank(other);
+        gcc.retireGCCFor(SIMON, other, 1 ether);
+        vm.stopPrank();
+    }
 
-    // function test_retireGCC_Signature() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     vm.stopPrank();
-    //     bytes memory signature = _signPermit(
-    //         SIMON, other, other, address(0), 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
-    //     );
+    function test_retireGCC_Signature() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1 ether);
+        vm.stopPrank();
+        bytes memory signature = _signPermit(
+            SIMON, other, other, address(0), 1 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+        );
 
-    //     vm.startPrank(other);
-    //     gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, block.timestamp + 1000, signature);
+        vm.startPrank(other);
+        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, block.timestamp + 1000, signature);
 
-    //     assertEq(gcc.balanceOf(SIMON), 0);
-    //     assertEq(gcc.totalCreditsRetired(other), 1e20 ether);
-    //     assertEq(gcc.balanceOf(address(gcc)), 1e20 ether);
-    //     assertEq(gcc.retiringAllowance(SIMON, other), 0);
-    // }
+        assertEq(gcc.balanceOf(SIMON), 0);
+        assertEq(gcc.totalCreditsRetired(other), 1 ether);
+        assertEq(gcc.retiringAllowance(SIMON, other), 0);
+    }
 
-    // function test_retireGCC_Signature_referSelf_shouldRevert() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     vm.stopPrank();
-    //     bytes memory signature = _signPermit(
-    //         SIMON, other, other, SIMON, 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
-    //     );
+    function test_retireGCC_Signature_referSelf_shouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1 ether);
+        vm.stopPrank();
+        bytes memory signature = _signPermit(
+            SIMON, other, other, SIMON, 1 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+        );
 
-    //     vm.startPrank(other);
-    //     vm.expectRevert(IGCC.CannotReferSelf.selector);
-    //     gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, block.timestamp + 1000, signature, SIMON);
-    // }
+        vm.startPrank(other);
+        vm.expectRevert(IGCC.CannotReferSelf.selector);
+        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, block.timestamp + 1000, signature, SIMON);
+    }
 
-    // function test_retireGCC_Signature_expirationInPast_shouldRevert() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     vm.stopPrank();
-    //     uint256 currentTimestamp = block.timestamp;
-    //     uint256 sigTimestamp = block.timestamp + 1000;
-    //     bytes memory signature = _signPermit(
-    //         SIMON, other, SIMON, address(0), 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
-    //     );
+    function test_retireGCC_Signature_expirationInPast_shouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1 ether);
+        vm.stopPrank();
+        uint256 currentTimestamp = block.timestamp;
+        uint256 sigTimestamp = block.timestamp + 1000;
+        bytes memory signature = _signPermit(
+            SIMON, other, SIMON, address(0), 1 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+        );
 
-    //     vm.startPrank(other);
-    //     vm.warp(sigTimestamp + 1);
+        vm.startPrank(other);
+        vm.warp(sigTimestamp + 1);
 
-    //     vm.expectRevert(IGCC.RetiringPermitSignatureExpired.selector);
-    //     gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
-    // }
+        vm.expectRevert(IGCC.RetiringPermitSignatureExpired.selector);
+        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
+    }
 
-    // function test_retireGCC_Signature_badSignature_shouldFail() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     vm.stopPrank();
-    //     uint256 currentTimestamp = block.timestamp;
-    //     uint256 sigTimestamp = block.timestamp + 1000;
-    //     bytes memory signature = _signPermit(
-    //         SIMON, other, SIMON, address(0), 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
-    //     );
+    function test_retireGCC_Signature_badSignature_shouldFail() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1 ether);
+        vm.stopPrank();
+        uint256 currentTimestamp = block.timestamp;
+        uint256 sigTimestamp = block.timestamp + 1000;
+        bytes memory signature = _signPermit(
+            SIMON, other, SIMON, address(0), 1 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+        );
 
-    //     vm.startPrank(other);
-    //     vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
-    //     gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp + 1, signature);
-    // }
+        vm.startPrank(other);
+        vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
+        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp + 1, signature);
+    }
 
-    // function test_retireGCC_badSigner_shouldFail() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     vm.stopPrank();
-    //     uint256 currentTimestamp = block.timestamp;
-    //     uint256 sigTimestamp = block.timestamp + 1000;
-    //     (address badActor, uint256 badActorPk) = _createAccount(9998, 1e20 ether);
-    //     bytes memory signature = _signPermit(
-    //         badActor,
-    //         other,
-    //         badActor,
-    //         address(0),
-    //         1e20 ether,
-    //         gcc.nextRetiringNonce(SIMON),
-    //         block.timestamp + 1000,
-    //         badActorPk
-    //     );
+    function test_retireGCC_badSigner_shouldFail() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1 ether);
+        vm.stopPrank();
+        uint256 currentTimestamp = block.timestamp;
+        uint256 sigTimestamp = block.timestamp + 1000;
+        (address badActor, uint256 badActorPk) = _createAccount(9998, 1 ether);
+        bytes memory signature = _signPermit(
+            badActor,
+            other,
+            badActor,
+            address(0),
+            1 ether,
+            gcc.nextRetiringNonce(SIMON),
+            block.timestamp + 1000,
+            badActorPk
+        );
 
-    //     vm.startPrank(other);
-    //     vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
-    //     gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
-    // }
+        vm.startPrank(other);
+        vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
+        gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
+    }
 
-    // function test_cannotIncreaseRetiringAllowanceByZero() public {
-    //     vm.startPrank(SIMON);
-    //     vm.expectRevert(IGCC.MustIncreaseRetiringAllowanceByAtLeastOne.selector);
-    //     gcc.increaseRetiringAllowance(other, 0);
-    //     vm.stopPrank();
-    // }
+    function test_cannotIncreaseRetiringAllowanceByZero() public {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGCC.MustIncreaseRetiringAllowanceByAtLeastOne.selector);
+        gcc.increaseRetiringAllowance(other, 0);
+        vm.stopPrank();
+    }
 
-    // function test_retireGCC_signatureReplayShouldFail() public {
-    //     vm.startPrank(SIMON);
-    //     gcc.mint(SIMON, 1e20 ether);
-    //     vm.stopPrank();
-    //     uint256 currentTimestamp = block.timestamp;
-    //     uint256 sigTimestamp = block.timestamp + 1000;
-    //     bytes memory signature = _signPermit(
-    //         SIMON, other, other, address(0), 1e20 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
-    //     );
+    function test_retireGCC_signatureReplayShouldFail() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1 ether);
+        vm.stopPrank();
+        uint256 currentTimestamp = block.timestamp;
+        uint256 sigTimestamp = block.timestamp + 1000;
+        bytes memory signature = _signPermit(
+            SIMON, other, other, address(0), 1 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+        );
 
-    //     vm.startPrank(other);
-    //     gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
-    //     vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
-    //     gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
-    // }
+        vm.startPrank(other);
+        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
+        vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
+        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
+    }
 
     /* -------------------------------------------------------------------------- */
     /*                                   helpers                                  */

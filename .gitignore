@@ -21,3 +21,9 @@ countlines.py
 cloc.md 
 gen_cloc.py
 cloc_outputs
+
+swap-errors.csv
+gcc.csv
+gcc2.csv
+swap-succeses.csv
+exec.py

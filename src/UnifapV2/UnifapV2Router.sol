@@ -163,7 +163,6 @@ contract UnifapV2Router {
                 input == token0 ? (uint256(0), amountOut) : (amountOut, uint256(0));
             address to = i < path.length - 2 ? UnifapV2Library.pairFor(address(factory), output, path[i + 2]) : _to;
             address pair = UnifapV2Library.pairFor(address(factory), input, output);
-            console.log("pair address = ", pair);
             IUnifapV2Pair(pair).swap(amount0Out, amount1Out, to, new bytes(0));
         }
     }

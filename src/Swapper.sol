@@ -13,6 +13,8 @@ contract Swapper {
     IUniswapRouterV2 public immutable UNISWAP_ROUTER;
     address public immutable UNISWAP_V2_FACTORY;
     address public immutable UNISWAP_V2_PAIR;
+    uint256 private constant GCC_MAGNIFICATION = 1e18;
+    uint256 private constant USDC_MAGNIFICATION = 1e24;
 
     constructor(address _usdc, address router, address factory, address pair) payable {
         GCC = msg.sender;
@@ -29,9 +31,14 @@ contract Swapper {
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
 
-        //x = (sqrt(b) sqrt(3988000 a + 3988009 b) - 1997 b)/1994
-        uint256 amountToSwap = findOptimalAmountToRetire(amount, reserveGCC);
+        uint256 amountToSwap =
+            findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
+        // if(amountToSwap > amount) revert("amountToSwap > amount");
+        console.log("amountToSwap", amountToSwap);
+        console.log("amountAAAA", amount);
         uint256 amountToAddInLiquidity = amount - amountToSwap;
+        console.log("heresies");
+
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amount);
         address[] memory path = new address[](2);
         path[0] = GCC;
@@ -58,8 +65,8 @@ contract Swapper {
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
         //Magnify by 1e12 to increase precision on sqrt
-        uint256 amountToSwap = findOptimalAmountToRetire(amount * 1e12, reserveUSDC * 1e12);
-        amountToSwap /= 1e12;
+        uint256 amountToSwap = findOptimalAmountToRetire(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
+            / USDC_MAGNIFICATION;
         uint256 amountToAddInLiquidity = amount - amountToSwap;
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amount);
         address[] memory path = new address[](2);
@@ -71,15 +78,51 @@ contract Swapper {
         UNISWAP_ROUTER.addLiquidity(USDC, GCC, amountToAddInLiquidity, amounts[1], 0, 0, address(this), block.timestamp);
     }
 
+    function onlySwap(uint256 amount) public {
+        (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
+        uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
+        uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
+        console.log("reserve GCC before swap = %s", reserveGCC);
+        console.log("Reserve USDC before swap = ", reserveUSDC);
+        address[] memory path = new address[](2);
+        path[0] = GCC;
+        path[1] = USDC;
+        IERC20(GCC).approve(address(UNISWAP_ROUTER), amount);
+        uint256[] memory amounts =
+            UNISWAP_ROUTER.swapExactTokensForTokens(amount, 0, path, address(this), block.timestamp);
+        console.log("amounts[0]", amounts[0]);
+        console.log("amounts[1]", amounts[1]);
+        (reserveA, reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
+        reserveGCC = GCC < USDC ? reserveA : reserveB;
+        console.log("reserve GCC after swap = %s", reserveGCC);
+    }
+
     function findOptimalAmountToRetire(uint256 amountToRetire, uint256 totalReservesOfToken)
         public
-        pure
+        view
         returns (uint256)
     {
-        return (
-            sqrt(totalReservesOfToken) * sqrt(3988000 * amountToRetire + 3988009 * totalReservesOfToken)
-                - 1997 * totalReservesOfToken
-        ) / 1994;
+        uint256 a = sqrt(totalReservesOfToken) + 1; //adjust for div round down errors
+        uint256 b = sqrt(3988000 * amountToRetire + 3988009 * totalReservesOfToken);
+        uint256 c = 1997 * totalReservesOfToken;
+        uint256 d = 1994;
+
+        // console.log("amount to retire",amountToRetire);
+        // console.log("total reserves",totalReservesOfToken);
+        // console.log("a",a);
+        // console.log("b",b);
+        // console.log("a*b",a*b);
+        // console.log("c",c);
+        if (c > a * b) revert("c > a*b");
+
+        uint256 res = ((a * b) - c) / d;
+        // console.log("res",res);
+
+        return res;
+        // return (
+        //     sqrt(totalReservesOfToken) * sqrt(3988000 * amountToRetire + 3988009 * totalReservesOfToken)
+        //         - 1997 * totalReservesOfToken
+        // ) / 1994;
     }
 
     // function doSomeStuff()

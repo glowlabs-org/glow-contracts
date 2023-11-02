@@ -130,7 +130,7 @@ contract GCC is ERC20, IGCC, EIP712 {
     function retireGCC(uint256 amount, address rewardAddress, address referralAddress) public {
         _transfer(_msgSender(), address(SWAPPER), amount);
         uint256 usdcEffect = SWAPPER.retireGCC(amount);
-        _handleRetirement(_msgSender(), rewardAddress, usdcEffect, referralAddress);
+        _handleRetirement(_msgSender(), rewardAddress, amount, usdcEffect, referralAddress);
     }
 
     function retireUSDC(uint256 amount, address rewardAddress, address referralAddress) public {
@@ -168,12 +168,12 @@ contract GCC is ERC20, IGCC, EIP712 {
     }
 
     function retireGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress) public {
-        transferFrom(from, address(this), amount);
+        transferFrom(from, address(SWAPPER), amount);
         if (_msgSender() != from) {
             _decreaseRetiringAllowance(from, _msgSender(), amount, false);
         }
         uint256 usdcEffect = SWAPPER.retireGCC(amount);
-        _handleRetirement(from, rewardAddress, usdcEffect, referralAddress);
+        _handleRetirement(from, rewardAddress, amount, usdcEffect, referralAddress);
     }
 
     /**
@@ -307,13 +307,20 @@ contract GCC is ERC20, IGCC, EIP712 {
 
     /// @notice handles the storage writes and event emissions relating to retiring carbon credits.
     /// @dev should only be used internally and by function that require a transfer of {amount} to address(this)
-    function _handleRetirement(address from, address rewardAddress, uint256 amount, address referralAddress) private {
+    function _handleRetirement(
+        address from,
+        address rewardAddress,
+        uint256 gccRetired,
+        uint256 usdcEffect,
+        address referralAddress
+    ) private {
         if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
         //Retiring GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
-        totalCreditsRetired[rewardAddress] += amount;
-        GOVERNANCE.grantNominations(rewardAddress, amount);
-        emit IGCC.GCCRetired(from, rewardAddress, amount, referralAddress);
+        totalCreditsRetired[rewardAddress] += gccRetired;
+        GOVERNANCE.grantNominations(rewardAddress, usdcEffect);
+        //TODO: add USDC effect
+        emit IGCC.GCCRetired(from, rewardAddress, gccRetired, referralAddress);
     }
 
     function _handleUSDCRetirement(address from, address rewardAddress, uint256 amount, address referralAddress)
