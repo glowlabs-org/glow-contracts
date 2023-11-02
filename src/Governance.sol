@@ -1070,14 +1070,6 @@ contract Governance is IGovernance, EIP712 {
         return IGovernance.ProposalStatus(value);
     }
 
-    //TODO: come back to this implementation
-    /// @inheritdoc IGovernance
-    function getProposalWithStatus(uint256 proposalId)
-        public
-        view
-        returns (Proposal memory proposal, IGovernance.ProposalStatus)
-    {}
-
     /**
      * @notice Gets the total number of proposals created
      * @return proposalCount - the total number of proposals created

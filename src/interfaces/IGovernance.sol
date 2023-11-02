@@ -71,17 +71,6 @@ interface IGovernance {
     }
 
     /**
-     * @notice gets the proposal and the status of the proposal with the given id
-     * @param proposalId the id of the proposal
-     * @return proposal the proposal
-     * @return status the status of the proposal
-     */
-    function getProposalWithStatus(uint256 proposalId)
-        external
-        view
-        returns (Proposal memory proposal, ProposalStatus);
-
-    /**
      * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC
      * @param to the address to grant nominations to
      * @param amount the amount of nominations to grant
