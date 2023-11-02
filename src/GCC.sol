@@ -305,8 +305,15 @@ contract GCC is ERC20, IGCC, EIP712 {
         _mintedBucketsBitmap[key] = bitmap | (1 << shift);
     }
 
-    /// @notice handles the storage writes and event emissions relating to retiring carbon credits.
-    /// @dev should only be used internally and by function that require a transfer of {amount} to address(this)
+    /**
+     * @notice handles the storage writes and event emissions relating to retiring carbon credits.
+     * @dev should only be used internally and by function that require a transfer of {amount} to address(this)
+     * @param from the address of the account retiring the credits
+     * @param rewardAddress the address to receive the benefits of retiring
+     * @param gccRetired the amount of GCC retired
+     * @param usdcEffect the effect of retiring on the USDC balance
+     * @param referralAddress the address of the referrer (zero for no referrer)
+     */
     function _handleRetirement(
         address from,
         address rewardAddress,
@@ -319,10 +326,17 @@ contract GCC is ERC20, IGCC, EIP712 {
         GOVERNANCE.syncProposals();
         totalCreditsRetired[rewardAddress] += gccRetired;
         GOVERNANCE.grantNominations(rewardAddress, usdcEffect);
-        //TODO: add USDC effect
-        emit IGCC.GCCRetired(from, rewardAddress, gccRetired, referralAddress);
+        emit IGCC.GCCRetired(from, rewardAddress, gccRetired, usdcEffect, referralAddress);
     }
 
+    /**
+     * @notice handles the storage writes and event emissions relating to retiring USDC
+     * @dev should only be used internally and by function that require a transfer of {amount} to address(this)
+     * @param from the address of the account retiring the credits
+     * @param rewardAddress the address to receive the benefits of retiring
+     * @param amount the amount of USDC TO RETIRE
+     * @param referralAddress the address of the referrer (zero for no referrer)
+     */
     function _handleUSDCRetirement(address from, address rewardAddress, uint256 amount, address referralAddress)
         private
     {

@@ -193,8 +193,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         bytes memory signature
     ) external {
         if (msg.sender != user) {
-            bytes32 hash =
-                createClaimRewardFromBucketDigest(bucketId, glwWeight, grcWeight, index, claimFromInflation);
+            bytes32 hash = createClaimRewardFromBucketDigest(bucketId, glwWeight, grcWeight, index, claimFromInflation);
             if (!SignatureChecker.isValidSignatureNow(user, hash, signature)) {
                 _revert(IMinerPool.SignatureDoesNotMatchUser.selector);
             }

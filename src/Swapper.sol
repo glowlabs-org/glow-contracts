@@ -8,6 +8,9 @@ import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
 
 contract Swapper {
+    error CallerNotGCC();
+    error PrecisionLossLeadToUnderflow();
+
     address public immutable GCC;
     address public immutable USDC;
     IUniswapRouterV2 public immutable UNISWAP_ROUTER;
@@ -24,20 +27,27 @@ contract Swapper {
         UNISWAP_V2_PAIR = pair;
     }
 
+    /**
+     * @notice entry point for GCC to retire GCC
+     * @dev the retiring process is as follows:
+     *         1. GCC is swapped for USDC
+     *         2. GCC and USDC are added to the GCC-USDC pool
+     *         3. The caller receives 2x the amount of USDC received from the swap in nominations
+     *     - The point is to retire the GCC while adding liquidity to increase incentives for farms
+     * @param amount the amount of GCC to retire
+     * @return usdcReceivedTimesTwo the amount of USDC received from the swap times two
+     *             - used to calculate the amount of nominations to give to the origina caller in GCC
+     */
     function retireGCC(uint256 amount) external returns (uint256 usdcReceivedTimesTwo) {
         if (msg.sender != GCC) {
-            revert("Only GCC can retire GCC");
+            revert CallerNotGCC();
         }
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
 
         uint256 amountToSwap =
             findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
-        // if(amountToSwap > amount) revert("amountToSwap > amount");
-        console.log("amountToSwap", amountToSwap);
-        console.log("amountAAAA", amount);
         uint256 amountToAddInLiquidity = amount - amountToSwap;
-        console.log("heresies");
 
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amount);
         address[] memory path = new address[](2);
@@ -47,24 +57,28 @@ contract Swapper {
             UNISWAP_ROUTER.swapExactTokensForTokens(amountToSwap, 0, path, address(this), block.timestamp);
         uint256 amountUSDCReceived = amounts[1];
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amountUSDCReceived);
-
-        console.log("amounts[0]", amounts[0]);
-        console.log("amounts[1]", amounts[1]);
         UNISWAP_ROUTER.addLiquidity(
             GCC, USDC, amountToAddInLiquidity, amountUSDCReceived, 0, 0, address(this), block.timestamp
         );
-        // console.log("[Swapper GCC] USDC Balance After Add Event", IERC20(USDC).balanceOf(address(this)));
-        // console.log("[Swapper GCC] GCC Balance After Add Event", IERC20(GCC).balanceOf(address(this)));
+
         usdcReceivedTimesTwo = amountUSDCReceived * 2;
     }
 
+    /**
+     * @notice entry point for GCC to retire USDC
+     * @dev the retiring process is as follows:
+     *         1. USDC is swapped for GCC
+     *         2. GCC and USDC are added to the GCC-USDC pool
+     *         3. The caller `amount` of USDC used / retired
+     * @param amount the amount of USDC to retire
+     * @dev no need to return anything as the caller is the GCC contract and knows how much USDC was used
+     */
     function retireUSDC(uint256 amount) external {
         if (msg.sender != GCC) {
-            revert("Only GCC can retire GCC");
+            revert CallerNotGCC();
         }
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
-        //Magnify by 1e12 to increase precision on sqrt
         uint256 amountToSwap = findOptimalAmountToRetire(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
             / USDC_MAGNIFICATION;
         uint256 amountToAddInLiquidity = amount - amountToSwap;
@@ -78,25 +92,12 @@ contract Swapper {
         UNISWAP_ROUTER.addLiquidity(USDC, GCC, amountToAddInLiquidity, amounts[1], 0, 0, address(this), block.timestamp);
     }
 
-    function onlySwap(uint256 amount) public {
-        (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
-        uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
-        uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
-        console.log("reserve GCC before swap = %s", reserveGCC);
-        console.log("Reserve USDC before swap = ", reserveUSDC);
-        address[] memory path = new address[](2);
-        path[0] = GCC;
-        path[1] = USDC;
-        IERC20(GCC).approve(address(UNISWAP_ROUTER), amount);
-        uint256[] memory amounts =
-            UNISWAP_ROUTER.swapExactTokensForTokens(amount, 0, path, address(this), block.timestamp);
-        console.log("amounts[0]", amounts[0]);
-        console.log("amounts[1]", amounts[1]);
-        (reserveA, reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
-        reserveGCC = GCC < USDC ? reserveA : reserveB;
-        console.log("reserve GCC after swap = %s", reserveGCC);
-    }
-
+    /**
+     * @notice helper function to find the optimal amount of tokens to swap
+     * @param amountToRetire the amount of tokens to retire
+     * @param totalReservesOfToken the total reserves of the token to retire
+     * @return optimalAmount - the optimal amount of tokens to swap
+     */
     function findOptimalAmountToRetire(uint256 amountToRetire, uint256 totalReservesOfToken)
         public
         view
@@ -106,33 +107,10 @@ contract Swapper {
         uint256 b = sqrt(3988000 * amountToRetire + 3988009 * totalReservesOfToken);
         uint256 c = 1997 * totalReservesOfToken;
         uint256 d = 1994;
-
-        // console.log("amount to retire",amountToRetire);
-        // console.log("total reserves",totalReservesOfToken);
-        // console.log("a",a);
-        // console.log("b",b);
-        // console.log("a*b",a*b);
-        // console.log("c",c);
-        if (c > a * b) revert("c > a*b");
-
+        if (c > a * b) revert PrecisionLossLeadToUnderflow();
         uint256 res = ((a * b) - c) / d;
-        // console.log("res",res);
-
         return res;
-        // return (
-        //     sqrt(totalReservesOfToken) * sqrt(3988000 * amountToRetire + 3988009 * totalReservesOfToken)
-        //         - 1997 * totalReservesOfToken
-        // ) / 1994;
     }
-
-    // function doSomeStuff()
-
-    // function retireUSDC(uint amount) external {
-    //     if(msg.sender != GCC) {
-    //         revert("Only GCC can retire USDC");
-    //     }
-    //     IERC20(USDC).transfer(GCC, amount);
-    // }
 
     /// @dev forked from solady library
     /// @param x - the number to calculate the square root of
