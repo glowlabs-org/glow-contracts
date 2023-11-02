@@ -29,7 +29,7 @@ contract BucketSubmission {
     /// @notice mappings bucketId -> WeeklyReward
     mapping(uint256 => WeeklyReward) internal rewards;
 
-    BucketTracker bucketTracker;
+    BucketTracker internal bucketTracker;
 
     /**
      * @dev a helper to keep track of last updated bucket ids for buckets

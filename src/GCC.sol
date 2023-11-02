@@ -10,7 +10,6 @@ import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
-import "forge-std/console.sol";
 import {Swapper} from "@/Swapper.sol";
 import {IERC20Permit} from "@/interfaces/IERC20Permit.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
@@ -25,6 +24,8 @@ import {IUnifapV2Factory} from "@unifapv2/interfaces/IUnifapV2Factory.sol";
  *         - GCC can be retired for nominations and karma
  *         - Once GCC is retired, it can't be unretired
  *         - GCC is sold in the carbon credit auction
+ *          - The amount of nominations earned is equal to two times the USDC earned from a swap in the retireGCC event as called in the `Swapper`
+ *              - When retiring USDC, the amount of nominations earned is equal to the amount of USDC retired
  */
 
 contract GCC is ERC20, IGCC, EIP712 {

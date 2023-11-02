@@ -3,8 +3,6 @@ pragma solidity ^0.8.19;
 
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "forge-std/console.sol";
-import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
 
 contract Swapper {
@@ -117,6 +115,7 @@ contract Swapper {
     /// @return z - the square root of x
     function sqrt(uint256 x) internal pure returns (uint256 z) {
         /// @solidity memory-safe-assembly
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             let y := x // We start y at x, which will help us make our initial estimate.
 
