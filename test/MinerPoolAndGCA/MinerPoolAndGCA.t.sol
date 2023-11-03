@@ -648,7 +648,6 @@ contract MinerPoolAndGCATest is Test {
         vm.stopPrank();
     }
 
-
     function test_withdrawFromBucket_glwWeightsInTwoTransactions_gtBucketGlobalState_shouldRevertOnSecond() public {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
@@ -674,8 +673,8 @@ contract MinerPoolAndGCATest is Test {
                 grcWeight: 200
             });
         }
-        uint glwWeight = 199; //1 less than the actual in the leaves
-        uint grcWeight = 400;
+        uint256 glwWeight = 199; //1 less than the actual in the leaves
+        uint256 grcWeight = 400;
         bytes32 root = createClaimLeafRoot(claimLeaves);
         uint256 bucketId = 16;
         uint256 totalNewGCC = 101 * 1e15;
@@ -709,8 +708,7 @@ contract MinerPoolAndGCATest is Test {
         });
         vm.stopPrank();
 
-
-        vm.startPrank(address(uint160( uint160(defaultAddressInWithdraw) + 1)));
+        vm.startPrank(address(uint160(uint160(defaultAddressInWithdraw) + 1)));
         //If we try to claim with the correct proof, it should overflow the glow weight first
         vm.expectRevert(IMinerPool.GlowWeightOverflow.selector);
         minerPoolAndGCA.claimRewardFromBucket({
@@ -719,14 +717,13 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: createClaimLeafProof(claimLeaves, claimLeaves[1]),
             index: 0,
-            user: (address(uint160( uint160(defaultAddressInWithdraw) + 1))),
+            user: (address(uint160(uint160(defaultAddressInWithdraw) + 1))),
             claimFromInflation: true,
             signature: bytes("")
         });
     }
 
-
-     function test_withdrawFromBucket_GRCWeightsInTwoTransactions_gtBucketGlobalState_shouldRevertOnSecond() public {
+    function test_withdrawFromBucket_GRCWeightsInTwoTransactions_gtBucketGlobalState_shouldRevertOnSecond() public {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
         uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
@@ -751,8 +748,8 @@ contract MinerPoolAndGCATest is Test {
                 grcWeight: 200
             });
         }
-        uint glwWeight = 200; //1 less than the actual in the leaves
-        uint grcWeight = 399;
+        uint256 glwWeight = 200; //1 less than the actual in the leaves
+        uint256 grcWeight = 399;
         bytes32 root = createClaimLeafRoot(claimLeaves);
         uint256 bucketId = 16;
         uint256 totalNewGCC = 101 * 1e15;
@@ -786,8 +783,7 @@ contract MinerPoolAndGCATest is Test {
         });
         vm.stopPrank();
 
-
-        vm.startPrank(address(uint160( uint160(defaultAddressInWithdraw) + 1)));
+        vm.startPrank(address(uint160(uint160(defaultAddressInWithdraw) + 1)));
         //If we try to claim with the correct proof, it should overflow the glow weight first
         vm.expectRevert(IMinerPool.GRCWeightOverflow.selector);
         minerPoolAndGCA.claimRewardFromBucket({
@@ -796,7 +792,7 @@ contract MinerPoolAndGCATest is Test {
             grcWeight: grcWeightForAddress,
             proof: createClaimLeafProof(claimLeaves, claimLeaves[1]),
             index: 0,
-            user: (address(uint160( uint160(defaultAddressInWithdraw) + 1))),
+            user: (address(uint160(uint160(defaultAddressInWithdraw) + 1))),
             claimFromInflation: true,
             signature: bytes("")
         });

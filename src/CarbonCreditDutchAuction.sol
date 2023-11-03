@@ -53,6 +53,8 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
     uint256 public totalUnitsSold;
 
     /// @notice The price of GCC 24 hours ago
+    ///         - this price is not accurate if there have been no sales in the last 24 hours
+    ///         - it should not be relied on for accurate calculations
     uint256 public price24HoursAgo;
 
     /// @dev The price of GCC per sale unit

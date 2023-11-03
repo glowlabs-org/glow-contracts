@@ -213,14 +213,14 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint256 globalStatePackedData = getPackedBucketGlobalState(bucketId);
 
         uint256 totalGRCWeight = globalStatePackedData >> 192;
-        uint totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
+        uint256 totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
         _checkWeightsForOverflow({
-                bucketId: bucketId,
-                totalGlwWeight: totalGlwWeight,
-                totalGrcWeight: totalGRCWeight,
-                glwWeight: glwWeight,
-                grcWeight: grcWeight
-            });
+            bucketId: bucketId,
+            totalGlwWeight: totalGlwWeight,
+            totalGrcWeight: totalGRCWeight,
+            glwWeight: glwWeight,
+            grcWeight: grcWeight
+        });
         _handleMintToCarbonCreditAuction(bucketId, globalStatePackedData & _UINT128_MASK);
 
         //no need to use a mask since totalGRCWeight uses the last 64 bits, so we can just shift
