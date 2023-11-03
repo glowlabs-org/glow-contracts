@@ -51,6 +51,7 @@ contract EarlyLiquidityTest is Test {
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = IEarlyLiquidity.buy.selector;
         FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
+        targetSelector(fs);
         targetContract(address(handler));
     }
 

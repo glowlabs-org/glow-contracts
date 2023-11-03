@@ -38,6 +38,7 @@ interface IGovernance {
     error MaxSlashesInGCAElection();
     error SpendNominationsOnProposalSignatureExpired();
     error ProposalIsVetoed();
+    error VetoAgentCannotBeNullAddress();
 
     enum ProposalType {
         NONE, //default value for unset proposals

@@ -5,7 +5,6 @@ import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {VetoCouncilSalaryHelper} from "@/generic/VetoCouncilSalaryHelper.sol";
-
 /**
  * @title VetoCouncil
  * @notice A contract for managing the Glow veto council
@@ -14,6 +13,7 @@ import {VetoCouncilSalaryHelper} from "@/generic/VetoCouncilSalaryHelper.sol";
  *             - council member payouts are vested over 100 weeks
  *             - council members can veto proposals inside {Governance}
  */
+
 contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
     /// @notice the address of the governance contract
     address public immutable GOVERNANCE;

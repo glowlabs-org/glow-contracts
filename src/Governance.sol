@@ -10,6 +10,7 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {NULL_ADDRESS} from "@/generic/VetoCouncilSalaryHelper.sol";
 
 /**
  * @title Governance
@@ -844,6 +845,14 @@ contract Governance is IGovernance, EIP712 {
         if (oldAgent == newAgent) {
             _revert(IGovernance.VetoCouncilProposalCreationOldAgentCannotEqualNewAgent.selector);
         }
+
+        if (oldAgent == NULL_ADDRESS) {
+            _revert(IGovernance.VetoAgentCannotBeNullAddress.selector);
+        }
+        if (newAgent == NULL_ADDRESS) {
+            _revert(IGovernance.VetoAgentCannotBeNullAddress.selector);
+        }
+
         uint256 proposalId = _proposalCount;
         uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
         if (maxNominations < nominationCost) {
