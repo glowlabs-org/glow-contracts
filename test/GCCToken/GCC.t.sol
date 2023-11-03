@@ -89,7 +89,18 @@ contract GCCTest is Test {
     /**
      * forge-config: default.fuzz.runs = 250
      */
-    function testFuzz_getStuff(uint256 a, uint256 b) public {
+    function testFuzz_ensureOptimalAmountOutput_isLessThanAmountToRetire(uint256 a, uint256 b) public {
+        /**
+         * This test exists because our 'findOptimalAmountToRetire' function
+         *         can lead to weird results due to precision loss in extreme cases.
+         *         This test ensures that the optimal amount is always less than the
+         *         amount to retire so that there is no underflow in the retire function.
+         *         We choose a sensible range for the amount to retire and total reserves.
+         *         Fuzz runs are set to 250 to prevent foundry from throwing errors due to
+         *         too many rejected values.
+         *         To run this in a more fullproof manner, we created a python script and looped
+         *         1000 times on this test.
+         */
         vm.assume(a > 0.01 ether && a < 1_000_000_000_000 * 1e6 ether);
         vm.assume(b > 0.01 ether && b < 1_000_000_000_000 * 1e6 ether);
 
@@ -120,17 +131,21 @@ contract GCCTest is Test {
             }
         }
         assert(amount > optimalAmount);
-
-        //95_140_9250
-        //3_715_946_953_796
     }
 
     /**
      * forge-config: default.fuzz.runs = 1000
      */
-    function testFuzz_uniswapManualRetiring(uint256 a, uint256 b) public {
+    function testFuzz_uniswapManualRetiringGCC(uint256 a, uint256 b) public {
         // a = amount to retire
         // b = total reserves
+
+        /**
+         * The point of this test is to ensure that precision loss for dust
+         *         is sensible even in extreme scenarios such as the ranges described below.
+         *         Manual analysis was done on the outputs of this test to ensure that
+         *         the precision loss and dust is sensible and minimal.
+         */
         vm.assume(a > 0.01 ether && a < 1_000_000_000_000 ether);
         vm.assume(b > 0.01 ether && b < 1_000_000_000_000 ether);
 
@@ -235,31 +250,188 @@ contract GCCTest is Test {
                 vm.writeLine("swap-errors.csv", stringToWrite);
             }
         }
-
-        // uniswapRouter.addLiquidity(
-        //     address(gcc), gcc.USDC(), amountLiquidityToAdd, amounts[1], 0, 0, SIMON, block.timestamp
-        // );
-
-        // if (success == 0) {
-        //     string memory stringToWrite = string(
-        //         abi.encodePacked(
-        //             Strings.toString(totalReserves),
-        //             ",",
-        //             Strings.toString(amount),
-        //             ",",
-        //             Strings.toString(optimalAmount),
-        //             ",",
-        //             Strings.toString(success)
-        //         )
-        //     );
-        //     vm.writeLine("gcc2.csv", stringToWrite);
-        // }
-
-        // //95_140_9250
-        //3_715_946_953_796
     }
 
-    function test_RetiregetStuff() public {
+    //-------------------  USDC RETIRING  -----------------------------
+    /**
+     * forge-config: default.fuzz.runs = 250
+     */
+    function testFuzz_ensureOptimalAmountOutput_isLessThanAmountToRetire_USDC(uint256 a, uint256 b) public {
+        /**
+         * This test exists because our 'findOptimalAmountToRetire' function
+         *         can lead to weird results due to precision loss in extreme cases.
+         *         This test ensures that the optimal amount is always less than the
+         *         amount to retire so that there is no underflow in the retire function.
+         *         We choose a sensible range for the amount to retire and total reserves.
+         *         Fuzz runs are set to 250 to prevent foundry from throwing errors due to
+         *         too many rejected values.
+         *         To run this in a more fullproof manner, we created a python script and looped
+         *         1000 times on this test.
+         */
+        vm.assume(a > 0.01 * 1e6 && a < 1_000_000_000_000 * 1e6 * 1e6);
+        vm.assume(b > 0.01 * 1e6 && b < 1_000_000_000_000 * 1e6 * 1e6);
+
+        Swapper swapper = gcc.SWAPPER();
+        uint256 amount = a;
+        uint256 totalReserves = b;
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToRetire(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
+        optimalAmount /= USDC_MAGNIFICATION;
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+
+        if (success == 0) {
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(success)
+                )
+            );
+            if (saveLogs) {
+                vm.writeLine("usdc-data.csv", stringToWrite);
+            }
+        }
+        assert(amount > optimalAmount);
+    }
+
+    /**
+     * forge-config: default.fuzz.runs = 1000
+     */
+    function testFuzz_uniswapManualRetiringUSDC(uint256 a, uint256 b) public {
+        // a = amount to retire
+        // b = total reserves
+
+        /**
+         * The point of this test is to ensure that precision loss for dust
+         *         is sensible even in extreme scenarios such as the ranges described below.
+         *         Manual analysis was done on the outputs of this test to ensure that
+         *         the precision loss and dust is sensible and minimal.
+         *         Note: USDC has 6 decimals
+         */
+        {
+            uint A_MIN = 10 * 1e6;
+            uint A_MAX = 1_000_000_000_000 * 1e6;
+            a = bound(a, A_MIN, A_MAX);
+            uint B_MIN = 10 * 1e6;
+            uint B_MAX = 1_000_000_000_000 * 1e6;
+            b = bound(b, B_MIN, B_MAX);
+            
+        }
+
+
+        uniswapFactory = new UnifapV2Factory();
+        weth = new WETH9();
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+        usdc = new MockUSDC();
+        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glw = address(glwContract);
+        (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
+        gov = new Governance();
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+
+        uint256 totalReserves = b;
+        seedLP(100 ether, totalReserves);
+
+        Swapper swapper = gcc.SWAPPER();
+        uint256 amount = a;
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToRetire(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
+        optimalAmount /= USDC_MAGNIFICATION;
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+
+        address[] memory path = new address[](2);
+        path[0] = gcc.USDC();
+        path[1] = address(gcc);
+
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, amount);
+        usdc.approve(address(uniswapRouter), amount);
+        // uint256[] memory amounts =
+        //     uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp);
+        try uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp) returns (
+            uint256[] memory amounts
+        ) {
+            // Success. Do something with `amounts` if needed.
+
+            gcc.approve(address(uniswapRouter), amounts[1]);
+            uint256 amountLiquidityToAdd = amount - optimalAmount;
+
+            uniswapRouter.addLiquidity(
+                address(usdc), address(gcc), amountLiquidityToAdd, amounts[1], 0, 0, SIMON, block.timestamp
+            );
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+            //totalReserves,amount,optimalAmount,leftoverGCC,leftoverUSDC,success,optimalAmountGreaterThanReserves
+
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(leftoverGCC),
+                    ",",
+                    Strings.toString(leftoverUSDC),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves)
+                )
+            );
+
+            if (saveLogs) {
+                vm.writeLine("swap-succeses-usdc.csv", stringToWrite);
+            }
+        } catch Error(string memory reason) {
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+            /**
+             * CSV Headers:
+             *     totalReserves,amount,optimalAmount,,success,optimalAmountGreaterThanReserves,reason
+             */
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves),
+                    ",",
+                    reason
+                )
+            );
+
+            if (saveLogs) {
+                vm.writeLine("swap-errors-usdc.csv", stringToWrite);
+            }
+        }
+    }
+
+    //-------------------  END USDC RETIRING  -----------------------------
+
+    // A manual test we used to confirm suspicions about certain inputs/outputs
+    function test_manualGCCRetire() public {
         Swapper swapper = gcc.SWAPPER();
         uint256 amount = 9392183157865769199004733;
         uint256 totalReserves;
