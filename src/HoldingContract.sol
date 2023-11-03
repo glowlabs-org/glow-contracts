@@ -167,27 +167,11 @@ contract HoldingContract {
     function claimHoldings(ClaimHoldingArgs[] memory args) external {
         //If the network is frozen, don't allow withdrawals
         bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
-
         //Loop over all the arguments
         for (uint256 i; i < args.length; ++i) {
             ClaimHoldingArgs memory arg = args[i];
             Holding memory holding = _holdings[arg.user][arg.token];
-            if (block.timestamp < holding.expirationTimestamp) {
-                _revert(WithdrawalNotReady.selector);
-            }
-            //Can't underflow because of the check above
-            //No claim should be able to be held for more than 97 days
-            //If it's been less than than 97 days since the proposal has expired,
-            //(expiration timestamp is always claim timestamp + 1 week, so )
-            //in order for proposal to be held maximum 97 days,
-            //We need to check if the diff is 90 days
-            if (block.timestamp - holding.expirationTimestamp < NINETY_DAYS) {
-                //If it's been less than 90 days and the network is frozen,
-                //we need to revert
-                if (networkIsFrozen) {
-                    _revert(NetworkIsFrozen.selector);
-                }
-            }
+            checkHoldingAvailable(holding, networkIsFrozen);
             //Delete the holding args.
             //Should set all the data to zero.
             delete _holdings[arg.user][arg.token];
@@ -198,25 +182,9 @@ contract HoldingContract {
 
     function claimHoldingSingleton(address user, address token) external {
         bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
-
         //If the network is frozen, don't allow withdrawals
         Holding memory holding = _holdings[user][token];
-        if (block.timestamp < holding.expirationTimestamp) {
-            _revert(WithdrawalNotReady.selector);
-        }
-        //Can't underflow because of the check above
-        //No claim should be able to be held for more than 97 days
-        //If it's been less than than 97 days since the proposal has expired,
-        //(expiration timestamp is always claim timestamp + 1 week, so )
-        //in order for proposal to be held maximum 97 days,
-        //We need to check if the diff is 90 days
-        if (block.timestamp - holding.expirationTimestamp < NINETY_DAYS) {
-            //If it's been less than 90 days and the network is frozen,
-            //we need to revert
-            if (networkIsFrozen) {
-                _revert(NetworkIsFrozen.selector);
-            }
-        }
+        checkHoldingAvailable(holding, networkIsFrozen);
         //Delete the holding args.
         //Should set all the data to zero.
         delete _holdings[user][token];
@@ -260,6 +228,30 @@ contract HoldingContract {
         _holdings[user][token].amount += amount;
         _holdings[user][token].expirationTimestamp = uint64(block.timestamp + DEFAULT_DELAY);
         emit HoldingAdded(user, token, amount);
+    }
+
+    /**
+     * @dev checks if the holding is available to be withdrawn
+     * @param holding the holding to check
+     * @param isNetworkFrozen whether or not the network is currently frozen
+     * @dev - if the network is frozen, the holding can be withdrawn only if it's been more than 90 days past the expiration of the holding
+     *      - if the network is not frozen, the holding can be withdrawn only if it's past the expiration date of the holding
+     */
+    function checkHoldingAvailable(Holding memory holding, bool isNetworkFrozen) internal view {
+        if (block.timestamp < holding.expirationTimestamp) {
+            _revert(WithdrawalNotReady.selector);
+        }
+        //Can't underflow because of the check above
+        //No claim should be able to be held for more than 97 days
+        //If it's been less than than 97 days since the proposal has expired,
+        //(expiration timestamp is always claim timestamp + 1 week, so )
+        //in order for proposal to be held maximum 97 days,
+        //We need to check if the diff is 90 days
+        if (block.timestamp - holding.expirationTimestamp < NINETY_DAYS) {
+            if (isNetworkFrozen) {
+                _revert(NetworkIsFrozen.selector);
+            }
+        }
     }
 
     /**
