@@ -648,6 +648,160 @@ contract MinerPoolAndGCATest is Test {
         vm.stopPrank();
     }
 
+
+    function test_withdrawFromBucket_glwWeightsInTwoTransactions_gtBucketGlobalState_shouldRevertOnSecond() public {
+        vm.startPrank(SIMON);
+        uint256 amountGRCToDonate = 1_000_000 * 1e6;
+        uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
+        usdc.mint(SIMON, amountGRCToDonate);
+        usdc.approve(address(minerPoolAndGCA), amountGRCToDonate);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(amountGRCToDonate);
+        vm.stopPrank();
+
+        //Go to the 16th bucket since that's where the grc tokens start unlocking
+        vm.warp(block.timestamp + ONE_WEEK * 16);
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](2);
+        {
+            claimLeaves[0] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + 0)),
+                glwWeight: 100,
+                grcWeight: 200
+            });
+
+            claimLeaves[1] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + 1)),
+                glwWeight: 100,
+                grcWeight: 200
+            });
+        }
+        uint glwWeight = 199; //1 less than the actual in the leaves
+        uint grcWeight = 400;
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 16;
+        uint256 totalNewGCC = 101 * 1e15;
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: glwWeight,
+            totalGRCRewardsWeight: grcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.warp(block.timestamp + (ONE_WEEK * 2));
+
+        vm.startPrank(defaultAddressInWithdraw);
+        uint256 glwWeightForAddress = 100;
+        uint256 grcWeightForAddress = 200;
+        // minerPoolAndGCA.claimRewardFromBucket(bucketId, glwWeight, grcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
+        address[] memory grcTokens = new address[](1);
+        grcTokens[0] = address(usdc);
+        minerPoolAndGCA.claimRewardFromBucket({
+            bucketId: bucketId,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+            index: 0,
+            user: (defaultAddressInWithdraw),
+            claimFromInflation: true,
+            signature: bytes("")
+        });
+        vm.stopPrank();
+
+
+        vm.startPrank(address(uint160( uint160(defaultAddressInWithdraw) + 1)));
+        //If we try to claim with the correct proof, it should overflow the glow weight first
+        vm.expectRevert(IMinerPool.GlowWeightOverflow.selector);
+        minerPoolAndGCA.claimRewardFromBucket({
+            bucketId: bucketId,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[1]),
+            index: 0,
+            user: (address(uint160( uint160(defaultAddressInWithdraw) + 1))),
+            claimFromInflation: true,
+            signature: bytes("")
+        });
+    }
+
+
+     function test_withdrawFromBucket_GRCWeightsInTwoTransactions_gtBucketGlobalState_shouldRevertOnSecond() public {
+        vm.startPrank(SIMON);
+        uint256 amountGRCToDonate = 1_000_000 * 1e6;
+        uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
+        usdc.mint(SIMON, amountGRCToDonate);
+        usdc.approve(address(minerPoolAndGCA), amountGRCToDonate);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(amountGRCToDonate);
+        vm.stopPrank();
+
+        //Go to the 16th bucket since that's where the grc tokens start unlocking
+        vm.warp(block.timestamp + ONE_WEEK * 16);
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](2);
+        {
+            claimLeaves[0] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + 0)),
+                glwWeight: 100,
+                grcWeight: 200
+            });
+
+            claimLeaves[1] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + 1)),
+                glwWeight: 100,
+                grcWeight: 200
+            });
+        }
+        uint glwWeight = 200; //1 less than the actual in the leaves
+        uint grcWeight = 399;
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 16;
+        uint256 totalNewGCC = 101 * 1e15;
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: glwWeight,
+            totalGRCRewardsWeight: grcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.warp(block.timestamp + (ONE_WEEK * 2));
+
+        vm.startPrank(defaultAddressInWithdraw);
+        uint256 glwWeightForAddress = 100;
+        uint256 grcWeightForAddress = 200;
+        // minerPoolAndGCA.claimRewardFromBucket(bucketId, glwWeight, grcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
+        address[] memory grcTokens = new address[](1);
+        grcTokens[0] = address(usdc);
+        minerPoolAndGCA.claimRewardFromBucket({
+            bucketId: bucketId,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+            index: 0,
+            user: (defaultAddressInWithdraw),
+            claimFromInflation: true,
+            signature: bytes("")
+        });
+        vm.stopPrank();
+
+
+        vm.startPrank(address(uint160( uint160(defaultAddressInWithdraw) + 1)));
+        //If we try to claim with the correct proof, it should overflow the glow weight first
+        vm.expectRevert(IMinerPool.GRCWeightOverflow.selector);
+        minerPoolAndGCA.claimRewardFromBucket({
+            bucketId: bucketId,
+            glwWeight: glwWeightForAddress,
+            grcWeight: grcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[1]),
+            index: 0,
+            user: (address(uint160( uint160(defaultAddressInWithdraw) + 1))),
+            claimFromInflation: true,
+            signature: bytes("")
+        });
+    }
+
     function test_handleMintToCarbonCreditAuction() public {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;

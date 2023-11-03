@@ -212,8 +212,16 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
         uint256 globalStatePackedData = getPackedBucketGlobalState(bucketId);
 
-        _handleMintToCarbonCreditAuction(bucketId, globalStatePackedData & _UINT128_MASK);
         uint256 totalGRCWeight = globalStatePackedData >> 192;
+        uint totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
+        _checkWeightsForOverflow({
+                bucketId: bucketId,
+                totalGlwWeight: totalGlwWeight,
+                totalGrcWeight: totalGRCWeight,
+                glwWeight: glwWeight,
+                grcWeight: grcWeight
+            });
+        _handleMintToCarbonCreditAuction(bucketId, globalStatePackedData & _UINT128_MASK);
 
         //no need to use a mask since totalGRCWeight uses the last 64 bits, so we can just shift
         {
@@ -232,16 +240,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
 
         {
-            uint256 totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
-            //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
-            // so that we don't overflow the available glow rewards
-            _checkWeightsForOverflow({
-                bucketId: bucketId,
-                totalGlwWeight: totalGlwWeight,
-                totalGrcWeight: totalGRCWeight,
-                glwWeight: glwWeight,
-                grcWeight: grcWeight
-            });
             uint256 amountGlowToSend = GLOW_REWARDS_PER_BUCKET * glwWeight / totalGlwWeight;
             if (amountGlowToSend > 0) {
                 SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), user, amountGlowToSend);
