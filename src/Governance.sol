@@ -533,7 +533,7 @@ contract Governance is IGovernance, EIP712 {
      */
     function useNominationsOnProposal(uint256 proposalId, uint256 amount) public {
         syncProposals();
-        _revertIfProposalExecuted(proposalId);
+        _revertIfProposalExecutedOrVetoed(proposalId);
         uint256 nominationEndTimestamp = _proposals[proposalId].expirationTimestamp;
         /// @dev we don't need this check, but we add it for clarity on the revert reason
         if (nominationEndTimestamp == 0) {
@@ -570,7 +570,7 @@ contract Governance is IGovernance, EIP712 {
      */
     function setMostPopularProposalForCurrentWeek(uint256 proposalId) external {
         syncProposals();
-        _revertIfProposalExecuted(proposalId);
+        _revertIfProposalExecutedOrVetoed(proposalId);
         // get the current week
         uint256 currentWeek = currentWeek();
         // get the most popular proposal for the current week
@@ -1376,14 +1376,16 @@ contract Governance is IGovernance, EIP712 {
      * @param proposalId the id of the proposal
      */
 
-    function _revertIfProposalExecuted(uint256 proposalId) internal view {
+    function _revertIfProposalExecutedOrVetoed(uint256 proposalId) internal view {
         IGovernance.ProposalStatus status = getProposalStatus(proposalId);
-        if (
-            status == IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY
-                || status == IGovernance.ProposalStatus.EXECUTED_WITH_ERROR
-        ) {
+        if (status == IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY) {
             _revert(IGovernance.ProposalAlreadyExecuted.selector);
         }
+
+        if (status == IGovernance.ProposalStatus.EXECUTED_WITH_ERROR) {
+            _revert(IGovernance.ProposalAlreadyExecuted.selector);
+        }
+        if (status == IGovernance.ProposalStatus.VETOED) _revert(IGovernance.ProposalIsVetoed.selector);
     }
     /**
      * @notice finds the time at which the week ends

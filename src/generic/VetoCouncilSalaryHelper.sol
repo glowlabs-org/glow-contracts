@@ -189,11 +189,11 @@ contract VetoCouncilSalaryHelper {
         //We start from the back of the array as that's where the null address will most likely be
         if (isOldAgentZeroAddress) {
             unchecked {
-                for (uint8 i; i < 7; ++i) {
-                    uint8 index = 6 - i;
+                for (uint256 i; i < 7; ++i) {
+                    uint256 index = 6 - i;
                     address _vetoAgent = _vetoCouncilAgents[index];
                     if (_vetoAgent == NULL_ADDRESS) {
-                        agentOldIndex = index;
+                        agentOldIndex = uint8(index);
                         break;
                     }
                 }
@@ -299,7 +299,7 @@ contract VetoCouncilSalaryHelper {
             }
         }
 
-        //Should not get a divison by zero error,
+        //Should not get a divison by zero error
         //Since found should have reverted beforehand.
         uint256 rewardPerSecond = REWARDS_PER_SECOND / agents.length;
         uint256 shiftStartTimestamp = _paymentNonceToShiftStartTimestamp[nonce];

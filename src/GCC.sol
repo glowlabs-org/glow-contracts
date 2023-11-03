@@ -383,6 +383,7 @@ contract GCC is ERC20, IGCC, EIP712 {
             newAllowance = currentAllowance + amount;
         }
         //If there was an overflow, then we set the new allowance to type(uint).max
+        //Since that is where the allowance will be capped anyway
         if (newAllowance <= currentAllowance) {
             newAllowance = type(uint256).max;
         }

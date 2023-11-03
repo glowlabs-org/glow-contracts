@@ -27,6 +27,8 @@ import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
 
+bytes4 constant BUCKET_OUT_OF_BOUNDS_SIG = 0xfdbe8876;
+
 struct ClaimLeaf {
     address payoutWallet;
     uint256 glwWeight;
@@ -387,6 +389,125 @@ contract MinerPoolAndGCATest is Test {
         minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs, ts);
 
         assert(minerPoolAndGCA.isBucketFinalized(bucketId));
+    }
+
+    function test_claimReward_indexOutOfBounds_shouldRevert() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalGrcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalGrcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                grcWeight: 200 + i
+            });
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 101 * 1e15;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+        issueReport({
+            gcaToSubmitAs: OTHER_GCA,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalGrcWeight,
+            randomMerkleRoot: root
+        });
+
+        {
+            IGCA.Bucket memory bucket = minerPoolAndGCA.bucket(bucketId);
+
+            assert(bucket.originalNonce == 0);
+            assert(bucket.lastUpdatedNonce == 0);
+            assert(bucket.reports.length == 2);
+
+            vm.warp(block.timestamp + (ONE_WEEK * 2));
+
+            vm.startPrank(defaultAddressInWithdraw);
+
+            vm.stopPrank();
+
+            address[] memory gcasToSlash = new address[](1);
+            gcasToSlash[0] = OTHER_GCA;
+            address[] memory newGCAs = new address[](1);
+            newGCAs[0] = SIMON;
+            uint256 ts = block.timestamp;
+            bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, ts));
+            minerPoolAndGCA.pushRequirementsHashMock(hash);
+            minerPoolAndGCA.incrementSlashNonce();
+            minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs, ts);
+
+            // {
+            // vm.expectRevert(BUCKET_OUT_OF_BOUNDS_SIG);
+            // minerPoolAndGCA.claimRewardFromBucket({
+            //     bucketId: bucketId,
+            //     glwWeight: 100,
+            //     grcWeight: 200,
+            //     proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+            //     index: 0,
+            //     user: (defaultAddressInWithdraw),
+            //     claimFromInflation: true,
+            //     signature: bytes("")
+            // });
+
+            // }
+
+            issueReport({
+                gcaToSubmitAs: SIMON,
+                bucket: bucketId,
+                totalNewGCC: totalNewGCC,
+                totalGlwRewardsWeight: totalGlwWeight,
+                totalGRCRewardsWeight: totalGrcWeight,
+                randomMerkleRoot: root
+            });
+
+            bucket = minerPoolAndGCA.bucket(bucketId);
+            assert(bucket.originalNonce == 0);
+            assert(bucket.lastUpdatedNonce == 1);
+            assert(bucket.reports.length == 1);
+        }
+        vm.startPrank(defaultAddressInWithdraw);
+        vm.warp(block.timestamp + (ONE_WEEK * 4));
+        // uint256 glwWeightForAddress = 100;
+        // uint256 grcWeightForAddress = 200;
+        {
+            //claiming from index 1 should fail since
+            //it got deleted in the slash event
+            vm.expectRevert(BUCKET_OUT_OF_BOUNDS_SIG);
+            minerPoolAndGCA.claimRewardFromBucket({
+                bucketId: bucketId,
+                glwWeight: 100,
+                grcWeight: 200,
+                proof: createClaimLeafProof(claimLeaves, claimLeaves[1]),
+                index: 1,
+                user: (defaultAddressInWithdraw),
+                claimFromInflation: true,
+                signature: bytes("")
+            });
+
+            //claiming from index zero should be ok.
+            minerPoolAndGCA.claimRewardFromBucket({
+                bucketId: bucketId,
+                glwWeight: 100,
+                grcWeight: 200,
+                proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+                index: 0,
+                user: (defaultAddressInWithdraw),
+                claimFromInflation: true,
+                signature: bytes("")
+            });
+        }
+        vm.stopPrank();
     }
 
     function test_isBucketFinalized_bucketNotFinalizedBeforeSlash_shouldReturnFalse() public {
