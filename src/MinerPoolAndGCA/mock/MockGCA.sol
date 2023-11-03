@@ -1,7 +1,7 @@
 import "../GCA.sol";
 
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import {GCASalaryHelper} from "../GCASalaryHelper.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";

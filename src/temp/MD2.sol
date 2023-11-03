@@ -1,25 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/console.sol";
 import "@/MinerPoolAndGCA/BucketSubmission.sol";
 
 contract MD2 is BucketSubmission {
-    function addToCurrentBucket(address grcToken, uint256 amount) external {
-        _addToCurrentBucket(grcToken, amount);
+    function addToCurrentBucket(uint256 amount) external {
+        _addToCurrentBucket(amount);
     }
 
-    function addGRCToken(address grcToken) external {
-        (bool res, BucketSubmission.BucketTracker memory tracker) = _setGRCTokenCheck(grcToken, true, currentBucket());
-        _setGRCToken(grcToken, tracker);
+    function getAmountForTokenAndInitIfNot(uint256 bucketId) public returns (uint256) {
+        return _getAmountForTokenAndInitIfNot(bucketId);
     }
 
-    function getAmountForTokenAndInitIfNot(address grcToken, uint256 bucketId) public returns (uint256) {
-        return _getAmountForTokenAndInitIfNot(grcToken, bucketId);
-    }
-
-    function rawRewardInStorage(address grcToken, uint256 bucketId) public view returns (bool, uint256, uint256) {
-        BucketSubmission.WeeklyReward memory reward = rewards[bucketId][grcToken];
+    function rawRewardInStorage(uint256 bucketId) public view returns (bool, uint256, uint256) {
+        BucketSubmission.WeeklyReward memory reward = rewards[bucketId];
         return (reward.inheritedFromLastWeek, reward.amountInBucket, reward.amountToDeduct);
     }
 

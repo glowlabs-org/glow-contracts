@@ -8,8 +8,16 @@ import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import "forge-std/console.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
+import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
+import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
+import {MockUSDC} from "@/testing/MockUSDC.sol";
 
 contract CarbonCreditDutchAuctionTest is Test {
+    UnifapV2Factory public uniswapFactory;
+    WETH9 public weth;
+    UnifapV2Router public uniswapRouter;
+    MockUSDC usdc;
     TestGCC public gcc;
     TestGLOW public glow;
     CarbonCreditDutchAuction public auction;
@@ -22,9 +30,13 @@ contract CarbonCreditDutchAuctionTest is Test {
     address minerPool = address(0x2);
 
     function setUp() public {
+        uniswapFactory = new UnifapV2Factory();
+        weth = new WETH9();
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+        usdc = new MockUSDC();
         vm.warp(100000);
         glow = new TestGLOW(earlyLiquidityAddress, vestingContract);
-        gcc = new TestGCC(address(this), address(this),address(glow));
+        gcc = new TestGCC(address(this), address(this),address(glow),address(usdc),address(uniswapRouter));
         //Starting price is 1:1
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
     }

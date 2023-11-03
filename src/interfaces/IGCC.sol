@@ -10,6 +10,16 @@ interface IGCC is IERC20 {
     error RetiringSignatureInvalid();
     error RetiringAllowanceUnderflow();
     error MustIncreaseRetiringAllowanceByAtLeastOne();
+    error CannotReferSelf();
+
+    /**
+     * @param lastUpdatedTimestamp - the last timestamp a user earned or used nominations
+     * @ param amount - the amount of nominations a user has
+     */
+    struct Nominations {
+        uint64 lastUpdatedTimestamp;
+        uint192 amount;
+    }
 
     /**
      * @notice allows gca contract to mint GCC to the carbon credit auction
@@ -35,6 +45,52 @@ interface IGCC is IERC20 {
      *     -       2.  Nominations
      */
     function retireGCC(uint256 amount, address rewardAddress) external;
+
+    /**
+     * @notice allows a user to retire credits
+     * @param amount the amount of credits to retire
+     * @param rewardAddress the address to retire the credits to
+     *     -   Rewards Address earns:
+     *     -       1.  Carbon Neutrality
+     *     -       2.  Nominations
+     * @param referralAddress the address that referred the account
+     */
+    function retireGCC(uint256 amount, address rewardAddress, address referralAddress) external;
+
+    /**
+     * @notice Allows a user to retire USDC
+     * @param amount the amount of USDC to retire
+     * @param rewardAddress the address to retire the USDC to
+     * @param referralAddress the address that referred the account
+     */
+    function retireUSDC(uint256 amount, address rewardAddress, address referralAddress) external;
+
+    /**
+     * @notice Allows a user to retire USDC
+     * @param amount the amount of USDC to retire
+     * @param rewardAddress the address to retire the USDC to
+     */
+    function retireUSDC(uint256 amount, address rewardAddress) external;
+
+    /**
+     * @notice Allows a user to retire USDC using permit
+     * @param amount the amount of USDC to retire
+     * @param rewardAddress the address to retire the USDC to
+     * @param referralAddress the address that referred the account
+     * @param deadline the deadline for the signature
+     * @param v the v value of the signature for permit
+     * @param r the r value of the signature for permit
+     * @param s the s value of the signature for permit
+     */
+    function retireUSDCSignature(
+        uint256 amount,
+        address rewardAddress,
+        address referralAddress,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external;
 
     /**
      * @notice direct setter to set transfer allowance and retiring allowance in one transaction for a {spender}
@@ -98,6 +154,17 @@ interface IGCC is IERC20 {
     function retireGCCFor(address from, address rewardAddress, uint256 amount) external;
 
     /**
+     * @notice the entry point for an approved entity to retire credits on behalf of a user
+     * @param from the address of the user to retire credits from
+     * @param rewardAddress the address of the reward address to retire credits to
+     *         - Carbon Neutrality
+     *         - Nominations
+     * @param amount the amount of credits to retire
+     * @param referralAddress - the address that referred the account
+     */
+    function retireGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress) external;
+
+    /**
      * @notice the entry point for an approved entity to retire credits on behalf of a user using EIP712 signatures
      * @param from the address of the user to retire credits from
      * @param rewardAddress the address of the reward address to retire credits to
@@ -116,21 +183,51 @@ interface IGCC is IERC20 {
     ) external;
 
     /**
-     * @param lastUpdatedTimestamp - the last timestamp a user earned or used nominations
-     * @ param amount - the amount of nominations a user has
+     * @notice the entry point for an approved entity to retire credits on behalf of a user using EIP712 signatures
+     * @param from the address of the user to retire credits from
+     * @param rewardAddress the address of the reward address to retire credits to
+     *         - Carbon Neutrality
+     *         - Nominations
+     * @param amount the amount of credits to retire
+     * @param deadline the deadline for the signature
+     * @param signature - the signature
+     * @param referralAddress - the address that referred the account
      */
-    struct Nominations {
-        uint64 lastUpdatedTimestamp;
-        uint192 amount;
-    }
+    function retireGCCForAuthorized(
+        address from,
+        address rewardAddress,
+        uint256 amount,
+        uint256 deadline,
+        bytes calldata signature,
+        address referralAddress
+    ) external;
 
     /**
      * @notice is emitted when a user retires credits
      * @param account the account that retired credits
      * @param rewardAddress the address that earned the credits and nominations
-     * @param amount the amount of credits retired
+     * @param gccAmount the amount of credits retired
+     * @param usdcEffect the amount of USDC effect (aka nominations granted)
+     * @param referralAddress the address that referred the account
+     *             - zero address if no referral
      */
-    event GCCRetired(address indexed account, address indexed rewardAddress, uint256 amount);
+    event GCCRetired(
+        address indexed account,
+        address indexed rewardAddress,
+        uint256 gccAmount,
+        uint256 usdcEffect,
+        address referralAddress
+    );
+
+    /**
+     * @notice is emitted when a user retires USDC
+     * @param account the account that retired the USDC
+     * @param rewardAddress the address that earns nominations
+     * @param amount the amount of USDC retired
+     * @param referralAddress the address that referred the account
+     *             - zero address if no referral
+     */
+    event USDCRetired(address indexed account, address indexed rewardAddress, uint256 amount, address referralAddress);
 
     /**
      * @notice is emitted when a user approves a spender to retire credits on their behalf

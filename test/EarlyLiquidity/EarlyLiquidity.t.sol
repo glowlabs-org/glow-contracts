@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "@/testing/TestGLOW.sol";
@@ -197,7 +197,7 @@ contract EarlyLiquidityTest is Test {
 
         assertEq(earlyLiquidity.totalSold(), 400_000 ether);
 
-        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity(address(usdc));
+        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity();
         assertEq(amountReceivedFromELInMP, holdingContractBalanceAfter - holdingContractBalanceBefore);
 
         assertTrue(holdingContractBalanceAfter - totalCost == holdingContractBalanceBefore);
@@ -241,7 +241,7 @@ contract EarlyLiquidityTest is Test {
 
         assertEq(earlyLiquidity.totalSold(), 400_000 ether);
 
-        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity(address(taxUsdc));
+        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity();
         assertEq(amountReceivedFromELInMP, holdingContractBalanceAfter - holdingContractBalanceBefore);
         assertTrue(amountReceivedFromELInMP != totalCost);
     }

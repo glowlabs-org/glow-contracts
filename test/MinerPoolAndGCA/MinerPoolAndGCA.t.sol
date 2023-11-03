@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "@/testing/TestGCC.sol";
@@ -23,6 +23,9 @@ import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
 import {BucketDelayHandler} from "./Handlers/BucketDelayHandler.sol";
 import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
+import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
+import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
 
 struct ClaimLeaf {
     address payoutWallet;
@@ -32,6 +35,9 @@ struct ClaimLeaf {
 
 contract MinerPoolAndGCATest is Test {
     //--------  CONTRACTS ---------//
+    UnifapV2Factory public uniswapFactory;
+    WETH9 public weth;
+    UnifapV2Router public uniswapRouter;
     MockMinerPoolAndGCA minerPoolAndGCA;
     TestGLOW glow;
     MockUSDC usdc;
@@ -65,9 +71,13 @@ contract MinerPoolAndGCATest is Test {
 
     function setUp() public {
         //Make sure we don't start at 0
+        uniswapFactory = new UnifapV2Factory();
+        weth = new WETH9();
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+        usdc = new MockUSDC();
+
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
         vm.warp(10);
-        usdc = new MockUSDC();
         (defaultAddressInWithdraw, defaultAddressPrivateKey) = _createAccount(2313141231, type(uint256).max);
         glow = new TestGLOW(earlyLiquidity,vestingContract);
         bucketDelayHandler = new BucketDelayHandler();
@@ -80,7 +90,7 @@ contract MinerPoolAndGCATest is Test {
         holdingContract = new HoldingContract(vetoCouncilAddress);
         minerPoolAndGCA =
         new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
-        gcc = new TestGCC(address(minerPoolAndGCA),governance,address(glow));
+        gcc = new TestGCC(address(minerPoolAndGCA),governance,address(glow),address(usdc),address(uniswapRouter));
         minerPoolAndGCA.setGCC(address(gcc));
         addGCA(address(bucketDelayHandler));
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
@@ -208,7 +218,7 @@ contract MinerPoolAndGCATest is Test {
         holdingContract = new HoldingContract(vetoCouncilAddress);
         minerPoolAndGCA =
         new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
-        gcc = new TestGCC(address(minerPoolAndGCA),governance,address(glow));
+        gcc = new TestGCC(address(minerPoolAndGCA),governance,address(glow),address(usdc),address(uniswapRouter));
 
         minerPoolAndGCA.setGCC(address(gcc));
         vm.expectRevert(IGCA.GCCAlreadySet.selector);
@@ -322,7 +332,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -442,24 +451,13 @@ contract MinerPoolAndGCATest is Test {
         assert(minerPoolAndGCA.domainSeperatorOZ() == minerPoolAndGCA.domainSeperatorV4MainInternal());
     }
 
-    function test_donateNotGRC_shouldRevert() public {
-        vm.startPrank(SIMON);
-        uint256 amountGRCToDonate = 1_000_000 * 1e6;
-        MockUSDC notGRC = new MockUSDC();
-        notGRC.mint(SIMON, amountGRCToDonate);
-        notGRC.approve(address(minerPoolAndGCA), amountGRCToDonate);
-        vm.expectRevert(IMinerPool.NotGRCToken.selector);
-        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(notGRC), amountGRCToDonate);
-        vm.stopPrank();
-    }
-
     function test_withdrawFromBucket_shouldAddToHoldings() public {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
         uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
         usdc.mint(SIMON, amountGRCToDonate);
         usdc.approve(address(minerPoolAndGCA), amountGRCToDonate);
-        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), amountGRCToDonate);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(amountGRCToDonate);
         vm.stopPrank();
 
         //Go to the 16th bucket since that's where the grc tokens start unlocking
@@ -504,7 +502,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -536,7 +533,7 @@ contract MinerPoolAndGCATest is Test {
         uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
         usdc.mint(SIMON, amountGRCToDonate);
         usdc.approve(address(minerPoolAndGCA), amountGRCToDonate);
-        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), amountGRCToDonate);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(amountGRCToDonate);
         vm.stopPrank();
 
         //Go to the 16th bucket since that's where the grc tokens start unlocking
@@ -594,7 +591,7 @@ contract MinerPoolAndGCATest is Test {
             uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
             usdc.mint(SIMON, amountGRCToDonate);
             usdc.approve(address(minerPoolAndGCA), amountGRCToDonate);
-            minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), amountGRCToDonate);
+            minerPoolAndGCA.donateToGRCMinerRewardsPool(amountGRCToDonate);
             vm.stopPrank();
         }
 
@@ -640,7 +637,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -655,7 +651,7 @@ contract MinerPoolAndGCATest is Test {
             uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
             usdc.mint(SIMON, amountGRCToDonate);
             usdc.approve(address(minerPoolAndGCA), amountGRCToDonate);
-            minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), amountGRCToDonate);
+            minerPoolAndGCA.donateToGRCMinerRewardsPool(amountGRCToDonate);
             vm.stopPrank();
         }
 
@@ -701,135 +697,9 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: sig
         });
-
-        vm.stopPrank();
-    }
-
-    function test_withdrawFromBucket_shouldClaimMultipleGRCTokens() public {
-        vm.startPrank(governance);
-        //Add a second grc token
-        minerPoolAndGCA.editReserveCurrencies(address(0), address(grc2));
-        vm.stopPrank();
-        vm.startPrank(SIMON);
-
-        //init amounts to donate
-        uint256 amountGRCToDonate = 1_000_000 * 1e6;
-        uint256 amountGRC2_toDonate = 1_000 * 1e6;
-
-        //mint the amounts and approve them
-        usdc.mint(SIMON, amountGRCToDonate);
-        usdc.approve(address(minerPoolAndGCA), amountGRCToDonate);
-        grc2.mint(SIMON, amountGRC2_toDonate);
-        grc2.approve(address(minerPoolAndGCA), amountGRC2_toDonate);
-
-        //Execute donation
-        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), amountGRCToDonate);
-
-        //Execute donation
-        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(grc2), amountGRC2_toDonate);
-        vm.stopPrank();
-
-        {
-            //make sure we sent all the tokens we could
-            assertEq(grc2.balanceOf(SIMON), 0);
-            assertEq(usdc.balanceOf(SIMON), 0);
-        }
-
-        //Go to the 16th bucket since that's where the grc tokens start unlocking
-        vm.warp(block.timestamp + ONE_WEEK * 16);
-
-        //Init 5 claim leaves
-        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
-        uint256 totalGlwWeight;
-        uint256 totalGrcWeight;
-
-        //Loop through the claim leaves and assign them values
-        for (uint256 i; i < claimLeaves.length; ++i) {
-            totalGlwWeight += 100 + i;
-            totalGrcWeight += 200 + i;
-            claimLeaves[i] = ClaimLeaf({
-                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
-                glwWeight: 100 + i,
-                grcWeight: 200 + i
-            });
-        }
-
-        //Create the root using ffi
-        bytes32 root = createClaimLeafRoot(claimLeaves);
-        uint256 bucketId = 16;
-        uint256 totalNewGCC = 101 * 1e15;
-
-        //Issue the report
-        issueReport({
-            gcaToSubmitAs: SIMON,
-            bucket: bucketId,
-            totalNewGCC: totalNewGCC,
-            totalGlwRewardsWeight: totalGlwWeight,
-            totalGRCRewardsWeight: totalGrcWeight,
-            randomMerkleRoot: root
-        });
-
-        //Warp forward 2 weeks so the claim opens up for the bucket
-        vm.warp(block.timestamp + (ONE_WEEK * 2));
-
-        //Start the prank as the user
-        vm.startPrank(defaultAddressInWithdraw);
-
-        //The user has the below weights
-        uint256 glwWeightForAddress = 100;
-        uint256 grcWeightForAddress = 200;
-
-        //Add both tokens to the grcTokens array
-        address[] memory grcTokens = new address[](2);
-        grcTokens[0] = address(usdc);
-        grcTokens[1] = address(grc2);
-        //Initiate a withdraw for both tokens from the bucket
-        minerPoolAndGCA.claimRewardFromBucket({
-            bucketId: bucketId,
-            glwWeight: glwWeightForAddress,
-            grcWeight: grcWeightForAddress,
-            proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
-            index: 0,
-            user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
-            claimFromInflation: true,
-            signature: bytes("")
-        });
-
-        //Should have gotten all the glow rewards
-        assertEq(glow.balanceOf((defaultAddressInWithdraw)), 175_000 ether * glwWeightForAddress / totalGlwWeight);
-        assertEq(
-            holdingContract.holdings(defaultAddressInWithdraw, address(usdc)).amount,
-            amountGRCToDonate / 192 * grcWeightForAddress / totalGrcWeight
-        );
-        assertEq(
-            holdingContract.holdings(defaultAddressInWithdraw, address(grc2)).amount,
-            amountGRC2_toDonate / 192 * grcWeightForAddress / totalGrcWeight
-        );
-
-        //expect both to revert when trying to claim from holding contract
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
-        holdingContract.claimHoldingSingleton(defaultAddressInWithdraw, address(usdc));
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
-        holdingContract.claimHoldingSingleton(defaultAddressInWithdraw, address(grc2));
-
-        //Fast forward 1 week
-        vm.warp(block.timestamp + ONE_WEEK);
-        //expect both claims to work
-        holdingContract.claimHoldingSingleton(defaultAddressInWithdraw, address(usdc));
-        holdingContract.claimHoldingSingleton(defaultAddressInWithdraw, address(grc2));
-
-        //Ensure the balances align
-        assertEq(
-            usdc.balanceOf(defaultAddressInWithdraw), amountGRCToDonate / 192 * grcWeightForAddress / totalGrcWeight
-        );
-        assertEq(
-            grc2.balanceOf(defaultAddressInWithdraw), amountGRC2_toDonate / 192 * grcWeightForAddress / totalGrcWeight
-        );
 
         vm.stopPrank();
     }
@@ -873,7 +743,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -928,7 +797,6 @@ contract MinerPoolAndGCATest is Test {
             proof: arbitraryProof,
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -978,7 +846,6 @@ contract MinerPoolAndGCATest is Test {
             proof: badProof,
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -1034,12 +901,11 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
 
-        uint256 bitmap = minerPoolAndGCA.getUserBitmapForBucket(0, (defaultAddressInWithdraw), grcTokens[0]);
+        uint256 bitmap = minerPoolAndGCA.getUserBitmapForBucket(0, (defaultAddressInWithdraw));
         assertTrue(bitmap == 1);
 
         vm.warp(block.timestamp + ONE_WEEK);
@@ -1051,12 +917,11 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
 
-        bitmap = minerPoolAndGCA.getUserBitmapForBucket(1, (defaultAddressInWithdraw), grcTokens[0]);
+        bitmap = minerPoolAndGCA.getUserBitmapForBucket(1, (defaultAddressInWithdraw));
         assertTrue(bitmap == 0x3);
         vm.stopPrank();
     }
@@ -1102,7 +967,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -1115,7 +979,6 @@ contract MinerPoolAndGCATest is Test {
             proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
             index: 0,
             user: (defaultAddressInWithdraw),
-            grcTokens: grcTokens,
             claimFromInflation: true,
             signature: bytes("")
         });
@@ -1367,7 +1230,7 @@ contract MinerPoolAndGCATest is Test {
         usdc.approve(address(minerPoolAndGCA), donationAmount);
         uint256 simonBalanceBefore = usdc.balanceOf(SIMON);
         assertEq(simonBalanceBefore, donationAmount);
-        minerPoolAndGCA.donateToGRCMinerRewardsPool(address(usdc), donationAmount);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(donationAmount);
         {
             uint256 simonBalanceAfter = usdc.balanceOf(SIMON);
             assertEq(simonBalanceAfter, 0);
@@ -1377,14 +1240,14 @@ contract MinerPoolAndGCATest is Test {
         //Since we are at bucket 0 when we deposit
         unchecked {
             for (uint256 i = 16; i < 208; ++i) {
-                BucketSubmission.WeeklyReward memory reward = minerPoolAndGCA.reward(address(usdc), i);
+                BucketSubmission.WeeklyReward memory reward = minerPoolAndGCA.reward(i);
                 uint256 amount = reward.amountInBucket;
                 //Rewards vest over 192 weeks
                 assertEq(amount, amountExpectedInEachBucket);
             }
         }
         //Let's also expect bucket 209 to have 0
-        uint256 amountInBucket208 = minerPoolAndGCA.reward(address(usdc), 208).amountInBucket;
+        uint256 amountInBucket208 = minerPoolAndGCA.reward(208).amountInBucket;
         assertEq(amountInBucket208, 0);
         vm.stopPrank();
     }
@@ -1392,19 +1255,19 @@ contract MinerPoolAndGCATest is Test {
     function test_donateToGRCMinerRewardsPoolEarlyLiquidity() public {
         vm.startPrank(earlyLiquidity);
         uint256 donationAmount = 1_000_000_000 * 1e6;
-        minerPoolAndGCA.donateToGRCMinerRewardsPoolEarlyLiquidity(address(usdc), donationAmount);
+        minerPoolAndGCA.donateToGRCMinerRewardsPoolEarlyLiquidity(donationAmount);
         uint256 amountExpectedInEachBucket = donationAmount / 192;
         //Since we are at bucket 0 when we deposit
         unchecked {
             for (uint256 i = 16; i < 208; ++i) {
-                BucketSubmission.WeeklyReward memory reward = minerPoolAndGCA.reward(address(usdc), i);
+                BucketSubmission.WeeklyReward memory reward = minerPoolAndGCA.reward(i);
                 uint256 amount = reward.amountInBucket;
                 //Rewards vest over 192 weeks
                 assertEq(amount, amountExpectedInEachBucket);
             }
         }
         //Let's also expect bucket 209 to have 0
-        uint256 amountInBucket208 = minerPoolAndGCA.reward(address(usdc), 208).amountInBucket;
+        uint256 amountInBucket208 = minerPoolAndGCA.reward(208).amountInBucket;
         assertEq(amountInBucket208, 0);
         vm.stopPrank();
     }
@@ -1413,133 +1276,7 @@ contract MinerPoolAndGCATest is Test {
         vm.startPrank(SIMON);
         uint256 amount = 10000;
         vm.expectRevert(IMinerPool.CallerNotEarlyLiquidity.selector);
-        minerPoolAndGCA.donateToGRCMinerRewardsPoolEarlyLiquidity(address(usdc), amount);
-    }
-
-    // add invariant to make sure there cna never be more than 3 GRC's
-    // at any point in time.
-    function test_editReserveCurrencies_swapOldForNew() public {
-        vm.startPrank(governance);
-        address newRandomGRC = address(0x421928138129381983);
-        minerPoolAndGCA.editReserveCurrencies(address(usdc), newRandomGRC);
-        BucketSubmission.BucketTracker memory bucketTrackerOld = minerPoolAndGCA.bucketTracker(address(usdc));
-        console.logBool(bucketTrackerOld.isGRC);
-
-        assertEq(bucketTrackerOld.isGRC, false);
-        BucketSubmission.BucketTracker memory bucketTrackerNew = minerPoolAndGCA.bucketTracker(newRandomGRC);
-        assertEq(bucketTrackerNew.isGRC, true);
-
-        assertEq(minerPoolAndGCA.numReserveCurrencies(), 1);
-        vm.stopPrank();
-    }
-
-    // add invariant to make sure there cna never be more than 3 GRC's
-    // at any point in time.
-    function test_editReserveCurrencies_shouldBeAbleToGetToZeroGRCs() public {
-        vm.startPrank(governance);
-        address newRandomGRC = address(0x421928138129381983);
-        minerPoolAndGCA.editReserveCurrencies(address(usdc), address(0));
-        BucketSubmission.BucketTracker memory bucketTrackerOld = minerPoolAndGCA.bucketTracker(address(usdc));
-        assertEq(bucketTrackerOld.isGRC, false);
-
-        assertEq(minerPoolAndGCA.numReserveCurrencies(), 0);
-        vm.stopPrank();
-    }
-
-    //We need to return if there's an underflow possibility
-    //so that governance can keep executing proposals
-    function test_editReserveCurrencies_potentialUnderflowShouldNotRevert() public {
-        vm.startPrank(governance);
-        address newRandomGRC = address(0x421928138129381983);
-        minerPoolAndGCA.editReserveCurrencies(address(usdc), address(0));
-        BucketSubmission.BucketTracker memory bucketTrackerOld = minerPoolAndGCA.bucketTracker(address(usdc));
-        assertEq(bucketTrackerOld.isGRC, false);
-
-        minerPoolAndGCA.editReserveCurrencies(address(usdc), address(0));
-        assertEq(minerPoolAndGCA.numReserveCurrencies(), 0);
-        vm.stopPrank();
-    }
-
-    //We need to return if there's an underflow possibility
-    //so that governance can keep executing proposals
-    function test_editReserveCurrencies_shouldNeverSurpassThreeReserveCurrencies() public {
-        vm.startPrank(governance);
-        address newRandomGRC = address(0x421928138129381983);
-        minerPoolAndGCA.editReserveCurrencies(address(0), newRandomGRC);
-        assertEq(minerPoolAndGCA.numReserveCurrencies(), 2);
-
-        newRandomGRC = address(0x421928138129381984);
-        minerPoolAndGCA.editReserveCurrencies(address(0), newRandomGRC);
-        assertEq(minerPoolAndGCA.numReserveCurrencies(), 3);
-
-        newRandomGRC = address(0x421928138129381985);
-        minerPoolAndGCA.editReserveCurrencies(address(0), newRandomGRC);
-        assertEq(minerPoolAndGCA.numReserveCurrencies(), 3);
-    }
-
-    function test_editReserveCurrencies_tryReaddingExistingCurrency_shouldReturnFalse() public {
-        vm.startPrank(governance);
-        bool res = minerPoolAndGCA.editReserveCurrencies(address(usdc), address(usdc));
-        assert(!res);
-    }
-
-    //Tests to make sure that either both currencies are updated, or none are updated
-    function test_editReserveCurrency_addReserveCurrencyGoesThrough_butRemoveReserveCurrencyFails_shouldNotUpdateState()
-        public
-    {
-        vm.startPrank(governance);
-        address notAGrc = address(0x1235);
-        address grcTryingToPush = address(0x1234);
-        //We can't remove a grc that is not already a grc
-        bool res = minerPoolAndGCA.editReserveCurrencies(notAGrc, grcTryingToPush);
-        BucketSubmission.BucketTracker memory trackerNotGRC = minerPoolAndGCA.bucketTracker(notAGrc);
-        // assert(!res);
-        trackerNotGRC = minerPoolAndGCA.bucketTracker(notAGrc);
-        //Should still be a GRC since the second edit failed
-        assert(!trackerNotGRC.isGRC);
-        assertEq(minerPoolAndGCA.numReserveCurrencies(), 1);
-
-        BucketSubmission.BucketTracker memory trackerTryingToPush = minerPoolAndGCA.bucketTracker(grcTryingToPush);
-        assert(!trackerTryingToPush.isGRC);
-    }
-
-    // the general rule for setting grc token is ---.....
-    // If it's the first time adding the grc token,
-    // then, the first added bucket id becomes current bucket + 16
-    // if the bucket has already been added
-    // if the current bucket is greater than the max bucket,
-    // then we set the first added bucket to current bucket + 16
-    // if the current bucket is not greater than the max bucket,
-    // then we don't change the struct since it still has periods to vest
-    function test_setGRCToken_addingNewTokenForFirstTime_shouldSetFirstBucketIdToCurrentBucketIdPlus16() public {
-        vm.warp(block.timestamp + ONE_WEEK * 192);
-        uint256 currentBucket = minerPoolAndGCA.currentBucket();
-        minerPoolAndGCA.setGRCToken(address(grc2), true, currentBucket);
-        BucketSubmission.BucketTracker memory bucketTracker = minerPoolAndGCA.bucketTracker(address(grc2));
-        donateToken(SIMON, address(grc2), 2000);
-        assertEq(bucketTracker.firstAddedBucketId, currentBucket + 16);
-    }
-
-    function test_setGRCToken_readdingToken_beforeAllVestingFinished_shouldNotChangeFirstAddedBucketId() public {
-        //Usdc starts out as the default grc
-        donateToken(SIMON, address(usdc), 1000);
-        vm.warp(block.timestamp + ONE_WEEK * 192);
-        //USDC should be vesting until 208, so we should not be able to change the first added bucket id
-        uint256 currentBucket = minerPoolAndGCA.currentBucket();
-        minerPoolAndGCA.setGRCToken(address(usdc), false, currentBucket);
-        BucketSubmission.BucketTracker memory bucketTracker = minerPoolAndGCA.bucketTracker(address(usdc));
-        assert(bucketTracker.firstAddedBucketId == 16);
-    }
-
-    function test_setGRCToken_readdingExistingCurrency_shouldReturnFalse() public {
-        bool res = minerPoolAndGCA.setGRCToken(address(usdc), true, 0);
-        assert(!res);
-    }
-
-    function test_setGRCToken_removingNonExistingCurrency_shouldReturnFalse() public {
-        address notGRC = address(0xdead);
-        bool res = minerPoolAndGCA.setGRCToken(address(notGRC), false, 0);
-        assert(!res);
+        minerPoolAndGCA.donateToGRCMinerRewardsPoolEarlyLiquidity(amount);
     }
 
     //------------------------ HELPERS -----------------------------
@@ -1547,7 +1284,7 @@ contract MinerPoolAndGCATest is Test {
         vm.startPrank(from);
         MockUSDC(token).mint(from, amount);
         MockUSDC(token).approve(address(minerPoolAndGCA), amount);
-        minerPoolAndGCA.donateToGRCMinerRewardsPool(token, amount);
+        minerPoolAndGCA.donateToGRCMinerRewardsPool(amount);
         vm.stopPrank();
     }
 
@@ -1556,7 +1293,6 @@ contract MinerPoolAndGCATest is Test {
         console.log("last updated bucket id ", bucketTracker.lastUpdatedBucket);
         console.log("first added bucket id ", bucketTracker.firstAddedBucketId);
         console.log("max bucket = %s", bucketTracker.maxBucketId);
-        console.log("isGRC ", bucketTracker.isGRC);
         console.log("----------------------------");
     }
 
@@ -1670,7 +1406,6 @@ contract MinerPoolAndGCATest is Test {
             glwWeight: glwWeight,
             grcWeight: grcWeight,
             index: index,
-            grcTokens: grcTokens,
             claimFromInflation: claimFromInflation
         });
         console.log("hash from tests  =", uint256(hash));

@@ -42,7 +42,6 @@ interface IGovernance {
         NONE, //default value for unset proposals
         VETO_COUNCIL_ELECTION_OR_SLASH,
         GCA_COUNCIL_ELECTION_OR_SLASH,
-        CHANGE_RESERVE_CURRENCIES,
         GRANTS_PROPOSAL,
         CHANGE_GCA_REQUIREMENTS,
         REQUEST_FOR_COMMENT
@@ -70,17 +69,6 @@ interface IGovernance {
         uint184 votes;
         bytes data;
     }
-
-    /**
-     * @notice gets the proposal and the status of the proposal with the given id
-     * @param proposalId the id of the proposal
-     * @return proposal the proposal
-     * @return status the status of the proposal
-     */
-    function getProposalWithStatus(uint256 proposalId)
-        external
-        view
-        returns (Proposal memory proposal, ProposalStatus);
 
     /**
      * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC
@@ -149,24 +137,6 @@ interface IGovernance {
     );
 
     /**
-     * @notice emitted when a proposal to change the reserve currencies is created
-     * @param proposalId the id of the proposal
-     * @param proposer the address of the proposer
-     * @param currencyToRemove  the address of the currency to remove
-     * @param newReserveCurrency the address of the new reserve currency
-     * @param nominationsUsed the amount of nominations used
-     * @dev currencyToRemove can be address(0) to add a new reserve currency
-     * @dev there should never be more than 3 active reserve currencies
-     */
-    event ChangeReserveCurrenciesProposal(
-        uint256 indexed proposalId,
-        address indexed proposer,
-        address currencyToRemove,
-        address newReserveCurrency,
-        uint256 nominationsUsed
-    );
-
-    /**
      * @notice emitted when a grants proposal is created
      * @param proposalId the id of the proposal
      * @param proposer the address of the proposer
@@ -219,7 +189,6 @@ interface IGovernance {
      * @param weekId - the weekId in which the proposal to be vetoed was selected as the most popular proposal
      * @param vetoer - the address of the veto council member who vetoed the proposal
      * @param proposalId - the id of the proposal that was vetoed
-     *  TODO: see if we can remove the last param for gas savings
      */
     event ProposalVetoed(uint256 indexed weekId, address indexed vetoer, uint256 proposalId);
 

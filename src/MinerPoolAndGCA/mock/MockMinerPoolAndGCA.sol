@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "../MinerPoolAndGCA.sol";
 import {BucketSubmission} from "../BucketSubmission.sol";
@@ -49,13 +49,8 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         proposalHashes.push(hash);
     }
 
-    function getUserBitmapForBucket(uint256 bucketId, address user, address token) public view returns (uint256) {
-        return _getUserBitmapForBucket(bucketId, user, token);
-    }
-
-    function setGRCToken(address grcToken, bool adding, uint256 currentBucket) public returns (bool) {
-        (bool res, BucketSubmission.BucketTracker memory tracker) = _setGRCTokenCheck(grcToken, adding, currentBucket);
-        _setGRCToken(grcToken, tracker);
+    function getUserBitmapForBucket(uint256 bucketId, address user) public view returns (uint256) {
+        return _getUserBitmapForBucket(bucketId, user);
     }
 
     /**

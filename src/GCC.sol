@@ -9,6 +9,11 @@ import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/Signa
 import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
+import {Swapper} from "@/Swapper.sol";
+import {IERC20Permit} from "@/interfaces/IERC20Permit.sol";
+import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
+import {IUnifapV2Factory} from "@unifapv2/interfaces/IUnifapV2Factory.sol";
 /**
  * @title GCC (Glow Carbon Credit)
  * @author DavidVorick
@@ -19,6 +24,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *         - GCC can be retired for nominations and karma
  *         - Once GCC is retired, it can't be unretired
  *         - GCC is sold in the carbon credit auction
+ *          - The amount of nominations earned is equal to two times the USDC earned from a swap in the retireGCC event as called in the `Swapper`
+ *              - When retiring USDC, the amount of nominations earned is equal to the amount of USDC retired
  */
 
 contract GCC is ERC20, IGCC, EIP712 {
@@ -33,12 +40,17 @@ contract GCC is ERC20, IGCC, EIP712 {
 
     address public immutable GLOW;
 
+    Swapper public immutable SWAPPER;
     /// @notice The maximum shift for a bucketId
     uint256 private constant _BITS_IN_UINT = 256;
 
+    IUniswapRouterV2 public immutable UNISWAP_ROUTER = IUniswapRouterV2(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+    address public immutable USDC;
+
     /// @notice The EIP712 typehash for the RetiringPermit struct used by the permit
-    bytes32 public constant RETIRING_PERMIT_TYPEHASH =
-        keccak256("RetiringPermit(address owner,address spender,uint256 amount,uint256 nonce,uint256 deadline)");
+    bytes32 public constant RETIRING_PERMIT_TYPEHASH = keccak256(
+        "RetiringPermit(address owner,address spender,address rewardAddress,address referralAddress,uint256 amount,uint256 nonce,uint256 deadline)"
+    );
 
     /**
      * @notice The bitmap of minted buckets
@@ -72,11 +84,15 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @param _gcaAndMinerPoolContract The address of the GCAAndMinerPool contract
      * @param _governance The address of the governance contract
      */
-    constructor(address _gcaAndMinerPoolContract, address _governance, address _glowToken)
-        payable
-        ERC20("Glow Carbon Credit", "GCC")
-        EIP712("Glow Carbon Credit", "1")
-    {
+    constructor(
+        address _gcaAndMinerPoolContract,
+        address _governance,
+        address _glowToken,
+        address _usdc,
+        address _uniswapRouter
+    ) payable ERC20("Glow Carbon Credit", "GCC") EIP712("Glow Carbon Credit", "1") {
+        USDC = _usdc;
+        UNISWAP_ROUTER = IUniswapRouterV2(_uniswapRouter);
         // CARBON_CREDIT_AUCTION = ICarbonCreditAuction(_carbonCreditAuction);
         GCA_AND_MINER_POOL_CONTRACT = _gcaAndMinerPoolContract;
         GOVERNANCE = IGovernance(_governance);
@@ -84,6 +100,9 @@ contract GCC is ERC20, IGCC, EIP712 {
         CarbonCreditDutchAuction cccAuction =
             new CarbonCreditDutchAuction(IERC20(_glowToken), IERC20(address(this)), 1e6);
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));
+        address factory = UNISWAP_ROUTER.factory();
+        address pair = getPair(factory, _usdc);
+        SWAPPER = new Swapper(_usdc,_uniswapRouter,factory,pair);
     }
 
     //************************************************************* */
@@ -107,20 +126,104 @@ contract GCC is ERC20, IGCC, EIP712 {
     /**
      * @inheritdoc IGCC
      */
+    function retireGCC(uint256 amount, address rewardAddress, address referralAddress) public {
+        _transfer(_msgSender(), address(SWAPPER), amount);
+        uint256 usdcEffect = SWAPPER.retireGCC(amount);
+        _handleRetirement(_msgSender(), rewardAddress, amount, usdcEffect, referralAddress);
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function retireUSDC(uint256 amount, address rewardAddress, address referralAddress) public {
+        uint256 swapperBalBefore = IERC20(USDC).balanceOf(address(SWAPPER));
+        IERC20(USDC).transferFrom(msg.sender, address(SWAPPER), amount);
+        uint256 swapperBalAfter = IERC20(USDC).balanceOf(address(SWAPPER));
+        uint256 usdcUsing = swapperBalAfter - swapperBalBefore;
+        SWAPPER.retireUSDC(usdcUsing);
+        _handleUSDCRetirement(_msgSender(), rewardAddress, usdcUsing, referralAddress);
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function retireUSDC(uint256 amount, address rewardAddress) external {
+        retireUSDC(amount, rewardAddress, address(0));
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function retireUSDCSignature(
+        uint256 amount,
+        address rewardAddress,
+        address referralAddress,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external {
+        // Execute the transfer with a signed authorization
+        IERC20Permit paymentToken = IERC20Permit(USDC);
+        uint256 allowance = paymentToken.allowance(msg.sender, address(this));
+        if (allowance < amount) {
+            paymentToken.permit(msg.sender, address(this), amount, deadline, v, r, s);
+        }
+        retireUSDC(amount, rewardAddress, referralAddress);
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
     function retireGCC(uint256 amount, address rewardAddress) external {
-        _transfer(_msgSender(), address(this), amount);
-        _handleRetirement(_msgSender(), rewardAddress, amount);
+        retireGCC(amount, rewardAddress, address(0));
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function retireGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress) public {
+        transferFrom(from, address(SWAPPER), amount);
+        if (_msgSender() != from) {
+            _decreaseRetiringAllowance(from, _msgSender(), amount, false);
+        }
+        uint256 usdcEffect = SWAPPER.retireGCC(amount);
+        _handleRetirement(from, rewardAddress, amount, usdcEffect, referralAddress);
     }
 
     /**
      * @inheritdoc IGCC
      */
     function retireGCCFor(address from, address rewardAddress, uint256 amount) public {
-        transferFrom(from, address(this), amount);
-        if (_msgSender() != from) {
-            _decreaseRetiringAllowance(from, _msgSender(), amount, false);
+        retireGCCFor(from, rewardAddress, amount, address(0));
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function retireGCCForAuthorized(
+        address from,
+        address rewardAddress,
+        uint256 amount,
+        uint256 deadline,
+        bytes calldata signature,
+        address referralAddress
+    ) public {
+        if (block.timestamp > deadline) {
+            _revert(IGCC.RetiringPermitSignatureExpired.selector);
         }
-        _handleRetirement(from, rewardAddress, amount);
+        bytes32 message = _constructRetiringPermitDigest(
+            from, _msgSender(), rewardAddress, referralAddress, amount, nextRetiringNonce[from]++, deadline
+        );
+        if (!_checkRetiringPermitSignature(from, message, signature)) {
+            _revert(IGCC.RetiringSignatureInvalid.selector);
+        }
+        _increaseRetiringAllowance(from, _msgSender(), amount, false);
+        uint256 transferAllowance = allowance(from, _msgSender());
+        if (transferAllowance < amount) {
+            _approve(from, _msgSender(), amount, false);
+        }
+        retireGCCFor(from, rewardAddress, amount, referralAddress);
     }
 
     /// @inheritdoc IGCC
@@ -131,20 +234,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         uint256 deadline,
         bytes calldata signature
     ) external {
-        if (block.timestamp > deadline) {
-            _revert(IGCC.RetiringPermitSignatureExpired.selector);
-        }
-        bytes32 message =
-            _constructRetiringPermitDigest(from, _msgSender(), amount, nextRetiringNonce[from]++, deadline);
-        if (!_checkRetiringPermitSignature(from, message, signature)) {
-            _revert(IGCC.RetiringSignatureInvalid.selector);
-        }
-        _increaseRetiringAllowance(from, _msgSender(), amount, false);
-        uint256 transferAllowance = allowance(from, _msgSender());
-        if (transferAllowance < amount) {
-            _approve(from, _msgSender(), amount, false);
-        }
-        retireGCCFor(from, rewardAddress, amount);
+        retireGCCForAuthorized(from, rewardAddress, amount, deadline, signature, address(0));
     }
 
     //-----------------  ALLOWANCES -----------------//
@@ -233,14 +323,47 @@ contract GCC is ERC20, IGCC, EIP712 {
         _mintedBucketsBitmap[key] = bitmap | (1 << shift);
     }
 
-    /// @notice handles the storage writes and event emissions relating to retiring carbon credits.
-    /// @dev should only be used internally and by function that require a transfer of {amount} to address(this)
-    function _handleRetirement(address from, address rewardAddress, uint256 amount) private {
+    /**
+     * @notice handles the storage writes and event emissions relating to retiring carbon credits.
+     * @dev should only be used internally and by function that require a transfer of {amount} to address(this)
+     * @param from the address of the account retiring the credits
+     * @param rewardAddress the address to receive the benefits of retiring
+     * @param gccRetired the amount of GCC retired
+     * @param usdcEffect the effect of retiring on the USDC balance
+     * @param referralAddress the address of the referrer (zero for no referrer)
+     */
+    function _handleRetirement(
+        address from,
+        address rewardAddress,
+        uint256 gccRetired,
+        uint256 usdcEffect,
+        address referralAddress
+    ) private {
+        if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
+        //Retiring GCC is also responsible for syncing proposals in governance.
+        GOVERNANCE.syncProposals();
+        totalCreditsRetired[rewardAddress] += gccRetired;
+        GOVERNANCE.grantNominations(rewardAddress, usdcEffect);
+        emit IGCC.GCCRetired(from, rewardAddress, gccRetired, usdcEffect, referralAddress);
+    }
+
+    /**
+     * @notice handles the storage writes and event emissions relating to retiring USDC
+     * @dev should only be used internally and by function that require a transfer of {amount} to address(this)
+     * @param from the address of the account retiring the credits
+     * @param rewardAddress the address to receive the benefits of retiring
+     * @param amount the amount of USDC TO RETIRE
+     * @param referralAddress the address of the referrer (zero for no referrer)
+     */
+    function _handleUSDCRetirement(address from, address rewardAddress, uint256 amount, address referralAddress)
+        private
+    {
+        if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
         //Retiring GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
         totalCreditsRetired[rewardAddress] += amount;
         GOVERNANCE.grantNominations(rewardAddress, amount);
-        emit IGCC.GCCRetired(from, rewardAddress, amount);
+        emit IGCC.USDCRetired(from, rewardAddress, amount, referralAddress);
     }
 
     /**
@@ -304,6 +427,8 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @dev Constructs a retiring permit EIP712 message hash to be signed
      * @param owner The owner of the funds
      * @param spender The spender
+     * @param rewardAddress - the address to receive the benefits of retiring
+     * @param referralAddress - the address of the referrer
      * @param amount The amount of funds
      * @param nonce The next nonce
      * @param deadline The deadline for the signature to be valid
@@ -312,12 +437,19 @@ contract GCC is ERC20, IGCC, EIP712 {
     function _constructRetiringPermitDigest(
         address owner,
         address spender,
+        address rewardAddress,
+        address referralAddress,
         uint256 amount,
         uint256 nonce,
         uint256 deadline
     ) private view returns (bytes32) {
-        return
-            _hashTypedDataV4(keccak256(abi.encode(RETIRING_PERMIT_TYPEHASH, owner, spender, amount, nonce, deadline)));
+        return _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    RETIRING_PERMIT_TYPEHASH, owner, spender, rewardAddress, referralAddress, amount, nonce, deadline
+                )
+            )
+        );
     }
 
     /**
@@ -334,6 +466,10 @@ contract GCC is ERC20, IGCC, EIP712 {
         returns (bool)
     {
         return SignatureChecker.isValidSignatureNow(signer, message, signature);
+    }
+
+    function getPair(address factory, address _usdc) internal view virtual returns (address) {
+        return UniswapV2Library.pairFor(factory, _usdc, address(this));
     }
     /**
      * @notice More efficiently reverts with a bytes4 selector

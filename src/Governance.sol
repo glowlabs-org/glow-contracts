@@ -8,7 +8,6 @@ import {IGlow} from "@/interfaces/IGlow.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
-import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
@@ -871,44 +870,6 @@ contract Governance is IGovernance, EIP712 {
     }
 
     /**
-     * @notice Creates a proposal to change a reserve currency
-     * @param currencyToRemove the currency to remove
-     *     -   If the currency is address(0), it means we are simply adding a new reserve currency
-     * @param newReserveCurrency the new reserve currency
-     *     -   If the currency is address(0), it means we are simply removing a reserve currency
-     * @param maxNominations the maximum amount of nominations to spend on this proposal
-     */
-    function createChangeReserveCurrencyProposal(
-        address currencyToRemove,
-        address newReserveCurrency,
-        uint256 maxNominations
-    ) external {
-        uint256 proposalId = _proposalCount;
-        uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
-        if (maxNominations < nominationCost) {
-            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
-        }
-        _proposals[proposalId] = IGovernance.Proposal(
-            IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES,
-            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
-            uint184(nominationCost),
-            abi.encode(currencyToRemove, newReserveCurrency)
-        );
-        uint256 currentWeek = currentWeek();
-        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
-        if (nominationCost > _proposals[_mostPopularProposal].votes) {
-            mostPopularProposal[currentWeek] = proposalId;
-        }
-        _proposalCount = proposalId + 1;
-
-        emit IGovernance.ChangeReserveCurrenciesProposal(
-            proposalId, msg.sender, currencyToRemove, newReserveCurrency, nominationCost
-        );
-
-        _spendNominations(msg.sender, nominationCost);
-    }
-
-    /**
      * @notice Creates a proposal to send a grant to a recipient
      */
     function createGrantsProposalSigs(
@@ -1044,30 +1005,6 @@ contract Governance is IGovernance, EIP712 {
     }
 
     /**
-     * @notice Creates a proposal to change a reserve currency
-     * @param currencyToRemove the currency to remove
-     *     -   If the currency is address(0), it means we are simply adding a new reserve currency
-     * @param newReserveCurrency the new reserve currency
-     *     -   If the currency is address(0), it means we are simply removing a reserve currency
-     */
-    function createChangeReserveCurrencyProposalSigs(
-        address currencyToRemove,
-        address newReserveCurrency,
-        uint256[] memory deadlines,
-        uint256[] memory nominationsToSpend,
-        address[] memory signers,
-        bytes[] memory sigs
-    ) external {
-        bytes memory data = abi.encode(currencyToRemove, newReserveCurrency);
-        (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
-            deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES
-        );
-        emit IGovernance.ChangeReserveCurrenciesProposal(
-            proposalId, msg.sender, currencyToRemove, newReserveCurrency, nominationsSpent
-        );
-    }
-
-    /**
      * @notice Updates the last expired proposal id
      *         - could be called by a good actor to update the last expired proposal id
      *         - so that _numActiveProposalsAndLastExpiredProposalId() is more efficient
@@ -1133,14 +1070,6 @@ contract Governance is IGovernance, EIP712 {
         return IGovernance.ProposalStatus(value);
     }
 
-    //TODO: come back to this implementation
-    /// @inheritdoc IGovernance
-    function getProposalWithStatus(uint256 proposalId)
-        public
-        view
-        returns (Proposal memory proposal, IGovernance.ProposalStatus)
-    {}
-
     /**
      * @notice Gets the total number of proposals created
      * @return proposalCount - the total number of proposals created
@@ -1193,11 +1122,6 @@ contract Governance is IGovernance, EIP712 {
             //push hash should never revert;
             IGCA(_gca).pushHash(hash, incrementSlashNonce);
             success = true;
-        }
-
-        if (proposalType == IGovernance.ProposalType.CHANGE_RESERVE_CURRENCIES) {
-            (address oldReserveCurrency, address newReserveCurrency) = abi.decode(data, (address, address));
-            success = IMinerPool(_gca).editReserveCurrencies(oldReserveCurrency, newReserveCurrency);
         }
 
         if (proposalType == IGovernance.ProposalType.GRANTS_PROPOSAL) {
@@ -1394,7 +1318,8 @@ contract Governance is IGovernance, EIP712 {
     function _getNominationCostForProposalCreation(uint256 numActiveProposals) internal pure returns (uint256) {
         uint256 res = ONE_64x64.mul(ABDKMath64x64.pow(ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
         // uint256 resInt = res.toUInt();
-        return res * 1e14;
+        //Multiply by 1e2 to get it in 6 decimals (similar to USDC)
+        return res * 1e2;
     }
 
     /**

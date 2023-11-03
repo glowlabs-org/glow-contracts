@@ -27,11 +27,9 @@ interface IMinerPool {
     /**
      * @notice Allows anyone to donate GRC into the miner grc rewards pool
      * @notice the amount is split across 192 weeks starting at the current week + 16
-     * @dev the grc token must be a valid grc token
-     * @param grcToken - the token to deposit
      * @param amount -  amount to deposit
      */
-    function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external;
+    function donateToGRCMinerRewardsPool(uint256 amount) external;
 
     /**
      * @notice Allows the early liquidity to donate GRC into the miner grc rewards pool
@@ -40,19 +38,9 @@ interface IMinerPool {
      * @dev early liquidity will safeTransfer from the user to the miner pool
      *     -   and then call this function directly.
      *     -   we do this to prevent extra transfers.
-     * @param grcToken - the token to deposit
      * @param amount -  amount to deposit
      */
-    function donateToGRCMinerRewardsPoolEarlyLiquidity(address grcToken, uint256 amount) external;
-
-    /**
-     * @notice governance uses this function to set the grc tokens
-     * @param oldReserveCurrency - the old grc token
-     *         -   zero address indicates that we are not removing any grc token
-     * @param newReserveCurrency - the new grc token
-     *         -   zero address indicates that we are not adding a new grc token
-     */
-    function editReserveCurrencies(address oldReserveCurrency, address newReserveCurrency) external returns (bool);
+    function donateToGRCMinerRewardsPoolEarlyLiquidity(uint256 amount) external;
 
     /**
      * @param grcToken - the address of the grc token

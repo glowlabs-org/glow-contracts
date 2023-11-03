@@ -39,7 +39,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     uint256 private constant _BITS_IN_UINT = 256;
 
     bytes32 private constant CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
-        "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,address[] grcTokens,bool claimFromInflation)"
+        "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,bool claimFromInflation)"
     );
 
     /**
@@ -61,7 +61,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     /**
      * @dev a mapping of (bucketId / 256) -> user  -> address -> bitmap
      */
-    mapping(uint256 => mapping(address => mapping(address => uint256))) private _bucketClaimBitmap;
+    mapping(uint256 => mapping(address => uint256)) private _bucketClaimBitmap;
 
     /**
      * @dev a mapping of (bucketId / 256) -> user -> bitmap
@@ -89,6 +89,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     mapping(uint256 => PushedWeights) internal _weightsPushed;
 
+    address public immutable USDC;
     //************************************************************* */
     //*****************  CONSTRUCTOR   ************** */
     //************************************************************* */
@@ -115,10 +116,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     ) payable GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _VETO_COUNCIL = _vetoCouncil;
-        (, BucketSubmission.BucketTracker memory _tracker) = _setGRCTokenCheck(_grcToken, true, 0);
-        _setGRCToken(_grcToken, _tracker);
         HOLDING_CONTRACT = IHoldingContract(_holdingContract);
         HOLDING_CONTRACT.setMinerPool(address(this));
+        USDC = _grcToken;
         ++numReserveCurrencies;
     }
 
@@ -131,75 +131,19 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     /**
      * @inheritdoc IMinerPool
      */
-    function editReserveCurrencies(address oldReserveCurrency, address newReserveCurrency) external returns (bool) {
-        if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
-
-        uint256 numCurrenciesToAdd = _isZeroAddress(newReserveCurrency) ? 0 : 1;
-        uint256 numCurrenciesToRemove = _isZeroAddress(oldReserveCurrency) ? 0 : 1;
-
-        uint256 _numReserveCurrencies = numReserveCurrencies;
-
-        //Need to handle the case where we could get an underflow revert
-        if (_numReserveCurrencies == 0) {
-            //We can't remove a currency if there are no currencies
-            if (numCurrenciesToRemove > 0) {
-                return false;
-            }
-        }
-
-        _numReserveCurrencies = (_numReserveCurrencies + numCurrenciesToAdd) - numCurrenciesToRemove;
-        if (_numReserveCurrencies > _MAX_RESERVE_CURRENCIES) {
-            return false;
-        }
-
-        uint256 _currentBucket = currentBucket();
-        //If we're not dealing with the zero address,
-        // then we add the new currency to the current bucket
-        BucketSubmission.BucketTracker memory newCurrencyTracker;
-        BucketSubmission.BucketTracker memory oldCurrencyTracker;
-        bool resOne;
-        bool resTwo;
-        if (numCurrenciesToAdd > 0) {
-            (resOne, newCurrencyTracker) = _setGRCTokenCheck(newReserveCurrency, true, _currentBucket);
-            if (!resOne) {
-                return false;
-            }
-        }
-
-        //if we're not dealing with the zero address,
-        // then we remove the old currency from the current bucket
-        if (numCurrenciesToRemove > 0) {
-            (resTwo, oldCurrencyTracker) = _setGRCTokenCheck(oldReserveCurrency, false, _currentBucket);
-            if (!resTwo) {
-                return false;
-            }
-        }
-
-        numReserveCurrencies = _numReserveCurrencies;
-        _setGRCToken(oldReserveCurrency, oldCurrencyTracker);
-        _setGRCToken(newReserveCurrency, newCurrencyTracker);
-        //emit an event
-        return true;
+    function donateToGRCMinerRewardsPool(uint256 amount) external virtual {
+        uint256 balBefore = IERC20(USDC).balanceOf(address(HOLDING_CONTRACT));
+        SafeERC20.safeTransferFrom(IERC20(USDC), msg.sender, address(HOLDING_CONTRACT), amount);
+        uint256 transferredBalance = IERC20(USDC).balanceOf(address(HOLDING_CONTRACT)) - balBefore;
+        _addToCurrentBucket(transferredBalance);
     }
 
     /**
      * @inheritdoc IMinerPool
      */
-    function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external virtual {
-        BucketSubmission._revertIfNotGRC(grcToken);
-        uint256 balBefore = IERC20(grcToken).balanceOf(address(HOLDING_CONTRACT));
-        SafeERC20.safeTransferFrom(IERC20(grcToken), msg.sender, address(HOLDING_CONTRACT), amount);
-        uint256 transferredBalance = IERC20(grcToken).balanceOf(address(HOLDING_CONTRACT)) - balBefore;
-        _addToCurrentBucket(grcToken, transferredBalance);
-    }
-
-    /**
-     * @inheritdoc IMinerPool
-     */
-    function donateToGRCMinerRewardsPoolEarlyLiquidity(address grcToken, uint256 amount) external virtual {
+    function donateToGRCMinerRewardsPoolEarlyLiquidity(uint256 amount) external virtual {
         if (msg.sender != _EARLY_LIQUIDITY) _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
-        _revertIfNotGRC(grcToken);
-        _addToCurrentBucket(grcToken, amount);
+        _addToCurrentBucket(amount);
     }
 
     //----------------- CLAIMING -----------------//
@@ -232,7 +176,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param index - the index of the report in the bucket
      *                     - that contains the merkle root where the user's rewards are stored
      * @param user - the address of the user
-     * @param grcTokens - the grc tokens to send to the user
      * @param claimFromInflation - whether or not to claim glow from inflation
      * @param signature - the eip712 signature that allows a relayer to execute the action
      *               - to claim for a user.
@@ -246,13 +189,11 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         bytes32[] calldata proof,
         uint256 index,
         address user,
-        address[] memory grcTokens,
         bool claimFromInflation,
         bytes memory signature
     ) external {
         if (msg.sender != user) {
-            bytes32 hash =
-                createClaimRewardFromBucketDigest(bucketId, glwWeight, grcWeight, index, grcTokens, claimFromInflation);
+            bytes32 hash = createClaimRewardFromBucketDigest(bucketId, glwWeight, grcWeight, index, claimFromInflation);
             if (!SignatureChecker.isValidSignatureNow(user, hash, signature)) {
                 _revert(IMinerPool.SignatureDoesNotMatchUser.selector);
             }
@@ -273,29 +214,23 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
         _handleMintToCarbonCreditAuction(bucketId, globalStatePackedData & _UINT128_MASK);
         uint256 totalGRCWeight = globalStatePackedData >> 192;
-        {
-            //no need to use a mask since totalGRCWeight uses the last 64 bits, so we can just shift
-            for (uint256 i; i < grcTokens.length;) {
-                {
-                    address token = grcTokens[i];
-                    uint256 userBitmap = _getUserBitmapForBucket(bucketId, user, token);
-                    userBitmap = _checkClaimAvailableAndReturnNewBitmap(bucketId, userBitmap);
-                    _setUserBitmapForBucket(bucketId, user, token, userBitmap);
-                }
 
-                //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
-                // so that we don't overflow the available GRC rewards
-                // and grab rewards from other buckets
-                uint256 amountInBucket = _getAmountForTokenAndInitIfNot(grcTokens[i], bucketId);
-                amountInBucket = amountInBucket * _min(grcWeight, totalGRCWeight) / totalGRCWeight;
-                if (amountInBucket > 0) {
-                    HOLDING_CONTRACT.addHolding(user, grcTokens[i], uint192(amountInBucket));
-                }
-                unchecked {
-                    ++i;
-                }
-            }
+        //no need to use a mask since totalGRCWeight uses the last 64 bits, so we can just shift
+        {
+            uint256 userBitmap = _getUserBitmapForBucket(bucketId, user);
+            userBitmap = _checkClaimAvailableAndReturnNewBitmap(bucketId, userBitmap);
+            _setUserBitmapForBucket(bucketId, user, userBitmap);
         }
+
+        //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
+        // so that we don't overflow the available GRC rewards
+        // and grab rewards from other buckets
+        uint256 amountInBucket = _getAmountForTokenAndInitIfNot(bucketId);
+        amountInBucket = amountInBucket * _min(grcWeight, totalGRCWeight) / totalGRCWeight;
+        if (amountInBucket > 0) {
+            HOLDING_CONTRACT.addHolding(user, USDC, uint192(amountInBucket));
+        }
+
         {
             uint256 totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
             //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
@@ -383,7 +318,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint256 glwWeight,
         uint256 grcWeight,
         uint256 index,
-        address[] memory grcTokens,
         bool claimFromInflation
     ) public view returns (bytes32) {
         return keccak256(
@@ -392,13 +326,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
                 _domainSeparatorV4(),
                 keccak256(
                     abi.encode(
-                        CLAIM_REWARD_FROM_BUCKET_TYPEHASH,
-                        bucketId,
-                        glwWeight,
-                        grcWeight,
-                        index,
-                        keccak256(abi.encodePacked(grcTokens)),
-                        claimFromInflation
+                        CLAIM_REWARD_FROM_BUCKET_TYPEHASH, bucketId, glwWeight, grcWeight, index, claimFromInflation
                     )
                 )
             )
@@ -439,12 +367,12 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param user - the address of the user
      * @param userBitmap - the new bitmap to set for the user
      */
-    function _setUserBitmapForBucket(uint256 bucketId, address user, address token, uint256 userBitmap) internal {
-        _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user][token] = userBitmap;
+    function _setUserBitmapForBucket(uint256 bucketId, address user, uint256 userBitmap) internal {
+        _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user] = userBitmap;
     }
 
-    function bucketClaimBitmap(uint256 bucketId, address user, address token) public view returns (uint256) {
-        return _getUserBitmapForBucket(bucketId, user, token);
+    function bucketClaimBitmap(uint256 bucketId, address user) public view returns (uint256) {
+        return _getUserBitmapForBucket(bucketId, user);
     }
 
     //************************************************************* */
@@ -530,8 +458,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param user - the address of the user
      * @return userBitmap - the bitmap of the user
      */
-    function _getUserBitmapForBucket(uint256 bucketId, address user, address token) internal view returns (uint256) {
-        return _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user][token];
+    function _getUserBitmapForBucket(uint256 bucketId, address user) internal view returns (uint256) {
+        return _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user];
     }
 
     /**
