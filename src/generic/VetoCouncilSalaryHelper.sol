@@ -97,9 +97,6 @@ contract VetoCouncilSalaryHelper {
         view
         returns (uint256, uint256)
     {
-        if (_status[agent].isSlashed) {
-            return (0, 0);
-        }
         return _payoutData(agent, nonce, agents);
     }
 
@@ -335,6 +332,9 @@ contract VetoCouncilSalaryHelper {
         view
         returns (uint256, uint256)
     {
+        if (_status[agent].isSlashed) {
+            return (0, 0);
+        }
         (uint256 rewardPerSecond, uint256 secondsActive, uint256 secondsStopped, uint256 amountAlreadyWithdrawn) =
             getDataToCalculatePayout(agent, nonce, agents);
         (uint256 withdrawableAmount, uint256 slashableAmount) = VestingMathLib
