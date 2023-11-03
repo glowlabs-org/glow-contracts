@@ -166,6 +166,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         // Execute the transfer with a signed authorization
         IERC20Permit paymentToken = IERC20Permit(USDC);
         uint256 allowance = paymentToken.allowance(msg.sender, address(this));
+        //Check allowance to avoid front-running issues
         if (allowance < amount) {
             paymentToken.permit(msg.sender, address(this), amount, deadline, v, r, s);
         }

@@ -23,6 +23,8 @@ import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {UnifapV2Pair} from "@unifapv2/UnifapV2Pair.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+bytes32 constant PERMIT_TYPEHASH =
+    keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 uint256 constant GCC_MAGNIFICATION = 1e18;
 uint256 constant USDC_MAGNIFICATION = 1e24;
 
@@ -315,15 +317,13 @@ contract GCCTest is Test {
          *         Note: USDC has 6 decimals
          */
         {
-            uint A_MIN = 10 * 1e6;
-            uint A_MAX = 1_000_000_000_000 * 1e6;
+            uint256 A_MIN = 10 * 1e6;
+            uint256 A_MAX = 1_000_000_000_000 * 1e6;
             a = bound(a, A_MIN, A_MAX);
-            uint B_MIN = 10 * 1e6;
-            uint B_MAX = 1_000_000_000_000 * 1e6;
+            uint256 B_MIN = 10 * 1e6;
+            uint256 B_MAX = 1_000_000_000_000 * 1e6;
             b = bound(b, B_MIN, B_MAX);
-            
         }
-
 
         uniswapFactory = new UnifapV2Factory();
         weth = new WETH9();
@@ -911,6 +911,84 @@ contract GCCTest is Test {
         gcc.retireGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
     }
 
+    function test_retireUSDC_referral() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        gcc.retireUSDC(1000 * 1e6, SIMON, address(0));
+        assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        assertEq(gcc.totalCreditsRetired(SIMON), 1000 * 1e6);
+        assertEq(gov.nominationsOf(SIMON), 1000 * 1e6);
+        vm.stopPrank();
+    }
+
+    function test_retireUSDC_referralAddressEqFrom_shouldRevert() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        vm.expectRevert(IGCC.CannotReferSelf.selector);
+        gcc.retireUSDC(1000 * 1e6, SIMON, SIMON);
+        vm.stopPrank();
+    }
+
+    function test_retireUSDC() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        gcc.retireUSDC(1000 * 1e6, SIMON);
+        assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        assertEq(gcc.totalCreditsRetired(SIMON), 1000 * 1e6);
+        assertEq(gov.nominationsOf(SIMON), 1000 * 1e6);
+        vm.stopPrank();
+    }
+
+    function test_retireUSDC_rewardToOther() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        address rewardAddress = address(0xffffaa);
+        gcc.retireUSDC(1000 * 1e6, rewardAddress);
+        assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        assertEq(gcc.totalCreditsRetired(rewardAddress), 1000 * 1e6);
+        assertEq(gov.nominationsOf(rewardAddress), 1000 * 1e6);
+        vm.stopPrank();
+    }
+
+    function test_retireUSDC_permit() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        uint256 deadline = block.timestamp + 1000;
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signUSDCPermit(SIMON, address(gcc), 1000 * 1e6, usdc.nonces(SIMON), deadline, SIMON_PK);
+
+        gcc.retireUSDCSignature(1000 * 1e6, SIMON, address(0), deadline, v, r, s);
+        assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        assertEq(gcc.totalCreditsRetired(SIMON), 1000 * 1e6);
+        assertEq(gov.nominationsOf(SIMON), 1000 * 1e6);
+        vm.stopPrank();
+    }
+
+    function test_retireUSDC_permit_rewardToOther() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        uint256 deadline = block.timestamp + 1000;
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signUSDCPermit(SIMON, address(gcc), 1000 * 1e6, usdc.nonces(SIMON), deadline, SIMON_PK);
+        address rewardAddress = address(0xffffaa);
+        gcc.retireUSDCSignature(1000 * 1e6, rewardAddress, address(0), deadline, v, r, s);
+        assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        assertEq(gcc.totalCreditsRetired(rewardAddress), 1000 * 1e6);
+        assertEq(gov.nominationsOf(rewardAddress), 1000 * 1e6);
+        vm.stopPrank();
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                   helpers                                  */
     /* -------------------------------------------------------------------------- */
@@ -941,6 +1019,20 @@ contract GCCTest is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, messageHash);
         signature = abi.encodePacked(r, s, v);
+    }
+
+    function _signUSDCPermit(
+        address owner,
+        address spender,
+        uint256 amount,
+        uint256 nonce,
+        uint256 deadline,
+        uint256 privateKey
+    ) internal returns (uint8 v, bytes32 r, bytes32 s) {
+        bytes32 structHash = keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, amount, nonce, deadline));
+        bytes32 messageHash = MessageHashUtils.toTypedDataHash(usdc.DOMAIN_SEPARATOR(), structHash);
+
+        (v, r, s) = vm.sign(privateKey, messageHash);
     }
 
     function test_swap() public {
