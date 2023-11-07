@@ -21,7 +21,7 @@ contract DeployGoerliTest is Test {
     MockUSDC mockUSDC;
     address uniswapV2Router = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     address SIMON = address(0xfaffafafafafafa1231);
-    string goerliForkUrl = vm.envString("GOERLI_RPC");
+    string goerliForkUrl = vm.envString("GOERLI_RPC_URL");
     uint256 goerliFork;
 
     function setUp() public {
