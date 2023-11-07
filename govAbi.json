@@ -1,0 +1,1350 @@
+[
+    {
+        "inputs": [],
+        "stateMutability": "payable",
+        "type": "constructor"
+    },
+    {
+        "inputs": [],
+        "name": "AlreadyEndorsedWeek",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "CallerNotGCA",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "CallerNotGCC",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "CallerNotVetoCouncilMember",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ContractsAlreadySet",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "GCAContractAlreadySet",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "GCACouncilElectionsCannotBeVetoed",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InsufficientNominations",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InsufficientRatifyOrRejectVotes",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InvalidShortString",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InvalidSpendNominationsOnProposalSignature",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "MaxGCAEndorsementsReached",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "MaxSlashesInGCAElection",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "MaximumNumberOfGCAS",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "MostPopularProposalNotSelected",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "NominationCostGreaterThanAllowance",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "OnlyGCAElectionsCanBeEndorsed",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ProposalAlreadyExecuted",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ProposalAlreadyVetoed",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ProposalDoesNotExist",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ProposalExpired",
+        "type": "error"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            }
+        ],
+        "name": "ProposalHasNotExpired",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ProposalIdDoesNotMatchMostPopularProposal",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ProposalIsVetoed",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ProposalNotInitialized",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ProposalNotMostPopular",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ProposalsMustBeExecutedSynchonously",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "RFCPeriodNotEnded",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "RatifyOrRejectPeriodEnded",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "RatifyOrRejectPeriodNotEnded",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "SpendNominationsOnProposalSignatureExpired",
+        "type": "error"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "str",
+                "type": "string"
+            }
+        ],
+        "name": "StringTooLong",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "VetoAgentCannotBeNullAddress",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "VetoCouncilElectionsCannotBeVetoed",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "VetoCouncilProposalCreationOldAgentCannotEqualNewAgent",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "WeekNotFinalized",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ZeroAddressNotAllowed",
+        "type": "error"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "proposer",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "requirementsHash",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "nominationsUsed",
+                "type": "uint256"
+            }
+        ],
+        "name": "ChangeGCARequirementsProposalCreation",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [],
+        "name": "EIP712DomainChanged",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "proposer",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "address[]",
+                "name": "agentsToSlash",
+                "type": "address[]"
+            },
+            {
+                "indexed": false,
+                "internalType": "address[]",
+                "name": "newGCAs",
+                "type": "address[]"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "proposalCreationTimestamp",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "nominationsUsed",
+                "type": "uint256"
+            }
+        ],
+        "name": "GCACouncilElectionOrSlashCreation",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "proposer",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "recipient",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "hash",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "nominationsUsed",
+                "type": "uint256"
+            }
+        ],
+        "name": "GrantsProposalCreation",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "weekId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            }
+        ],
+        "name": "MostPopularProposalSet",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "spender",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "NominationsUsedOnProposal",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "weekId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "vetoer",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            }
+        ],
+        "name": "ProposalVetoed",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "proposer",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "requirementsHash",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "nominationsUsed",
+                "type": "uint256"
+            }
+        ],
+        "name": "RFCProposalCreation",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes32",
+                "name": "requirementsHash",
+                "type": "bytes32"
+            }
+        ],
+        "name": "RFCProposalExecuted",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "voter",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "numVotes",
+                "type": "uint256"
+            }
+        ],
+        "name": "RatifyCast",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "voter",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "numVotes",
+                "type": "uint256"
+            }
+        ],
+        "name": "RejectCast",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "proposer",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "oldAgent",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "newAgent",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "bool",
+                "name": "slashOldAgent",
+                "type": "bool"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "nominationsUsed",
+                "type": "uint256"
+            }
+        ],
+        "name": "VetoCouncilElectionOrSlash",
+        "type": "event"
+    },
+    {
+        "inputs": [],
+        "name": "SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH",
+        "outputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "costForNewProposal",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "newRequirementsHash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "maxNominations",
+                "type": "uint256"
+            }
+        ],
+        "name": "createChangeGCARequirementsProposal",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "newRequirementsHash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "deadlines",
+                "type": "uint256[]"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "nominationsToSpend",
+                "type": "uint256[]"
+            },
+            {
+                "internalType": "address[]",
+                "name": "signers",
+                "type": "address[]"
+            },
+            {
+                "internalType": "bytes[]",
+                "name": "sigs",
+                "type": "bytes[]"
+            }
+        ],
+        "name": "createChangeGCARequirementsProposalSigs",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address[]",
+                "name": "agentsToSlash",
+                "type": "address[]"
+            },
+            {
+                "internalType": "address[]",
+                "name": "newGCAs",
+                "type": "address[]"
+            },
+            {
+                "internalType": "uint256",
+                "name": "maxNominations",
+                "type": "uint256"
+            }
+        ],
+        "name": "createGCACouncilElectionOrSlashProposal",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address[]",
+                "name": "agentsToSlash",
+                "type": "address[]"
+            },
+            {
+                "internalType": "address[]",
+                "name": "newGCAs",
+                "type": "address[]"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "deadlines",
+                "type": "uint256[]"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "nominationsToSpend",
+                "type": "uint256[]"
+            },
+            {
+                "internalType": "address[]",
+                "name": "signers",
+                "type": "address[]"
+            },
+            {
+                "internalType": "bytes[]",
+                "name": "sigs",
+                "type": "bytes[]"
+            }
+        ],
+        "name": "createGCACouncilElectionOrSlashProposalSigs",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "grantsRecipient",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "hash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "maxNominations",
+                "type": "uint256"
+            }
+        ],
+        "name": "createGrantsProposal",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "grantsRecipient",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "hash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "deadlines",
+                "type": "uint256[]"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "nominationsToSpend",
+                "type": "uint256[]"
+            },
+            {
+                "internalType": "address[]",
+                "name": "signers",
+                "type": "address[]"
+            },
+            {
+                "internalType": "bytes[]",
+                "name": "sigs",
+                "type": "bytes[]"
+            }
+        ],
+        "name": "createGrantsProposalSigs",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "maxNominations",
+                "type": "uint256"
+            }
+        ],
+        "name": "createRFCProposal",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hash",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "deadlines",
+                "type": "uint256[]"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "nominationsToSpend",
+                "type": "uint256[]"
+            },
+            {
+                "internalType": "address[]",
+                "name": "signers",
+                "type": "address[]"
+            },
+            {
+                "internalType": "bytes[]",
+                "name": "sigs",
+                "type": "bytes[]"
+            }
+        ],
+        "name": "createRFCProposalSigs",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "oldAgent",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "newAgent",
+                "type": "address"
+            },
+            {
+                "internalType": "bool",
+                "name": "slashOldAgent",
+                "type": "bool"
+            },
+            {
+                "internalType": "uint256",
+                "name": "maxNominations",
+                "type": "uint256"
+            }
+        ],
+        "name": "createVetoCouncilElectionOrSlash",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "oldAgent",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "newAgent",
+                "type": "address"
+            },
+            {
+                "internalType": "bool",
+                "name": "slashOldAgent",
+                "type": "bool"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "deadlines",
+                "type": "uint256[]"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "nominationsToSpend",
+                "type": "uint256[]"
+            },
+            {
+                "internalType": "address[]",
+                "name": "signers",
+                "type": "address[]"
+            },
+            {
+                "internalType": "bytes[]",
+                "name": "sigs",
+                "type": "bytes[]"
+            }
+        ],
+        "name": "createVetoCouncilElectionOrSlashSigs",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "currentWeek",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "eip712Domain",
+        "outputs": [
+            {
+                "internalType": "bytes1",
+                "name": "fields",
+                "type": "bytes1"
+            },
+            {
+                "internalType": "string",
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "version",
+                "type": "string"
+            },
+            {
+                "internalType": "uint256",
+                "name": "chainId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "verifyingContract",
+                "type": "address"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "salt",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256[]",
+                "name": "extensions",
+                "type": "uint256[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "weekId",
+                "type": "uint256"
+            }
+        ],
+        "name": "endorseGCAProposal",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "week",
+                "type": "uint256"
+            }
+        ],
+        "name": "executeProposalAtWeek",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            }
+        ],
+        "name": "getProposalStatus",
+        "outputs": [
+            {
+                "internalType": "enum IGovernance.ProposalStatus",
+                "name": "",
+                "type": "uint8"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "to",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "grantNominations",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "gca",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "weekId",
+                "type": "uint256"
+            }
+        ],
+        "name": "hasEndorsedProposal",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "lastExecutedWeek",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "lastExpiredProposalId",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "longStakerVotesForProposal",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "mostPopularProposal",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
+            }
+        ],
+        "name": "nominationsOf",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "numEndorsementsOnWeek",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "proposalCount",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            }
+        ],
+        "name": "proposalLongStakerVotes",
+        "outputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "uint128",
+                        "name": "ratifyVotes",
+                        "type": "uint128"
+                    },
+                    {
+                        "internalType": "uint128",
+                        "name": "rejectionVotes",
+                        "type": "uint128"
+                    }
+                ],
+                "internalType": "struct Governance.ProposalLongStakerVotes",
+                "name": "",
+                "type": "tuple"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            }
+        ],
+        "name": "proposals",
+        "outputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "enum IGovernance.ProposalType",
+                        "name": "proposalType",
+                        "type": "uint8"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "expirationTimestamp",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint184",
+                        "name": "votes",
+                        "type": "uint184"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "data",
+                        "type": "bytes"
+                    }
+                ],
+                "internalType": "struct IGovernance.Proposal",
+                "name": "",
+                "type": "tuple"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "weekOfMostPopularProposal",
+                "type": "uint256"
+            },
+            {
+                "internalType": "bool",
+                "name": "trueForRatify",
+                "type": "bool"
+            },
+            {
+                "internalType": "uint256",
+                "name": "numVotes",
+                "type": "uint256"
+            }
+        ],
+        "name": "ratifyOrReject",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "selfIncrementNonce",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "gcc",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "gca",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "vetoCouncil",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "grantsTreasury",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "glw",
+                "type": "address"
+            }
+        ],
+        "name": "setContractAddresses",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            }
+        ],
+        "name": "setMostPopularProposalForCurrentWeek",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "name": "spendNominationsOnProposalNonce",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "syncProposals",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "updateLastExpiredProposalId",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "useNominationsOnProposal",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "weekId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "proposalId",
+                "type": "uint256"
+            }
+        ],
+        "name": "vetoProposal",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+]

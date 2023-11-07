@@ -552,6 +552,7 @@ contract Governance is IGovernance, EIP712 {
         if (proposalId != _mostPopularProposal) {
             if (newTotalVotes > _proposals[_mostPopularProposal].votes) {
                 mostPopularProposal[currentWeek] = proposalId;
+                emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
             }
         }
 
@@ -595,6 +596,7 @@ contract Governance is IGovernance, EIP712 {
                 _revert(IGovernance.ProposalNotMostPopular.selector);
             }
         }
+        emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
     }
 
     /**
@@ -640,8 +642,10 @@ contract Governance is IGovernance, EIP712 {
         }
         if (trueForRatify) {
             _proposalLongStakerVotes[_mostPopularProposal].ratifyVotes += uint128(numVotes);
+            emit IGovernance.RatifyCast(_mostPopularProposal, msg.sender, numVotes);
         } else {
             _proposalLongStakerVotes[_mostPopularProposal].rejectionVotes += uint128(numVotes);
+            emit IGovernance.RejectCast(_mostPopularProposal, msg.sender, numVotes);
         }
         longStakerVotesForProposal[msg.sender][_mostPopularProposal] = amountVotesUsed + numVotes;
     }
@@ -703,6 +707,7 @@ contract Governance is IGovernance, EIP712 {
         uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
         if (nominationCost > _proposals[_mostPopularProposal].votes) {
             mostPopularProposal[currentWeek] = proposalId;
+            emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
         _proposalCount = proposalId + 1;
@@ -734,6 +739,7 @@ contract Governance is IGovernance, EIP712 {
         uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
         if (nominationCost > _proposals[_mostPopularProposal].votes) {
             mostPopularProposal[currentWeek] = proposalId;
+            emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
         _proposalCount = proposalId + 1;
@@ -770,6 +776,7 @@ contract Governance is IGovernance, EIP712 {
         uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
         if (nominationCost > _proposals[_mostPopularProposal].votes) {
             mostPopularProposal[currentWeek] = proposalId;
+            emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
         _proposalCount = proposalId + 1;
@@ -818,6 +825,7 @@ contract Governance is IGovernance, EIP712 {
         uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
         if (nominationCost > _proposals[_mostPopularProposal].votes) {
             mostPopularProposal[currentWeek] = proposalId;
+            emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
         _proposalCount = proposalId + 1;
@@ -869,6 +877,7 @@ contract Governance is IGovernance, EIP712 {
         uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
         if (nominationCost > _proposals[_mostPopularProposal].votes) {
             mostPopularProposal[currentWeek] = proposalId;
+            emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
         _proposalCount = proposalId + 1;
@@ -1264,6 +1273,7 @@ contract Governance is IGovernance, EIP712 {
         uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
         if (nominationCost > _proposals[_mostPopularProposal].votes) {
             mostPopularProposal[currentWeek] = proposalId;
+            emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
         if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {

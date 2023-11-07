@@ -168,6 +168,7 @@ interface IGovernance {
     );
 
     /**
+     * TODO: make sure to change name of requirements hash to rfc hash
      * @notice emitted when a request for comment is created
      * @param proposalId the id of the proposal
      * @param proposer the address of the proposer
@@ -179,12 +180,35 @@ interface IGovernance {
     );
 
     /**
+     * @notice emitted when a long glow staker casts a ratify vote on a proposal
+     * @param proposalId the id of the proposal
+     * @param voter the address of the voter
+     * @param numVotes the number of ratify votes
+     */
+    event RatifyCast(uint256 indexed proposalId, address indexed voter, uint256 numVotes);
+
+    /**
+     * @notice emitted when a long glow staker casts a reject vote on a proposal
+     * @param proposalId the id of the proposal
+     * @param voter the address of the voter
+     * @param numVotes the number of reject votes
+     */
+    event RejectCast(uint256 indexed proposalId, address indexed voter, uint256 numVotes);
+
+    /**
      * @notice emitted when nominations are used on a proposal
      * @param proposalId the id of the proposal
      * @param spender the address of the spender
      * @param amount the amount of nominations used
      */
     event NominationsUsedOnProposal(uint256 indexed proposalId, address indexed spender, uint256 amount);
+
+    /**
+     * @notice emitted when a proposal is set as the most popular proposal at a week
+     * @param weekId - the weekId in which the proposal was selected as the most popular proposal
+     * @param proposalId - the id of the proposal that was selected as the most popular proposal
+     */
+    event MostPopularProposalSet(uint256 indexed weekId, uint256 indexed proposalId);
 
     /**
      * @notice emitted when a proposal is ratified
