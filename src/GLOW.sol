@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
-
 /**
  * @dev helper for managing tail and head in a mapping
  * @param tail the tail of the mapping
@@ -13,6 +12,7 @@ import {IGlow} from "./interfaces/IGlow.sol";
  *         -   and conversely, head == tail and there is no data
  *         - These special cases are handled in the code
  */
+
 struct Pointers {
     uint128 tail;
     uint128 head;
@@ -156,6 +156,7 @@ contract Glow is ERC20, IGlow {
                 } else {
                     newHead = i - 1;
                 }
+
                 break;
             }
 
@@ -182,7 +183,11 @@ contract Glow is ERC20, IGlow {
         }
 
         if (newHead != head) {
-            _unstakedPositionPointers[msg.sender].head = uint128(newHead);
+            if (tail > newHead) {
+                tail = newHead;
+            }
+            Pointers memory newPointer = Pointers({head: uint128(newHead), tail: uint128(tail)});
+            _unstakedPositionPointers[msg.sender] = newPointer;
         }
 
         if (stakeAmount > amountInUserUnstakePool) {

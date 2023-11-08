@@ -154,6 +154,32 @@ contract NewGlowTest is Test {
         assertEq(glw.balanceOf(SIMON), amountToMint);
     }
 
+    function test_stakeExactAmount() public {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 70 ether);
+        glw.stake(10 ether); //[stake = 10]
+        glw.unstake(5 ether); //unstake positions = [5]
+        glw.unstake(2.5 ether); // unstake positions = [5,3]
+        vm.warp(block.timestamp + FIVE_YEARS + 10);
+        glw.claimUnstakedTokens(5 ether); //unstake positions = [2.5]
+        Pointers memory pointers = glw.accountUnstakedPositionPointers(SIMON);
+        //pointer should be [1,1] with unstaked as [2.5]
+        console.log("head = ", uint256(pointers.head));
+        console.log("tail = ", uint256(pointers.tail));
+        assert(pointers.head == 1);
+        assert(pointers.tail == 1);
+
+        uint256 numStaked = glw.numStaked(SIMON);
+        glw.stake(2.5 ether);
+
+        pointers = glw.accountUnstakedPositionPointers(SIMON);
+        console.log("head = ", uint256(pointers.head));
+        console.log("tail = ", uint256(pointers.tail));
+        assertEq(pointers.head, 0);
+        assertEq(pointers.tail, 0);
+        vm.stopPrank();
+    }
+
     function test_DoubleStake2() public {
         vm.startPrank(SIMON);
         glw.mint(SIMON, 15 ether);
