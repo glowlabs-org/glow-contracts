@@ -9,6 +9,7 @@ import {IGlow} from "../../src/interfaces/IGlow.sol";
 import {Handler} from "./Handler.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {SymetricHandler} from "./SymetricHandler.sol";
 
 contract NewGlowTest is Test {
     //-------------------- Mock Addresses --------------------
@@ -23,12 +24,16 @@ contract NewGlowTest is Test {
     //-------------------- Contracts --------------------
     TestGLOW public glw;
     Handler public handler;
+    SymetricHandler public symHandler;
+    TestGLOW symetricGlow;
 
     //-------------------- Setup --------------------
     function setUp() public {
         //Create contracts
         glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
         handler = new Handler(address(glw));
+        symetricGlow = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        symHandler = new SymetricHandler(address(symetricGlow));
 
         //Make sure early liquidity receives 12 million tokens
         assertEq(glw.balanceOf(EARLY_LIQUIDITY), 12_000_000 ether);
@@ -39,19 +44,46 @@ contract NewGlowTest is Test {
         selectors[1] = Handler.unstake.selector;
         selectors[2] = Handler.claimUnstakedTokens.selector;
         FuzzSelector memory fs = FuzzSelector({addr: address(handler), selectors: selectors});
+        bytes4[] memory symetricHandlerSelectors = new bytes4[](3);
+        symetricHandlerSelectors[0] = SymetricHandler.stake.selector;
+        symetricHandlerSelectors[1] = SymetricHandler.unstake.selector;
+        symetricHandlerSelectors[2] = SymetricHandler.claimUnstakedTokens.selector;
+        FuzzSelector memory symFs = FuzzSelector({addr: address(symHandler), selectors: symetricHandlerSelectors});
 
         //Ensure total supply when constructed is 72_000_000 ether
         // assertEq(glw.totalSupply(), 72_000_000 ether);
 
         //Mint some to ourselves for testing
         glw.mint(address(handler), 1e20 ether);
+        symetricGlow.mint(address(symHandler), 1e20 ether);
 
         //Set fuzzing targets
         targetSender(address(SIMON));
         targetSelector(fs);
-        targetContract(address(handler));
+        targetSelector(symFs);
+        // targetContract(address(handler));
+        // targetContract(address(symHandler));
     }
 
+    /**
+     * forge-config: default.invariant.runs = 1000
+     * forge-config: default.invariant.depth = 10
+     * @dev these invariants are unlikely to get caught and the test_stakeExactAmount is more likely to catch them
+     */
+    function invariant_tailShouldBeLessThanOrEqToHead() public {
+        Pointers memory pointers = glw.accountUnstakedPositionPointers(address(handler));
+        assert(pointers.tail <= pointers.head);
+    }
+
+    /**
+     * forge-config: default.invariant.runs = 10000
+     * forge-config: default.invariant.depth = 10
+     * @dev these invariants are unlikely to get caught and the test_stakeExactAmount is more likely to catch them
+     */
+    function invariant_tailShouldBeLessThanOrEqToHead_symetricHandler() public {
+        Pointers memory pointers = symetricGlow.accountUnstakedPositionPointers(address(symHandler));
+        assert(pointers.tail <= pointers.head);
+    }
     ///--------------------- MODIFIERS ---------------------
 
     /// @param user - the address to mint tokens to
