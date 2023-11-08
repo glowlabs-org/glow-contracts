@@ -37,52 +37,52 @@ interface IGCC is IERC20 {
     function isBucketMinted(uint256 bucketId) external view returns (bool);
 
     /**
-     * @notice allows a user to retire credits
-     * @param amount the amount of credits to retire
-     * @param rewardAddress the address to retire the credits to
+     * @notice allows a user to commit credits
+     * @param amount the amount of credits to commit
+     * @param rewardAddress the address to commit the credits to
      *     -   Rewards Address earns:
      *     -       1.  Carbon Neutrality
      *     -       2.  Nominations
      */
-    function retireGCC(uint256 amount, address rewardAddress) external;
+    function commitGCC(uint256 amount, address rewardAddress) external;
 
     /**
-     * @notice allows a user to retire credits
-     * @param amount the amount of credits to retire
-     * @param rewardAddress the address to retire the credits to
+     * @notice allows a user to commit credits
+     * @param amount the amount of credits to commit
+     * @param rewardAddress the address to commit the credits to
      *     -   Rewards Address earns:
      *     -       1.  Carbon Neutrality
      *     -       2.  Nominations
      * @param referralAddress the address that referred the account
      */
-    function retireGCC(uint256 amount, address rewardAddress, address referralAddress) external;
+    function commitGCC(uint256 amount, address rewardAddress, address referralAddress) external;
 
     /**
-     * @notice Allows a user to retire USDC
-     * @param amount the amount of USDC to retire
-     * @param rewardAddress the address to retire the USDC to
+     * @notice Allows a user to commit USDC
+     * @param amount the amount of USDC to commit
+     * @param rewardAddress the address to commit the USDC to
      * @param referralAddress the address that referred the account
      */
-    function retireUSDC(uint256 amount, address rewardAddress, address referralAddress) external;
+    function commitUSDC(uint256 amount, address rewardAddress, address referralAddress) external;
 
     /**
-     * @notice Allows a user to retire USDC
-     * @param amount the amount of USDC to retire
-     * @param rewardAddress the address to retire the USDC to
+     * @notice Allows a user to commit USDC
+     * @param amount the amount of USDC to commit
+     * @param rewardAddress the address to commit the USDC to
      */
-    function retireUSDC(uint256 amount, address rewardAddress) external;
+    function commitUSDC(uint256 amount, address rewardAddress) external;
 
     /**
-     * @notice Allows a user to retire USDC using permit
-     * @param amount the amount of USDC to retire
-     * @param rewardAddress the address to retire the USDC to
+     * @notice Allows a user to commit USDC using permit
+     * @param amount the amount of USDC to commit
+     * @param rewardAddress the address to commit the USDC to
      * @param referralAddress the address that referred the account
      * @param deadline the deadline for the signature
      * @param v the v value of the signature for permit
      * @param r the r value of the signature for permit
      * @param s the s value of the signature for permit
      */
-    function retireUSDCSignature(
+    function commitUSDCSignature(
         uint256 amount,
         address rewardAddress,
         address referralAddress,
@@ -101,14 +101,14 @@ interface IGCC is IERC20 {
     function setAllowances(address spender, uint256 transferAllowance, uint256 retiringAllowance) external;
 
     /**
-     * @notice approves a spender to retire credits on behalf of the caller
+     * @notice approves a spender to commit credits on behalf of the caller
      * @param spender the address of the spender
      * @param amount the amount of credits to approve
      */
     function increaseRetiringAllowance(address spender, uint256 amount) external;
 
     /**
-     * @notice decreases a spender's allowance to retire credits on behalf of the caller
+     * @notice decreases a spender's allowance to commit credits on behalf of the caller
      * @param spender the address of the spender
      * @param amount the amount of credits to decrease the allowance by
      */
@@ -144,37 +144,37 @@ interface IGCC is IERC20 {
     function nextRetiringNonce(address account) external view returns (uint256);
 
     /**
-     * @notice the entry point for an approved entity to retire credits on behalf of a user
-     * @param from the address of the user to retire credits from
-     * @param rewardAddress the address of the reward address to retire credits to
+     * @notice the entry point for an approved entity to commit credits on behalf of a user
+     * @param from the address of the user to commit credits from
+     * @param rewardAddress the address of the reward address to commit credits to
      *         - Carbon Neutrality
      *         - Nominations
-     * @param amount the amount of credits to retire
+     * @param amount the amount of credits to commit
      */
-    function retireGCCFor(address from, address rewardAddress, uint256 amount) external;
+    function commitGCCFor(address from, address rewardAddress, uint256 amount) external;
 
     /**
-     * @notice the entry point for an approved entity to retire credits on behalf of a user
-     * @param from the address of the user to retire credits from
-     * @param rewardAddress the address of the reward address to retire credits to
+     * @notice the entry point for an approved entity to commit credits on behalf of a user
+     * @param from the address of the user to commit credits from
+     * @param rewardAddress the address of the reward address to commit credits to
      *         - Carbon Neutrality
      *         - Nominations
-     * @param amount the amount of credits to retire
+     * @param amount the amount of credits to commit
      * @param referralAddress - the address that referred the account
      */
-    function retireGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress) external;
+    function commitGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress) external;
 
     /**
-     * @notice the entry point for an approved entity to retire credits on behalf of a user using EIP712 signatures
-     * @param from the address of the user to retire credits from
-     * @param rewardAddress the address of the reward address to retire credits to
+     * @notice the entry point for an approved entity to commit credits on behalf of a user using EIP712 signatures
+     * @param from the address of the user to commit credits from
+     * @param rewardAddress the address of the reward address to commit credits to
      *         - Carbon Neutrality
      *         - Nominations
-     * @param amount the amount of credits to retire
+     * @param amount the amount of credits to commit
      * @param deadline the deadline for the signature
      * @param signature - the signature
      */
-    function retireGCCForAuthorized(
+    function commitGCCForAuthorized(
         address from,
         address rewardAddress,
         uint256 amount,
@@ -183,17 +183,17 @@ interface IGCC is IERC20 {
     ) external;
 
     /**
-     * @notice the entry point for an approved entity to retire credits on behalf of a user using EIP712 signatures
-     * @param from the address of the user to retire credits from
-     * @param rewardAddress the address of the reward address to retire credits to
+     * @notice the entry point for an approved entity to commit credits on behalf of a user using EIP712 signatures
+     * @param from the address of the user to commit credits from
+     * @param rewardAddress the address of the reward address to commit credits to
      *         - Carbon Neutrality
      *         - Nominations
-     * @param amount the amount of credits to retire
+     * @param amount the amount of credits to commit
      * @param deadline the deadline for the signature
      * @param signature - the signature
      * @param referralAddress - the address that referred the account
      */
-    function retireGCCForAuthorized(
+    function commitGCCForAuthorized(
         address from,
         address rewardAddress,
         uint256 amount,
@@ -203,15 +203,15 @@ interface IGCC is IERC20 {
     ) external;
 
     /**
-     * @notice is emitted when a user retires credits
-     * @param account the account that retired credits
+     * @notice is emitted when a user commits credits
+     * @param account the account that committed credits
      * @param rewardAddress the address that earned the credits and nominations
-     * @param gccAmount the amount of credits retired
+     * @param gccAmount the amount of credits committed
      * @param usdcEffect the amount of USDC effect (aka nominations granted)
      * @param referralAddress the address that referred the account
      *             - zero address if no referral
      */
-    event GCCRetired(
+    event GCCCommitted(
         address indexed account,
         address indexed rewardAddress,
         uint256 gccAmount,
@@ -220,20 +220,22 @@ interface IGCC is IERC20 {
     );
 
     /**
-     * @notice is emitted when a user retires USDC
-     * @param account the account that retired the USDC
+     * @notice is emitted when a user commits USDC
+     * @param account the account that commit the USDC
      * @param rewardAddress the address that earns nominations
-     * @param amount the amount of USDC retired
+     * @param amount the amount of USDC commit
      * @param referralAddress the address that referred the account
      *             - zero address if no referral
      */
-    event USDCRetired(address indexed account, address indexed rewardAddress, uint256 amount, address referralAddress);
+    event USDCCommitted(
+        address indexed account, address indexed rewardAddress, uint256 amount, address referralAddress
+    );
 
     /**
-     * @notice is emitted when a user approves a spender to retire credits on their behalf
+     * @notice is emitted when a user approves a spender to commit credits on their behalf
      * @param account the account that approved a spender
      * @param spender the address of the spender
      * @param value -  new total allowance
      */
-    event RetireGCCAllowance(address indexed account, address indexed spender, uint256 value);
+    event CommitGCCAllowance(address indexed account, address indexed spender, uint256 value);
 }

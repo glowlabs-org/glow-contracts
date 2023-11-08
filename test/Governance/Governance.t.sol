@@ -294,7 +294,7 @@ contract GovernanceTest is Test {
     function test_grantNominations_fromGCC_shouldWork() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         // uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         // assertEq(nominationsOfSimon, 100 ether);
         vm.stopPrank();
@@ -307,7 +307,7 @@ contract GovernanceTest is Test {
     function test_signatures_createGrantsProposal() public {
         vm.startPrank(accounts[0].account);
         gcc.mint(accounts[0].account, 100 ether);
-        gcc.retireGCC(100 ether, accounts[0].account);
+        gcc.commitGCC(100 ether, accounts[0].account);
         uint256 nominationsOfSimon = governance.nominationsOf(accounts[0].account);
 
         uint256 amount = 10 ether; //10 gcc
@@ -357,7 +357,7 @@ contract GovernanceTest is Test {
     function test_signatures_createGrantsProposal_notEnoughNominations_shouldRevert() public {
         vm.startPrank(accounts[0].account);
         gcc.mint(accounts[0].account, 100 ether);
-        gcc.retireGCC(100 ether, accounts[0].account);
+        gcc.commitGCC(100 ether, accounts[0].account);
         uint256 nominationsOfSimon = governance.nominationsOf(accounts[0].account);
 
         uint256 amount = 10 ether; //10 gcc
@@ -394,7 +394,7 @@ contract GovernanceTest is Test {
     function test_signatures_createGrantsProposal_badSignature_shouldRevert() public {
         vm.startPrank(accounts[0].account);
         gcc.mint(accounts[0].account, 100 ether);
-        gcc.retireGCC(100 ether, accounts[0].account);
+        gcc.commitGCC(100 ether, accounts[0].account);
         uint256 nominationsOfSimon = governance.nominationsOf(accounts[0].account);
 
         uint256 amount = 10 ether; //10 gcc
@@ -431,7 +431,7 @@ contract GovernanceTest is Test {
     function test_signatures_createGrantsProposal_signatureExpired_shouldRevert() public {
         vm.startPrank(accounts[0].account);
         gcc.mint(accounts[0].account, 100 ether);
-        gcc.retireGCC(100 ether, accounts[0].account);
+        gcc.commitGCC(100 ether, accounts[0].account);
         uint256 nominationsOfSimon = governance.nominationsOf(accounts[0].account);
 
         uint256 amount = 10 ether; //10 gcc
@@ -471,10 +471,10 @@ contract GovernanceTest is Test {
         gcc.mint(accounts[0].account, 100 ether);
         gcc.mint(accounts[1].account, 100 ether);
         vm.startPrank(accounts[0].account);
-        gcc.retireGCC(100 ether, accounts[0].account);
+        gcc.commitGCC(100 ether, accounts[0].account);
         vm.stopPrank();
         vm.startPrank(accounts[1].account);
-        gcc.retireGCC(100 ether, accounts[1].account);
+        gcc.commitGCC(100 ether, accounts[1].account);
         vm.stopPrank();
 
         uint256 amount = 10 ether; //10 gcc
@@ -530,7 +530,7 @@ contract GovernanceTest is Test {
     function test_createGrantsProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         uint256 amount = 10 ether; //10 gcc
@@ -555,7 +555,7 @@ contract GovernanceTest is Test {
     function test_createGrantsProposal_secondOneShouldBecomeMostPopularProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         address grantsRecipient = address(0x4123141);
@@ -596,7 +596,7 @@ contract GovernanceTest is Test {
     function test_createGrantsProposal_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.01 ether);
-        gcc.retireGCC(0.0000001 ether, SIMON);
+        gcc.commitGCC(0.0000001 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         address grantsRecipient = address(0x4123141);
@@ -613,7 +613,7 @@ contract GovernanceTest is Test {
     function test_createGrantsProposal_nominationsGreaterThanAllowance_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         address grantsRecipient = address(0x4123141);
@@ -630,7 +630,7 @@ contract GovernanceTest is Test {
     function test_signatures_createChangeGCARequirementsProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         address grantsRecipient = address(0x4123141);
@@ -675,7 +675,7 @@ contract GovernanceTest is Test {
     function test_createChangeGCARequirementsProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         console.log("nominationsOfSimon: %s", nominationsOfSimon);
 
@@ -700,7 +700,7 @@ contract GovernanceTest is Test {
     function test_createChangeGCARequirementsProposal_secondOneShouldBecomeMostPopularProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         address grantsRecipient = address(0x4123141);
@@ -738,7 +738,7 @@ contract GovernanceTest is Test {
     function test_createChangeGCARequirementsProposal_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.001 ether);
-        gcc.retireGCC(0.0000001 ether, SIMON);
+        gcc.commitGCC(0.0000001 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         console.log("nominationsOfSimon: %s", nominationsOfSimon);
 
@@ -759,7 +759,7 @@ contract GovernanceTest is Test {
     function test_createChangeGCARequirementsProposal_nominationsGreaterThanAllowance_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
 
         address grantsRecipient = address(0x4123141);
@@ -776,7 +776,7 @@ contract GovernanceTest is Test {
     function test_signatures_createRFCProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address grantsRecipient = address(0x4123141);
         uint256 amount = 10 ether; //10 gcc
@@ -820,7 +820,7 @@ contract GovernanceTest is Test {
     function test_createRFCProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address grantsRecipient = address(0x4123141);
         uint256 amount = 10 ether; //10 gcc
@@ -841,7 +841,7 @@ contract GovernanceTest is Test {
     function test_createRFCProposal_secondOneShouldBecomeMostPopular() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address grantsRecipient = address(0x4123141);
         uint256 amount = 10 ether; //10 gcc
@@ -876,7 +876,7 @@ contract GovernanceTest is Test {
     function test_createRFCProposal_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.01 ether);
-        gcc.retireGCC(0.0000001 ether, SIMON);
+        gcc.commitGCC(0.0000001 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address grantsRecipient = address(0x4123141);
         uint256 amount = 10 ether; //10 gcc
@@ -890,7 +890,7 @@ contract GovernanceTest is Test {
     function test_createRFCProposal_nominationsGreaterThanAllowance_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address grantsRecipient = address(0x4123141);
         uint256 amount = 10 ether; //10 gcc
@@ -904,7 +904,7 @@ contract GovernanceTest is Test {
     function test_signatures_createGCAElectionOrSlashProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address[] memory agentsToSlash = new address[](1);
         agentsToSlash[0] = address(0x1);
@@ -948,7 +948,7 @@ contract GovernanceTest is Test {
     function test_createGCAElectionOrSlashProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address[] memory agentsToSlash = new address[](1);
         agentsToSlash[0] = address(0x1);
@@ -972,7 +972,7 @@ contract GovernanceTest is Test {
     function test_createGCAElectionOrSlashProposal_tooManySlashes_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address[] memory agentsToSlash = new address[](11);
         agentsToSlash[0] = address(0x1);
@@ -989,7 +989,7 @@ contract GovernanceTest is Test {
     function test_createGCAElectionOrSlashProposal_secondOneShouldBecomeMostPopular() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address[] memory agentsToSlash = new address[](1);
         agentsToSlash[0] = address(0x1);
@@ -1027,7 +1027,7 @@ contract GovernanceTest is Test {
     function test_createGCAElectionOrSlashProposal_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.01 ether);
-        gcc.retireGCC(0.0000001 ether, SIMON);
+        gcc.commitGCC(0.0000001 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address[] memory agentsToSlash = new address[](1);
         agentsToSlash[0] = address(0x1);
@@ -1043,7 +1043,7 @@ contract GovernanceTest is Test {
     function test_createGCAElectionOrSlashProposal_nominationsGreaterThanAllowance_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address[] memory agentsToSlash = new address[](1);
         agentsToSlash[0] = address(0x1);
@@ -1068,7 +1068,7 @@ contract GovernanceTest is Test {
     function test_signatures_createVetoCouncilElectionOrSlash() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address oldAgent = startingAgents[2];
         address newAgent = address(0x2);
@@ -1117,7 +1117,7 @@ contract GovernanceTest is Test {
     function test_createVetoCouncilElectionOrSlash() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address oldAgent = startingAgents[2];
         address newAgent = address(0x2);
@@ -1143,7 +1143,7 @@ contract GovernanceTest is Test {
     function test_createVetoCouncilElectionOrSlash_newAgentEqualsOldAgent_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address oldAgent = startingAgents[2];
         address newAgent = oldAgent;
@@ -1159,7 +1159,7 @@ contract GovernanceTest is Test {
     function test_createVetoCouncilElectionOrSlash_secondOneShouldBecomeMostPopular() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address oldAgent = startingAgents[2];
         address newAgent = address(0x2);
@@ -1203,7 +1203,7 @@ contract GovernanceTest is Test {
     function test_createVetoCouncilElectionOrSlash_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.01 ether);
-        gcc.retireGCC(0.0000001 ether, SIMON);
+        gcc.commitGCC(0.0000001 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address oldAgent = startingAgents[2];
         address newAgent = address(0x2);
@@ -1218,7 +1218,7 @@ contract GovernanceTest is Test {
     function test_createVetoCouncilElectionOrSlash_nominationsGreaterThanAllowance_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
         address oldAgent = startingAgents[2];
         address newAgent = address(0x2);
@@ -1240,7 +1240,7 @@ contract GovernanceTest is Test {
         test_createChangeGCARequirementsProposal();
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
 
         //I should be able to use my nominations on the proposal
         uint256 nominationsToUse = 1e6;
@@ -1259,7 +1259,7 @@ contract GovernanceTest is Test {
     function test_useNominationsOnProposal_shouldRevertIfProposalDoesNotExist() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
 
         //I should be able to use my nominations on the proposal
         uint256 nominationsToUse = 10 ether;
@@ -1271,7 +1271,7 @@ contract GovernanceTest is Test {
         test_createChangeGCARequirementsProposal();
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
 
         //I should be able to use my nominations on the proposal
         uint256 nominationsToUse = 10 ether;
@@ -1285,7 +1285,7 @@ contract GovernanceTest is Test {
         test_createChangeGCARequirementsProposal();
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
 
         //I should be able to use my nominations on the proposal
         uint256 nominationsToUse = 1000 ether;
@@ -1299,7 +1299,7 @@ contract GovernanceTest is Test {
 
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
 
         //I should be able to use my nominations on the proposal
         uint256 nominationsToUse = 10e6;
@@ -1828,7 +1828,7 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK * 5);
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
         //We actually don't need this syncProposals call since
-        //{createVetoCouncilElectionOrSlashProposal} alreadys calls it in the {retireGCC} method
+        //{createVetoCouncilElectionOrSlashProposal} alreadys calls it in the {commitGCC} method
         governance.syncProposals();
         uint256 lastExecutedWeek = governance.lastExecutedWeek();
         console.log("last executed week = ", lastExecutedWeek);
@@ -1995,7 +1995,7 @@ contract GovernanceTest is Test {
         vm.startPrank(proposer);
         uint256 nominationsToUse = governance.costForNewProposal();
         gcc.mint(proposer, nominationsToUse * 10);
-        gcc.retireGCC(nominationsToUse * 10, proposer);
+        gcc.commitGCC(nominationsToUse * 10, proposer);
         // governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
         vm.stopPrank();
     }
@@ -2126,7 +2126,7 @@ contract GovernanceTest is Test {
     function test_executingSameProposalTwice_shouldNotCreateStateChanges() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         vm.stopPrank();
         uint256 cost = governance.costForNewProposal();
         bytes32 newRequirementsHash = keccak256("new hash");
@@ -2344,7 +2344,7 @@ contract GovernanceTest is Test {
         //retiring proposals actually calls sync nominations so we need to make all propsals
         //the first week
         //the rfc proposal should be first now
-        gcc.retireGCC(10000 ether, SIMON);
+        gcc.commitGCC(10000 ether, SIMON);
         governance.useNominationsOnProposal(1, 1e6);
         governance.createGrantsProposal(grantsRecipient, 10, keccak256("really good use"), nominationsToUse);
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -2362,7 +2362,7 @@ contract GovernanceTest is Test {
         //Create 2 proposals
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 10000 ether);
-        gcc.retireGCC(10000 ether, SIMON);
+        gcc.commitGCC(10000 ether, SIMON);
         uint256 nomCost = governance.costForNewProposal();
         governance.createChangeGCARequirementsProposal(keccak256("new requirements"), nomCost);
         nomCost = governance.costForNewProposal();

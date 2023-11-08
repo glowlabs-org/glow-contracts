@@ -55,7 +55,7 @@ contract Handler is Test {
         vm.startPrank(proposer);
         uint256 nominationsToUse = g.costForNewProposal();
         gcc.mint(proposer, nominationsToUse);
-        gcc.retireGCC(nominationsToUse, proposer);
+        gcc.commitGCC(nominationsToUse, proposer);
         g.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
         vm.stopPrank();
     }

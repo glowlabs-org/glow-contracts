@@ -36,7 +36,7 @@ contract DeployGCC is Script {
             address(gcc), address(mockUSDC), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
         );
         governance.setContractAddresses(address(gcc), gcaAndMinerPool, vetoCouncil, grantsTreasury, address(glow));
-        gcc.retireGCC(5 ether, tx.origin);
+        gcc.commitGCC(5 ether, tx.origin);
         uint256 nextNominationCost = governance.costForNewProposal();
         governance.createChangeGCARequirementsProposal(keccak256("new requiremenents hash"), nextNominationCost);
         nextNominationCost = governance.costForNewProposal();
