@@ -116,7 +116,6 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
         if (_numCouncilMembers > MAX_COUNCIL_MEMBERS) {
             return false;
         }
-
         if (!replaceAgent(oldAgent, newAgent, slashOldAgent)) {
             return false;
         }

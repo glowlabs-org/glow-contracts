@@ -60,6 +60,26 @@ contract VetoCouncilTest is Test {
         assertTrue(vetoCouncil.isCouncilMember(OTHER_2));
     }
 
+    function test_newAgentIsAlreadyActive_shouldReturnFalseZellic() public {
+        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        address[] memory startingAgents = new address[](2);
+        startingAgents[0] = address(SIMON);
+        startingAgents[1] = address(0x33333);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vm.startPrank(GOVERNANCE);
+        address oldAgent = address(0x33333);
+        bool slashOldAgent = false;
+        //Remove simon
+        assert(vetoCouncil.addAndRemoveCouncilMember(SIMON, address(0), slashOldAgent));
+        //Try re-adding the already active `oldAgent`
+        assert(vetoCouncil.addAndRemoveCouncilMember(address(0), address(0x1234512345), slashOldAgent));
+        Status memory oldAgentStatus = vetoCouncil.agentStatus(address(0x1234512345));
+        //The old agent, aka the agent we added,
+        //Should now be active
+        assert(oldAgentStatus.isActive);
+        vm.stopPrank();
+    }
+
     //Testing so we can coverage in iloc
     function test_removingAnAgent_whenThereAreZeroAgent_shouldReturnFalse() public {
         glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
@@ -91,7 +111,7 @@ contract VetoCouncilTest is Test {
         oldAgent = address(0);
         newAgent = SIMON;
         slashOldAgent = false;
-        assert(!vetoCouncil.addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent) == false);
+        assert(vetoCouncil.addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent) == false);
         Status memory simonStatus = vetoCouncil.agentStatus(SIMON);
         assert(simonStatus.isActive == false);
         assert(simonStatus.indexInArray == type(uint8).max); //this is the null index
@@ -99,7 +119,7 @@ contract VetoCouncilTest is Test {
         vm.stopPrank();
     }
 
-    function test_newAgentIsAlreadyActive_shouldReturnFalse() public {
+    function test_newAgentIsAlreadyActive_shouldReturnFalse_simple() public {
         glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
         address[] memory startingAgents = new address[](2);
         startingAgents[0] = address(SIMON);
@@ -111,7 +131,7 @@ contract VetoCouncilTest is Test {
         //Remove simon
         assert(vetoCouncil.addAndRemoveCouncilMember(SIMON, address(0), slashOldAgent));
         //Try re-adding the already active `oldAgent`
-        assert(!vetoCouncil.addAndRemoveCouncilMember(address(0), oldAgent, slashOldAgent) == false);
+        assert(!vetoCouncil.addAndRemoveCouncilMember(address(0), oldAgent, slashOldAgent));
         Status memory oldAgentStatus = vetoCouncil.agentStatus(oldAgent);
         //None of the old agent status should have changed
         assert(oldAgentStatus.isActive);
