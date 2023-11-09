@@ -232,9 +232,6 @@ contract VetoCouncilSalaryHelper {
             _status[oldAgent] = Status({isActive: false, isSlashed: slashOldAgent, indexInArray: NULL_INDEX});
         }
 
-        // if(newAgent == address(0x1234512345)) {
-        //     console.log("here sir!");
-        // }
         _vetoCouncilAgents[agentOldIndex] = isNewAgentZeroAddress ? NULL_ADDRESS : newAgent;
 
         //Set the hash for the new payment nonce
