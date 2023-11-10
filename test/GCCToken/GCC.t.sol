@@ -58,7 +58,7 @@ contract GCCTest is Test {
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
-        mainnetFork = vm.createFork(forkUrl);
+        // mainnetFork = vm.createFork(forkUrl);
         glwContract = new TestGLOW(earlyLiquidity,vestingContract);
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
@@ -91,13 +91,13 @@ contract GCCTest is Test {
     /**
      * forge-config: default.fuzz.runs = 250
      */
-    function testFuzz_ensureOptimalAmountOutput_isLessThanAmountToRetire(uint256 a, uint256 b) public {
+    function testFuzz_ensureOptimalAmountOutput_isLessThanAmountTocommit(uint256 a, uint256 b) public {
         /**
-         * This test exists because our 'findOptimalAmountToRetire' function
+         * This test exists because our 'findOptimalAmountTocommit' function
          *         can lead to weird results due to precision loss in extreme cases.
          *         This test ensures that the optimal amount is always less than the
-         *         amount to retire so that there is no underflow in the retire function.
-         *         We choose a sensible range for the amount to retire and total reserves.
+         *         amount to commit so that there is no underflow in the commit function.
+         *         We choose a sensible range for the amount to commit and total reserves.
          *         Fuzz runs are set to 250 to prevent foundry from throwing errors due to
          *         too many rejected values.
          *         To run this in a more fullproof manner, we created a python script and looped
@@ -106,13 +106,13 @@ contract GCCTest is Test {
         vm.assume(a > 0.01 ether && a < 1_000_000_000_000 * 1e6 ether);
         vm.assume(b > 0.01 ether && b < 1_000_000_000_000 * 1e6 ether);
 
-        Swapper swapper = gcc.SWAPPER();
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
         uint256 amount = a;
         uint256 totalReserves = b;
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+            swapper.findOptimalAmountTocommit(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
         optimalAmount /= GCC_MAGNIFICATION;
         uint256 success = amount >= optimalAmount ? 1 : 0;
 
@@ -139,7 +139,7 @@ contract GCCTest is Test {
      * forge-config: default.fuzz.runs = 1000
      */
     function testFuzz_uniswapManualRetiringGCC(uint256 a, uint256 b) public {
-        // a = amount to retire
+        // a = amount to commit
         // b = total reserves
 
         /**
@@ -165,12 +165,12 @@ contract GCCTest is Test {
         uint256 totalReserves = b;
         seedLP(totalReserves, 1000 * 1e6);
 
-        Swapper swapper = gcc.SWAPPER();
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
         uint256 amount = a;
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+            swapper.findOptimalAmountTocommit(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
         optimalAmount /= GCC_MAGNIFICATION;
         uint256 success = amount >= optimalAmount ? 1 : 0;
 
@@ -258,13 +258,13 @@ contract GCCTest is Test {
     /**
      * forge-config: default.fuzz.runs = 250
      */
-    function testFuzz_ensureOptimalAmountOutput_isLessThanAmountToRetire_USDC(uint256 a, uint256 b) public {
+    function testFuzz_ensureOptimalAmountOutput_isLessThanAmountTocommit_USDC(uint256 a, uint256 b) public {
         /**
-         * This test exists because our 'findOptimalAmountToRetire' function
+         * This test exists because our 'findOptimalAmountTocommit' function
          *         can lead to weird results due to precision loss in extreme cases.
          *         This test ensures that the optimal amount is always less than the
-         *         amount to retire so that there is no underflow in the retire function.
-         *         We choose a sensible range for the amount to retire and total reserves.
+         *         amount to commit so that there is no underflow in the commit function.
+         *         We choose a sensible range for the amount to commit and total reserves.
          *         Fuzz runs are set to 250 to prevent foundry from throwing errors due to
          *         too many rejected values.
          *         To run this in a more fullproof manner, we created a python script and looped
@@ -273,13 +273,13 @@ contract GCCTest is Test {
         vm.assume(a > 0.01 * 1e6 && a < 1_000_000_000_000 * 1e6 * 1e6);
         vm.assume(b > 0.01 * 1e6 && b < 1_000_000_000_000 * 1e6 * 1e6);
 
-        Swapper swapper = gcc.SWAPPER();
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
         uint256 amount = a;
         uint256 totalReserves = b;
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToRetire(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
+            swapper.findOptimalAmountTocommit(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
         optimalAmount /= USDC_MAGNIFICATION;
         uint256 success = amount >= optimalAmount ? 1 : 0;
 
@@ -306,7 +306,7 @@ contract GCCTest is Test {
      * forge-config: default.fuzz.runs = 1000
      */
     function testFuzz_uniswapManualRetiringUSDC(uint256 a, uint256 b) public {
-        // a = amount to retire
+        // a = amount to commit
         // b = total reserves
 
         /**
@@ -339,12 +339,12 @@ contract GCCTest is Test {
         uint256 totalReserves = b;
         seedLP(100 ether, totalReserves);
 
-        Swapper swapper = gcc.SWAPPER();
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
         uint256 amount = a;
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToRetire(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
+            swapper.findOptimalAmountTocommit(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
         optimalAmount /= USDC_MAGNIFICATION;
         uint256 success = amount >= optimalAmount ? 1 : 0;
 
@@ -431,8 +431,8 @@ contract GCCTest is Test {
     //-------------------  END USDC RETIRING  -----------------------------
 
     // A manual test we used to confirm suspicions about certain inputs/outputs
-    function test_manualGCCRetire() public {
-        Swapper swapper = gcc.SWAPPER();
+    function test_manualGCCcommit() public {
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
         uint256 amount = 9392183157865769199004733;
         uint256 totalReserves;
 
@@ -446,7 +446,7 @@ contract GCCTest is Test {
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+            swapper.findOptimalAmountTocommit(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
         optimalAmount /= GCC_MAGNIFICATION;
         uint256 success = amount >= optimalAmount ? 1 : 0;
 
@@ -566,14 +566,14 @@ contract GCCTest is Test {
     function test_getStuff() public {
         uint256 a = 0.01 ether;
         uint256 b = 1_000_000_000_000 * 1e6 ether;
-        Swapper swapper = gcc.SWAPPER();
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
         uint256 MAGNIFIER = 1e18;
         uint256 amount = a;
         uint256 totalReserves = b;
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+            swapper.findOptimalAmountTocommit(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
         optimalAmount /= MAGNIFIER;
 
         uint256 success = amount >= optimalAmount ? 1 : 0;
@@ -662,26 +662,26 @@ contract GCCTest is Test {
         gcc.mintToCarbonCreditAuction(1, 1e20 ether);
     }
 
-    function test_retireGCC() public {
+    function test_commitGCC() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.retireGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON);
         // assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        // assertEq(gcc.totalCreditsRetired(SIMON), 1e20 ether);
+        // assertEq(gcc.totalCreditsCommitted(SIMON), 1e20 ether);
         // assertEq(gcc.balanceOf(address(gcc)), 1e20 ether);
     }
 
-    function test_retireGCC_GiveRewardsToOthers() public {
+    function test_commitGCC_GiveRewardsToOthers() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1 ether);
-        gcc.retireGCC(1 ether, other);
+        gcc.commitGCC(1 ether, other);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsRetired(other), 1 ether);
+        assertEq(gcc.totalCreditsCommitted(other), 1 ether);
     }
 
-    function test_retireGCC_ApprovalShouldRevert() public {
+    function test_commitGCC_ApprovalShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1e20 ether);
         vm.stopPrank();
@@ -696,7 +696,7 @@ contract GCCTest is Test {
                 1e20 ether //needed
             )
         );
-        gcc.retireGCCFor(SIMON, other, 1e20 ether);
+        gcc.commitGCCFor(SIMON, other, 1e20 ether);
         vm.stopPrank();
     }
 
@@ -758,7 +758,7 @@ contract GCCTest is Test {
         gcc.decreaseAllowances(other, 1);
     }
 
-    function test_retireGCC_onlyRetiringApproval_shouldRevert() public {
+    function test_commitGCC_onlyRetiringApproval_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1e20 ether);
         gcc.increaseRetiringAllowance(other, 1e20 ether);
@@ -774,11 +774,11 @@ contract GCCTest is Test {
                 1e20 ether //needed
             )
         );
-        gcc.retireGCCFor(SIMON, other, 1e20 ether);
+        gcc.commitGCCFor(SIMON, other, 1e20 ether);
         vm.stopPrank();
     }
 
-    function test_retireGCC_onlyTransferApproval_shouldRevert() public {
+    function test_commitGCC_onlyTransferApproval_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1e20 ether);
         gcc.increaseAllowance(other, 1e20 ether);
@@ -787,11 +787,11 @@ contract GCCTest is Test {
         vm.startPrank(other);
         /// spender,allowance,needed
         vm.expectRevert(stdError.arithmeticError);
-        gcc.retireGCCFor(SIMON, other, 1e20 ether);
+        gcc.commitGCCFor(SIMON, other, 1e20 ether);
         vm.stopPrank();
     }
 
-    function test_retireGCC_ApprovalShouldWork() public {
+    function test_commitGCC_ApprovalShouldWork() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1 ether);
         gcc.increaseAllowances(other, 1 ether);
@@ -800,11 +800,11 @@ contract GCCTest is Test {
         vm.stopPrank();
 
         vm.startPrank(other);
-        gcc.retireGCCFor(SIMON, other, 1 ether);
+        gcc.commitGCCFor(SIMON, other, 1 ether);
         vm.stopPrank();
     }
 
-    function test_retireGCC_Signature() public {
+    function test_commitGCC_Signature() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1 ether);
         vm.stopPrank();
@@ -813,14 +813,14 @@ contract GCCTest is Test {
         );
 
         vm.startPrank(other);
-        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, block.timestamp + 1000, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, block.timestamp + 1000, signature);
 
         assertEq(gcc.balanceOf(SIMON), 0);
-        assertEq(gcc.totalCreditsRetired(other), 1 ether);
+        assertEq(gcc.totalCreditsCommitted(other), 1 ether);
         assertEq(gcc.retiringAllowance(SIMON, other), 0);
     }
 
-    function test_retireGCC_Signature_referSelf_shouldRevert() public {
+    function test_commitGCC_Signature_referSelf_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1 ether);
         vm.stopPrank();
@@ -830,10 +830,10 @@ contract GCCTest is Test {
 
         vm.startPrank(other);
         vm.expectRevert(IGCC.CannotReferSelf.selector);
-        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, block.timestamp + 1000, signature, SIMON);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, block.timestamp + 1000, signature, SIMON);
     }
 
-    function test_retireGCC_Signature_expirationInPast_shouldRevert() public {
+    function test_commitGCC_Signature_expirationInPast_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1 ether);
         vm.stopPrank();
@@ -847,10 +847,10 @@ contract GCCTest is Test {
         vm.warp(sigTimestamp + 1);
 
         vm.expectRevert(IGCC.RetiringPermitSignatureExpired.selector);
-        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
     }
 
-    function test_retireGCC_Signature_badSignature_shouldFail() public {
+    function test_commitGCC_Signature_badSignature_shouldFail() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1 ether);
         vm.stopPrank();
@@ -862,10 +862,10 @@ contract GCCTest is Test {
 
         vm.startPrank(other);
         vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
-        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp + 1, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp + 1, signature);
     }
 
-    function test_retireGCC_badSigner_shouldFail() public {
+    function test_commitGCC_badSigner_shouldFail() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1 ether);
         vm.stopPrank();
@@ -885,7 +885,7 @@ contract GCCTest is Test {
 
         vm.startPrank(other);
         vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
-        gcc.retireGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
     }
 
     function test_cannotIncreaseRetiringAllowanceByZero() public {
@@ -895,7 +895,7 @@ contract GCCTest is Test {
         vm.stopPrank();
     }
 
-    function test_retireGCC_signatureReplayShouldFail() public {
+    function test_commitGCC_signatureReplayShouldFail() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1 ether);
         vm.stopPrank();
@@ -906,58 +906,58 @@ contract GCCTest is Test {
         );
 
         vm.startPrank(other);
-        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
         vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
-        gcc.retireGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
     }
 
-    function test_retireUSDC_referral() public {
+    function test_commitUSDC_referral() public {
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
-        gcc.retireUSDC(1000 * 1e6, SIMON, address(0));
+        gcc.commitUSDC(1000 * 1e6, SIMON, address(0));
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsRetired(SIMON), 1000 * 1e6);
+        assertEq(gcc.totalCreditsCommitted(SIMON), 1000 * 1e6);
         assertEq(gov.nominationsOf(SIMON), 1000 * 1e6);
         vm.stopPrank();
     }
 
-    function test_retireUSDC_referralAddressEqFrom_shouldRevert() public {
+    function test_commitUSDC_referralAddressEqFrom_shouldRevert() public {
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
         vm.expectRevert(IGCC.CannotReferSelf.selector);
-        gcc.retireUSDC(1000 * 1e6, SIMON, SIMON);
+        gcc.commitUSDC(1000 * 1e6, SIMON, SIMON);
         vm.stopPrank();
     }
 
-    function test_retireUSDC() public {
+    function test_commitUSDC() public {
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
-        gcc.retireUSDC(1000 * 1e6, SIMON);
+        gcc.commitUSDC(1000 * 1e6, SIMON);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsRetired(SIMON), 1000 * 1e6);
+        assertEq(gcc.totalCreditsCommitted(SIMON), 1000 * 1e6);
         assertEq(gov.nominationsOf(SIMON), 1000 * 1e6);
         vm.stopPrank();
     }
 
-    function test_retireUSDC_rewardToOther() public {
+    function test_commitUSDC_rewardToOther() public {
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
         address rewardAddress = address(0xffffaa);
-        gcc.retireUSDC(1000 * 1e6, rewardAddress);
+        gcc.commitUSDC(1000 * 1e6, rewardAddress);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsRetired(rewardAddress), 1000 * 1e6);
+        assertEq(gcc.totalCreditsCommitted(rewardAddress), 1000 * 1e6);
         assertEq(gov.nominationsOf(rewardAddress), 1000 * 1e6);
         vm.stopPrank();
     }
 
-    function test_retireUSDC_permit() public {
+    function test_commitUSDC_permit() public {
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
@@ -965,15 +965,15 @@ contract GCCTest is Test {
         (uint8 v, bytes32 r, bytes32 s) =
             _signUSDCPermit(SIMON, address(gcc), 1000 * 1e6, usdc.nonces(SIMON), deadline, SIMON_PK);
 
-        gcc.retireUSDCSignature(1000 * 1e6, SIMON, address(0), deadline, v, r, s);
+        gcc.commitUSDCSignature(1000 * 1e6, SIMON, address(0), deadline, v, r, s);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsRetired(SIMON), 1000 * 1e6);
+        assertEq(gcc.totalCreditsCommitted(SIMON), 1000 * 1e6);
         assertEq(gov.nominationsOf(SIMON), 1000 * 1e6);
         vm.stopPrank();
     }
 
-    function test_retireUSDC_permit_rewardToOther() public {
+    function test_commitUSDC_permit_rewardToOther() public {
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
@@ -981,10 +981,10 @@ contract GCCTest is Test {
         (uint8 v, bytes32 r, bytes32 s) =
             _signUSDCPermit(SIMON, address(gcc), 1000 * 1e6, usdc.nonces(SIMON), deadline, SIMON_PK);
         address rewardAddress = address(0xffffaa);
-        gcc.retireUSDCSignature(1000 * 1e6, rewardAddress, address(0), deadline, v, r, s);
+        gcc.commitUSDCSignature(1000 * 1e6, rewardAddress, address(0), deadline, v, r, s);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsRetired(rewardAddress), 1000 * 1e6);
+        assertEq(gcc.totalCreditsCommitted(rewardAddress), 1000 * 1e6);
         assertEq(gov.nominationsOf(rewardAddress), 1000 * 1e6);
         vm.stopPrank();
     }
@@ -1052,9 +1052,9 @@ contract GCCTest is Test {
         usdc.approve(address(uniswapRouter), 2000 * 1e6);
         gcc.approve(address(uniswapRouter), 1e20 ether);
 
-        gcc.retireGCC(50 ether, SIMON);
+        gcc.commitGCC(50 ether, SIMON);
         vm.stopPrank();
-        address swapper = address(gcc.SWAPPER());
+        address swapper = address(gcc.IMPACT_CATALYST());
         console.log("swapper usdc balance after = ", IERC20(usdc).balanceOf(swapper));
         console.log("swapper gcc balance after = ", gcc.balanceOf(swapper));
     }
@@ -1097,7 +1097,7 @@ contract GCCTest is Test {
     //     //Perform a swap
     //     IERC20(usdc).approve(address(gcc), type(uint256).max);
     //     gcc.swapUSDC(500 * 1e6);
-    //     address swapper = address(gcc.SWAPPER());
+    //     address swapper = address(gcc.IMPACT_CATALYST());
     // }
 
     function seedLP(uint256 amountGCC, uint256 amountUSDC) public {

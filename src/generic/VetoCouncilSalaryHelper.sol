@@ -188,47 +188,50 @@ contract VetoCouncilSalaryHelper {
         //we'll write the new agent to
         //We start from the back of the array as that's where the null address will most likely be
         if (isOldAgentZeroAddress) {
-            unchecked {
-                for (uint256 i; i < 7; ++i) {
-                    uint256 index = 6 - i;
-                    address _vetoAgent = _vetoCouncilAgents[index];
-                    if (_vetoAgent == NULL_ADDRESS) {
-                        agentOldIndex = uint8(index);
-                        break;
-                    }
+            for (uint256 i; i < 7;) {
+                uint256 index = 6 - i;
+                address _vetoAgent = _vetoCouncilAgents[index];
+                if (_vetoAgent == NULL_ADDRESS) {
+                    agentOldIndex = uint8(index);
+                    break;
+                }
+                unchecked {
+                    ++i;
                 }
             }
         } else {
             //load in the old agent status
             Status memory oldAgentStatus = _status[oldAgent];
-
             //Old Agent cannot be inactive if they're not the zero address
             if (!oldAgentStatus.isActive) {
                 return false;
             }
             //find old agent index to insert the new agent
             agentOldIndex = oldAgentStatus.indexInArray;
-            //Remove the old agent
-            //If the new agent isnt the empty address, we set the status to active
-            if (!isNewAgentZeroAddress) {
-                //A new agent cannot be active
-                Status memory newAgentStatus = _status[newAgent];
-                //A slashed agent can never become an agent again
-                if (newAgentStatus.isSlashed) {
-                    return false;
-                }
-                //A new agent cannot already be active
-                if (newAgentStatus.isActive) {
-                    return false;
-                }
-                //Update the new agent status
-                _status[newAgent] = Status({isActive: true, isSlashed: false, indexInArray: agentOldIndex});
+        }
+
+        //if the new agent is not the zero address
+        if (!isNewAgentZeroAddress) {
+            Status memory newAgentStatus = _status[newAgent];
+            //A slashed agent can never become an agent again
+            if (newAgentStatus.isSlashed) {
+                return false;
             }
+            //A new agent cannot already be active
+            if (newAgentStatus.isActive) {
+                return false;
+            }
+            //Update the new agent status
+            _status[newAgent] = Status({isActive: true, isSlashed: false, indexInArray: agentOldIndex});
+        }
+
+        if (!isOldAgentZeroAddress) {
             //Set the old agent to inactive as it's not the zero address
             //State changes need to happen after all conditions clear,
             //So we put this change after checking the new agent conditions
             _status[oldAgent] = Status({isActive: false, isSlashed: slashOldAgent, indexInArray: NULL_INDEX});
         }
+
         _vetoCouncilAgents[agentOldIndex] = isNewAgentZeroAddress ? NULL_ADDRESS : newAgent;
 
         //Set the hash for the new payment nonce

@@ -5,7 +5,7 @@ import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
 
-contract Swapper {
+contract ImpactCatalyst {
     error CallerNotGCC();
     error PrecisionLossLeadToUnderflow();
 
@@ -26,17 +26,17 @@ contract Swapper {
     }
 
     /**
-     * @notice entry point for GCC to retire GCC
+     * @notice entry point for GCC to commit GCC
      * @dev the retiring process is as follows:
      *         1. GCC is swapped for USDC
      *         2. GCC and USDC are added to the GCC-USDC pool
      *         3. The caller receives 2x the amount of USDC received from the swap in nominations
-     *     - The point is to retire the GCC while adding liquidity to increase incentives for farms
-     * @param amount the amount of GCC to retire
+     *     - The point is to commit the GCC while adding liquidity to increase incentives for farms
+     * @param amount the amount of GCC to commit
      * @return usdcReceivedTimesTwo the amount of USDC received from the swap times two
      *             - used to calculate the amount of nominations to give to the origina caller in GCC
      */
-    function retireGCC(uint256 amount) external returns (uint256 usdcReceivedTimesTwo) {
+    function commitGCC(uint256 amount) external returns (uint256 usdcReceivedTimesTwo) {
         if (msg.sender != GCC) {
             revert CallerNotGCC();
         }
@@ -44,7 +44,7 @@ contract Swapper {
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
 
         uint256 amountToSwap =
-            findOptimalAmountToRetire(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
+            findOptimalAmountTocommit(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
         uint256 amountToAddInLiquidity = amount - amountToSwap;
 
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amount);
@@ -63,21 +63,21 @@ contract Swapper {
     }
 
     /**
-     * @notice entry point for GCC to retire USDC
+     * @notice entry point for GCC to commit USDC
      * @dev the retiring process is as follows:
      *         1. USDC is swapped for GCC
      *         2. GCC and USDC are added to the GCC-USDC pool
-     *         3. The caller `amount` of USDC used / retired
-     * @param amount the amount of USDC to retire
+     *         3. The caller `amount` of USDC used / committed
+     * @param amount the amount of USDC to commit
      * @dev no need to return anything as the caller is the GCC contract and knows how much USDC was used
      */
-    function retireUSDC(uint256 amount) external {
+    function commitUSDC(uint256 amount) external {
         if (msg.sender != GCC) {
             revert CallerNotGCC();
         }
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
-        uint256 amountToSwap = findOptimalAmountToRetire(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
+        uint256 amountToSwap = findOptimalAmountTocommit(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
             / USDC_MAGNIFICATION;
         uint256 amountToAddInLiquidity = amount - amountToSwap;
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amount);
@@ -92,17 +92,17 @@ contract Swapper {
 
     /**
      * @notice helper function to find the optimal amount of tokens to swap
-     * @param amountToRetire the amount of tokens to retire
-     * @param totalReservesOfToken the total reserves of the token to retire
+     * @param amountTocommit the amount of tokens to commit
+     * @param totalReservesOfToken the total reserves of the token to commit
      * @return optimalAmount - the optimal amount of tokens to swap
      */
-    function findOptimalAmountToRetire(uint256 amountToRetire, uint256 totalReservesOfToken)
+    function findOptimalAmountTocommit(uint256 amountTocommit, uint256 totalReservesOfToken)
         public
         view
         returns (uint256)
     {
         uint256 a = sqrt(totalReservesOfToken) + 1; //adjust for div round down errors
-        uint256 b = sqrt(3988000 * amountToRetire + 3988009 * totalReservesOfToken);
+        uint256 b = sqrt(3988000 * amountTocommit + 3988009 * totalReservesOfToken);
         uint256 c = 1997 * totalReservesOfToken;
         uint256 d = 1994;
         if (c > a * b) revert PrecisionLossLeadToUnderflow();
