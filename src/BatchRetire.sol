@@ -51,7 +51,8 @@ contract BatchRetire {
      * @param data the bytes that capture the breakdown of the commitments
      *         -   as mentioned in the contract description
      */
-    function retireGCC(uint256 amount, bytes memory data) external {
+    function retireGCC(uint256 amount, bytes calldata data) external {
+        GCC.transferFrom(msg.sender, address(this), amount);
         GCC.retireGCC(amount, address(this));
         emit GCCEmission(data);
     }
@@ -62,7 +63,7 @@ contract BatchRetire {
      * @param data the bytes that capture the breakdown of the commitments
      *         -   as mentioned in the contract description
      */
-    function retireUSDC(uint256 amount, bytes memory data) external {
+    function retireUSDC(uint256 amount, bytes calldata data) external {
         uint256 balBefore = USDC.balanceOf(address(this));
         USDC.transferFrom(msg.sender, address(this), amount);
         uint256 balAfter = USDC.balanceOf(address(this));
