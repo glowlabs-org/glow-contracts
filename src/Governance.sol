@@ -28,8 +28,13 @@ import {NULL_ADDRESS} from "@/generic/VetoCouncilSalaryHelper.sol";
  *                 - Once created, proposals are active for 16 weeks
  *                 - Each week, a most popular proposal is selected
  *                 - Governance also handles rewarding and depreciating nominations
- *                 - Nominations have a half-life of 52 weeks and are earned by retiring GCC
+ *                 - Nominations have a half-life of 52 weeks and are earned by committing GCC
  *                 - Nominations are used to create and vote on proposals
+ *                 - Nominations are in 12 decimals
+ *                      - the equation for calculating nominations is sqrt(amount gcc added to lp * amount usdc added in lp) from a 'commit' event
+ *                      - multiplying gcc (18 decimals) and usdc (6 decimals) gives us an output in 24 decimals.
+ *                      - since we are sqrt'ing this, we factor our 12 decimals of precision since sqrt(1e24) = 1e12
+ *                      - and end up in 12 decimals of precision
  */
 
 contract Governance is IGovernance, EIP712 {
@@ -1336,9 +1341,13 @@ contract Governance is IGovernance, EIP712 {
      */
     function _getNominationCostForProposalCreation(uint256 numActiveProposals) internal pure returns (uint256) {
         uint256 res = ONE_64x64.mul(ABDKMath64x64.pow(ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
-        // uint256 resInt = res.toUInt();
-        //Multiply by 1e2 to get it in 6 decimals (similar to USDC)
-        //TODO: nominations are in 1e12 with sqrt stuff?
+        //Multiply by 1e8 to get it in 12 decimals
+        //nominations are in 12 decimals of precision
+        // as the formula for calculating nominations is sqrt(amount gcc added to lp * amount usdc added in lp)
+        //from a 'commit' event
+        //multiplying gcc (18 decimals) and usdc (6 decimals) gives us an output in 24 decimals.
+        // since we are sqrt'ing this, we factor our 12 decimals of precision since sqrt(1e24) = 1e12
+        // and end up in 12 decimals of precision
         return res * 1e8;
     }
 
