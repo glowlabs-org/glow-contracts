@@ -123,13 +123,50 @@ contract GCA is IGCA, GCASalaryHelper {
         // emit IGCA.CompensationPlanSubmitted(msg.sender, plans);
     }
 
+    /**
+     * @notice allows GCAs to submit a weekly report and emit {data}
+     *         - {data} is a bytes array that can be used to emit any data
+     *         - it could contain the merkle tree, or any other data
+     *         - it is not strictly enforced and GCA's should communicate what they are emitting
+     * @param bucketId - the id of the bucket
+     * @param totalNewGCC - the total amount of GCC to be created from the report
+     * @param totalGlwRewardsWeight - the total amount of glw rewards weight in the report
+     * @param totalGRCRewardsWeight - the total amount of grc rewards weight in the report
+     * @param root - the merkle root containing all the reports (leaves) for the period
+     * @param data - the data to emit
+     */
+    function issueWeeklyReportWithBytes(
+        uint256 bucketId,
+        uint256 totalNewGCC,
+        uint256 totalGlwRewardsWeight,
+        uint256 totalGRCRewardsWeight,
+        bytes32 root,
+        bytes calldata data
+    ) external {
+        issueWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, bytes32(root));
+        emit IGCA.BucketSubmissionEvent(
+            bucketId, msg.sender, slashNonce, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root, data
+        );
+    }
+
+    /**
+     * @notice allows GCAs to submit a weekly report and emit {data}
+     *         - {data} is a bytes array that can be used to emit any data
+     *         - it could contain the merkle tree, or any other data
+     *         - it is not strictly enforced and GCA's should communicate what they are emitting
+     * @param bucketId - the id of the bucket
+     * @param totalNewGCC - the total amount of GCC to be created from the report
+     * @param totalGlwRewardsWeight - the total amount of glw rewards weight in the report
+     * @param totalGRCRewardsWeight - the total amount of grc rewards weight in the report
+     * @param root - the merkle root containing all the reports (leaves) for the period
+     */
     function issueWeeklyReport(
         uint256 bucketId,
         uint256 totalNewGCC,
         uint256 totalGlwRewardsWeight,
         uint256 totalGRCRewardsWeight,
         bytes32 root
-    ) external {
+    ) public {
         //GCAs can't submit if the contract is frozen (pending a proposal hash update)
         _revertIfFrozen();
         if (!isGCA(msg.sender)) _revert(NotGCA.selector);
@@ -207,8 +244,206 @@ contract GCA is IGCA, GCASalaryHelper {
             totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, bucketId, foundIndex, gcaReportStartSlot
         );
         handleBucketStore(bucket, foundIndex, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+        emit IGCA.BucketSubmissionEvent(
+            bucketId, msg.sender, slashNonce, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root, ""
+        );
     }
 
+    /**
+     * @notice allows anyone to call this function to ensure that governance proposals are being taken into effect
+     * @param gcasToSlash - the gca agents to slash
+     * @param newGCAs - the new gca agents
+     * @dev - this is a standalone function that anyone can call to ensure that
+     *             - users dont pay too much gas when syncing proposals.
+     * @dev if there is a hash to execute against, the contract will be frozen
+     *             - if there is no hash to execute against, the contract will be available
+     *             - to execute actions
+     */
+    function executeAgainstHash(
+        address[] calldata gcasToSlash,
+        address[] calldata newGCAs,
+        uint256 proposalCreationTimestamp
+    ) external {
+        uint256 _nextProposalIndexToUpdate = nextProposalIndexToUpdate;
+        uint256 len = proposalHashes.length;
+        if (len == 0) _revert(IGCA.ProposalHashesEmpty.selector);
+        bytes32 derivedHash = keccak256(abi.encode(gcasToSlash, newGCAs, proposalCreationTimestamp));
+        //Slash nonce already get's incremented so we need to subtract 1
+        if (gcasToSlash.length > 0) {
+            slashNonceToSlashTimestamp[slashNonce - 1] = proposalCreationTimestamp;
+        }
+        if (proposalHashes[_nextProposalIndexToUpdate] != derivedHash) {
+            _revert(IGCA.ProposalHashDoesNotMatch.selector);
+        }
+
+        GCASalaryHelper.callbackInElectionEvent(newGCAs);
+        _setGCAs(newGCAs);
+        _slashGCAs(gcasToSlash);
+        nextProposalIndexToUpdate = _nextProposalIndexToUpdate + 1;
+        emit IGCA.ProposalHashUpdate(_nextProposalIndexToUpdate, derivedHash);
+    }
+
+    function setRequirementsHash(bytes32 _requirementsHash) external {
+        if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
+        requirementsHash = _requirementsHash;
+        emit IGCA.RequirementsHashUpdated(_requirementsHash);
+    }
+
+    /**
+     * @notice allows governance to push a hash to execute against
+     * @param hash - the hash to execute against
+     * @param incrementSlashNonce - whether or not to increment the slash nonce
+     *         - incrementing the slash nonce means that all non-finalized buckets will be slashed
+     *             - and must be reinstated
+     * @dev the hash is the abi.encode of the following:
+     *         - the gca agents to slash
+     *         - the new gca agents
+     *         - the proposal creation timestamp
+     */
+    function pushHash(bytes32 hash, bool incrementSlashNonce) external {
+        if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
+        if (incrementSlashNonce) {
+            ++slashNonce;
+        }
+        proposalHashes.push(hash);
+    }
+
+    //************************************************************* */
+    //*****************  PUBLIC VIEW FUNCTIONS    ************** */
+    //************************************************************* */
+
+    /**
+     * @notice - an open function to claim the glow from inflation
+     */
+    function claimGlowFromInflation() public virtual {
+        _claimGlowFromInflation();
+    }
+
+    /// @inheritdoc IGCA
+    function allGcas() public view returns (address[] memory) {
+        return gcaAgents;
+    }
+
+    /// @inheritdoc IGCA
+    function gcaPayoutData(address gca) public view returns (IGCA.GCAPayout memory) {
+        return _gcaPayouts[gca];
+    }
+
+    /**
+     * @notice - returns all proposal hashes
+     * @return proposalHashes - the proposal hashes
+     */
+    function getProposalHashes() external view returns (bytes32[] memory) {
+        return proposalHashes;
+    }
+
+    /**
+     * @notice - returns a range of proposal hashes
+     * @param start - the start index
+     * @param end - the end index
+     * @return proposalHashes - the proposal hashes
+     */
+    function getProposalHashes(uint256 start, uint256 end) external view returns (bytes32[] memory) {
+        if (end > proposalHashes.length) end = proposalHashes.length;
+        if (start > end) return new bytes32[](0);
+        bytes32[] memory result = new bytes32[](end-start);
+        unchecked {
+            for (uint256 i = start; i < end; ++i) {
+                result[i - start] = proposalHashes[i];
+            }
+        }
+        return result;
+    }
+
+    /**
+     * @notice returns the global state of a bucket
+     * @param bucketId - the id of the bucket
+     * @return the global state of a bucket
+     */
+    function bucketGlobalState(uint256 bucketId) external view returns (IGCA.BucketGlobalState memory) {
+        return _bucketGlobalState[bucketId];
+    }
+    /**
+     * @notice returns the start submission timestamp of a bucket
+     * @param bucketId - the id of the bucket
+     * @return the start submission timestamp of a bucket
+     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+     */
+
+    function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
+        return _castToUint128OrMax(bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP);
+    }
+
+    /**
+     * @notice returns the end submission timestamp of a bucket
+     *         - GCA's wont be able to submit if block.timestamp >= endSubmissionTimestamp
+     * @param bucketId - the id of the bucket
+     * @return the end submission timestamp of a bucket
+     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+     */
+    function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
+        return _castToUint128OrMax(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
+    }
+
+    /**
+     * @notice returns the finalization timestamp of a bucket
+     * @param bucketId - the id of the bucket
+     * @return the finalization timestamp of a bucket
+     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+     */
+    function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
+        return _castToUint128OrMax(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
+    }
+
+    /**
+     * @notice returns the {Bucket} struct for a given week / bucketId
+     * @param bucketId - the id of the bucket
+     * @return bucket - the {Bucket} struct for a given bucketId
+     */
+    function bucket(uint256 bucketId) public view returns (IGCA.Bucket memory bucket) {
+        return _buckets[bucketId];
+    }
+
+    /**
+     * @notice returns if the bucket is finalized or not
+     * @param bucketId - the id of the bucket
+     */
+
+    function isBucketFinalized(uint256 bucketId) public view returns (bool) {
+        uint256 packedData;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            mstore(0x0, bucketId)
+            mstore(0x20, _buckets.slot)
+            let slot := keccak256(0x0, 0x40)
+            // nonce, reinstated and finalizationTimestamp are all in the first slot
+            packedData := sload(slot)
+        }
+
+        uint256 bucketLastUpdatedNonce = (packedData >> 64) & _UINT64_MASK;
+        //First bit.
+        //first 64 bits are nonce, next 8 bits  are reinstated, next 184 bits are finalizationTimestamp
+        //no need to us to use a mask since finalizationTimestamp takes up the last 184 bits
+        uint256 finalizationTimestamp = packedData >> 128;
+
+        uint256 _slashNonce = slashNonce;
+        return _isBucketFinalized(bucketLastUpdatedNonce, finalizationTimestamp, _slashNonce);
+    }
+
+    //************************************************************* */
+    //***************  INTERNAL  ********************** */
+    //************************************************************* */
+
+    //---------------------------- HELPERS ----------------------------------
+    /**
+     * @dev handles the store for a new report in a bucket
+     * @param gcaTotalNewGCC - the total amount of new gcc that the gca is reporting
+     * @param gcaTotalGlwRewardsWeight - the total amount of glw rewards weight that the gca is reporting
+     * @param gcaTotalGRCRewardsWeight - the total amount of grc rewards weight that the gca is reporting
+     * @param bucketId - the id of the bucket
+     * @param foundIndex - the index of the report in the bucket
+     * @param gcaReportStartSlot - the start slot of the gca report
+     */
     function handleGlobalBucketStateStore(
         uint256 gcaTotalNewGCC,
         uint256 gcaTotalGlwRewardsWeight,
@@ -262,6 +497,14 @@ contract GCA is IGCA, GCASalaryHelper {
         }
     }
 
+    /**
+     * @dev checks if the weights are valid
+     *     - this check is necessary to ensure that GCA's cant cause the weights to overflow in their reports
+     *     - and also ensures that the total new gcc minted isnt greated than 200 billion * number of gcas
+     * @param totalGlwRewardsWeight - the total amount of glw rewards weight
+     * @param totalGRCRewardsWeight - the total amount of grc rewards weight
+     * @param totalNewGCC - the total amount of new gcc
+     */
     function checkBucketSubmissionArithmeticInputs(
         uint256 totalGlwRewardsWeight,
         uint256 totalGRCRewardsWeight,
@@ -343,137 +586,9 @@ contract GCA is IGCA, GCASalaryHelper {
             });
         }
     }
-
-    function executeAgainstHash(
-        address[] calldata gcasToSlash,
-        address[] calldata newGCAs,
-        uint256 proposalCreationTimestamp
-    ) external {
-        uint256 _nextProposalIndexToUpdate = nextProposalIndexToUpdate;
-        uint256 len = proposalHashes.length;
-        if (len == 0) _revert(IGCA.ProposalHashesEmpty.selector);
-        bytes32 derivedHash = keccak256(abi.encode(gcasToSlash, newGCAs, proposalCreationTimestamp));
-        //Slash nonce already get's incremented so we need to subtract 1
-        if (gcasToSlash.length > 0) {
-            slashNonceToSlashTimestamp[slashNonce - 1] = proposalCreationTimestamp;
-        }
-        if (proposalHashes[_nextProposalIndexToUpdate] != derivedHash) {
-            _revert(IGCA.ProposalHashDoesNotMatch.selector);
-        }
-
-        GCASalaryHelper.callbackInElectionEvent(newGCAs);
-        _setGCAs(newGCAs);
-        _slashGCAs(gcasToSlash);
-        nextProposalIndexToUpdate = _nextProposalIndexToUpdate + 1;
-        emit IGCA.ProposalHashUpdate(_nextProposalIndexToUpdate, derivedHash);
-    }
-
-    function setRequirementsHash(bytes32 _requirementsHash) external {
-        if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
-        requirementsHash = _requirementsHash;
-        emit IGCA.RequirementsHashUpdated(_requirementsHash);
-    }
-
-    function pushHash(bytes32 hash, bool incrementSlashNonce) external {
-        if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
-        if (incrementSlashNonce) {
-            ++slashNonce;
-        }
-        proposalHashes.push(hash);
-    }
-
-    //************************************************************* */
-    //*****************  PUBLIC VIEW FUNCTIONS    ************** */
-    //************************************************************* */
-
-    // /// @inheritdoc IGCA
-    // function compensationPlan(address gca) public view returns (IGCA.ICompensation[] memory) {
-    //     return _compensationPlan(gca, gcaAgents);
-    // }
-
-    // function _compensationPlan(address gca, address[] memory gcaAddresses)
-    //     internal
-    //     view
-    //     returns (IGCA.ICompensation[] memory)
-    // {
-    //     if (!isGCA(gca)) {
-    //         _revert(NotGCA.selector);
-    //     }
-    //     uint256 bitpackedPlans = _compensationPlans[gca];
-    //     uint256 gcaLength = gcaAddresses.length;
-    //     IGCA.ICompensation[] memory plans = new IGCA.ICompensation[](gcaLength);
-    //     for (uint256 i; i < gcaLength; ++i) {
-    //         plans[i].shares = uint80((bitpackedPlans >> _calculateShift(i)) & _UINT24_MASK);
-    //         plans[i].agent = gcaAddresses[i];
-    //     }
-
-    //     return plans;
-    // }
-
-    function claimGlowFromInflation() public virtual {
-        _claimGlowFromInflation();
-    }
-
-    /// @inheritdoc IGCA
-    function allGcas() public view returns (address[] memory) {
-        return gcaAgents;
-    }
-
-    /// @inheritdoc IGCA
-    function gcaPayoutData(address gca) public view returns (IGCA.GCAPayout memory) {
-        return _gcaPayouts[gca];
-    }
-
-    function getProposalHashes() external view returns (bytes32[] memory) {
-        return proposalHashes;
-    }
-
-    function getProposalHashes(uint256 start, uint256 end) external view returns (bytes32[] memory) {
-        if (end > proposalHashes.length) end = proposalHashes.length;
-        if (start > end) return new bytes32[](0);
-        bytes32[] memory result = new bytes32[](end-start);
-        unchecked {
-            for (uint256 i = start; i < end; ++i) {
-                result[i - start] = proposalHashes[i];
-            }
-        }
-        return result;
-    }
-
     /**
-     * @notice returns the start submission timestamp of a bucket
-     * @param bucketId - the id of the bucket
-     * @return the start submission timestamp of a bucket
-     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
+     * @dev , an efficient function to get the root of a bucket at a given index
      */
-    function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return _castToUint128OrMax(bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP);
-    }
-
-    /**
-     * @notice returns the end submission timestamp of a bucket
-     *         - GCA's wont be able to submit if block.timestamp >= endSubmissionTimestamp
-     * @param bucketId - the id of the bucket
-     * @return the end submission timestamp of a bucket
-     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
-     */
-    function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return _castToUint128OrMax(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
-    }
-
-    /**
-     * @notice returns the finalization timestamp of a bucket
-     * @param bucketId - the id of the bucket
-     * @return the finalization timestamp of a bucket
-     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
-     */
-    function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return _castToUint128OrMax(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
-    }
-
-    function bucket(uint256 bucketId) public view returns (IGCA.Bucket memory bucket) {
-        return _buckets[bucketId];
-    }
 
     function getBucketRootAtIndexEfficient(uint256 bucketId, uint256 index) internal view returns (bytes32 root) {
         // solhint-disable-next-line no-inline-assembly
@@ -513,33 +628,6 @@ contract GCA is IGCA, GCASalaryHelper {
         if (uint256(root) == 0) _revert(IGCA.EmptyRoot.selector);
     }
 
-    function isBucketFinalized(uint256 bucketId) public view returns (bool) {
-        uint256 packedData;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            mstore(0x0, bucketId)
-            mstore(0x20, _buckets.slot)
-            let slot := keccak256(0x0, 0x40)
-            // nonce, reinstated and finalizationTimestamp are all in the first slot
-            packedData := sload(slot)
-        }
-
-        uint256 bucketLastUpdatedNonce = (packedData >> 64) & _UINT64_MASK;
-        //First bit.
-        //first 64 bits are nonce, next 8 bits  are reinstated, next 184 bits are finalizationTimestamp
-        //no need to us to use a mask since finalizationTimestamp takes up the last 184 bits
-        uint256 finalizationTimestamp = packedData >> 128;
-
-        uint256 _slashNonce = slashNonce;
-        return _isBucketFinalized(bucketLastUpdatedNonce, finalizationTimestamp, _slashNonce);
-    }
-
-    //************************************************************* */
-    //***************  INTERNAL  ********************** */
-    //************************************************************* */
-
-    //---------------------------- HELPERS ----------------------------------
-
     /**
      * @dev sets the gca agents and their compensation plans
      *         -  removes all previous gca agents
@@ -573,10 +661,14 @@ contract GCA is IGCA, GCASalaryHelper {
         return index * _UINT24_SHIFT;
     }
 
+    /**
+     * @dev a function that reverts if proposal hashes are not up to date
+     */
     function _revertIfFrozen() internal view {
         if (_isFrozen()) _revert(IGCA.ProposalHashesNotUpdated.selector);
     }
 
+    /// @dev returns true if the contract is frozen, false otherwise
     function _isFrozen() internal view returns (bool) {
         uint256 len = proposalHashes.length;
         //If no proposals have been submitted, we don't need to check
@@ -653,10 +745,19 @@ contract GCA is IGCA, GCASalaryHelper {
         }
     }
 
-    function bucketGlobalState(uint256 bucketId) external view returns (IGCA.BucketGlobalState memory) {
-        return _bucketGlobalState[bucketId];
-    }
-
+    /**
+     * @notice calculates the bucket submission start timestamp
+     * @param bucketId - the id of the bucket
+     * @param bucketOriginNonce - the original nonce of the bucket
+     * @param bucketLastUpdatedNonce - the last updated nonce of the bucket
+     * @param _slashNonce - the current slash nonce
+     * @param bucketFinalizationTimestamp - the finalization timestamp of the bucket
+     * @dev this function is used to calculate the bucket submission start timestamp
+     *     - under normal conditions, a bucket should be finalized 2 weeks after its submission period has open
+     *     - however, if a slash event occurs, the bucket submission start timestamp will be shifted to the WCEIL() of the slash nonce
+     *     - if the slash event occurs after the bucket has been finalized, the bucket submission start timestamp will be shifted to the WCEIL() of the slash nonce
+     *         - this is to ensure the gcas have enough time to reinstante proper reports
+     */
     function _calculateBucketSubmissionEndTimestamp(
         uint256 bucketId,
         uint256 bucketOriginNonce,
@@ -694,6 +795,7 @@ contract GCA is IGCA, GCASalaryHelper {
         return a >= b && a <= c;
     }
 
+    /// @dev this must be overriden to return the current week in the parent contract
     function _currentWeek() internal view virtual override(GCASalaryHelper) returns (uint256) {
         // solhint-disable-next-line reason-string, custom-errors
         revert();
@@ -707,10 +809,12 @@ contract GCA is IGCA, GCASalaryHelper {
         GLOW_TOKEN.transfer(to, amount);
     }
 
+    /// @dev claims the glow from inflation
     function _claimGlowFromInflation() internal virtual override(GCASalaryHelper) {
         GLOW_TOKEN.claimGLWFromGCAAndMinerPool();
     }
 
+    /// @dev returns the domain seperator for the current contract, must be overriden
     function _domainSeperatorV4Main() internal view virtual override(GCASalaryHelper) returns (bytes32) {
         // solhint-disable-next-line reason-string, custom-errors
         revert();

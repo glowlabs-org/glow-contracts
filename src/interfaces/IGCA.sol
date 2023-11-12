@@ -159,4 +159,15 @@ interface IGCA {
      * @param requirementsHash - the new requirements hash gcas must abide by
      */
     event RequirementsHashUpdated(bytes32 requirementsHash);
+
+    event BucketSubmissionEvent(
+        uint256 indexed bucketId,
+        address gca,
+        uint256 slashNonce,
+        uint256 totalNewGCC,
+        uint256 totalGlwRewardsWeight,
+        uint256 totalGRCRewardsWeight,
+        bytes32 root,
+        bytes extraData
+    );
 }
