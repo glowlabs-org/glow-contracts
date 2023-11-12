@@ -6,9 +6,9 @@ import "../../src/testing/TestGLOW.sol";
 import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {PremineDisperser} from "@/PremineDisperser.sol";
+import {GlowUnlocker} from "@/GlowUnlocker.sol";
 
-contract PremineDisperserTest is Test {
+contract GlowUnlockerTest is Test {
     //-------------------- Mock Addresses --------------------
     address public constant SIMON = address(0x11241998);
     uint256 public constant FIVE_YEARS = 365 days * 5;
@@ -17,7 +17,7 @@ contract PremineDisperserTest is Test {
     address public constant GRANTS_TREASURY = address(0x3);
     address public constant EARLY_LIQUIDITY = address(0x4);
     address public constant VESTING_CONTRACT = address(0x5);
-    PremineDisperser public disperser;
+    GlowUnlocker public disperser;
     address[] public addresses;
     uint256[] public amounts;
     uint160 addressOffset = 100;
@@ -44,7 +44,7 @@ contract PremineDisperserTest is Test {
             addressOffset++;
         }
         assert(sum == 90_000_000 ether);
-        disperser = new PremineDisperser(addresses, amounts);
+        disperser = new GlowUnlocker(addresses, amounts);
         //Create contracts
         glw = new TestGLOW(EARLY_LIQUIDITY,address(disperser));
         disperser.initialize(address(glw));
@@ -75,7 +75,7 @@ contract PremineDisperserTest is Test {
         assert(reward11 == uint256(10_000_000 ether) / uint256(6));
 
         vm.startPrank(rewardAddress1);
-        disperser.claim();
+        disperser.claim(rewardAddress1);
         vm.stopPrank();
 
         reward1 = disperser.nextReward(rewardAddress1);
@@ -87,7 +87,7 @@ contract PremineDisperserTest is Test {
         assert(reward1 == uint256(5_000_000 ether) / uint256(6));
         //claim again
         vm.startPrank(rewardAddress1);
-        disperser.claim();
+        disperser.claim(rewardAddress1);
         vm.stopPrank();
 
         reward1 = disperser.nextReward(rewardAddress1);
@@ -99,7 +99,7 @@ contract PremineDisperserTest is Test {
         assert(reward1 == uint256(5_000_000 ether) * uint256(4) / uint256(6));
         //claim again
         vm.startPrank(rewardAddress1);
-        disperser.claim();
+        disperser.claim(rewardAddress1);
         vm.stopPrank();
 
         reward1 = disperser.nextReward(rewardAddress1);
@@ -112,8 +112,8 @@ contract PremineDisperserTest is Test {
 
         //make sure it reverts
         vm.startPrank(rewardAddress1);
-        vm.expectRevert(PremineDisperser.NothingToClaim.selector);
-        disperser.claim();
+        vm.expectRevert(GlowUnlocker.NothingToClaim.selector);
+        disperser.claim(rewardAddress1);
         vm.stopPrank();
 
         uint256 balance = glw.balanceOf(rewardAddress1);
@@ -122,9 +122,8 @@ contract PremineDisperserTest is Test {
         assert(glw.balanceOf(rewardAddress1) == 4999999999999999999999999);
 
         vm.startPrank(rewardAddress11);
-        disperser.claim();
+        disperser.claim(rewardAddress11);
         vm.stopPrank();
-
         balance = glw.balanceOf(rewardAddress11);
         console.log("balance", balance);
         //Tiny offset for dust
@@ -136,7 +135,7 @@ contract PremineDisperserTest is Test {
         vm.warp(block.timestamp + secondsToWarpForward);
         address rewardAddress1 = addresses[0];
         vm.startPrank(rewardAddress1);
-        disperser.claim();
+        disperser.claim(rewardAddress1);
         vm.stopPrank();
 
         uint256 originalAmountOwed = disperser.amountOwed(rewardAddress1);

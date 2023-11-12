@@ -2,10 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {IGlow} from "@/interfaces/IGlow.sol";
-
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /// @dev should be deployed by glow contract
 
-contract PremineDisperser {
+contract GlowUnlocker is Ownable {
     error ZeroAddressInConstructor();
     error NothingToClaim();
 
@@ -15,7 +15,7 @@ contract PremineDisperser {
     IGlow public glow;
     uint256 public genesisTimestamp;
 
-    constructor(address[] memory _addresses, uint256[] memory _amounts) {
+    constructor(address[] memory _addresses, uint256[] memory _amounts) Ownable(tx.origin) {
         unchecked {
             for (uint256 i; i < _addresses.length; ++i) {
                 if (_addresses[i] == address(0)) {
@@ -26,19 +26,32 @@ contract PremineDisperser {
         }
     }
 
-    function claim() external {
+    /**
+     * @notice Claims glow tokens {to}
+     * @param to address to send glow tokens
+     * @dev anyone can call this function
+     *             - the idea is that users may not want to interact
+     *             - directly with a contract, so they will trust a relay
+     *             - to initiate the tx
+     */
+    function claim(address to) external {
         uint256 reward = nextReward(msg.sender);
         if (reward == 0) {
             revert NothingToClaim();
         }
-        lastClaimedTimestamp[msg.sender] = block.timestamp;
-        glow.transfer(msg.sender, reward);
+        lastClaimedTimestamp[to] = block.timestamp;
+        glow.transfer(to, reward);
     }
 
+    /**
+     * @notice Initializes the contract
+     * @dev can only be called once
+     */
     function initialize(address _glow) external {
         require(address(glow) == address(0), "Already initialized");
         glow = IGlow(_glow);
         genesisTimestamp = glow.GENESIS_TIMESTAMP();
+        _transferOwnership(address(0));
     }
 
     function nextReward(address from) public view returns (uint256) {

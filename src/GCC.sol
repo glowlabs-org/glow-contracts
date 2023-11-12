@@ -64,6 +64,11 @@ contract GCC is ERC20, IGCC, EIP712 {
     mapping(address => uint256) public totalCreditsCommitted;
 
     /**
+     * @notice the total USDC committed by a user
+     */
+    mapping(address => uint256) public totalUSDCCommitted;
+
+    /**
      * @notice The allowances for retiring GCC
      * @dev similar to ERC20
      */
@@ -126,29 +131,35 @@ contract GCC is ERC20, IGCC, EIP712 {
     /**
      * @inheritdoc IGCC
      */
-    function commitGCC(uint256 amount, address rewardAddress, address referralAddress) public {
+    function commitGCC(uint256 amount, address rewardAddress, address referralAddress)
+        public
+        returns (uint256 usdcEffect, uint256 impactPower)
+    {
         _transfer(_msgSender(), address(IMPACT_CATALYST), amount);
-        (uint256 usdcEffect, uint256 impactPower) = IMPACT_CATALYST.commitGCC(amount);
+        (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount);
         _handleCommitment(_msgSender(), rewardAddress, amount, usdcEffect, impactPower, referralAddress);
     }
 
     /**
      * @inheritdoc IGCC
      */
-    function commitUSDC(uint256 amount, address rewardAddress, address referralAddress) public {
+    function commitUSDC(uint256 amount, address rewardAddress, address referralAddress)
+        public
+        returns (uint256 impactPower)
+    {
         uint256 swapperBalBefore = IERC20(USDC).balanceOf(address(IMPACT_CATALYST));
         IERC20(USDC).transferFrom(msg.sender, address(IMPACT_CATALYST), amount);
         uint256 swapperBalAfter = IERC20(USDC).balanceOf(address(IMPACT_CATALYST));
         uint256 usdcUsing = swapperBalAfter - swapperBalBefore;
-        uint256 impactPower = IMPACT_CATALYST.commitUSDC(usdcUsing);
+        impactPower = IMPACT_CATALYST.commitUSDC(usdcUsing);
         _handleUSDCcommitment(_msgSender(), rewardAddress, amount, impactPower, referralAddress);
     }
 
     /**
      * @inheritdoc IGCC
      */
-    function commitUSDC(uint256 amount, address rewardAddress) external {
-        commitUSDC(amount, rewardAddress, address(0));
+    function commitUSDC(uint256 amount, address rewardAddress) external returns (uint256) {
+        return (commitUSDC(amount, rewardAddress, address(0)));
     }
 
     /**
@@ -162,7 +173,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external {
+    ) external returns (uint256 impactPower) {
         // Execute the transfer with a signed authorization
         IERC20Permit paymentToken = IERC20Permit(USDC);
         uint256 allowance = paymentToken.allowance(msg.sender, address(this));
@@ -170,33 +181,36 @@ contract GCC is ERC20, IGCC, EIP712 {
         if (allowance < amount) {
             paymentToken.permit(msg.sender, address(this), amount, deadline, v, r, s);
         }
-        commitUSDC(amount, rewardAddress, referralAddress);
+        return (commitUSDC(amount, rewardAddress, referralAddress));
     }
 
     /**
      * @inheritdoc IGCC
      */
-    function commitGCC(uint256 amount, address rewardAddress) external {
-        commitGCC(amount, rewardAddress, address(0));
+    function commitGCC(uint256 amount, address rewardAddress) external returns (uint256, uint256) {
+        return (commitGCC(amount, rewardAddress, address(0)));
     }
 
     /**
      * @inheritdoc IGCC
      */
-    function commitGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress) public {
+    function commitGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress)
+        public
+        returns (uint256 usdcEffect, uint256 impactPower)
+    {
         transferFrom(from, address(IMPACT_CATALYST), amount);
         if (_msgSender() != from) {
             _decreaseRetiringAllowance(from, _msgSender(), amount, false);
         }
-        (uint256 usdcEffect, uint256 impactPower) = IMPACT_CATALYST.commitGCC(amount);
+        (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount);
         _handleCommitment(from, rewardAddress, amount, usdcEffect, impactPower, referralAddress);
     }
 
     /**
      * @inheritdoc IGCC
      */
-    function commitGCCFor(address from, address rewardAddress, uint256 amount) public {
-        commitGCCFor(from, rewardAddress, amount, address(0));
+    function commitGCCFor(address from, address rewardAddress, uint256 amount) public returns (uint256, uint256) {
+        return (commitGCCFor(from, rewardAddress, amount, address(0)));
     }
 
     /**
@@ -209,12 +223,14 @@ contract GCC is ERC20, IGCC, EIP712 {
         uint256 deadline,
         bytes calldata signature,
         address referralAddress
-    ) public {
+    ) public returns (uint256, uint256) {
         if (block.timestamp > deadline) {
             _revert(IGCC.RetiringPermitSignatureExpired.selector);
         }
+
+        uint256 _nextRetiringNonce = nextRetiringNonce[from]++;
         bytes32 message = _constructRetiringPermitDigest(
-            from, _msgSender(), rewardAddress, referralAddress, amount, nextRetiringNonce[from]++, deadline
+            from, _msgSender(), rewardAddress, referralAddress, amount, _nextRetiringNonce, deadline
         );
         if (!_checkRetiringPermitSignature(from, message, signature)) {
             _revert(IGCC.RetiringSignatureInvalid.selector);
@@ -224,7 +240,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         if (transferAllowance < amount) {
             _approve(from, _msgSender(), amount, false);
         }
-        commitGCCFor(from, rewardAddress, amount, referralAddress);
+        return (commitGCCFor(from, rewardAddress, amount, referralAddress));
     }
 
     /// @inheritdoc IGCC
@@ -234,7 +250,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         uint256 amount,
         uint256 deadline,
         bytes calldata signature
-    ) external {
+    ) external returns (uint256 usdcEffect, uint256 impactPower) {
         commitGCCForAuthorized(from, rewardAddress, amount, deadline, signature, address(0));
     }
 
@@ -368,7 +384,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
         //Retiring GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
-        totalCreditsCommitted[rewardAddress] += amount;
+        totalUSDCCommitted[rewardAddress] += amount;
         GOVERNANCE.grantNominations(rewardAddress, impactPower);
         emit IGCC.USDCCommitted(from, rewardAddress, amount, impactPower, referralAddress);
     }

@@ -915,11 +915,11 @@ contract GCCTest is Test {
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
-        gcc.commitUSDC(1000 * 1e6, SIMON, address(0));
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, address(0));
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsCommitted(SIMON), 1000 * 1e6);
-        assertEq(gov.nominationsOf(SIMON), 1000 * 1e6);
+        assertEq(gcc.totalUSDCCommitted(SIMON), 1000 * 1e6);
+        assertEq(gov.nominationsOf(SIMON), impactPower);
         vm.stopPrank();
     }
 
@@ -928,7 +928,7 @@ contract GCCTest is Test {
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
         vm.expectRevert(IGCC.CannotReferSelf.selector);
-        gcc.commitUSDC(1000 * 1e6, SIMON, SIMON);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, SIMON);
         vm.stopPrank();
     }
 
@@ -936,11 +936,11 @@ contract GCCTest is Test {
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
-        gcc.commitUSDC(1000 * 1e6, SIMON);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsCommitted(SIMON), 1000 * 1e6);
-        assertEq(gov.nominationsOf(SIMON), 1000 * 1e6);
+        assertEq(gcc.totalUSDCCommitted(SIMON), 1000 * 1e6);
+        assertEq(gov.nominationsOf(SIMON), impactPower);
         vm.stopPrank();
     }
 
@@ -949,11 +949,11 @@ contract GCCTest is Test {
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
         address rewardAddress = address(0xffffaa);
-        gcc.commitUSDC(1000 * 1e6, rewardAddress);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, rewardAddress);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsCommitted(rewardAddress), 1000 * 1e6);
-        assertEq(gov.nominationsOf(rewardAddress), 1000 * 1e6);
+        assertEq(gcc.totalUSDCCommitted(rewardAddress), 1000 * 1e6);
+        assertEq(gov.nominationsOf(rewardAddress), impactPower);
         vm.stopPrank();
     }
 
@@ -965,11 +965,11 @@ contract GCCTest is Test {
         (uint8 v, bytes32 r, bytes32 s) =
             _signUSDCPermit(SIMON, address(gcc), 1000 * 1e6, usdc.nonces(SIMON), deadline, SIMON_PK);
 
-        gcc.commitUSDCSignature(1000 * 1e6, SIMON, address(0), deadline, v, r, s);
+        uint256 impactPower = gcc.commitUSDCSignature(1000 * 1e6, SIMON, address(0), deadline, v, r, s);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsCommitted(SIMON), 1000 * 1e6);
-        assertEq(gov.nominationsOf(SIMON), 1000 * 1e6);
+        assertEq(gcc.totalUSDCCommitted(SIMON), 1000 * 1e6);
+        assertEq(gov.nominationsOf(SIMON), impactPower);
         vm.stopPrank();
     }
 
@@ -981,11 +981,11 @@ contract GCCTest is Test {
         (uint8 v, bytes32 r, bytes32 s) =
             _signUSDCPermit(SIMON, address(gcc), 1000 * 1e6, usdc.nonces(SIMON), deadline, SIMON_PK);
         address rewardAddress = address(0xffffaa);
-        gcc.commitUSDCSignature(1000 * 1e6, rewardAddress, address(0), deadline, v, r, s);
+        uint256 impactPower = gcc.commitUSDCSignature(1000 * 1e6, rewardAddress, address(0), deadline, v, r, s);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
-        assertEq(gcc.totalCreditsCommitted(rewardAddress), 1000 * 1e6);
-        assertEq(gov.nominationsOf(rewardAddress), 1000 * 1e6);
+        assertEq(gcc.totalUSDCCommitted(rewardAddress), 1000 * 1e6);
+        assertEq(gov.nominationsOf(rewardAddress), impactPower);
         vm.stopPrank();
     }
 
