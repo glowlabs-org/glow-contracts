@@ -207,7 +207,8 @@ interface IGCC is IERC20 {
      * @param account the account that committed credits
      * @param rewardAddress the address that earned the credits and nominations
      * @param gccAmount the amount of credits committed
-     * @param usdcEffect the amount of USDC effect (aka nominations granted)
+     * @param usdcEffect the amount of USDC effect
+     * @param impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      * @param referralAddress the address that referred the account
      *             - zero address if no referral
      */
@@ -216,6 +217,7 @@ interface IGCC is IERC20 {
         address indexed rewardAddress,
         uint256 gccAmount,
         uint256 usdcEffect,
+        uint256 impactPower,
         address referralAddress
     );
 
@@ -224,11 +226,16 @@ interface IGCC is IERC20 {
      * @param account the account that commit the USDC
      * @param rewardAddress the address that earns nominations
      * @param amount the amount of USDC commit
+     * @param impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      * @param referralAddress the address that referred the account
      *             - zero address if no referral
      */
     event USDCCommitted(
-        address indexed account, address indexed rewardAddress, uint256 amount, address referralAddress
+        address indexed account,
+        address indexed rewardAddress,
+        uint256 amount,
+        uint256 impactPower,
+        address referralAddress
     );
 
     /**

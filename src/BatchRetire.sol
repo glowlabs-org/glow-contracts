@@ -53,7 +53,7 @@ contract BatchRetire {
      */
     function retireGCC(uint256 amount, bytes calldata data) external {
         GCC.transferFrom(msg.sender, address(this), amount);
-        GCC.retireGCC(amount, address(this));
+        GCC.commitGCC(amount, address(this));
         emit GCCEmission(data);
     }
 
@@ -68,7 +68,7 @@ contract BatchRetire {
         USDC.transferFrom(msg.sender, address(this), amount);
         uint256 balAfter = USDC.balanceOf(address(this));
         uint256 amountToRetire = balAfter - balBefore;
-        GCC.retireUSDC(amountToRetire, address(this));
+        GCC.commitUSDC(amountToRetire, address(this));
         emit USDCEmission(data);
     }
 }

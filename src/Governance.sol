@@ -1338,7 +1338,8 @@ contract Governance is IGovernance, EIP712 {
         uint256 res = ONE_64x64.mul(ABDKMath64x64.pow(ONE_POINT_ONE_128, numActiveProposals)).mulu(1e4);
         // uint256 resInt = res.toUInt();
         //Multiply by 1e2 to get it in 6 decimals (similar to USDC)
-        return res * 1e2;
+        //TODO: nominations are in 1e12 with sqrt stuff?
+        return res * 1e8;
     }
 
     /**

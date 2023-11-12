@@ -33,18 +33,19 @@ contract ImpactCatalyst {
      *         3. The caller receives 2x the amount of USDC received from the swap in nominations
      *     - The point is to commit the GCC while adding liquidity to increase incentives for farms
      * @param amount the amount of GCC to commit
-     * @return usdcReceivedTimesTwo the amount of USDC received from the swap times two
-     *             - used to calculate the amount of nominations to give to the origina caller in GCC
+     * @return usdcEffect - the amount of USDC used in the LP Position
+     * @return nominations - the amount of nominations to earn sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
+     *                        - we do this to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
      */
-    function commitGCC(uint256 amount) external returns (uint256 usdcReceivedTimesTwo) {
+    function commitGCC(uint256 amount) external returns (uint256 usdcEffect, uint256 nominations) {
         if (msg.sender != GCC) {
-            revert CallerNotGCC();
+            _revert(CallerNotGCC.selector);
         }
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
 
         uint256 amountToSwap =
-            findOptimalAmountTocommit(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
+            findOptimalAmountToCommit(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
         uint256 amountToAddInLiquidity = amount - amountToSwap;
 
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amount);
@@ -58,8 +59,8 @@ contract ImpactCatalyst {
         UNISWAP_ROUTER.addLiquidity(
             GCC, USDC, amountToAddInLiquidity, amountUSDCReceived, 0, 0, address(this), block.timestamp
         );
-
-        usdcReceivedTimesTwo = amountUSDCReceived * 2;
+        usdcEffect = amountUSDCReceived;
+        nominations = sqrt(amountToAddInLiquidity * amountUSDCReceived);
     }
 
     /**
@@ -70,14 +71,16 @@ contract ImpactCatalyst {
      *         3. The caller `amount` of USDC used / committed
      * @param amount the amount of USDC to commit
      * @dev no need to return anything as the caller is the GCC contract and knows how much USDC was used
+     * @return nominations - the amount of nominations to earn sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
+     *                        - we do this to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
      */
-    function commitUSDC(uint256 amount) external {
+    function commitUSDC(uint256 amount) external returns (uint256 nominations) {
         if (msg.sender != GCC) {
-            revert CallerNotGCC();
+            _revert(CallerNotGCC.selector);
         }
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
-        uint256 amountToSwap = findOptimalAmountTocommit(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
+        uint256 amountToSwap = findOptimalAmountToCommit(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
             / USDC_MAGNIFICATION;
         uint256 amountToAddInLiquidity = amount - amountToSwap;
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amount);
@@ -88,6 +91,7 @@ contract ImpactCatalyst {
             UNISWAP_ROUTER.swapExactTokensForTokens(amountToSwap, 0, path, address(this), block.timestamp);
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amounts[1]);
         UNISWAP_ROUTER.addLiquidity(USDC, GCC, amountToAddInLiquidity, amounts[1], 0, 0, address(this), block.timestamp);
+        nominations = sqrt(amountToAddInLiquidity * amounts[1]);
     }
 
     /**
@@ -96,7 +100,7 @@ contract ImpactCatalyst {
      * @param totalReservesOfToken the total reserves of the token to commit
      * @return optimalAmount - the optimal amount of tokens to swap
      */
-    function findOptimalAmountTocommit(uint256 amountTocommit, uint256 totalReservesOfToken)
+    function findOptimalAmountToCommit(uint256 amountTocommit, uint256 totalReservesOfToken)
         public
         view
         returns (uint256)
@@ -105,7 +109,7 @@ contract ImpactCatalyst {
         uint256 b = sqrt(3988000 * amountTocommit + 3988009 * totalReservesOfToken);
         uint256 c = 1997 * totalReservesOfToken;
         uint256 d = 1994;
-        if (c > a * b) revert PrecisionLossLeadToUnderflow();
+        if (c > a * b) _revert(PrecisionLossLeadToUnderflow.selector); // prevent underflow
         uint256 res = ((a * b) - c) / d;
         return res;
     }
@@ -176,6 +180,19 @@ contract ImpactCatalyst {
             // Since the ceil is rare, we save gas on the assignment and repeat division in the rare case.
             // If you don't care whether the floor or ceil square root is returned, you can remove this statement.
             z := sub(z, lt(div(x, z), z))
+        }
+    }
+
+    /**
+     * @notice More efficiently reverts with a bytes4 selector
+     * @param selector The selector to revert with
+     */
+
+    function _revert(bytes4 selector) private pure {
+        // solhint-disable-next-line no-inline-assembly
+        assembly ("memory-safe") {
+            mstore(0x0, selector)
+            revert(0x0, 0x04)
         }
     }
 }

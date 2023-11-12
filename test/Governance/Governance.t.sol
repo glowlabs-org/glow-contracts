@@ -51,6 +51,8 @@ contract GovernanceTest is Test {
     HoldingContract holdingContract;
     AccountWithPK[10] accounts;
 
+    uint256 constant NOMINATION_DECIMALS = 12;
+
     //--------  ADDRESSES ---------//
     address earlyLiquidity = address(0x2);
     address vestingContract = address(0x3);
@@ -125,7 +127,7 @@ contract GovernanceTest is Test {
         selectors[0] = DivergenceHandler.runSims.selector;
         FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(divergenceHandler)});
         targetContract(address(divergenceHandler));
-        seedLP(500 ether, 50000000 * 20 * 1e6);
+        seedLP(500 ether, 100000000 * 1e6);
     }
 
     /**
@@ -669,6 +671,31 @@ contract GovernanceTest is Test {
         assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS);
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
         assertEq(proposal.votes, nominationsToUse);
+        vm.stopPrank();
+    }
+
+    function test_createChangeGCARequirementsProposalSimon() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.commitGCC(100 ether, SIMON);
+        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+        console.log("nominationsOfSimon: %s", nominationsOfSimon);
+
+        // address grantsRecipient = address(0x4123141);
+        // uint256 amount = 10 ether; //10 gcc
+        // bytes32 hash = keccak256("new requirements hash");
+
+        // uint256 creationTimestamp = block.timestamp;
+
+        // uint256 nominationsToUse = governance.costForNewProposal();
+        // governance.createChangeGCARequirementsProposal(hash, nominationsToUse);
+        // IGovernance.Proposal memory proposal = governance.proposals(1);
+        // (bytes32 hash_) = abi.decode(proposal.data, (bytes32));
+        // assertEq(hash_, hash);
+        // assertEq(governance.proposalCount(), 1);
+        // assertTrue(proposal.proposalType == IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS);
+        // assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
+        // assertEq(proposal.votes, nominationsToUse);
         vm.stopPrank();
     }
 
@@ -1302,7 +1329,7 @@ contract GovernanceTest is Test {
         gcc.commitGCC(100 ether, SIMON);
 
         //I should be able to use my nominations on the proposal
-        uint256 nominationsToUse = 10e6;
+        uint256 nominationsToUse = 10 * (10 ** NOMINATION_DECIMALS); //(nominations in base 12)
         uint256 simonNominationsBefore = governance.nominationsOf(SIMON);
         uint256 numVotesBefore = governance.proposals(1).votes;
         assertTrue(numVotesBefore < governance.proposals(2).votes);
@@ -2453,7 +2480,7 @@ contract GovernanceTest is Test {
     }
 
     function expectedProposalCost(uint256 numActiveProposals) internal pure returns (uint256) {
-        uint256 cost = 1e6;
+        uint256 cost = 10 ** (NOMINATION_DECIMALS); //nominations are in base 12
         for (uint256 i; i < numActiveProposals; ++i) {
             //multiply by 1.1 each time
             cost = cost * 11 / 10;

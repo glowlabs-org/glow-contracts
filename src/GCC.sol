@@ -128,8 +128,8 @@ contract GCC is ERC20, IGCC, EIP712 {
      */
     function commitGCC(uint256 amount, address rewardAddress, address referralAddress) public {
         _transfer(_msgSender(), address(IMPACT_CATALYST), amount);
-        uint256 usdcEffect = IMPACT_CATALYST.commitGCC(amount);
-        _handlecommitment(_msgSender(), rewardAddress, amount, usdcEffect, referralAddress);
+        (uint256 usdcEffect, uint256 impactPower) = IMPACT_CATALYST.commitGCC(amount);
+        _handleCommitment(_msgSender(), rewardAddress, amount, usdcEffect, impactPower, referralAddress);
     }
 
     /**
@@ -140,8 +140,8 @@ contract GCC is ERC20, IGCC, EIP712 {
         IERC20(USDC).transferFrom(msg.sender, address(IMPACT_CATALYST), amount);
         uint256 swapperBalAfter = IERC20(USDC).balanceOf(address(IMPACT_CATALYST));
         uint256 usdcUsing = swapperBalAfter - swapperBalBefore;
-        IMPACT_CATALYST.commitUSDC(usdcUsing);
-        _handleUSDCcommitment(_msgSender(), rewardAddress, usdcUsing, referralAddress);
+        uint256 impactPower = IMPACT_CATALYST.commitUSDC(usdcUsing);
+        _handleUSDCcommitment(_msgSender(), rewardAddress, amount, impactPower, referralAddress);
     }
 
     /**
@@ -188,8 +188,8 @@ contract GCC is ERC20, IGCC, EIP712 {
         if (_msgSender() != from) {
             _decreaseRetiringAllowance(from, _msgSender(), amount, false);
         }
-        uint256 usdcEffect = IMPACT_CATALYST.commitGCC(amount);
-        _handlecommitment(from, rewardAddress, amount, usdcEffect, referralAddress);
+        (uint256 usdcEffect, uint256 impactPower) = IMPACT_CATALYST.commitGCC(amount);
+        _handleCommitment(from, rewardAddress, amount, usdcEffect, impactPower, referralAddress);
     }
 
     /**
@@ -329,23 +329,25 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @dev should only be used internally and by function that require a transfer of {amount} to address(this)
      * @param from the address of the account retiring the credits
      * @param rewardAddress the address to receive the benefits of retiring
-     * @param gcccommitted the amount of GCC committed
-     * @param usdcEffect the effect of retiring on the USDC balance
+     * @param usdcEffect - the amount of USDC added into the lp position
+     * @param gccCommitted the amount of GCC committed
+     * @param impactPower the effect of retiring on the USDC balance
      * @param referralAddress the address of the referrer (zero for no referrer)
      */
-    function _handlecommitment(
+    function _handleCommitment(
         address from,
         address rewardAddress,
-        uint256 gcccommitted,
+        uint256 gccCommitted,
         uint256 usdcEffect,
+        uint256 impactPower,
         address referralAddress
     ) private {
         if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
         //Retiring GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
-        totalCreditsCommitted[rewardAddress] += gcccommitted;
-        GOVERNANCE.grantNominations(rewardAddress, usdcEffect);
-        emit IGCC.GCCCommitted(from, rewardAddress, gcccommitted, usdcEffect, referralAddress);
+        totalCreditsCommitted[rewardAddress] += gccCommitted;
+        GOVERNANCE.grantNominations(rewardAddress, impactPower);
+        emit IGCC.GCCCommitted(from, rewardAddress, gccCommitted, usdcEffect, impactPower, referralAddress);
     }
 
     /**
@@ -356,15 +358,19 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @param amount the amount of USDC TO commit
      * @param referralAddress the address of the referrer (zero for no referrer)
      */
-    function _handleUSDCcommitment(address from, address rewardAddress, uint256 amount, address referralAddress)
-        private
-    {
+    function _handleUSDCcommitment(
+        address from,
+        address rewardAddress,
+        uint256 amount,
+        uint256 impactPower,
+        address referralAddress
+    ) private {
         if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
         //Retiring GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
         totalCreditsCommitted[rewardAddress] += amount;
-        GOVERNANCE.grantNominations(rewardAddress, amount);
-        emit IGCC.USDCCommitted(from, rewardAddress, amount, referralAddress);
+        GOVERNANCE.grantNominations(rewardAddress, impactPower);
+        emit IGCC.USDCCommitted(from, rewardAddress, amount, impactPower, referralAddress);
     }
 
     /**
