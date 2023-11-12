@@ -135,9 +135,9 @@ interface IGCA {
     /**
      * @dev Emitted when a gca submits a new compensation plan.
      * @param agent - the address of the gca agent proposing
-     * @param plans - the compensation plans
+     * @param plan - the compensation plan of the agent
      */
-    event CompensationPlanSubmitted(address indexed agent, ICompensation[] plans);
+    event CompensationPlanSubmitted(address indexed agent, uint32[5] plan);
 
     /**
      * @dev Emitted when a gca claims their payout

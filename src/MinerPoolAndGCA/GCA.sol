@@ -120,7 +120,7 @@ contract GCA is IGCA, GCASalaryHelper {
         uint256 gcaLength = gcaAgents.length;
         if (msg.sender != gcaAgents[indexOfGCA]) _revert(IGCA.CallerNotGCAAtIndex.selector);
         GCASalaryHelper.handleCompensationPlanSubmission(plan, indexOfGCA, gcaLength);
-        // emit IGCA.CompensationPlanSubmitted(msg.sender, plans);
+        emit IGCA.CompensationPlanSubmitted(msg.sender, plan);
     }
 
     /**
