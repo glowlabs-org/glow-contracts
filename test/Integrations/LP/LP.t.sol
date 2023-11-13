@@ -74,7 +74,7 @@ contract SmallLPTest is Test {
     }
 
     function testFuzz_commitWithSmallLp(uint64 amountToCommit) public {
-        vm.assume(amountToCommit > 0.1 ether);
+        vm.assume(amountToCommit > .1 ether);
         commitGCC(SIMON, amountToCommit);
         address pair = uniswapFactory.pairs(address(usdc), address(gcc));
         uint256 gccReserve;
