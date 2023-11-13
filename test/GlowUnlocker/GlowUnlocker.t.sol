@@ -57,8 +57,8 @@ contract GlowUnlockerTest is Test {
         address rewardAddress1 = addresses[0];
         address rewardAddress11 = addresses[10];
         {
-            uint256 amount1 = disperser.amountOwed(rewardAddress1);
-            uint256 amount11 = disperser.amountOwed(rewardAddress11);
+            uint256 amount1 = disperser.amountUnlockable(rewardAddress1);
+            uint256 amount11 = disperser.amountUnlockable(rewardAddress11);
             assert(amount1 == 5_000_000 ether);
             assert(amount11 == 10_000_000 ether);
         }
@@ -138,7 +138,7 @@ contract GlowUnlockerTest is Test {
         disperser.claim(rewardAddress1);
         vm.stopPrank();
 
-        uint256 originalAmountOwed = disperser.amountOwed(rewardAddress1);
+        uint256 originalAmountOwed = disperser.amountUnlockable(rewardAddress1);
 
         uint256 balance = glw.balanceOf(rewardAddress1);
         assert(balance <= originalAmountOwed);

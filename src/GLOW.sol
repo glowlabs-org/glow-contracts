@@ -275,7 +275,6 @@ contract Glow is ERC20, IGlow {
 
         uint256 head = pointers.head;
         uint256 tail = pointers.tail;
-        uint256 newHead = head;
         uint256 newTail = tail;
 
         //Loop through the unstaked positions until claimableTotal >= amount

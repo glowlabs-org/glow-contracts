@@ -5,23 +5,53 @@ import {IGlow} from "@/interfaces/IGlow.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /// @dev should be deployed by glow contract
 
+/**
+ * @title GlowUnlocker
+ * @notice A contract for unlocking glow tokens
+ *         - the contract takes in a list of addresses and amounts
+ *         - and unlocks the glow tokens for those respective addresses and amounts over 6 years
+ */
 contract GlowUnlocker is Ownable {
     error ZeroAddressInConstructor();
     error NothingToClaim();
 
+    /**
+     * @dev the vesting period for glow tokens
+     */
     uint256 private constant VESTING_PERIOD = uint256(365 days) * 6; //6 years
-    mapping(address => uint256) public amountOwed;
+
+    /**
+     * @notice the amount of glow tokens each address unlocks over the course of the vesting period
+     */
+    mapping(address => uint256) public amountUnlockable;
+    /**
+     * @notice the last timestamp the user claimed unlockable glow tokens
+     */
     mapping(address => uint256) public lastClaimedTimestamp;
+
+    /**
+     * @notice the glow token
+     */
     IGlow public glow;
+
+    /**
+     * @notice the genesis timestamp of the glow protocol
+     */
     uint256 public genesisTimestamp;
 
-    constructor(address[] memory _addresses, uint256[] memory _amounts) Ownable(tx.origin) {
+    /**
+     * @param _addresses the addresses to unlock glow tokens for
+     * @param _amounts the amounts to unlock glow tokens for
+     * @dev the length of _addresses and _amounts must be the same
+     * @dev there is a one to one mapping between _addresses and _amounts
+     */
+    constructor(address[] memory _addresses, uint256[] memory _amounts) payable Ownable(tx.origin) {
         unchecked {
             for (uint256 i; i < _addresses.length; ++i) {
                 if (_addresses[i] == address(0)) {
                     revert ZeroAddressInConstructor();
                 }
-                amountOwed[_addresses[i]] = _amounts[i];
+                amountUnlockable[_addresses[i]] = _amounts[i];
             }
         }
     }
@@ -54,8 +84,13 @@ contract GlowUnlocker is Ownable {
         _transferOwnership(address(0));
     }
 
+    /**
+     * @notice Returns the next reward for a given address
+     * @param from the address to get the next reward for
+     * @return reward - next reward for a given address
+     */
     function nextReward(address from) public view returns (uint256) {
-        uint256 amount = amountOwed[from];
+        uint256 amount = amountUnlockable[from];
         uint256 lastClaimedTimestampUser = lastClaimedTimestamp[from];
         if (lastClaimedTimestampUser == 0) {
             lastClaimedTimestampUser = genesisTimestamp;
@@ -66,6 +101,7 @@ contract GlowUnlocker is Ownable {
         return amountToClaim;
     }
 
+    /// @dev finds the minimum of two numbers
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a > b ? b : a;
     }
