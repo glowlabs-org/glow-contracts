@@ -93,7 +93,7 @@ contract Glow is ERC20, IGlow {
     mapping(address => uint256) public numStaked;
 
     /// @notice stores the unstaked positions of a user
-    mapping(address => mapping(uint256 => UnstakedPosition)) private _unstakedPositions;
+    mapping(address => mapping(uint256 => UnstakedPosition)) internal _unstakedPositions;
 
     /// @notice stores the head of the unstaked positions of a user
     /// @dev the head is the last index with data. If we need to push, we push at head + 1

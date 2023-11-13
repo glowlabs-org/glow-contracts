@@ -16,4 +16,8 @@ contract TestGLOW is Glow {
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
+
+    function accessRawUnstakeIndex(address from, uint256 index) external view returns (UnstakedPosition memory) {
+        return _unstakedPositions[from][index];
+    }
 }

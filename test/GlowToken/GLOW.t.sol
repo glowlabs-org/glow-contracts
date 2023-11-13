@@ -76,14 +76,29 @@ contract NewGlowTest is Test {
     }
 
     /**
-     * forge-config: default.invariant.runs = 10000
-     * forge-config: default.invariant.depth = 10
+     * forge-config: default.invariant.runs = 1000
+     * forge-config: default.invariant.depth = 30
+     * @dev these invariants are unlikely to get caught and the test_stakeExactAmount is more likely to catch them
+     */
+    function invariant_allUnstakedPositionsBehindTailShouldBeZero() public {
+        Pointers memory pointers = glw.accountUnstakedPositionPointers(address(handler));
+        uint256 tail = pointers.tail;
+        for (uint256 i; i < tail; ++i) {
+            IGlow.UnstakedPosition memory pos = glw.accessRawUnstakeIndex(address(handler), i);
+            assertEq(pos.amount, 0);
+        }
+    }
+
+    /**
+     * forge-config: default.invariant.runs = 1000
+     * forge-config: default.invariant.depth = 100
      * @dev these invariants are unlikely to get caught and the test_stakeExactAmount is more likely to catch them
      */
     function invariant_tailShouldBeLessThanOrEqToHead_symetricHandler() public {
         Pointers memory pointers = symetricGlow.accountUnstakedPositionPointers(address(symHandler));
         assert(pointers.tail <= pointers.head);
     }
+
     ///--------------------- MODIFIERS ---------------------
 
     /// @param user - the address to mint tokens to
@@ -709,6 +724,61 @@ contract NewGlowTest is Test {
         vm.warp(block.timestamp + FIVE_YEARS);
         vm.expectRevert(IGlow.CannotClaimZeroTokens.selector);
         glw.claimUnstakedTokens(0);
+    }
+
+    function test_tailEverythingBehindTailMustBeZero_whenClaimingExactAmountFromOneClaimablePosition() public {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 1e9 ether);
+        glw.stake(1 ether);
+        glw.unstake(0.5 ether);
+        glw.unstake(0.5 ether);
+        vm.warp(block.timestamp + FIVE_YEARS + 10);
+        glw.claimUnstakedTokens(0.5 ether);
+        Pointers memory pointer = glw.accountUnstakedPositionPointers(SIMON);
+        assert(pointer.tail == 1);
+        IGlow.UnstakedPosition memory unstakedPositionRaw = glw.accessRawUnstakeIndex(SIMON, 0);
+        // logUnstakedPosition(0, unstakedPositionRaw);
+        assert(unstakedPositionRaw.amount == 0);
+        vm.stopPrank();
+    }
+
+    function test_tailEverythingBehindTailMustBeZero_whenClaimingExactAmountFromMultipleClaimablePosition() public {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 1e9 ether);
+        glw.stake(1 ether);
+        glw.unstake(0.5 ether);
+        glw.unstake(0.5 ether);
+        vm.warp(block.timestamp + FIVE_YEARS + 10);
+        glw.claimUnstakedTokens(1 ether);
+        Pointers memory pointer = glw.accountUnstakedPositionPointers(SIMON);
+        assert(pointer.tail == 1);
+        IGlow.UnstakedPosition memory unstakedPositionRaw = glw.accessRawUnstakeIndex(SIMON, 0);
+        // logUnstakedPosition(0, unstakedPositionRaw);
+        assert(unstakedPositionRaw.amount == 0);
+        unstakedPositionRaw = glw.accessRawUnstakeIndex(SIMON, 1);
+        // logUnstakedPosition(1, unstakedPositionRaw);
+        assert(unstakedPositionRaw.amount == 0);
+        vm.stopPrank();
+    }
+    
+
+     function test_tailEverythingBehindTailMustBeZero_whenClaiming_nonExactAmountFromMultipleClaimablePosition() public {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 1e9 ether);
+        glw.stake(1 ether);
+        glw.unstake(0.5 ether);
+        glw.unstake(0.5 ether);
+        vm.warp(block.timestamp + FIVE_YEARS + 10);
+        glw.claimUnstakedTokens(.9 ether);
+        Pointers memory pointer = glw.accountUnstakedPositionPointers(SIMON);
+        assert(pointer.tail == 1);
+        IGlow.UnstakedPosition memory unstakedPositionRaw = glw.accessRawUnstakeIndex(SIMON, 0);
+        // logUnstakedPosition(0, unstakedPositionRaw);
+        assert(unstakedPositionRaw.amount == 0);
+        unstakedPositionRaw = glw.accessRawUnstakeIndex(SIMON, 1);
+        // logUnstakedPosition(1, unstakedPositionRaw);
+        assert(unstakedPositionRaw.amount == .1 ether);
+        vm.stopPrank();
     }
 
     function test_ClaimTokens() public {
