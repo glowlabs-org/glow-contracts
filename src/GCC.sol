@@ -25,7 +25,7 @@ import {IUnifapV2Factory} from "@unifapv2/interfaces/IUnifapV2Factory.sol";
  *         - Once GCC is committed, it can't be uncommitted
  *         - GCC is sold in the carbon credit auction
  *          - The amount of nominations earned is equal to two times the USDC earned from a swap in the commitGCC event as called in the `Swapper`
- *              - When retiring USDC, the amount of nominations earned is equal to the amount of USDC committed
+ *              - When committing USDC, the amount of nominations earned is equal to the amount of USDC committed
  */
 
 contract GCC is ERC20, IGCC, EIP712 {
@@ -47,9 +47,9 @@ contract GCC is ERC20, IGCC, EIP712 {
     IUniswapRouterV2 public immutable UNISWAP_ROUTER = IUniswapRouterV2(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     address public immutable USDC;
 
-    /// @notice The EIP712 typehash for the RetiringPermit struct used by the permit
-    bytes32 public constant RETIRING_PERMIT_TYPEHASH = keccak256(
-        "RetiringPermit(address owner,address spender,address rewardAddress,address referralAddress,uint256 amount,uint256 nonce,uint256 deadline)"
+    /// @notice The EIP712 typehash for the CommitPermit struct used by the permit
+    bytes32 public constant COMMIT_PERMIT_TYPEHASH = keccak256(
+        "CommitPermit(address owner,address spender,address rewardAddress,address referralAddress,uint256 amount,uint256 nonce,uint256 deadline)"
     );
 
     /**
@@ -69,16 +69,16 @@ contract GCC is ERC20, IGCC, EIP712 {
     mapping(address => uint256) public totalUSDCCommitted;
 
     /**
-     * @notice The allowances for retiring GCC
+     * @notice The allowances for committing GCC
      * @dev similar to ERC20
      */
     mapping(address => mapping(address => uint256)) private _commitGCCAllowances;
 
     /**
-     * @notice The next retiring nonce for a user
+     * @notice The next commit nonce for a user
      * @dev similar to ERC20
      */
-    mapping(address => uint256) public nextRetiringNonce;
+    mapping(address => uint256) public nextCommitNonce;
 
     //************************************************************* */
     //*********************  CONSTRUCTOR    ********************** */
@@ -126,7 +126,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         _mint(address(CARBON_CREDIT_AUCTION), amount);
     }
 
-    //-----------------  RETIRING -----------------//
+    //-----------------  committing -----------------//
 
     /**
      * @inheritdoc IGCC
@@ -200,7 +200,7 @@ contract GCC is ERC20, IGCC, EIP712 {
     {
         transferFrom(from, address(IMPACT_CATALYST), amount);
         if (_msgSender() != from) {
-            _decreaseRetiringAllowance(from, _msgSender(), amount, false);
+            _decreaseCommitAllowance(from, _msgSender(), amount, false);
         }
         (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount);
         _handleCommitment(from, rewardAddress, amount, usdcEffect, impactPower, referralAddress);
@@ -225,17 +225,17 @@ contract GCC is ERC20, IGCC, EIP712 {
         address referralAddress
     ) public returns (uint256, uint256) {
         if (block.timestamp > deadline) {
-            _revert(IGCC.RetiringPermitSignatureExpired.selector);
+            _revert(IGCC.CommitPermitSignatureExpired.selector);
         }
 
-        uint256 _nextRetiringNonce = nextRetiringNonce[from]++;
-        bytes32 message = _constructRetiringPermitDigest(
-            from, _msgSender(), rewardAddress, referralAddress, amount, _nextRetiringNonce, deadline
+        uint256 _nextCommitNonce = nextCommitNonce[from]++;
+        bytes32 message = _constructCommitPermitDigest(
+            from, _msgSender(), rewardAddress, referralAddress, amount, _nextCommitNonce, deadline
         );
-        if (!_checkRetiringPermitSignature(from, message, signature)) {
-            _revert(IGCC.RetiringSignatureInvalid.selector);
+        if (!_checkCommitPermitSignature(from, message, signature)) {
+            _revert(IGCC.CommitSignatureInvalid.selector);
         }
-        _increaseRetiringAllowance(from, _msgSender(), amount, false);
+        _increaseCommitAllowance(from, _msgSender(), amount, false);
         uint256 transferAllowance = allowance(from, _msgSender());
         if (transferAllowance < amount) {
             _approve(from, _msgSender(), amount, false);
@@ -257,16 +257,16 @@ contract GCC is ERC20, IGCC, EIP712 {
     //-----------------  ALLOWANCES -----------------//
 
     /// @inheritdoc IGCC
-    function setAllowances(address spender, uint256 transferAllowance, uint256 retiringAllowance) external {
+    function setAllowances(address spender, uint256 transferAllowance, uint256 committingAllowance) external {
         _approve(_msgSender(), spender, transferAllowance);
-        _commitGCCAllowances[_msgSender()][spender] = retiringAllowance;
-        emit IGCC.CommitGCCAllowance(_msgSender(), spender, retiringAllowance);
+        _commitGCCAllowances[_msgSender()][spender] = committingAllowance;
+        emit IGCC.CommitGCCAllowance(_msgSender(), spender, committingAllowance);
     }
 
     /// @inheritdoc IGCC
     function increaseAllowances(address spender, uint256 addedValue) public {
         _approve(_msgSender(), spender, allowance(_msgSender(), spender) + addedValue);
-        _increaseRetiringAllowance(_msgSender(), spender, addedValue, true);
+        _increaseCommitAllowance(_msgSender(), spender, addedValue, true);
     }
 
     /// @inheritdoc IGCC
@@ -278,21 +278,21 @@ contract GCC is ERC20, IGCC, EIP712 {
         unchecked {
             _approve(_msgSender(), spender, currentAllowance - requestedDecrease);
         }
-        _decreaseRetiringAllowance(_msgSender(), spender, requestedDecrease, true);
+        _decreaseCommitAllowance(_msgSender(), spender, requestedDecrease, true);
     }
 
     /**
      * @inheritdoc IGCC
      */
-    function increaseRetiringAllowance(address spender, uint256 amount) external override {
-        _increaseRetiringAllowance(_msgSender(), spender, amount, true);
+    function increaseCommitAllowance(address spender, uint256 amount) external override {
+        _increaseCommitAllowance(_msgSender(), spender, amount, true);
     }
 
     /**
      * @inheritdoc IGCC
      */
-    function decreaseRetiringAllowance(address spender, uint256 amount) external override {
-        _decreaseRetiringAllowance(_msgSender(), spender, amount, true);
+    function decreaseCommitAllowance(address spender, uint256 amount) external override {
+        _decreaseCommitAllowance(_msgSender(), spender, amount, true);
     }
 
     //************************************************************* */
@@ -302,7 +302,7 @@ contract GCC is ERC20, IGCC, EIP712 {
     /**
      * @inheritdoc IGCC
      */
-    function retiringAllowance(address account, address spender) public view override returns (uint256) {
+    function commitAllowance(address account, address spender) public view override returns (uint256) {
         return _commitGCCAllowances[account][spender];
     }
 
@@ -341,13 +341,13 @@ contract GCC is ERC20, IGCC, EIP712 {
     }
 
     /**
-     * @notice handles the storage writes and event emissions relating to retiring carbon credits.
+     * @notice handles the storage writes and event emissions relating to committing carbon credits.
      * @dev should only be used internally and by function that require a transfer of {amount} to address(this)
-     * @param from the address of the account retiring the credits
-     * @param rewardAddress the address to receive the benefits of retiring
+     * @param from the address of the account committing the credits
+     * @param rewardAddress the address to receive the benefits of committing
      * @param usdcEffect - the amount of USDC added into the lp position
      * @param gccCommitted the amount of GCC committed
-     * @param impactPower the effect of retiring on the USDC balance
+     * @param impactPower the effect of committing on the USDC balance
      * @param referralAddress the address of the referrer (zero for no referrer)
      */
     function _handleCommitment(
@@ -359,7 +359,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         address referralAddress
     ) private {
         if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
-        //Retiring GCC is also responsible for syncing proposals in governance.
+        //committing GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
         totalCreditsCommitted[rewardAddress] += gccCommitted;
         GOVERNANCE.grantNominations(rewardAddress, impactPower);
@@ -367,10 +367,10 @@ contract GCC is ERC20, IGCC, EIP712 {
     }
 
     /**
-     * @notice handles the storage writes and event emissions relating to retiring USDC
+     * @notice handles the storage writes and event emissions relating to committing USDC
      * @dev should only be used internally and by function that require a transfer of {amount} to address(this)
-     * @param from the address of the account retiring the credits
-     * @param rewardAddress the address to receive the benefits of retiring
+     * @param from the address of the account committing the credits
+     * @param rewardAddress the address to receive the benefits of committing
      * @param amount the amount of USDC TO commit
      * @param referralAddress the address of the referrer (zero for no referrer)
      */
@@ -382,7 +382,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         address referralAddress
     ) private {
         if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
-        //Retiring GCC is also responsible for syncing proposals in governance.
+        //committing GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
         totalUSDCCommitted[rewardAddress] += amount;
         GOVERNANCE.grantNominations(rewardAddress, impactPower);
@@ -390,15 +390,15 @@ contract GCC is ERC20, IGCC, EIP712 {
     }
 
     /**
-     * @dev internal function to increase the retiring allowance
+     * @dev internal function to increase the committing allowance
      * @param from the address of the account to increase the allowance from
      * @param spender the address of the spender to increase the allowance for
      * @param amount the amount to increase the allowance by
      * @param emitEvent whether or not to emit the event
      */
-    function _increaseRetiringAllowance(address from, address spender, uint256 amount, bool emitEvent) private {
+    function _increaseCommitAllowance(address from, address spender, uint256 amount, bool emitEvent) private {
         if (amount == 0) {
-            _revert(IGCC.MustIncreaseRetiringAllowanceByAtLeastOne.selector);
+            _revert(IGCC.MustIncreaseCommitAllowanceByAtLeastOne.selector);
         }
         uint256 currentAllowance = _commitGCCAllowances[from][spender];
         uint256 newAllowance;
@@ -417,14 +417,14 @@ contract GCC is ERC20, IGCC, EIP712 {
     }
 
     /**
-     * @dev internal function to decrease the retiring allowance
+     * @dev internal function to decrease the committing allowance
      * @param from the address of the account to decrease the allowance from
      * @param spender the address of the spender to decrease the allowance for
      * @param amount the amount to decrease the allowance by
      * @param emitEvent whether or not to emit the event
      * @dev underflow auto-reverts due to built in safemath
      */
-    function _decreaseRetiringAllowance(address from, address spender, uint256 amount, bool emitEvent) private {
+    function _decreaseCommitAllowance(address from, address spender, uint256 amount, bool emitEvent) private {
         uint256 currentAllowance = _commitGCCAllowances[from][spender];
 
         uint256 newAllowance = currentAllowance - amount;
@@ -448,17 +448,17 @@ contract GCC is ERC20, IGCC, EIP712 {
     }
 
     /**
-     * @dev Constructs a retiring permit EIP712 message hash to be signed
+     * @dev Constructs a committing permit EIP712 message hash to be signed
      * @param owner The owner of the funds
      * @param spender The spender
-     * @param rewardAddress - the address to receive the benefits of retiring
+     * @param rewardAddress - the address to receive the benefits of committing
      * @param referralAddress - the address of the referrer
      * @param amount The amount of funds
      * @param nonce The next nonce
      * @param deadline The deadline for the signature to be valid
      * @return digest The EIP712 digest
      */
-    function _constructRetiringPermitDigest(
+    function _constructCommitPermitDigest(
         address owner,
         address spender,
         address rewardAddress,
@@ -470,7 +470,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         return _hashTypedDataV4(
             keccak256(
                 abi.encode(
-                    RETIRING_PERMIT_TYPEHASH, owner, spender, rewardAddress, referralAddress, amount, nonce, deadline
+                    COMMIT_PERMIT_TYPEHASH, owner, spender, rewardAddress, referralAddress, amount, nonce, deadline
                 )
             )
         );
@@ -484,7 +484,7 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @return bool indicating if the signature was valid (true) or not (false).
      * @dev accounts for EIP-1271 magic values as well
      */
-    function _checkRetiringPermitSignature(address signer, bytes32 message, bytes memory signature)
+    function _checkCommitPermitSignature(address signer, bytes32 message, bytes memory signature)
         private
         view
         returns (bool)

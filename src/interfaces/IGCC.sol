@@ -6,10 +6,10 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 interface IGCC is IERC20 {
     error CallerNotGCAContract();
     error BucketAlreadyMinted();
-    error RetiringPermitSignatureExpired();
-    error RetiringSignatureInvalid();
-    error RetiringAllowanceUnderflow();
-    error MustIncreaseRetiringAllowanceByAtLeastOne();
+    error CommitPermitSignatureExpired();
+    error CommitSignatureInvalid();
+    error CommitAllowanceUnderflow();
+    error MustIncreaseCommitAllowanceByAtLeastOne();
     error CannotReferSelf();
 
     /**
@@ -106,55 +106,55 @@ interface IGCC is IERC20 {
     ) external returns (uint256 impactPower);
 
     /**
-     * @notice direct setter to set transfer allowance and retiring allowance in one transaction for a {spender}
+     * @notice direct setter to set transfer allowance and committing allowance in one transaction for a {spender}
      * @param spender the address of the spender to set the allowances for
      * @param transferAllowance the amount of transfer allowance to set
-     * @param retiringAllowance the amount of retiring allowance to set
+     * @param committingAllowance the amount of committing allowance to set
      */
-    function setAllowances(address spender, uint256 transferAllowance, uint256 retiringAllowance) external;
+    function setAllowances(address spender, uint256 transferAllowance, uint256 committingAllowance) external;
 
     /**
      * @notice approves a spender to commit credits on behalf of the caller
      * @param spender the address of the spender
      * @param amount the amount of credits to approve
      */
-    function increaseRetiringAllowance(address spender, uint256 amount) external;
+    function increaseCommitAllowance(address spender, uint256 amount) external;
 
     /**
      * @notice decreases a spender's allowance to commit credits on behalf of the caller
      * @param spender the address of the spender
      * @param amount the amount of credits to decrease the allowance by
      */
-    function decreaseRetiringAllowance(address spender, uint256 amount) external;
+    function decreaseCommitAllowance(address spender, uint256 amount) external;
 
     /**
-     * @notice allows a user to increase the erc20 and retiring allowance of a spender in one transaction
+     * @notice allows a user to increase the erc20 and committing allowance of a spender in one transaction
      * @param spender the address of the spender
      * @param addedValue the amount of credits to increase the allowance by
      */
     function increaseAllowances(address spender, uint256 addedValue) external;
 
     /**
-     * @notice allows a user to decrease the erc20 and retiring allowance of a spender in one transaction
+     * @notice allows a user to decrease the erc20 and committing allowance of a spender in one transaction
      * @param spender the address of the spender
      * @param requestedDecrease the amount of credits to decrease the allowance by
      */
     function decreaseAllowances(address spender, uint256 requestedDecrease) external;
 
     /**
-     * @notice returns the retiring allowance for a user
+     * @notice returns the committing allowance for a user
      * @param account the address of the account to check
      * @param spender the address of the spender to check
-     * @return the retiring allowance
+     * @return the committing allowance
      */
-    function retiringAllowance(address account, address spender) external view returns (uint256);
+    function commitAllowance(address account, address spender) external view returns (uint256);
 
     /**
-     * @notice returns the next nonce to be used when retiring credits
+     * @notice returns the next nonce to be used when committing credits
      *         - only applies when the user is using EIP712 signatures similar to Permit
      * @param account the address of the account to check
      */
-    function nextRetiringNonce(address account) external view returns (uint256);
+    function nextCommitNonce(address account) external view returns (uint256);
 
     /**
      * @notice the entry point for an approved entity to commit credits on behalf of a user

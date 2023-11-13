@@ -702,25 +702,25 @@ contract GCCTest is Test {
 
     function test_setRetiringAllowance_single() public {
         vm.startPrank(SIMON);
-        gcc.increaseRetiringAllowance(other, 500_000);
+        gcc.increaseCommitAllowance(other, 500_000);
 
-        assertEq(gcc.retiringAllowance(SIMON, other), 500_000);
+        assertEq(gcc.commitAllowance(SIMON, other), 500_000);
 
-        gcc.decreaseRetiringAllowance(other, 250_000);
-        assertEq(gcc.retiringAllowance(SIMON, other), 250_000);
+        gcc.decreaseCommitAllowance(other, 250_000);
+        assertEq(gcc.commitAllowance(SIMON, other), 250_000);
 
-        gcc.decreaseRetiringAllowance(other, 250_000);
-        assertEq(gcc.retiringAllowance(SIMON, other), 0);
+        gcc.decreaseCommitAllowance(other, 250_000);
+        assertEq(gcc.commitAllowance(SIMON, other), 0);
 
         vm.expectRevert(stdError.arithmeticError);
-        gcc.decreaseRetiringAllowance(other, 1);
+        gcc.decreaseCommitAllowance(other, 1);
     }
 
     function test_setRetiringAllowances_overflowShouldSetToUintMax() public {
         vm.startPrank(SIMON);
-        gcc.increaseRetiringAllowance(other, type(uint256).max);
-        gcc.increaseRetiringAllowance(other, 5 ether);
-        assertEq(gcc.retiringAllowance(SIMON, other), type(uint256).max);
+        gcc.increaseCommitAllowance(other, type(uint256).max);
+        gcc.increaseCommitAllowance(other, 5 ether);
+        assertEq(gcc.commitAllowance(SIMON, other), type(uint256).max);
     }
 
     function test_setAllowances() public {
@@ -728,14 +728,14 @@ contract GCCTest is Test {
         uint256 retiringApproval = 900_000;
         vm.startPrank(SIMON);
         gcc.setAllowances(other, transferApproval, retiringApproval);
-        assertEq(gcc.retiringAllowance(SIMON, other), retiringApproval);
+        assertEq(gcc.commitAllowance(SIMON, other), retiringApproval);
         assertEq(gcc.allowance(SIMON, other), transferApproval);
     }
 
     function test_setRetiringAllowances_underflowShouldRevert() public {
         vm.startPrank(SIMON);
         vm.expectRevert(stdError.arithmeticError);
-        gcc.decreaseRetiringAllowance(other, 1 ether);
+        gcc.decreaseCommitAllowance(other, 1 ether);
     }
 
     // Sets transfer allowance and retiring allowance in one
@@ -743,15 +743,15 @@ contract GCCTest is Test {
         vm.startPrank(SIMON);
         gcc.increaseAllowances(other, 500_000);
 
-        assertEq(gcc.retiringAllowance(SIMON, other), 500_000);
+        assertEq(gcc.commitAllowance(SIMON, other), 500_000);
         assertEq(gcc.allowance(SIMON, other), 500_000);
 
         gcc.decreaseAllowances(other, 250_000);
-        assertEq(gcc.retiringAllowance(SIMON, other), 250_000);
+        assertEq(gcc.commitAllowance(SIMON, other), 250_000);
         assertEq(gcc.allowance(SIMON, other), 250_000);
 
         gcc.decreaseAllowances(other, 250_000);
-        assertEq(gcc.retiringAllowance(SIMON, other), 0);
+        assertEq(gcc.commitAllowance(SIMON, other), 0);
         assertEq(gcc.allowance(SIMON, other), 0);
 
         vm.expectRevert();
@@ -761,7 +761,7 @@ contract GCCTest is Test {
     function test_commitGCC_onlyRetiringApproval_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1e20 ether);
-        gcc.increaseRetiringAllowance(other, 1e20 ether);
+        gcc.increaseCommitAllowance(other, 1e20 ether);
         vm.stopPrank();
 
         vm.startPrank(other);
@@ -795,7 +795,7 @@ contract GCCTest is Test {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1 ether);
         gcc.increaseAllowances(other, 1 ether);
-        assertEq(gcc.retiringAllowance(SIMON, other), 1 ether);
+        assertEq(gcc.commitAllowance(SIMON, other), 1 ether);
         assertEq(gcc.allowance(SIMON, other), 1 ether);
         vm.stopPrank();
 
@@ -809,7 +809,7 @@ contract GCCTest is Test {
         gcc.mint(SIMON, 1 ether);
         vm.stopPrank();
         bytes memory signature = _signPermit(
-            SIMON, other, other, address(0), 1 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+            SIMON, other, other, address(0), 1 ether, gcc.nextCommitNonce(SIMON), block.timestamp + 1000, SIMON_PK
         );
 
         vm.startPrank(other);
@@ -817,7 +817,7 @@ contract GCCTest is Test {
 
         assertEq(gcc.balanceOf(SIMON), 0);
         assertEq(gcc.totalCreditsCommitted(other), 1 ether);
-        assertEq(gcc.retiringAllowance(SIMON, other), 0);
+        assertEq(gcc.commitAllowance(SIMON, other), 0);
     }
 
     function test_commitGCC_Signature_referSelf_shouldRevert() public {
@@ -825,7 +825,7 @@ contract GCCTest is Test {
         gcc.mint(SIMON, 1 ether);
         vm.stopPrank();
         bytes memory signature = _signPermit(
-            SIMON, other, other, SIMON, 1 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+            SIMON, other, other, SIMON, 1 ether, gcc.nextCommitNonce(SIMON), block.timestamp + 1000, SIMON_PK
         );
 
         vm.startPrank(other);
@@ -840,13 +840,13 @@ contract GCCTest is Test {
         uint256 currentTimestamp = block.timestamp;
         uint256 sigTimestamp = block.timestamp + 1000;
         bytes memory signature = _signPermit(
-            SIMON, other, SIMON, address(0), 1 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+            SIMON, other, SIMON, address(0), 1 ether, gcc.nextCommitNonce(SIMON), block.timestamp + 1000, SIMON_PK
         );
 
         vm.startPrank(other);
         vm.warp(sigTimestamp + 1);
 
-        vm.expectRevert(IGCC.RetiringPermitSignatureExpired.selector);
+        vm.expectRevert(IGCC.CommitPermitSignatureExpired.selector);
         gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
     }
 
@@ -857,11 +857,11 @@ contract GCCTest is Test {
         uint256 currentTimestamp = block.timestamp;
         uint256 sigTimestamp = block.timestamp + 1000;
         bytes memory signature = _signPermit(
-            SIMON, other, SIMON, address(0), 1 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+            SIMON, other, SIMON, address(0), 1 ether, gcc.nextCommitNonce(SIMON), block.timestamp + 1000, SIMON_PK
         );
 
         vm.startPrank(other);
-        vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
+        vm.expectRevert(IGCC.CommitSignatureInvalid.selector);
         gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp + 1, signature);
     }
 
@@ -878,20 +878,20 @@ contract GCCTest is Test {
             badActor,
             address(0),
             1 ether,
-            gcc.nextRetiringNonce(SIMON),
+            gcc.nextCommitNonce(SIMON),
             block.timestamp + 1000,
             badActorPk
         );
 
         vm.startPrank(other);
-        vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
+        vm.expectRevert(IGCC.CommitSignatureInvalid.selector);
         gcc.commitGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
     }
 
-    function test_cannotIncreaseRetiringAllowanceByZero() public {
+    function test_cannotincreaseCommitAllowanceByZero() public {
         vm.startPrank(SIMON);
-        vm.expectRevert(IGCC.MustIncreaseRetiringAllowanceByAtLeastOne.selector);
-        gcc.increaseRetiringAllowance(other, 0);
+        vm.expectRevert(IGCC.MustIncreaseCommitAllowanceByAtLeastOne.selector);
+        gcc.increaseCommitAllowance(other, 0);
         vm.stopPrank();
     }
 
@@ -902,12 +902,12 @@ contract GCCTest is Test {
         uint256 currentTimestamp = block.timestamp;
         uint256 sigTimestamp = block.timestamp + 1000;
         bytes memory signature = _signPermit(
-            SIMON, other, other, address(0), 1 ether, gcc.nextRetiringNonce(SIMON), block.timestamp + 1000, SIMON_PK
+            SIMON, other, other, address(0), 1 ether, gcc.nextCommitNonce(SIMON), block.timestamp + 1000, SIMON_PK
         );
 
         vm.startPrank(other);
         gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
-        vm.expectRevert(IGCC.RetiringSignatureInvalid.selector);
+        vm.expectRevert(IGCC.CommitSignatureInvalid.selector);
         gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
     }
 
@@ -1012,7 +1012,7 @@ contract GCCTest is Test {
     ) internal returns (bytes memory signature) {
         bytes32 structHash = keccak256(
             abi.encode(
-                gcc.RETIRING_PERMIT_TYPEHASH(), owner, spender, rewardAddress, referralAddress, amount, nonce, deadline
+                gcc.COMMIT_PERMIT_TYPEHASH(), owner, spender, rewardAddress, referralAddress, amount, nonce, deadline
             )
         );
         bytes32 messageHash = MessageHashUtils.toTypedDataHash(gcc.domainSeparatorV4(), structHash);
