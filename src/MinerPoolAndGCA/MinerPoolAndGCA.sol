@@ -50,9 +50,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     /// @dev the maximum amount of reserve currencies concurrently allowed at a single time
     uint256 private constant _MAX_RESERVE_CURRENCIES = 3;
 
-    /// @notice the number of reserve currencies currently active
-    uint256 public numReserveCurrencies;
-
     /// @notice the GCC contract
     IGCC public gccContract;
 
@@ -119,7 +116,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         HOLDING_CONTRACT = IHoldingContract(_holdingContract);
         HOLDING_CONTRACT.setMinerPool(address(this));
         USDC = _grcToken;
-        ++numReserveCurrencies;
     }
 
     //************************************************************* */

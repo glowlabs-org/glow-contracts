@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
+import "forge-std/console.sol";
 
 contract ImpactCatalyst {
     error CallerNotGCC();
@@ -60,6 +61,8 @@ contract ImpactCatalyst {
             GCC, USDC, amountToAddInLiquidity, amountUSDCReceived, 0, 0, address(this), block.timestamp
         );
         usdcEffect = amountUSDCReceived;
+        console.log("amount gcc adding into liquidity = %s", amountToAddInLiquidity);
+        console.log("amount usdc adding into liquidity = %s", amountUSDCReceived);
         nominations = sqrt(amountToAddInLiquidity * amountUSDCReceived);
     }
 
