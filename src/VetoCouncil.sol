@@ -140,11 +140,10 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
         return VetoCouncilSalaryHelper._isCouncilMember(agent);
     }
 
+    /// @notice pulls glow from inflation for the veto council contract
     function pullGlowFromInflation() public {
         IGlow(address(GLOW_TOKEN)).claimGLWFromVetoCouncil();
     }
-
-    //----------------- PRIVATE -----------------
 
     //----------------- UTILS -----------------
 

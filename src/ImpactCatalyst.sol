@@ -4,25 +4,59 @@ pragma solidity ^0.8.19;
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
-import "forge-std/console.sol";
 
+/**
+ * @title ImpactCatalyst
+ * @notice A contract for managing the GCC and USDC committments
+ *         A committment is when a user `donates` their GCC or USDC to the GCC-USDC pool
+ *         to increase the liquidity of the pool and earn nominations
+ *         For each commit, `amount` of GCC or USDC is swapped for the other token
+ *         for the optimal amount such that the return amount of the other token
+ *         is exactly enough to add liquidity to the GCC-USDC pool without any left over of either token
+ *         (precision errors may have small dust)
+ *         - Nominations are granted as (sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition))
+ *         - This is done to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
+ * @dev only the GCC contract can call this contract since GCC is the only contract that is allowed to grant nominations
+ * - having the catalyst calls be open would lead to committments that would not earn any impact points / rewards / nominations
+ */
 contract ImpactCatalyst {
     error CallerNotGCC();
     error PrecisionLossLeadToUnderflow();
 
+    /// @notice the GCC token
     address public immutable GCC;
+
+    /// @notice the USDC token
     address public immutable USDC;
+
+    /// @notice the uniswap router
     IUniswapRouterV2 public immutable UNISWAP_ROUTER;
+
+    /// @notice the uniswap factory
     address public immutable UNISWAP_V2_FACTORY;
+
+    /// @notice the uniswap pair of GCC and USDC
     address public immutable UNISWAP_V2_PAIR;
+
+    /// @dev the magnification of GCC to use in {findOptimalAmountToCommit} to reduce precision loss
+    /// @dev GCC is in 18 decimals, so we can make it 1e18 to reduce precision loss
     uint256 private constant GCC_MAGNIFICATION = 1e18;
+
+    /// @dev the magnification of USDC to use in {findOptimalAmountToCommit} to reduce precision loss
+    /// @dev USDC is in 6 decimals, so we can make it 1e24 to reduce precision loss
     uint256 private constant USDC_MAGNIFICATION = 1e24;
 
+    /**
+     * @param _usdc - the address of the USDC token
+     * @param router - the address of the uniswap router
+     * @param factory - the address of the uniswap factory
+     * @param pair - the address of the uniswap pair of GCC and USDC
+     */
     constructor(address _usdc, address router, address factory, address pair) payable {
         GCC = msg.sender;
         USDC = _usdc;
-        UNISWAP_V2_FACTORY = factory;
         UNISWAP_ROUTER = IUniswapRouterV2(router);
+        UNISWAP_V2_FACTORY = factory;
         UNISWAP_V2_PAIR = pair;
     }
 
@@ -61,8 +95,6 @@ contract ImpactCatalyst {
             GCC, USDC, amountToAddInLiquidity, amountUSDCReceived, 0, 0, address(this), block.timestamp
         );
         usdcEffect = amountUSDCReceived;
-        console.log("amount gcc adding into liquidity = %s", amountToAddInLiquidity);
-        console.log("amount usdc adding into liquidity = %s", amountUSDCReceived);
         nominations = sqrt(amountToAddInLiquidity * amountUSDCReceived);
     }
 
