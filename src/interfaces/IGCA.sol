@@ -56,14 +56,60 @@ interface IGCA {
      */
     function gcaPayoutData(address gca) external view returns (GCAPayout memory);
 
-    function pushHash(bytes32 hash, bool incrementSlashNonce) external;
-    function setRequirementsHash(bytes32 _requirementsHash) external;
     /**
-     * @return shares - the amount of shares the gca has
-     * @return totalShares - the total amount of shares across all GCAs
+     * @notice allows governance to push a hash to execute against
+     * @param hash - the hash to execute against
+     * @param incrementSlashNonce - whether or not to increment the slash nonce
+     *         - incrementing the slash nonce means that all non-finalized buckets will be slashed
+     *             - and must be reinstated
+     * @dev the hash is the abi.encode of the following:
+     *         - the gca agents to slash
+     *         - the new gca agents
+     *         - the proposal creation timestamp
+     */
+    function pushHash(bytes32 hash, bool incrementSlashNonce) external;
+
+    /**
+     * @notice allows governance to change the requirements hash of GCA's
+     *         - the requirements hash represents a hash of the duties and responsibilities of a GCA
+     * @param  _requirementsHash - the new requirements hash
+     */
+    function setRequirementsHash(bytes32 _requirementsHash) external;
+
+    /**
+     * @notice - returns all proposal hashes
+     * @return proposalHashes - the proposal hashes
+     */
+    function getProposalHashes() external view returns (bytes32[] memory);
+
+    /**
+     * @notice - returns a range of proposal hashes
+     * @param start - the start index
+     * @param end - the end index
+     * @return proposalHashes - the proposal hashes
+     */
+    function getProposalHashes(uint256 start, uint256 end) external view returns (bytes32[] memory);
+
+    /**
+     * @notice returns the global state of a bucket
+     * @param bucketId - the id of the bucket
+     * @return the global state of a bucket
+     */
+    function bucketGlobalState(uint256 bucketId) external view returns (BucketGlobalState memory);
+
+    /**
+     * @notice returns the {Bucket} struct for a given week / bucketId
+     * @param bucketId - the id of the bucket
+     * @return bucket - the {Bucket} struct for a given bucketId
+     */
+    function bucket(uint256 bucketId) external view returns (Bucket memory);
+
+    /**
+     * @notice returns if the bucket is finalized or not
+     * @param bucketId - the id of the bucket
      */
 
-    // function getShares(address gca) external view returns (uint256 shares, uint256 totalShares);
+    function isBucketFinalized(uint256 bucketId) external view returns (bool);
 
     /**
      * @dev a struct to represent a compensation plan

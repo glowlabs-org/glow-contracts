@@ -283,6 +283,9 @@ contract GCA is IGCA, GCASalaryHelper {
         emit IGCA.ProposalHashUpdate(_nextProposalIndexToUpdate, derivedHash);
     }
 
+    /**
+     * @inheritdoc IGCA
+     */
     function setRequirementsHash(bytes32 _requirementsHash) external {
         if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
         requirementsHash = _requirementsHash;
@@ -290,15 +293,7 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     /**
-     * @notice allows governance to push a hash to execute against
-     * @param hash - the hash to execute against
-     * @param incrementSlashNonce - whether or not to increment the slash nonce
-     *         - incrementing the slash nonce means that all non-finalized buckets will be slashed
-     *             - and must be reinstated
-     * @dev the hash is the abi.encode of the following:
-     *         - the gca agents to slash
-     *         - the new gca agents
-     *         - the proposal creation timestamp
+     * @inheritdoc IGCA
      */
     function pushHash(bytes32 hash, bool incrementSlashNonce) external {
         if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
@@ -330,18 +325,14 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     /**
-     * @notice - returns all proposal hashes
-     * @return proposalHashes - the proposal hashes
+     * @inheritdoc IGCA
      */
     function getProposalHashes() external view returns (bytes32[] memory) {
         return proposalHashes;
     }
 
     /**
-     * @notice - returns a range of proposal hashes
-     * @param start - the start index
-     * @param end - the end index
-     * @return proposalHashes - the proposal hashes
+     * @inheritdoc IGCA
      */
     function getProposalHashes(uint256 start, uint256 end) external view returns (bytes32[] memory) {
         if (end > proposalHashes.length) end = proposalHashes.length;
@@ -356,9 +347,7 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     /**
-     * @notice returns the global state of a bucket
-     * @param bucketId - the id of the bucket
-     * @return the global state of a bucket
+     * @inheritdoc IGCA
      */
     function bucketGlobalState(uint256 bucketId) external view returns (IGCA.BucketGlobalState memory) {
         return _bucketGlobalState[bucketId];
@@ -396,19 +385,15 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     /**
-     * @notice returns the {Bucket} struct for a given week / bucketId
-     * @param bucketId - the id of the bucket
-     * @return bucket - the {Bucket} struct for a given bucketId
+     * @inheritdoc IGCA
      */
     function bucket(uint256 bucketId) public view returns (IGCA.Bucket memory bucket) {
         return _buckets[bucketId];
     }
 
     /**
-     * @notice returns if the bucket is finalized or not
-     * @param bucketId - the id of the bucket
+     * @inheritdoc IGCA
      */
-
     function isBucketFinalized(uint256 bucketId) public view returns (bool) {
         uint256 packedData;
         // solhint-disable-next-line no-inline-assembly
