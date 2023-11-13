@@ -59,14 +59,9 @@ contract GCC is ERC20, IGCC, EIP712 {
     mapping(uint256 => uint256) private _mintedBucketsBitmap;
 
     /**
-     * @notice The total credits committed by a user
+     * @notice The total impact power earned by a user from their USDC or GCC commitments
      */
-    mapping(address => uint256) public totalCreditsCommitted;
-
-    /**
-     * @notice the total USDC committed by a user
-     */
-    mapping(address => uint256) public totalUSDCCommitted;
+    mapping(address => uint256) public totalImpactPowerEarned;
 
     /**
      * @notice The allowances for committing GCC
@@ -251,7 +246,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         uint256 deadline,
         bytes calldata signature
     ) external returns (uint256 usdcEffect, uint256 impactPower) {
-        commitGCCForAuthorized(from, rewardAddress, amount, deadline, signature, address(0));
+        return (commitGCCForAuthorized(from, rewardAddress, amount, deadline, signature, address(0)));
     }
 
     //-----------------  ALLOWANCES -----------------//
@@ -361,7 +356,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
         //committing GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
-        totalCreditsCommitted[rewardAddress] += gccCommitted;
+        totalImpactPowerEarned[rewardAddress] += impactPower;
         GOVERNANCE.grantNominations(rewardAddress, impactPower);
         emit IGCC.GCCCommitted(from, rewardAddress, gccCommitted, usdcEffect, impactPower, referralAddress);
     }
@@ -384,7 +379,7 @@ contract GCC is ERC20, IGCC, EIP712 {
         if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
         //committing GCC is also responsible for syncing proposals in governance.
         GOVERNANCE.syncProposals();
-        totalUSDCCommitted[rewardAddress] += amount;
+        totalImpactPowerEarned[rewardAddress] += impactPower;
         GOVERNANCE.grantNominations(rewardAddress, impactPower);
         emit IGCC.USDCCommitted(from, rewardAddress, amount, impactPower, referralAddress);
     }
