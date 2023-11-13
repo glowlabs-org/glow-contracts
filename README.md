@@ -4,32 +4,35 @@ Full Documentation can be found
 
 | Filename | Code | Comment |
 |----------|------|---------|
-| BucketSubmission | 139 | 190 |
-| CarbonCreditDutchAuction | 124 | 91 |
+| BatchRetire | 26 | 41 |
+| BucketSubmission | 99 | 156 |
+| CarbonCreditDutchAuction | 124 | 93 |
 | EarlyLiquidity | 106 | 194 |
-| GCA | 423 | 213 |
-| GCASalaryHelper | 203 | 163 |
-| GCC | 172 | 138 |
+| GCA | 440 | 289 |
+| GCASalaryHelper | 203 | 161 |
+| GCC | 276 | 183 |
 | GLOW | 329 | 260 |
-| Governance | 848 | 541 |
+| GlowUnlocker | 50 | 14 |
+| Governance | 811 | 535 |
 | GrantsTreasury | 51 | 55 |
 | HalfLife | 14 | 16 |
 | HalfLifeCarbonCreditAuction | 17 | 17 |
-| HoldingContract | 111 | 139 |
+| HoldingContract | 107 | 136 |
 | ICarbonCreditAuction | 9 | 24 |
 | IEarlyLiquidity | 14 | 27 |
-| IGCA | 62 | 81 |
-| IGCC | 34 | 91 |
+| IGCA | 77 | 116 |
+| IGCC | 78 | 169 |
 | IGlow | 49 | 80 |
-| IGovernance | 109 | 99 |
+| IGovernance | 102 | 100 |
 | IGrantsTreasury | 13 | 39 |
-| IMinerPool | 38 | 48 |
+| IMinerPool | 44 | 59 |
 | IVetoCouncil | 14 | 35 |
-| MinerPoolAndGCA | 310 | 192 |
+| ImpactCatalyst | 114 | 62 |
+| MinerPoolAndGCA | 255 | 165 |
 | VestingMathLib | 32 | 25 |
 | VetoCouncil | 79 | 55 |
-| VetoCouncilSalaryHelper | 205 | 188 |
-| Total | 3505 | 3001 |
+| VetoCouncilSalaryHelper | 205 | 189 |
+| Total | 3738 | 3295 |
 
 
 ## Requirements
