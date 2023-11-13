@@ -43,39 +43,68 @@ interface IMinerPool {
     function donateToGRCMinerRewardsPoolEarlyLiquidity(uint256 amount) external;
 
     /**
-     * @param grcToken - the address of the grc token
-     * @param hash - the hash of the auction data
-     * @param minimumBid - the minimum bid for the auction
-     * @param endTime - the end time of the auction
-     * @param highestBid - the highest bid for the auction
-     * @param highestBidder - the highest bidder for the auction
+     * @notice allows a user to claim their rewards for a bucket
+     * @dev It's highly recommended to use a CLI or UI to call this function.
+     *             - the proof can only be generated off-chain with access to the entire tree
+     *             - furthermore, GRC tokens must be correctly input in order to receive rewards
+     *             - the grc tokens should be kept on record off-chain.
+     *             - failure to input all correct GRC Tokens will result in lost rewards
+     * @param bucketId - the id of the bucket
+     * @param glwWeight - the weight of the user's glw rewards
+     * @param grcWeight - the weight of the user's grc rewards
+     * @param proof - the merkle proof of the user's rewards
+     *                     - the leaves are {payoutWallet, glwWeight, grcWeight}
+     * @param index - the index of the report in the bucket
+     *                     - that contains the merkle root where the user's rewards are stored
+     * @param user - the address of the user
+     * @param claimFromInflation - whether or not to claim glow from inflation
+     * @param signature - the eip712 signature that allows a relayer to execute the action
+     *               - to claim for a user.
+     *               - the relayer is not able to access rewards under any means
+     *               - rewards are always sent to the {user}
      */
-    struct ElectricityFutureAuction {
-        address grcToken;
-        bytes32 hash;
-        uint192 minimumBid;
-        uint64 endTime;
-        uint256 highestBid;
-        address highestBidder;
-    }
+    function claimRewardFromBucket(
+        uint256 bucketId,
+        uint256 glwWeight,
+        uint256 grcWeight,
+        bytes32[] calldata proof,
+        uint256 index,
+        address user,
+        bool claimFromInflation,
+        bytes memory signature
+    ) external;
 
     /**
-     * @notice emitted when a GCA creates a new electricity future auction
-     * @param id - the id of the auction
-     * @param grcToken - the address of the grc token
-     * @param hash - the hash of the auction data
-     * @param minimumBid - the minimum bid for the auction
-     * @param endTime - the end time of the auction
+     * @notice allows a veto council member to delay the finalization of a bucket
+     * @dev the bucket must already be initialized in order to be delayed
+     * @dev the bucket cannot be finalized in order to be delayed
+     * @dev the bucket can be delayed multiple times
+     * @param bucketId - the id of the bucket to delay
      */
-    event ElectricityFutureAuctionCreated(
-        uint256 indexed id, address grcToken, bytes32 hash, uint256 minimumBid, uint256 endTime
-    );
+    function delayBucketFinalization(uint256 bucketId) external;
 
     /**
-     * @notice emitted when a new highest bid is placed on an electricity future auction
-     * @param bidder - the address of the bidder
-     * @param auctionId - the id of the auction
-     * @param amount - the amount of the bid
+     * @notice returns true if a bucket has been delayed
+     * @param bucketId - the id of the bucket
+     * @return true if the bucket has been delayed
      */
-    event FuturesBid(address indexed bidder, uint256 indexed auctionId, uint256 amount);
+    function hasBucketBeenDelayed(uint256 bucketId) external view returns (bool);
+
+    /**
+     * @notice returns the bytes32 digest of the claim reward from bucket message
+     * @param bucketId - the id of the bucket
+     * @param glwWeight - the weight of the user's glw rewards in the leaf of the report root
+     * @param grcWeight - the weight of the user's grc rewards in the leaf of the report root
+     * @param index - the index of the report in the bucket
+     *                     - that contains the merkle root where the user's rewards are stored
+     * @param claimFromInflation - whether or not to claim glow from inflation
+     * @return the bytes32 digest of the claim reward from bucket message
+     */
+    function createClaimRewardFromBucketDigest(
+        uint256 bucketId,
+        uint256 glwWeight,
+        uint256 grcWeight,
+        uint256 index,
+        bool claimFromInflation
+    ) external view returns (bytes32);
 }

@@ -3,8 +3,6 @@ pragma solidity ^0.8.19;
 
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-/**
- */
 
 contract GCASalaryHelper {
     error HashesNotUpdated();
