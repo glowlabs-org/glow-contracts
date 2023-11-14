@@ -218,5 +218,11 @@ interface IGovernance {
      */
     event ProposalVetoed(uint256 indexed weekId, address indexed vetoer, uint256 proposalId);
 
+    /**
+     * @notice emitted when an rfc proposal is executed succesfully.
+     * - RFC Proposals don't change the state of the system, so rather than performing state changes
+     *         - we emit an event to alert that the proposal was executed succesfully
+     *         - and that the rfc requires attention
+     */
     event RFCProposalExecuted(uint256 indexed proposalId, bytes32 requirementsHash);
 }
