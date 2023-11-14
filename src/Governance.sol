@@ -335,7 +335,7 @@ contract Governance is IGovernance, EIP712 {
             }
         }
 
-        handleProposalExecution(proposalId, proposalType, proposal.data);
+        handleProposalExecution(week, proposalId, proposalType, proposal.data);
         lastExecutedWeek = week;
     }
 
@@ -419,7 +419,7 @@ contract Governance is IGovernance, EIP712 {
                     }
                 }
             }
-            handleProposalExecution(proposalId, proposalType, proposal.data);
+            handleProposalExecution(_nextWeekToExecute, proposalId, proposalType, proposal.data);
         }
     }
 
@@ -1127,13 +1127,17 @@ contract Governance is IGovernance, EIP712 {
 
     /**
      * @dev internal function to execute a proposal
+     * @param week the week where the proposal was most popular
      * @param proposalId the id of the proposal
      * @param proposalType the type of the proposal
      * @param data the data of the proposal
      */
-    function handleProposalExecution(uint256 proposalId, IGovernance.ProposalType proposalType, bytes memory data)
-        internal
-    {
+    function handleProposalExecution(
+        uint256 week,
+        uint256 proposalId,
+        IGovernance.ProposalType proposalType,
+        bytes memory data
+    ) internal {
         bool success;
         if (proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
             (address oldAgent, address newAgent, bool slashOldAgent) = abi.decode(data, (address, address, bool));
@@ -1171,6 +1175,8 @@ contract Governance is IGovernance, EIP712 {
         } else {
             _setProposalStatus(proposalId, IGovernance.ProposalStatus.EXECUTED_WITH_ERROR);
         }
+
+        emit IGovernance.ProposalExecution(week, proposalId, proposalType, success);
     }
 
     /**

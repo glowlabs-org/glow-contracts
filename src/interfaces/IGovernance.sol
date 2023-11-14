@@ -223,6 +223,17 @@ interface IGovernance {
      * - RFC Proposals don't change the state of the system, so rather than performing state changes
      *         - we emit an event to alert that the proposal was executed succesfully
      *         - and that the rfc requires attention
+     * @param proposalId - the id of the proposal from which the rfc was created
+     * @param requirementsHash - the hash of the requirements string
      */
     event RFCProposalExecuted(uint256 indexed proposalId, bytes32 requirementsHash);
+
+    /**
+     * @notice emitted when a proposal is executed  for the week
+     * @param week - the week for which the proposal was the most popular proposal
+     * @param proposalId - the id of the proposal that was executed
+     * @param proposalType - the type of the proposal that was executed
+     * @param success - whether or not the proposal was executed succesfully
+     */
+    event ProposalExecution(uint256 indexed week, uint256 proposalId, ProposalType proposalType, bool success);
 }
