@@ -75,6 +75,9 @@ contract VetoCouncilSalaryHelper {
      */
     mapping(uint256 => uint256) private _paymentNonceToShiftStartTimestamp;
 
+    /**
+     * @notice The amount of tokens that have been withdrawn from a given payment nonce for a given agent
+     */
     mapping(address => mapping(uint256 => uint256)) public amountAlreadyWithdrawnFromPaymentNonce;
     /**
      * ----------------------------------------------
