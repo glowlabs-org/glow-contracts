@@ -805,6 +805,7 @@ contract GCA is IGCA, GCASalaryHelper {
         revert();
     }
 
+    /// @dev casts a uint256 to a uint128 or max if the uint256 is greater than max
     function _castToUint128OrMax(uint256 a) internal pure returns (uint128) {
         return a > type(uint128).max ? type(uint128).max : uint128(a);
     }
