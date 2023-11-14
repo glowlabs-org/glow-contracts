@@ -180,6 +180,12 @@ contract HoldingContract {
         }
     }
 
+    /**
+     * @notice entrypoint to claim a single holding
+     * @param user the address of the user
+     * @param token the address of the grc token to withdraw
+     * @dev should be used if the user only wants to claim their holding
+     */
     function claimHoldingSingleton(address user, address token) external {
         bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
         //If the network is frozen, don't allow withdrawals
