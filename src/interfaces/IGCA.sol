@@ -206,6 +206,19 @@ interface IGCA {
      */
     event RequirementsHashUpdated(bytes32 requirementsHash);
 
+    /**
+     * @notice emitted when a GCA submits a report for a bucket
+     * @param bucketId - the id of the bucket
+     * @param gca - the address of the gca agent submitting the report
+     * @param slashNonce - the slash nonce at the time of report submission
+     * @param totalNewGCC - the total amount of new gcc from the farms the GCA is reporting on
+     * @param totalGlwRewardsWeight - the total amount of glw rewards weight from the farms the GCA is reporting on
+     * @param totalGRCRewardsWeight - the total amount of grc rewards weight from the farms the GCA is reporting on
+     * @param root - the merkle root of the reports
+     * @param extraData - extra data to be emitted.
+     *                         - This extra data can be anything as long as the GCA communicates it to the community
+     *                         - and should ideally, if possible, be the leaves of the merkle tree
+     */
     event BucketSubmissionEvent(
         uint256 indexed bucketId,
         address gca,
