@@ -16,7 +16,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *         }
  *         bytes = abi.encode(Commitment[])
  */
-contract BatchRetire {
+contract BatchCommit {
     /// @notice the GCC token
     IGCC public immutable GCC;
 
@@ -51,7 +51,7 @@ contract BatchRetire {
      * @param data the bytes that capture the breakdown of the commitments
      *         -   as mentioned in the contract description
      */
-    function retireGCC(uint256 amount, bytes calldata data) external {
+    function commitGCC(uint256 amount, bytes calldata data) external {
         GCC.transferFrom(msg.sender, address(this), amount);
         GCC.commitGCC(amount, address(this));
         emit GCCEmission(data);
@@ -63,7 +63,7 @@ contract BatchRetire {
      * @param data the bytes that capture the breakdown of the commitments
      *         -   as mentioned in the contract description
      */
-    function retireUSDC(uint256 amount, bytes calldata data) external {
+    function commitUSDC(uint256 amount, bytes calldata data) external {
         uint256 balBefore = USDC.balanceOf(address(this));
         USDC.transferFrom(msg.sender, address(this), amount);
         uint256 balAfter = USDC.balanceOf(address(this));

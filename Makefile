@@ -37,6 +37,8 @@ gas.snapshot :; forge snapshot --gas-report --ffi
 deploy.testnet.gcc :; forge script script/Testnet/DeployGCC.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
+deploy.testnet.batch-retire :; forge script script/Testnet/DeployBatchRetire.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
 #---- [solhint] -----------------------------------------------------------------------------------
 solhint :; find ./src -type f \( -name "*.sol" ! -path "./src/temp/*" ! -path "./src/testing/*" ! -path "./src/libraries/ABDKMath64x64.sol" ! -path "./src/MinerPoolAndGCA/mock/*" \) -exec solhint {} +
