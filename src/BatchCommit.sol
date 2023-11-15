@@ -51,9 +51,9 @@ contract BatchCommit {
      * @param data the bytes that capture the breakdown of the commitments
      *         -   as mentioned in the contract description
      */
-    function commitGCC(uint256 amount, bytes calldata data) external {
+    function commitGCC(uint256 amount, address rewardAddress, bytes calldata data) external {
         GCC.transferFrom(msg.sender, address(this), amount);
-        GCC.commitGCC(amount, address(this));
+        GCC.commitGCC(amount, rewardAddress);
         emit GCCEmission(data);
     }
 
@@ -63,12 +63,12 @@ contract BatchCommit {
      * @param data the bytes that capture the breakdown of the commitments
      *         -   as mentioned in the contract description
      */
-    function commitUSDC(uint256 amount, bytes calldata data) external {
+    function commitUSDC(uint256 amount, address rewardAddress, bytes calldata data) external {
         uint256 balBefore = USDC.balanceOf(address(this));
         USDC.transferFrom(msg.sender, address(this), amount);
         uint256 balAfter = USDC.balanceOf(address(this));
         uint256 amountToRetire = balAfter - balBefore;
-        GCC.commitUSDC(amountToRetire, address(this));
+        GCC.commitUSDC(amountToRetire, rewardAddress);
         emit USDCEmission(data);
     }
 }
