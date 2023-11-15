@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
+import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 
 /**
  * @title ImpactCatalyst
@@ -19,6 +20,7 @@ import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
  * @dev only the GCC contract can call this contract since GCC is the only contract that is allowed to grant nominations
  * - having the catalyst calls be open would lead to committments that would not earn any impact points / rewards / nominations
  */
+
 contract ImpactCatalyst {
     error CallerNotGCC();
     error PrecisionLossLeadToUnderflow();
@@ -127,6 +129,37 @@ contract ImpactCatalyst {
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amounts[1]);
         UNISWAP_ROUTER.addLiquidity(USDC, GCC, amountToAddInLiquidity, amounts[1], 0, 0, address(this), block.timestamp);
         nominations = sqrt(amountToAddInLiquidity * amounts[1]);
+    }
+
+    /**
+     * @notice estimates how many nominations will be earned if USDC is committed
+     * @param amount the amount of USDC to commit
+     */
+    function estimateUSDCCommitImpactPower(uint256 amount) external view returns (uint256) {
+        (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
+        uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
+        uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
+        uint256 amountToSwap = findOptimalAmountToCommit(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
+            / USDC_MAGNIFICATION;
+        //.....
+        uint256 gccEstimate = UniswapV2Library.getAmountOut(amountToSwap, reserveUSDC, reserveGCC);
+        uint256 amountUSDCToAddInLP = amount - amountToSwap;
+        return sqrt(amountUSDCToAddInLP * gccEstimate);
+    }
+
+    /**
+     * @notice estimates how many nominations will be earned if GCC is committed
+     * @param amount the amount of GCC to commit
+     */
+    function estimateGCCCommitImpactPower(uint256 amount) external view returns (uint256) {
+        (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
+        uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
+        uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
+        uint256 amountToSwap =
+            findOptimalAmountToCommit(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
+        uint256 usdcEstimate = UniswapV2Library.getAmountOut(amountToSwap, reserveGCC, reserveUSDC);
+        uint256 amountGCCToAddInLP = amount - amountToSwap;
+        return sqrt(amountGCCToAddInLP * usdcEstimate);
     }
 
     /**
