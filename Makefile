@@ -40,8 +40,14 @@ deploy.testnet.gcc :; forge script script/Testnet/DeployGCC.s.sol --rpc-url ${GO
 deploy.testnet.batch-retire :; forge script script/Testnet/DeployBatchRetire.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
+deploy.full.testnet :; forge script script/Testnet/DeployFull.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+
+deploy.full.anvil :; forge script script/Testnet/DeployFull.s.sol --rpc-url  http://127.0.0.1:8545 --broadcast -vvvv --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
 #---- [solhint] -----------------------------------------------------------------------------------
 solhint :; find ./src -type f \( -name "*.sol" ! -path "./src/temp/*" ! -path "./src/testing/*" ! -path "./src/libraries/ABDKMath64x64.sol" ! -path "./src/MinerPoolAndGCA/mock/*" \) -exec solhint {} +
+
 
 
 cloc:

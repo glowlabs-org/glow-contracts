@@ -10,6 +10,7 @@ import {GoerliGCC} from "@/testing/GoerliGCC.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 
+//Carbon Credit Auction and Impact Catalyst Are Both Deployed By GCC
 contract DeployGCC is Script {
     address gcaAndMinerPool = address(0xffff);
     address earlyLiquidityAddress = address(0x14444);

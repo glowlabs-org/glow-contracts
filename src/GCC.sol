@@ -102,6 +102,10 @@ contract GCC is ERC20, IGCC, EIP712 {
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));
         address factory = UNISWAP_ROUTER.factory();
         address pair = getPair(factory, _usdc);
+        //Mint 1 to set the LP with USDC
+        if (block.chainid == 1) {
+            _mint(tx.origin, 1 ether);
+        }
         IMPACT_CATALYST = new ImpactCatalyst(_usdc,_uniswapRouter,factory,pair);
     }
 
