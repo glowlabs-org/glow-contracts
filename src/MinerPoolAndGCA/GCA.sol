@@ -407,8 +407,8 @@ contract GCA is IGCA, GCASalaryHelper {
 
         uint256 bucketLastUpdatedNonce = (packedData >> 64) & _UINT64_MASK;
         //First bit.
-        //first 64 bits are nonce, next 8 bits  are reinstated, next 184 bits are finalizationTimestamp
-        //no need to us to use a mask since finalizationTimestamp takes up the last 184 bits
+        //first 64 bits are originalNonce, next 64 bits are lastUpdatedNonce, last 128 bits are finalizationTimestamp
+        //no need to us to use a mask since finalizationTimestamp takes up the last 128 bits
         uint256 finalizationTimestamp = packedData >> 128;
 
         uint256 _slashNonce = slashNonce;
