@@ -469,6 +469,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         return GENESIS_TIMESTAMP;
     }
 
+    /**
+     * @dev used to pass down the current week to the {GCASalaryHelper} contract
+     */
     function _currentWeek() internal view override(GCA) returns (uint256) {
         return currentBucket();
     }
