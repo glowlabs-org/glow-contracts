@@ -15,8 +15,13 @@ import {VetoCouncil} from "@/VetoCouncil.sol";
 import {HoldingContract} from "@/HoldingContract.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {BatchCommit} from "@/BatchCommit.sol";
+import "forge-std/console.sol";
+import "forge-std/Test.sol";
 
-contract DeployFull is Script {
+string constant fileToWriteTo = "deployedContractsMainnet.json";
+
+contract DeployFull is Test, Script {
     bytes32 gcaRequirementsHash = keccak256("my hash good ser");
     address vestingContract = tx.origin;
 
@@ -35,6 +40,9 @@ contract DeployFull is Script {
         startingAgents[0] = tx.origin;
         address[] memory startingVetoCouncilAgents = new address[](1);
         startingVetoCouncilAgents[0] = tx.origin;
+        if (vm.exists(fileToWriteTo)) {
+            vm.removeFile(fileToWriteTo);
+        }
 
         vm.startBroadcast();
         earlyLiquidity = new EarlyLiquidity(usdc,address(holdingContract));
@@ -57,6 +65,7 @@ contract DeployFull is Script {
         glow.setContractAddresses(address(gcaAndMinerPoolContract), address(vetoCouncilContract), address(treasury));
         GCC gcc = new GCC(address(gcaAndMinerPoolContract), address(governance), address(glow),
             usdc, uniswapV2Router);
+        BatchCommit batchCommit = new BatchCommit(address(gcc), usdc);
         gcc.approve(uniswapV2Router, amountGCCToLP);
         IERC20(usdc).approve(uniswapV2Router, amonutUSDCToLP);
         IUniswapRouterV2(uniswapV2Router).addLiquidity(
@@ -70,5 +79,65 @@ contract DeployFull is Script {
             address(glow)
         );
         vm.stopBroadcast();
+
+        string memory jsonStringOutput = string("{");
+        jsonStringOutput = string(
+            abi.encodePacked(
+                jsonStringOutput, "\"earlyLiquidity\":", "\"", vm.toString(address(earlyLiquidity)), "\"", ","
+            )
+        );
+        jsonStringOutput = string(
+            abi.encodePacked(jsonStringOutput, "\"governance\":", "\"", vm.toString(address(governance)), "\"", ",")
+        );
+        jsonStringOutput =
+            string(abi.encodePacked(jsonStringOutput, "\"glow\":", "\"", vm.toString(address(glow)), "\"", ","));
+        jsonStringOutput = string(
+            abi.encodePacked(
+                jsonStringOutput, "\"vetoCouncilContract\":", "\"", vm.toString(address(vetoCouncilContract)), "\"", ","
+            )
+        );
+        jsonStringOutput = string(
+            abi.encodePacked(
+                jsonStringOutput, "\"holdingContract\":", "\"", vm.toString(address(holdingContract)), "\"", ","
+            )
+        );
+        jsonStringOutput = string(
+            abi.encodePacked(jsonStringOutput, "\"grantsTreasury\":", "\"", vm.toString(address(treasury)), "\"", ",")
+        );
+        jsonStringOutput = string(
+            abi.encodePacked(
+                jsonStringOutput,
+                "\"gcaAndMinerPoolContract\":",
+                "\"",
+                vm.toString(address(gcaAndMinerPoolContract)),
+                "\"",
+                ","
+            )
+        );
+        jsonStringOutput =
+            string(abi.encodePacked(jsonStringOutput, "\"gcc\":", "\"", vm.toString(address(gcc)), "\"", ","));
+        jsonStringOutput = string(
+            abi.encodePacked(jsonStringOutput, "\"batchCommit\":", "\"", vm.toString(address(batchCommit)), "\"", ",")
+        );
+        jsonStringOutput =
+            string(abi.encodePacked(jsonStringOutput, "\"usdc\":", "\"", vm.toString(address(usdc)), "\"", ","));
+        jsonStringOutput = string(
+            abi.encodePacked(
+                jsonStringOutput, "\"impactCatalyst\":", "\"", vm.toString(address(gcc.IMPACT_CATALYST())), "\"", ","
+            )
+        );
+        jsonStringOutput = string(
+            abi.encodePacked(
+                jsonStringOutput,
+                "\"carbonCreditAuction\":",
+                "\"",
+                vm.toString(address(gcc.CARBON_CREDIT_AUCTION())),
+                "\""
+            )
+        );
+
+        jsonStringOutput = string(abi.encodePacked(jsonStringOutput, "}"));
+
+        vm.writeFile(fileToWriteTo, jsonStringOutput);
     }
 }
