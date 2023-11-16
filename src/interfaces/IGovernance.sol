@@ -50,13 +50,9 @@ interface IGovernance {
     }
 
     enum ProposalStatus {
-        PENDING,
-        UNDER_REVIEW_FOR_APPROVAL,
-        REJECTED_BY_STAKERS,
-        APPROVED,
+        NONE,
         EXECUTED_WITH_ERROR,
         EXECUTED_SUCCESSFULLY,
-        EXPIRED,
         VETOED
     }
 
