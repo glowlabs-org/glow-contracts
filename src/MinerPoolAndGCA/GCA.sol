@@ -497,7 +497,7 @@ contract GCA is IGCA, GCASalaryHelper {
     ) internal {
         //Arithmetic Checks
         //To make sure that the weight's dont result in an overflow,
-        // we need to make sure that the total weight is less than 1/5 of the max uint256
+        // we need to make sure that the total weight is less than 1/5 of the max uint64
         if (totalGlwRewardsWeight > _UINT64_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
         if (totalGRCRewardsWeight > _UINT64_MAX_DIV5) _revert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
         //Max of 1 trillion GCC per week
