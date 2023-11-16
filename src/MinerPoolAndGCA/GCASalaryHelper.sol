@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
-contract GCASalaryHelper {
+abstract contract GCASalaryHelper {
     error HashesNotUpdated();
     error CannotSetNonceToZero();
     error InvalidRelaySignature();
@@ -348,40 +348,26 @@ contract GCASalaryHelper {
      * @notice claims glow from inflation
      * @dev the function must be overriden by the parent contract
      */
-    function _claimGlowFromInflation() internal virtual {
-        // solhint-disable-next-line reason-string, custom-errors
-        revert();
-    }
+    function _claimGlowFromInflation() internal virtual;
 
     /**
      * @notice returns the domain seperator for the relay signature
      * @dev the function must be overriden by the parent contract
      * @return domainSeperator - the domain seperator for the relay signature
      */
-    function _domainSeperatorV4Main() internal view virtual returns (bytes32) {
-        // solhint-disable-next-line reason-string, custom-errors
-        revert();
-    }
-
+    function _domainSeperatorV4Main() internal view virtual returns (bytes32);
     /**
      * @notice returns the genesis timestamp of the glow protocol
      * @return genesisTimestamp - the genesis timestamp of the glow protocol
      * @dev the function must be overriden by the parent contract
      */
-    function _genesisTimestamp() internal view virtual returns (uint256) {
-        // solhint-disable-next-line reason-string, custom-errors
-        revert();
-    }
-
+    function _genesisTimestamp() internal view virtual returns (uint256);
     /**
      * @notice returns the current week
      * @return week - the current week
      * @dev the function must be overriden by the parent contract
      */
-    function _currentWeek() internal view virtual returns (uint256) {
-        // solhint-disable-next-line reason-string, custom-errors
-        revert();
-    }
+    function _currentWeek() internal view virtual returns (uint256);
 
     /**
      * @notice transfers glow to an address
@@ -389,15 +375,12 @@ contract GCASalaryHelper {
      * @param amount the amount of glow to transfer
      * @dev the function must be overriden by the parent contract
      */
-    function _transferGlow(address to, uint256 amount) internal virtual {
-        // solhint-disable-next-line reason-string, custom-errors
-        revert();
-    }
-
+    function _transferGlow(address to, uint256 amount) internal virtual;
     /**
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
      */
+
     function _revert(bytes4 selector) internal pure {
         // solhint-disable-next-line no-inline-assembly
         assembly {
