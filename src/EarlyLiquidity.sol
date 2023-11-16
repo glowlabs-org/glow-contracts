@@ -326,9 +326,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
         //ln(2) = 0.693147......
         //floatingPointTotalSold will never be more than 1,200,000,000
         //so the maximum value of the exponent will be .693147 * 1,200,000,000 / 100,000,000 = 8.316
-        //None of those numbers are greater than 2^63-1 (the maximum value of an int128)
+        //None of those numbers are greater than 2^63-1 (the maximum value of a 64x6x int)
         //Max value of baseResult possible is e^8.316 = 4,089 (rounded up)
-        //The max input that baseResult can take in is 43 since (e^44 > type(uint128).max > e^43)
+        //The max input that baseResult can take in is 43 since (e^44 > type(64x64).max > e^43)
         //We will never cause an overflow in the exponent calculation
         //Max value of result is 6,000 * 4,088 = 2,453,000,000 approx 2.5e9
         //This is well within the range of 2^63-1 = 9,223,372,036,854,775,807 approx 9.223372e+18

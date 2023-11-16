@@ -333,7 +333,7 @@ contract GCC is ERC20, IGCC, EIP712 {
      */
     function _setBucketMinted(uint256 bucketId) private {
         (uint256 key, uint256 shift) = _getKeyAndShiftFromBucketId(bucketId);
-        //Can't overflow because _BITS_IN_UINT is 255
+        //Can't overflow because _BITS_IN_UINT is 256
         uint256 bitmap = _mintedBucketsBitmap[key];
         if (bitmap & (1 << shift) != 0) _revert(IGCC.BucketAlreadyMinted.selector);
         _mintedBucketsBitmap[key] = bitmap | (1 << shift);
@@ -438,8 +438,8 @@ contract GCC is ERC20, IGCC, EIP712 {
      * @notice Returns the key and shift for a bucketId
      * @return key The key for the bucketId
      * @return shift The shift for the bucketId
-     * @dev cant overflow because _BITS_IN_UINT is 255
-     * @dev no division by zero because _BITS_IN_UINT is 255
+     * @dev cant overflow because _BITS_IN_UINT is 256
+     * @dev no division by zero because _BITS_IN_UINT is 256
      */
     function _getKeyAndShiftFromBucketId(uint256 bucketId) private pure returns (uint256 key, uint256 shift) {
         key = bucketId / _BITS_IN_UINT;
