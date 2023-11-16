@@ -49,7 +49,6 @@ library VestingMathLib {
 
         uint256 lowestValueSecond = (1 + secondsStopped) * rewardsPerSecond / MAX_VESTING_SECONDS;
 
-        //100 * 100 / 100
         uint256 highestValueSecond = (secondsActive + secondsStopped) * rewardsPerSecond / MAX_VESTING_SECONDS;
         if (highestValueSecond > rewardsPerSecond) {
             highestValueSecond = rewardsPerSecond;
