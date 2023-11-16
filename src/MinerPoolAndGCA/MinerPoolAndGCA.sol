@@ -473,6 +473,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         return currentBucket();
     }
 
+    /**
+     * @dev used to pass down the domain separator to the {GCASalaryHelper} contract
+     */
     function _domainSeperatorV4Main() internal view virtual override(GCA) returns (bytes32) {
         return _domainSeparatorV4();
     }
