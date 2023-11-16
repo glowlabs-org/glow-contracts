@@ -218,7 +218,6 @@ contract Glow is ERC20, IGlow {
         uint256 adjustedLenBefore = pointers.head - pointers.tail + 1;
 
         uint256 indexInMappingToPushTo = pointers.head + 1;
-        //We don;t actually need this because it cant be greater than 100
         if (pointers.head == pointers.tail) {
             if (_unstakedPositions[msg.sender][pointers.head].amount == 0) {
                 adjustedLenBefore = 0;
