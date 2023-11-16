@@ -38,6 +38,7 @@ contract GCC is ERC20, IGCC, EIP712 {
     /// @notice the address of the governance contract
     IGovernance public immutable GOVERNANCE;
 
+    /// @notice the address of the GLOW token
     address public immutable GLOW;
 
     ImpactCatalyst public immutable IMPACT_CATALYST;
