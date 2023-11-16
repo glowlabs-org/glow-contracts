@@ -668,6 +668,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @dev checks if a bucket is finalized
      * @param bucketLastUpdatedNonce the last updated nonce of the bucket
      * @param bucketFinalizationTimestamp the finalization timestamp of the bucket
+     * @param _slashNonce the current slash nonce
      * @return true if the bucket is finalized, false otherwise
      */
     function _isBucketFinalized(
@@ -694,7 +695,7 @@ contract GCA is IGCA, GCASalaryHelper {
         }
 
         //If there has been a slash event
-        if (bucketLastUpdatedNonce != slashNonce) {
+        if (bucketLastUpdatedNonce != _slashNonce) {
             //If the slash event happened after the bucket's finalization timestamp
             //That means the bucket had already been finalized and we can return true;
             if (slashNonceToSlashTimestamp[bucketLastUpdatedNonce] >= bucketFinalizationTimestamp) {
