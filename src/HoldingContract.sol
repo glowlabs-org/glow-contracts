@@ -71,7 +71,7 @@ contract HoldingContract {
     uint256 public constant VETO_HOLDING_DELAY = uint256(13 weeks);
 
     /**
-     * @dev a cached version of 10 days in seconds
+     * @dev a cached version of five weeks in seconds
      * @dev used in delayNetwork to ensure that the network can only be delayed every 8 weeks
      * @dev This helps prevent bad veto agents from spamming the delay network function
      *         - by giving governance enough time to kick out the veto agent
@@ -146,7 +146,7 @@ contract HoldingContract {
             return;
         }
         if (block.timestamp < _minimumWithdrawTimestamp) {
-            //The block.timestamp needs to be within 10 days of
+            //The block.timestamp needs to be within 5 weeks of
             //minimumWithdrawTimestamp
             uint256 timeLeftInDelay = _minimumWithdrawTimestamp - block.timestamp;
             if (timeLeftInDelay > FIVE_WEEKS) {
