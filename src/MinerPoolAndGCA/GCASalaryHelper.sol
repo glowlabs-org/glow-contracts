@@ -376,11 +376,11 @@ abstract contract GCASalaryHelper {
      * @dev the function must be overriden by the parent contract
      */
     function _transferGlow(address to, uint256 amount) internal virtual;
+
     /**
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
      */
-
     function _revert(bytes4 selector) internal pure {
         // solhint-disable-next-line no-inline-assembly
         assembly {
