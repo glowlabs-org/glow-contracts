@@ -19,16 +19,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
 
     /**
-     * @notice the address of the early liquidity contract
-     * @dev used for authorization in {donateToGRCMinerRewardsPoolEarlyLiquidity}
-     */
-    address private immutable _EARLY_LIQUIDITY;
-
-    address private immutable _VETO_COUNCIL;
-
-    IHoldingContract public immutable HOLDING_CONTRACT;
-
-    /**
      * @dev the amount to increase the finalization timestamp of a bucket by
      *             -   only veto council agents can delay a bucket.
      *             -   the delay is 13 weeks
@@ -38,17 +28,38 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     /// @dev a helper used in a bitmap
     uint256 private constant _BITS_IN_UINT = 256;
 
+    /// @dev the typehash for the claim reward from bucket eip712 message
     bytes32 private constant CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
         "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,bool claimFromInflation)"
     );
+
+    /**
+     * @notice the address of the early liquidity contract
+     * @dev used for authorization in {donateToGRCMinerRewardsPoolEarlyLiquidity}
+     */
+    address private immutable _EARLY_LIQUIDITY;
+
+    /**
+     * @dev the address of the veto council contract.
+     */
+    address private immutable _VETO_COUNCIL;
 
     /**
      * @notice the total amount of glow rewards available for farms per bucket
      */
     uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
 
-    /// @dev the maximum amount of reserve currencies concurrently allowed at a single time
-    uint256 private constant _MAX_RESERVE_CURRENCIES = 3;
+    /// @notice USDC token address
+    address public immutable USDC;
+
+    /// @notice the holding contract where intermediary rewards are stored
+    /// @dev when a farm earns a USDC reward, it is sent to the holding contract
+    ///     - where it will wait a minimum of 1 week before being sent to the farm
+    ///     - this is in place to prevent a large amount of USDC from being sent to a farm
+    ///           -   mistakenly or on purpose
+    ///     - If such a case happens, the Veto Council can delay the holding contract by 13 weeks
+    ///     - This should give enough time to rectify the situation
+    IHoldingContract public immutable HOLDING_CONTRACT;
 
     /// @notice the GCC contract
     IGCC public gccContract;
@@ -71,11 +82,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     mapping(uint256 => uint256) private _bucketDelayedBitmap;
 
-    struct PushedWeights {
-        uint64 pushedGlwWeight;
-        uint64 pushedGrcWeight;
-    }
-
     /**
      * @dev a mapping of bucketId -> pushed weights
      * - we could split this up into a packed map of pushedGlwWeight and pushedGrcWeight
@@ -86,7 +92,19 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     mapping(uint256 => PushedWeights) internal _weightsPushed;
 
-    address public immutable USDC;
+    /**
+     * @param pushedGlwWeight - the aggregate amount of glw weight pushed
+     * @param pushedGrcWeight - the aggregate amount of grc weight pushed
+     * @dev meant to be used in conjunction with the _weightsPushed mapping
+     *       - when a user claims from a bucket, the pushed weights are added to the total weights
+     *       - these are tracked to ensure that the pushed weights dont overflow the total weights
+     *       - that were put in place for that specific bucket
+     */
+    struct PushedWeights {
+        uint64 pushedGlwWeight;
+        uint64 pushedGrcWeight;
+    }
+
     //************************************************************* */
     //*****************  CONSTRUCTOR   ************** */
     //************************************************************* */
