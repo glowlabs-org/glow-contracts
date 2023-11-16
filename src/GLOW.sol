@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
-
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 /**
  * @dev helper for managing tail and head in a mapping
  * @param tail the tail of the mapping
@@ -13,6 +13,7 @@ import {IGlow} from "./interfaces/IGlow.sol";
  *         -   and conversely, head == tail and there is no data
  *         - These special cases are handled in the code
  */
+
 struct Pointers {
     uint128 tail;
     uint128 head;
@@ -30,7 +31,7 @@ struct Pointers {
  *         - Holders can anchor (stake) glow to earn voting power in governance
  *             - anchoring lasts 5 years from the point of unstaking
  */
-contract Glow is ERC20, IGlow {
+contract Glow is ERC20, ERC20Permit, IGlow {
     //----------------------- CONSTANTS -----------------------//
 
     /// @notice The cooldown period after unstaking before a user can claim their tokens
@@ -110,7 +111,11 @@ contract Glow is ERC20, IGlow {
     /// @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
     /// @notice sends 12 million GLW to the Early Liquidity Contract
     /// @param _earlyLiquidityAddress The address of the Early Liquidity Contract
-    constructor(address _earlyLiquidityAddress, address _vestingContract) payable ERC20("Glow", "GLOW") {
+    constructor(address _earlyLiquidityAddress, address _vestingContract)
+        payable
+        ERC20("Glow", "GLOW")
+        ERC20Permit("Glow")
+    {
         GENESIS_TIMESTAMP = block.timestamp;
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
         _mint(EARLY_LIQUIDITY_ADDRESS, 12_000_000 ether);

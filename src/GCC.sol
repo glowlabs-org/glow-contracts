@@ -13,7 +13,7 @@ import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {ImpactCatalyst} from "@/ImpactCatalyst.sol";
 import {IERC20Permit} from "@/interfaces/IERC20Permit.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
-import {IUnifapV2Factory} from "@unifapv2/interfaces/IUnifapV2Factory.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 /**
  * @title GCC (Glow Carbon Credit)
  * @author DavidVorick
@@ -28,7 +28,7 @@ import {IUnifapV2Factory} from "@unifapv2/interfaces/IUnifapV2Factory.sol";
  *              - When committing USDC, the amount of nominations earned is equal to the amount of USDC committed
  */
 
-contract GCC is ERC20, IGCC, EIP712 {
+contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /// @notice The address of the CarbonCreditAuction contract
     ICarbonCreditAuction public immutable CARBON_CREDIT_AUCTION;
 
