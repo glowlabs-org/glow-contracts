@@ -21,6 +21,9 @@ contract GCA is IGCA, GCASalaryHelper {
     /// @dev 200 Billion in 18 decimals
     uint256 private constant _200_BILLION = 200_000_000_000 ether;
 
+    /// @dev the max uint64 divided by 5
+    /// @dev this is used to check if the total weight of a report is less than the max uint64 / 5
+    /// @dev the max sum of all weights is type(uint64).max, so we can not allow an overflow by a bad actor
     uint256 private constant _UINT64_MAX_DIV5 = type(uint64).max / 5;
 
     /// @dev mask to apply a uint128 mask to a uint256
