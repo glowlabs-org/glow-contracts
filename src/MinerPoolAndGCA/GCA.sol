@@ -601,10 +601,10 @@ contract GCA is IGCA, GCASalaryHelper {
             });
         }
     }
+
     /**
      * @dev , an efficient function to get the root of a bucket at a given index
      */
-
     function getBucketRootAtIndexEfficient(uint256 bucketId, uint256 index) internal view returns (bytes32 root) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
