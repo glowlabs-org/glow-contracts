@@ -149,7 +149,7 @@ contract GCA is IGCA, GCASalaryHelper {
         bytes32 root,
         bytes calldata data
     ) external {
-        issueWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, bytes32(root));
+        _issueWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
         emit IGCA.BucketSubmissionEvent(
             bucketId, msg.sender, slashNonce, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root, data
         );
@@ -172,7 +172,31 @@ contract GCA is IGCA, GCASalaryHelper {
         uint256 totalGlwRewardsWeight,
         uint256 totalGRCRewardsWeight,
         bytes32 root
-    ) public {
+    ) external {
+        _issueWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+        emit IGCA.BucketSubmissionEvent(
+            bucketId, msg.sender, slashNonce, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root, ""
+        );
+    }
+    /**
+     * @notice allows GCAs to submit a weekly report and emit {data}
+     *         - {data} is a bytes array that can be used to emit any data
+     *         - it could contain the merkle tree, or any other data
+     *         - it is not strictly enforced and GCA's should communicate what they are emitting
+     * @param bucketId - the id of the bucket
+     * @param totalNewGCC - the total amount of GCC to be created from the report
+     * @param totalGlwRewardsWeight - the total amount of glw rewards weight in the report
+     * @param totalGRCRewardsWeight - the total amount of grc rewards weight in the report
+     * @param root - the merkle root containing all the reports (leaves) for the period
+     */
+
+    function _issueWeeklyReport(
+        uint256 bucketId,
+        uint256 totalNewGCC,
+        uint256 totalGlwRewardsWeight,
+        uint256 totalGRCRewardsWeight,
+        bytes32 root
+    ) internal {
         //GCAs can't submit if the contract is frozen (pending a proposal hash update)
         _revertIfFrozen();
         if (!isGCA(msg.sender)) _revert(NotGCA.selector);
@@ -250,9 +274,6 @@ contract GCA is IGCA, GCASalaryHelper {
             totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, bucketId, foundIndex, gcaReportStartSlot
         );
         handleBucketStore(bucket, foundIndex, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
-        emit IGCA.BucketSubmissionEvent(
-            bucketId, msg.sender, slashNonce, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root, ""
-        );
     }
 
     /**
