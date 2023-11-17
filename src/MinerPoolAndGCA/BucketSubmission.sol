@@ -10,7 +10,6 @@ contract BucketSubmission {
      *         -   The first bucket to receive grc is the current bucket + 16
      *         -   The last bucket to receive grc is the current bucket + 208
      */
-
     uint256 public constant OFFSET_LEFT = 16;
 
     /**
@@ -29,6 +28,11 @@ contract BucketSubmission {
     /// @notice mappings bucketId -> WeeklyReward
     mapping(uint256 => WeeklyReward) internal rewards;
 
+    /**
+     * @dev a helper to cache the last updated bucket
+     *         -   and the first bucket that USDC was deposited to
+     *         -   and the last bucket that USDC was deposited to
+     */
     BucketTracker internal bucketTracker;
 
     /**
@@ -46,7 +50,7 @@ contract BucketSubmission {
     }
 
     /**
-     * @dev a struct to help track the amoutn in weekly rewards
+     * @dev a struct to help track the amount in weekly rewards
      * @param inheritedFromLastWeek - a flag to see if the bucket has inherited
      *             -   it's vesting amount from past buckets using recursion
      * @param amountInBucket - the current amount in the bucket available as rewards

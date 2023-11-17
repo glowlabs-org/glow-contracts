@@ -178,6 +178,7 @@ contract GCA is IGCA, GCASalaryHelper {
             bucketId, msg.sender, slashNonce, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root, ""
         );
     }
+
     /**
      * @notice allows GCAs to submit a weekly report and emit {data}
      *         - {data} is a bytes array that can be used to emit any data
@@ -189,7 +190,6 @@ contract GCA is IGCA, GCASalaryHelper {
      * @param totalGRCRewardsWeight - the total amount of grc rewards weight in the report
      * @param root - the merkle root containing all the reports (leaves) for the period
      */
-
     function _issueWeeklyReport(
         uint256 bucketId,
         uint256 totalNewGCC,

@@ -14,3 +14,5 @@ will break.
 
 ### ./src/libraries/VestingMathLib.sol
 No areas where precision is a concern.
+
+### ./src/MinerPoolAndGCA/BucketSubmission.sol
