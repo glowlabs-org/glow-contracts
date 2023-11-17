@@ -22,3 +22,4 @@ No precision errors areas a concern
 TODO: Scanned once, scan again.
 
 ### ./src/MinerPoolAndGCA/GCASalaryHelper.sol
+No areas where precision is a concern.
