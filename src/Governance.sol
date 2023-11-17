@@ -11,7 +11,7 @@ import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {NULL_ADDRESS} from "@/generic/VetoCouncilSalaryHelper.sol";
-
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 /**
  * @title Governance
  * @author DavidVorick
@@ -527,7 +527,7 @@ contract Governance is IGovernance, EIP712 {
         Nominations memory n = _nominations[to];
         uint256 currentBalance = HalfLife.calculateHalfLifeValue(n.amount, block.timestamp - n.lastUpdate);
         //Step 2: update their balance
-        _nominations[to] = Nominations(uint192(currentBalance + amount), uint64(block.timestamp));
+        _nominations[to] = Nominations(SafeCast.toUint192(currentBalance + amount), SafeCast.toUint64(block.timestamp));
         return;
     }
 
@@ -550,7 +550,7 @@ contract Governance is IGovernance, EIP712 {
         }
 
         _spendNominations(msg.sender, amount);
-        uint184 newTotalVotes = uint184(_proposals[proposalId].votes + amount);
+        uint184 newTotalVotes = SafeCast.toUint184(_proposals[proposalId].votes + amount);
         _proposals[proposalId].votes = newTotalVotes;
         uint256 currentWeek = currentWeek();
         uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
@@ -703,8 +703,8 @@ contract Governance is IGovernance, EIP712 {
         _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.GRANTS_PROPOSAL,
-            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
-            uint184(nominationCost),
+            SafeCast.toUint64(block.timestamp + MAX_PROPOSAL_DURATION),
+            SafeCast.toUint184(nominationCost),
             abi.encode(grantsRecipient, amount, hash)
         );
 
@@ -735,8 +735,8 @@ contract Governance is IGovernance, EIP712 {
         _spendNominations(msg.sender, nominationCost);
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS,
-            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
-            uint184(nominationCost),
+            SafeCast.toUint64(block.timestamp + MAX_PROPOSAL_DURATION),
+            SafeCast.toUint184(nominationCost),
             abi.encode(newRequirementsHash)
         );
 
@@ -772,8 +772,8 @@ contract Governance is IGovernance, EIP712 {
 
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.REQUEST_FOR_COMMENT,
-            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
-            uint184(nominationCost),
+            SafeCast.toUint64(block.timestamp + MAX_PROPOSAL_DURATION),
+            SafeCast.toUint184(nominationCost),
             abi.encode(hash)
         );
 
@@ -822,7 +822,7 @@ contract Governance is IGovernance, EIP712 {
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
             uint64(block.timestamp + MAX_PROPOSAL_DURATION),
-            uint184(nominationCost),
+            SafeCast.toUint184(nominationCost),
             abi.encode(hash, incrementSlashNonce)
         );
 
@@ -875,7 +875,7 @@ contract Governance is IGovernance, EIP712 {
         _proposals[proposalId] = IGovernance.Proposal(
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
             uint64(block.timestamp + MAX_PROPOSAL_DURATION),
-            uint184(nominationCost),
+            SafeCast.toUint184(nominationCost),
             abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp)
         );
         uint256 currentWeek = currentWeek();
@@ -1199,7 +1199,8 @@ contract Governance is IGovernance, EIP712 {
         if (currentBalance < amount) {
             _revert(IGovernance.InsufficientNominations.selector);
         }
-        _nominations[account] = Nominations(uint192(currentBalance - amount), uint64(block.timestamp));
+        _nominations[account] =
+            Nominations(SafeCast.toUint192(currentBalance - amount), SafeCast.toUint64(block.timestamp));
     }
 
     /**
@@ -1300,7 +1301,10 @@ contract Governance is IGovernance, EIP712 {
         }
 
         _proposals[proposalId] = IGovernance.Proposal(
-            proposalType, uint64(block.timestamp + MAX_PROPOSAL_DURATION), uint184(nominationCost), data
+            proposalType,
+            SafeCast.toUint64(block.timestamp + MAX_PROPOSAL_DURATION),
+            SafeCast.toUint184(nominationCost),
+            data
         );
 
         ++proposalId;

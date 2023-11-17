@@ -23,6 +23,8 @@ interface IMinerPool {
     error SignatureDoesNotMatchUser();
     error GlowWeightOverflow();
     error GRCWeightOverflow();
+    error GlowWeightGreaterThanTotalWeight();
+    error GRCWeightGreaterThanTotalWeight();
 
     /**
      * @notice Allows anyone to donate GRC into the miner grc rewards pool

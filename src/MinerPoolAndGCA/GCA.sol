@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {GCASalaryHelper} from "./GCASalaryHelper.sol";
-import "forge-std/console.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 /**
  * @title GCA (Glow Certification Agent)
  * @author @DavidVorick
@@ -222,9 +222,10 @@ contract GCA is IGCA, GCASalaryHelper {
                 uint256 _slashNonce = slashNonce;
                 //If not init
                 if (bucketFinalizationTimestamp == 0) {
-                    bucket.originalNonce = uint64(_slashNonce);
-                    bucket.lastUpdatedNonce = uint64(_slashNonce);
-                    bucket.finalizationTimestamp = uint128(bucketFinalizationTimestampNotReinstated(bucketId));
+                    bucket.originalNonce = SafeCast.toUint64(_slashNonce);
+                    bucket.lastUpdatedNonce = SafeCast.toUint64(_slashNonce);
+                    bucket.finalizationTimestamp =
+                        SafeCast.toUint128(bucketFinalizationTimestampNotReinstated(bucketId));
                     lastUpdatedNonce = _slashNonce;
                 }
 
@@ -241,11 +242,12 @@ contract GCA is IGCA, GCASalaryHelper {
                     if (block.timestamp >= bucketSubmissionEndTimestamp) _revert(IGCA.BucketSubmissionEnded.selector);
 
                     if (lastUpdatedNonce != _slashNonce) {
-                        bucket.lastUpdatedNonce = uint64(_slashNonce);
+                        bucket.lastUpdatedNonce = SafeCast.toUint64(_slashNonce);
                         //Need to check before storing the finalization timestamp in case
                         //the bucket was delayed.
                         if (bucketSubmissionEndTimestamp + BUCKET_LENGTH > bucketFinalizationTimestamp) {
-                            bucket.finalizationTimestamp = uint128(bucketSubmissionEndTimestamp + BUCKET_LENGTH);
+                            bucket.finalizationTimestamp =
+                                SafeCast.toUint128(bucketSubmissionEndTimestamp + BUCKET_LENGTH);
                         }
                         //conditionally delete all reports in storage
                         if (len > 0) {
@@ -390,7 +392,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
     function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return _castToUint128OrMax(bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP);
+        return SafeCast.toUint128(bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP);
     }
 
     /**
@@ -401,7 +403,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
     function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return _castToUint128OrMax(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
+        return SafeCast.toUint128(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
     }
 
     /**
@@ -411,7 +413,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
     function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return _castToUint128OrMax(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
+        return SafeCast.toUint128(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
     }
 
     /**
@@ -583,9 +585,9 @@ contract GCA is IGCA, GCASalaryHelper {
             bucket.reports.push(
                 IGCA.Report({
                     proposingAgent: msg.sender,
-                    totalNewGCC: uint128(totalNewGCC),
-                    totalGLWRewardsWeight: uint64(totalGlwRewardsWeight),
-                    totalGRCRewardsWeight: uint64(totalGRCRewardsWeight),
+                    totalNewGCC: SafeCast.toUint128(totalNewGCC),
+                    totalGLWRewardsWeight: SafeCast.toUint64(totalGlwRewardsWeight),
+                    totalGRCRewardsWeight: SafeCast.toUint64(totalGRCRewardsWeight),
                     merkleRoot: root
                 })
             );
@@ -594,9 +596,9 @@ contract GCA is IGCA, GCASalaryHelper {
             bucket.reports[foundIndex == type(uint256).max ? 0 : foundIndex] = IGCA.Report({
                 //Redundant sstore on {proposingAgent}
                 proposingAgent: msg.sender,
-                totalNewGCC: uint128(totalNewGCC),
-                totalGLWRewardsWeight: uint64(totalGlwRewardsWeight),
-                totalGRCRewardsWeight: uint64(totalGRCRewardsWeight),
+                totalNewGCC: SafeCast.toUint128(totalNewGCC),
+                totalGLWRewardsWeight: SafeCast.toUint64(totalGlwRewardsWeight),
+                totalGRCRewardsWeight: SafeCast.toUint64(totalGRCRewardsWeight),
                 merkleRoot: root
             });
         }
@@ -834,10 +836,5 @@ contract GCA is IGCA, GCASalaryHelper {
     function _domainSeperatorV4Main() internal view virtual override(GCASalaryHelper) returns (bytes32) {
         // solhint-disable-next-line reason-string, custom-errors
         revert();
-    }
-
-    /// @dev casts a uint256 to a uint128 or max if the uint256 is greater than max
-    function _castToUint128OrMax(uint256 a) internal pure returns (uint128) {
-        return a > type(uint128).max ? type(uint128).max : uint128(a);
     }
 }
