@@ -87,12 +87,12 @@ contract BucketSubmission {
         BucketTracker memory _bucketTracker = bucketTracker;
 
         //Load the current bucket into memory
-        WeeklyReward memory currentBucket = rewards[bucketToAddTo];
+        WeeklyReward memory currentWeeklyReward = rewards[bucketToAddTo];
 
         //If the bucket has already reconciled with its past weeks,
         //then we can just add the amount to the bucket
         //We also deduct the amount from the bucketToDeductFrom bucket
-        if (currentBucket.inheritedFromLastWeek) {
+        if (currentWeeklyReward.inheritedFromLastWeek) {
             rewards[bucketToAddTo].amountInBucket += amountToAddOrSubtract;
             rewards[bucketToDeductFrom].amountToDeduct += amountToAddOrSubtract;
             return;
@@ -121,7 +121,7 @@ contract BucketSubmission {
         //Also, if the last bucket is the same as the bucket to add to, then we don't need to look backwards neither
         bool pastDataIrrelavant = bucketToAddTo > _bucketTracker.maxBucketId || lastUpdatedBucket == bucketToAddTo;
         //If past data is irrelavant, we can assume that we start fresh from the current bucket
-        uint256 totalToDeductFromBucket = pastDataIrrelavant ? 0 : currentBucket.amountToDeduct;
+        uint256 totalToDeductFromBucket = pastDataIrrelavant ? 0 : currentWeeklyReward.amountToDeduct;
 
         //As such, we don't need to look backwards if the past data is irrelavant
         if (!pastDataIrrelavant) {
@@ -272,12 +272,12 @@ contract BucketSubmission {
      * @param id - the id of the bucket
      */
     function _getAmountForTokenAndInitIfNot(uint256 id) internal returns (uint256) {
-        (WeeklyReward memory reward, bool needsInitializing) = _rewardWithNeedsInitializing(id);
+        (WeeklyReward memory weeklyReward, bool needsInitializing) = _rewardWithNeedsInitializing(id);
         if (needsInitializing) {
-            reward.inheritedFromLastWeek = true;
-            rewards[id] = reward;
+            weeklyReward.inheritedFromLastWeek = true;
+            rewards[id] = weeklyReward;
         }
-        return reward.amountInBucket;
+        return weeklyReward.amountInBucket;
     }
 
     //************************************************************* */
