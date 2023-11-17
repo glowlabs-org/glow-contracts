@@ -132,8 +132,11 @@ contract BucketSubmission {
             //However, if the past data is relavant,
             //We start at the last bucket that was updated,
             //And we look forwards until we reach the bucketToAddTo
-            for (uint256 i = lastUpdatedBucket; i < bucketToAddTo; ++i) {
+            for (uint256 i = lastUpdatedBucket; i < bucketToAddTo;) {
                 totalToDeductFromBucket += rewards[i].amountToDeduct;
+                unchecked {
+                    ++i;
+                }
             }
         }
 
