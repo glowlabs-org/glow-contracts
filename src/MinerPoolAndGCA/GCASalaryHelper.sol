@@ -13,6 +13,7 @@ abstract contract GCASalaryHelper {
     error InvalidShares();
     error SlashedAgentCannotClaimReward();
 
+    /// @dev one week in seconds
     uint256 private constant ONE_WEEK = uint256(7 days);
 
     /// @dev 10_000 GLW Per Week available as rewards to all GCAs
@@ -59,6 +60,9 @@ abstract contract GCASalaryHelper {
         _payoutNonceToGCAs[0] = keccak256(abi.encodePacked(startingAgents));
         unchecked {
             for (uint256 i; i < startingAgents.length; ++i) {
+                //starting payment nonce is 0
+                //so we set the comp plan for all the agents to the identity matrix
+                //for the first payment nonce
                 _paymentNonceToCompensationPlan[0][i] = defaultCompPlan(i);
             }
         }
