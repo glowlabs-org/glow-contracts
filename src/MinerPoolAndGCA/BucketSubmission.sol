@@ -260,16 +260,6 @@ contract BucketSubmission {
     //**************  INTERNAL/PRIVATE STATE CHANGING  ************ */
     //************************************************************* */
 
-    // /**
-    //  * @dev used after `_setGRCTokenCheck` to set the grc token
-    //  * @param tracker - the bucket tracker struct returned from `_setGRCTokenCheck`
-    //  * @dev we seperate the steps to make sure that both trackers for `oldToken` and `newToken` are updated
-    //  *         - can be either both updated or both not updated
-    //  */
-    // function _setGRCToken( BucketTracker memory tracker) internal {
-    //     bucketTracker = tracker;
-    // }
-
     /**
      * @dev gets the total amount of grc in a bucket that is available to withdraw and initializes it
      *             - this is a helper function only meant to be used inside the claimRewards function
