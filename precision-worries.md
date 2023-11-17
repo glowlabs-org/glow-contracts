@@ -23,3 +23,5 @@ TODO: Scanned once, scan again.
 
 ### ./src/MinerPoolAndGCA/GCASalaryHelper.sol
 No areas where precision is a concern.
+
+### ./src/MinerPoolAndGCA/MinerPoolAndGCA.sol

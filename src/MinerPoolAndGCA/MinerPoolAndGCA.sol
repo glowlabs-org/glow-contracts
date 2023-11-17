@@ -200,7 +200,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         if (claimFromInflation) {
             claimGlowFromInflation();
         }
-        //Call from GCA.sol
         {
             bytes32 root = getBucketRootAtIndexEfficient(bucketId, index);
             _checkProof(user, glwWeight, grcWeight, proof, root);
@@ -208,6 +207,12 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
         uint256 globalStatePackedData = getPackedBucketGlobalState(bucketId);
 
+        /**
+         * Bit Layout of packed global state
+         *     [0-127] - totalNewGCC
+         *     [128-191] - totalGLWRewardsWeight
+         *     [192-255] - totalGRCRewardsWeight
+         */
         uint256 totalGRCWeight = globalStatePackedData >> 192;
         uint256 totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
         _checkWeightsForOverflow({
