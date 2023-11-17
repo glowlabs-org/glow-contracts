@@ -202,6 +202,12 @@ abstract contract GCASalaryHelper {
      * @dev we don't need a deadline on the sig since the relayer cant make the funds go anywhere else,
      *             except for the user's address.
      *             AND - the relayer is restricted to a certian nonce.
+     * @param user the user to claim the payout for
+     * @param paymentNonce the payment nonce to claim the payout for
+     * @param activeGCAsAtPaymentNonce the active gca agents at the payment nonce
+     * @param userIndex the index of the user in the active gca agents array
+     * @param claimFromInflation whether or not to claim glow from inflation
+     * @param sig the relay signature
      */
     function claimPayout(
         address user,
