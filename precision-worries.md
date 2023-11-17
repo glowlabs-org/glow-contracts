@@ -16,3 +16,7 @@ will break.
 No areas where precision is a concern.
 
 ### ./src/MinerPoolAndGCA/BucketSubmission.sol
+No precision errors areas a concern 
+
+### ./src/MinerPoolAndGCA./GCA.sol
+TODO: Scanned once, scan again.

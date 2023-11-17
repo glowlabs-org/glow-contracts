@@ -23,7 +23,7 @@ contract GCA is IGCA, GCASalaryHelper {
 
     /// @dev the max uint64 divided by 5
     /// @dev this is used to check if the total weight of a report is less than the max uint64 / 5
-    /// @dev the max sum of all weights is type(uint64).max, so we can not allow an overflow by a bad actor
+    /// @dev the max sum of all weights is type(uint64).max, so we can not allow an overflow by a bad
     uint256 private constant _UINT64_MAX_DIV5 = type(uint64).max / 5;
 
     /// @dev mask to apply a uint128 mask to a uint256
@@ -382,13 +382,13 @@ contract GCA is IGCA, GCASalaryHelper {
     function bucketGlobalState(uint256 bucketId) external view returns (IGCA.BucketGlobalState memory) {
         return _bucketGlobalState[bucketId];
     }
+
     /**
      * @notice returns the start submission timestamp of a bucket
      * @param bucketId - the id of the bucket
      * @return the start submission timestamp of a bucket
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
-
     function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
         return _castToUint128OrMax(bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP);
     }
