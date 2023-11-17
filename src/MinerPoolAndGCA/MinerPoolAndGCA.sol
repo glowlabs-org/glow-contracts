@@ -14,6 +14,7 @@ import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IHoldingContract} from "@/HoldingContract.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
+import "forge-std/console.sol";
 
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//

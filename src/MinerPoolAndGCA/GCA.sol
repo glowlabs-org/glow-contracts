@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {GCASalaryHelper} from "./GCASalaryHelper.sol";
-
+import "forge-std/console.sol";
 /**
  * @title GCA (Glow Certification Agent)
  * @author @DavidVorick
