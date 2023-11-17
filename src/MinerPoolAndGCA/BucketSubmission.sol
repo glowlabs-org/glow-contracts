@@ -63,6 +63,36 @@ contract BucketSubmission {
     }
 
     //************************************************************* */
+    //***************  EXTERNAL/PUBLIC VIEW FUNCTIONS  ************ */
+    //************************************************************* */
+
+    /**
+     * @notice returns the current bucket
+     * @return currentBucket - the current bucket
+     */
+    function currentBucket() public view returns (uint256) {
+        return (block.timestamp - _genesisTimestamp()) / BUCKET_DURATION;
+    }
+
+    /**
+     * @notice returns the bucket tracker for a given grc token
+     * @return bucketTracker - the bucket tracker struct
+     */
+    function getBucketTracker() external view returns (BucketTracker memory) {
+        return bucketTracker;
+    }
+
+    /**
+     * @notice returns the weekly reward for a given bucket and grc token
+     * @param id - the bucketId (week) to query for
+     * @return bucket - the  weekly reward struct for the bucket
+     */
+    function reward(uint256 id) public view returns (WeeklyReward memory) {
+        (WeeklyReward memory bucket,) = _rewardWithNeedsInitializing(id);
+        return bucket;
+    }
+
+    //************************************************************* */
     //*****************  INTERNAL STATE CHANGING FUNCS  ************** */
     //************************************************************* */
 
@@ -162,36 +192,6 @@ contract BucketSubmission {
                 _bucketTracker.firstAddedBucketId
             );
         }
-    }
-
-    //************************************************************* */
-    //***************  EXTERNAL/PUBLIC VIEW FUNCTIONS  ************ */
-    //************************************************************* */
-
-    /**
-     * @notice returns the current bucket
-     * @return currentBucket - the current bucket
-     */
-    function currentBucket() public view returns (uint256) {
-        return (block.timestamp - _genesisTimestamp()) / BUCKET_DURATION;
-    }
-
-    /**
-     * @notice returns the bucket tracker for a given grc token
-     * @return bucketTracker - the bucket tracker struct
-     */
-    function getBucketTracker() external view returns (BucketTracker memory) {
-        return bucketTracker;
-    }
-
-    /**
-     * @notice returns the weekly reward for a given bucket and grc token
-     * @param id - the bucketId (week) to query for
-     * @return bucket - the  weekly reward struct for the bucket
-     */
-    function reward(uint256 id) public view returns (WeeklyReward memory) {
-        (WeeklyReward memory bucket,) = _rewardWithNeedsInitializing(id);
-        return bucket;
     }
 
     /**
