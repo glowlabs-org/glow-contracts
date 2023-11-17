@@ -49,7 +49,7 @@ contract VetoCouncilSalaryHelper {
 
     /**
      * @notice The nonce at which the current shift started
-     * @dev store as 1 to avoid cold sstore for the first proposal
+     * @dev store as 1 to avoid cold sstore for the first payment nonce
      */
     uint256 public paymentNonce = 1;
 
