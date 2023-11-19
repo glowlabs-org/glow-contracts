@@ -64,7 +64,7 @@ contract ImpactCatalyst {
 
     /**
      * @notice entry point for GCC to commit GCC
-     * @dev the retiring process is as follows:
+     * @dev the commit process is as follows:
      *         1. GCC is swapped for USDC
      *         2. GCC and USDC are added to the GCC-USDC pool
      *         3. The caller receives 2x the amount of USDC received from the swap in nominations
@@ -102,7 +102,7 @@ contract ImpactCatalyst {
 
     /**
      * @notice entry point for GCC to commit USDC
-     * @dev the retiring process is as follows:
+     * @dev the commit process is as follows:
      *         1. USDC is swapped for GCC
      *         2. GCC and USDC are added to the GCC-USDC pool
      *         3. The caller `amount` of USDC used / committed
