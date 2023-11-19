@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IMinerPool} from "@/interfaces/IMinerPool.sol";
-
 contract BucketSubmission {
     /**
      * @notice the start offset to the current bucket for the grc deposit
