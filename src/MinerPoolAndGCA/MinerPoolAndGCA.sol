@@ -14,6 +14,7 @@ import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IHoldingContract} from "@/HoldingContract.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
@@ -235,12 +236,15 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         // so that we don't overflow the available GRC rewards
         // and grab rewards from other buckets
         uint256 amountInBucket = _getAmountForTokenAndInitIfNot(bucketId);
-        amountInBucket = amountInBucket * _min(grcWeight, totalGRCWeight) / totalGRCWeight;
+        _revertIfGreater(grcWeight, totalGRCWeight, IMinerPool.GRCWeightGreaterThanTotalWeight.selector);
+        amountInBucket = amountInBucket * grcWeight / totalGRCWeight;
         if (amountInBucket > 0) {
-            HOLDING_CONTRACT.addHolding(user, USDC, uint192(amountInBucket));
+            //Cant overflow since the amountInBucket is less than  or equal to the total amount in the bucket
+            HOLDING_CONTRACT.addHolding(user, USDC, SafeCast.toUint192(amountInBucket));
         }
 
         {
+            _revertIfGreater(glwWeight, totalGlwWeight, IMinerPool.GlowWeightGreaterThanTotalWeight.selector);
             uint256 amountGlowToSend = GLOW_REWARDS_PER_BUCKET * glwWeight / totalGlwWeight;
             if (amountGlowToSend > 0) {
                 SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), user, amountGlowToSend);
@@ -278,7 +282,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             _revert(IMinerPool.CannotDelayEmptyBucket.selector);
         }
 
-        _buckets[bucketId].finalizationTimestamp += uint128(_BUCKET_DELAY_LENGTH);
+        _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(_BUCKET_DELAY_LENGTH);
 
         if (!IVetoCouncil(_VETO_COUNCIL).isCouncilMember(msg.sender)) {
             _revert(IMinerPool.CallerNotVetoCouncilMember.selector);
@@ -443,8 +447,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint256 grcWeight
     ) internal {
         PushedWeights memory pushedWeights = _weightsPushed[bucketId];
-        pushedWeights.pushedGlwWeight += uint64(glwWeight);
-        pushedWeights.pushedGrcWeight += uint64(grcWeight);
+        pushedWeights.pushedGlwWeight += SafeCast.toUint64(glwWeight);
+        pushedWeights.pushedGrcWeight += SafeCast.toUint64(grcWeight);
         if (pushedWeights.pushedGlwWeight > totalGlwWeight) {
             _revert(IMinerPool.GlowWeightOverflow.selector);
         }
@@ -486,6 +490,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     function _domainSeperatorV4Main() internal view virtual override(GCA) returns (bytes32) {
         return _domainSeparatorV4();
+    }
+
+    function _revertIfGreater(uint256 a, uint256 b, bytes4 selector) internal pure {
+        if (a > b) _revert(selector);
     }
 
     /**

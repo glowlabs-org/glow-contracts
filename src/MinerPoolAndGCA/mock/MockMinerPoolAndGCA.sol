@@ -53,6 +53,11 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         return _getUserBitmapForBucket(bucketId, user);
     }
 
+    function getPushedWeights(uint256 bucketId) external view returns (uint256 glw, uint256 grc) {
+        PushedWeights memory pushedWeights = _weightsPushed[bucketId];
+        return (pushedWeights.pushedGlwWeight, pushedWeights.pushedGrcWeight);
+    }
+
     /**
      * @dev checks to make sure the weights in the report
      *         - dont overflow the total weights that have been set for the bucket

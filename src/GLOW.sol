@@ -4,6 +4,8 @@ pragma solidity ^0.8.19;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 /**
  * @dev helper for managing tail and head in a mapping
  * @param tail the tail of the mapping
@@ -13,7 +15,6 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
  *         -   and conversely, head == tail and there is no data
  *         - These special cases are handled in the code
  */
-
 struct Pointers {
     uint128 tail;
     uint128 head;
@@ -173,7 +174,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
                 //Should be the overshot amount.
                 //Instead of having 10 in the latest pool, we have 9 since we needed to pull 1
                 newHead = i; //If we overshot, the head stays the same and it does indeed still have data
-                _unstakedPositions[msg.sender][i].amount = uint192(overshoot);
+                _unstakedPositions[msg.sender][i].amount = SafeCast.toUint192(overshoot);
                 break;
             }
 
@@ -187,7 +188,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         }
 
         if (newHead != head) {
-            _unstakedPositionPointers[msg.sender].head = uint128(newHead);
+            _unstakedPositionPointers[msg.sender].head = SafeCast.toUint128(newHead);
         }
 
         if (stakeAmount > amountInUserUnstakePool) {
@@ -250,21 +251,16 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         //Decrease the number of tokens staked by the user
         numStaked[msg.sender] = numAccountStaked - amount;
 
-        _unstakedPositions[msg.sender][indexInMappingToPushTo] =
-            UnstakedPosition({amount: uint192(amount), cooldownEnd: uint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)});
+        _unstakedPositions[msg.sender][indexInMappingToPushTo] = UnstakedPosition({
+            amount: SafeCast.toUint192(amount),
+            cooldownEnd: SafeCast.toUint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)
+        });
 
-        pointers = Pointers({head: uint128(indexInMappingToPushTo), tail: pointers.tail});
+        pointers = Pointers({head: SafeCast.toUint128(indexInMappingToPushTo), tail: pointers.tail});
 
         _unstakedPositionPointers[msg.sender] = pointers;
         emit IGlow.Unstake(msg.sender, amount);
     }
-
-    // //The only way this could happen is if someone had claimed,
-    // //so this is clearly not the place
-    // if(iterAmountInUserStakePool == 0) {
-    //     newTail = i  == 0 ? 0 : i + 1;
-    //     break;
-    // }
 
     /**
      * @inheritdoc IGlow
@@ -312,7 +308,8 @@ contract Glow is ERC20, ERC20Permit, IGlow {
                     newTail = head;
                 }
                 //Update the tail in storage
-                _unstakedPositionPointers[msg.sender] = Pointers({head: uint128(head), tail: uint128(newTail)});
+                _unstakedPositionPointers[msg.sender] =
+                    Pointers({head: SafeCast.toUint128(head), tail: SafeCast.toUint128(newTail)});
                 //delete the position for a gas refund
                 delete _unstakedPositions[msg.sender][i];
                 //transfer the amount to the user
@@ -329,12 +326,13 @@ contract Glow is ERC20, ERC20Permit, IGlow {
                 newTail = i;
                 //Check redundancy before sstoring the new tail
                 if (newTail != tail) {
-                    _unstakedPositionPointers[msg.sender] = Pointers({head: uint128(head), tail: uint128(newTail)});
+                    _unstakedPositionPointers[msg.sender] =
+                        Pointers({head: SafeCast.toUint128(head), tail: SafeCast.toUint128(newTail)});
                 }
                 //Calculate the amount that is left in the position after the claim
                 uint256 amountLeftInPosition = claimableTotal - amount;
                 //Update the position amount in storage
-                position.amount = uint192(amountLeftInPosition);
+                position.amount = SafeCast.toUint192(amountLeftInPosition);
                 //Transfer the amount to the user
                 _transfer(address(this), msg.sender, amount);
                 //Emit the claim event
