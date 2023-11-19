@@ -9,6 +9,9 @@ import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 /// @dev we use a > 0 value as the null address
 //      - to avoid deleting a slot and having to reinitialize it with a cold sstore
 address constant NULL_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
+
+/// @dev since there are no more than 7 veto council members
+///     -   we use uint8.max as the null index
 uint8 constant NULL_INDEX = type(uint8).max;
 
 /**
