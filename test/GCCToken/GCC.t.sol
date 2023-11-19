@@ -93,7 +93,7 @@ contract GCCTest is Test {
      */
     function testFuzz_ensureOptimalAmountOutput_isLessThanAmountTocommit(uint256 a, uint256 b) public {
         /**
-         * This test exists because our 'findOptimalAmountToCommit' function
+         * This test exists because our 'findOptimalAmountToSwap' function
          *         can lead to weird results due to precision loss in extreme cases.
          *         This test ensures that the optimal amount is always less than the
          *         amount to commit so that there is no underflow in the commit function.
@@ -112,7 +112,7 @@ contract GCCTest is Test {
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToCommit(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+            swapper.findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
         optimalAmount /= GCC_MAGNIFICATION;
         uint256 success = amount >= optimalAmount ? 1 : 0;
 
@@ -170,7 +170,7 @@ contract GCCTest is Test {
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToCommit(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+            swapper.findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
         optimalAmount /= GCC_MAGNIFICATION;
         uint256 success = amount >= optimalAmount ? 1 : 0;
 
@@ -260,7 +260,7 @@ contract GCCTest is Test {
      */
     function testFuzz_ensureOptimalAmountOutput_isLessThanAmountTocommit_USDC(uint256 a, uint256 b) public {
         /**
-         * This test exists because our 'findOptimalAmountToCommit' function
+         * This test exists because our 'findOptimalAmountToSwap' function
          *         can lead to weird results due to precision loss in extreme cases.
          *         This test ensures that the optimal amount is always less than the
          *         amount to commit so that there is no underflow in the commit function.
@@ -279,7 +279,7 @@ contract GCCTest is Test {
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToCommit(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
+            swapper.findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
         optimalAmount /= USDC_MAGNIFICATION;
         uint256 success = amount >= optimalAmount ? 1 : 0;
 
@@ -344,7 +344,7 @@ contract GCCTest is Test {
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToCommit(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
+            swapper.findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
         optimalAmount /= USDC_MAGNIFICATION;
         uint256 success = amount >= optimalAmount ? 1 : 0;
 
@@ -446,7 +446,7 @@ contract GCCTest is Test {
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToCommit(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+            swapper.findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
         optimalAmount /= GCC_MAGNIFICATION;
         uint256 success = amount >= optimalAmount ? 1 : 0;
 
@@ -573,7 +573,7 @@ contract GCCTest is Test {
         // console.log("amount = ", amount);
         // console.log("totalReserves = ", totalReserves);
         uint256 optimalAmount =
-            swapper.findOptimalAmountToCommit(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+            swapper.findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
         optimalAmount /= MAGNIFIER;
 
         uint256 success = amount >= optimalAmount ? 1 : 0;

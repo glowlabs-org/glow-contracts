@@ -40,11 +40,11 @@ contract ImpactCatalyst {
     /// @notice the uniswap pair of GCC and USDC
     address public immutable UNISWAP_V2_PAIR;
 
-    /// @dev the magnification of GCC to use in {findOptimalAmountToCommit} to reduce precision loss
+    /// @dev the magnification of GCC to use in {findOptimalAmountToSwap} to reduce precision loss
     /// @dev GCC is in 18 decimals, so we can make it 1e18 to reduce precision loss
     uint256 private constant GCC_MAGNIFICATION = 1e18;
 
-    /// @dev the magnification of USDC to use in {findOptimalAmountToCommit} to reduce precision loss
+    /// @dev the magnification of USDC to use in {findOptimalAmountToSwap} to reduce precision loss
     /// @dev USDC is in 6 decimals, so we can make it 1e24 to reduce precision loss
     uint256 private constant USDC_MAGNIFICATION = 1e24;
 
@@ -82,7 +82,7 @@ contract ImpactCatalyst {
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
 
         uint256 amountToSwap =
-            findOptimalAmountToCommit(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
+            findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
         uint256 amountToAddInLiquidity = amount - amountToSwap;
 
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amount);
@@ -117,7 +117,7 @@ contract ImpactCatalyst {
         }
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
-        uint256 amountToSwap = findOptimalAmountToCommit(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
+        uint256 amountToSwap = findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
             / USDC_MAGNIFICATION;
         uint256 amountToAddInLiquidity = amount - amountToSwap;
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amount);
@@ -139,7 +139,7 @@ contract ImpactCatalyst {
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
-        uint256 amountToSwap = findOptimalAmountToCommit(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
+        uint256 amountToSwap = findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
             / USDC_MAGNIFICATION;
         //.....
         uint256 gccEstimate = UniswapV2Library.getAmountOut(amountToSwap, reserveUSDC, reserveGCC);
@@ -156,7 +156,7 @@ contract ImpactCatalyst {
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
         uint256 amountToSwap =
-            findOptimalAmountToCommit(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
+            findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
         uint256 usdcEstimate = UniswapV2Library.getAmountOut(amountToSwap, reserveGCC, reserveUSDC);
         uint256 amountGCCToAddInLP = amount - amountToSwap;
         return sqrt(amountGCCToAddInLP * usdcEstimate);
@@ -168,7 +168,7 @@ contract ImpactCatalyst {
      * @param totalReservesOfToken the total reserves of the token to commit
      * @return optimalAmount - the optimal amount of tokens to swap
      */
-    function findOptimalAmountToCommit(uint256 amountTocommit, uint256 totalReservesOfToken)
+    function findOptimalAmountToSwap(uint256 amountTocommit, uint256 totalReservesOfToken)
         public
         view
         returns (uint256)
