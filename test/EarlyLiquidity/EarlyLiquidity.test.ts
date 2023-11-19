@@ -137,15 +137,7 @@ describe('Test: Early Liquidity', function () {
         );
 
         const ff = Array.from({length: 40}, () => 'f').join('');
-        const maxUint128 = BigNumber.from(1).shl(128).sub(1)
-        const arrayWith1000 = Array.from({length: 1000}, (_, i) => {
-          return {
-            address:  `0x${ff}`,
-            w1: maxUint128,
-            w2: maxUint128,
-            
-          }
-        })
+
 
 
         //An increment is .01 tokens, so the tota amount of tokens we are buying is equal to 
@@ -258,8 +250,8 @@ describe('Test: Early Liquidity', function () {
 
 function getPriceOfToken(totalTokensSold: number): number {
   //Since our increments are .01, the formula reshapes to
-  // .006 * 2^((totalIncrementsSold + 1) / 100 million)
-  return Math.floor(6000 * 2 ** ((totalTokensSold + 1) / 100_000_000));
+  // .001 * 2^((totalIncrementsSold + 1) / 100 million)
+  return Math.floor(1000 * 2 ** ((totalTokensSold + 1) / 100_000_000));
 }
 // /**
 //  * @notice grabs the actual price of all the tokens by looping through each token and adding the price
@@ -340,7 +332,7 @@ const ratio = 1.0000000069314718;
 
 
 const getPriceOfTokens = (totalTokensSold: number, totalToBuy: number) => {
-  const firstTerm = .006 * 2 ** (totalTokensSold / 100_000_000);
+  const firstTerm = .001 * 2 ** (totalTokensSold / 100_000_000);
   const price = geometricSeriesSum(
     firstTerm,
     ratio,

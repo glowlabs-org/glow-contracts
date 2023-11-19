@@ -50,8 +50,8 @@ contract GCCTest is Test {
     address earlyLiquidity = address(0x412412);
     address other = address(0xdead);
     address accountWithLotsOfUSDC = 0xcEe284F754E854890e311e3280b767F80797180d; //arbitrum bridge
-    string forkUrl = vm.envString("MAINNET_RPC");
-    uint256 mainnetFork;
+    // string forkUrl = vm.envString("MAINNET_RPC");
+    // uint256 mainnetFork;
 
     function setUp() public {
         uniswapFactory = new UnifapV2Factory();

@@ -30,17 +30,16 @@ interface IDecimals {
  *         - to efficiently calculate the price of y tokens in real time rather than looping through all the increments
  */
 
+//TODO: change comments to match .001
+
 contract EarlyLiquidity is IEarlyLiquidity {
     using ABDKMath64x64 for int128;
-
-    /// @dev The number 0.006 in microdollars with respect to USDC_DECIMALS
-    uint256 private constant _POINT_ZERO_ZERO6 = 6 * (10 ** (USDC_DECIMALS - 3));
 
     /// @dev Represents 1.0000000069314718 in 64x64 format, or `r` in the geometric series
     int128 private constant _RATIO = 18446744201572638720;
 
-    /// @dev Represents 0.006 USDC in 64x64 format
-    int128 private constant _POINT_ZERO_ZERO_6 = 110680464442257309696000;
+    /// @dev Represents 0.001 USDC in 64x64 format
+    int128 private constant _POINT_ZERO_ZERO_ONE = 18446744073709551616000;
 
     /// @dev Represents 1 in 64x64 format
     int128 private constant _ONE = 18446744073709551616;
@@ -319,8 +318,8 @@ contract EarlyLiquidity is IEarlyLiquidity {
         // because of the earlier logarithmic transformation.
         int128 baseResult = ABDKMath64x64.exp(exponent);
 
-        // Multiply the result by 0.006, where '_POINT_ZERO_ZERO_6' is the fixed-point representation of 0.006.
-        int128 result = _POINT_ZERO_ZERO_6.mul(baseResult);
+        // Multiply the result by 0.006, where '_POINT_ZERO_ZERO_ONE' is the fixed-point representation of 0.006.
+        int128 result = _POINT_ZERO_ZERO_ONE.mul(baseResult);
 
         // The following comments are for the purpose of explaining why the code cannot overflow.
         //ln(2) = 0.693147......
