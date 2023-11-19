@@ -54,6 +54,7 @@ contract GlowUnlockerTest is Test {
     }
 
     function test_disperser_getNextReward() public {
+        vm.warp(block.timestamp + uint256(365 days));
         address rewardAddress1 = addresses[0];
         address rewardAddress11 = addresses[10];
         {
@@ -71,8 +72,8 @@ contract GlowUnlockerTest is Test {
         //after 365 days we should have 5_000_000 / 6 and 10_000_000 / 6
         reward1 = disperser.nextReward(rewardAddress1);
         reward11 = disperser.nextReward(rewardAddress11);
-        assert(reward1 == uint256(5_000_000 ether) / uint256(6));
-        assert(reward11 == uint256(10_000_000 ether) / uint256(6));
+        assert(reward1 == uint256(5_000_000 ether) / uint256(5));
+        assert(reward11 == uint256(10_000_000 ether) / uint256(5));
 
         vm.startPrank(rewardAddress1);
         disperser.claim(rewardAddress1);
@@ -84,7 +85,7 @@ contract GlowUnlockerTest is Test {
         //Warp again to 2 years
         vm.warp(block.timestamp + uint256(365 days));
         reward1 = disperser.nextReward(rewardAddress1);
-        assert(reward1 == uint256(5_000_000 ether) / uint256(6));
+        assert(reward1 == uint256(5_000_000 ether) / uint256(5));
         //claim again
         vm.startPrank(rewardAddress1);
         disperser.claim(rewardAddress1);
@@ -92,11 +93,11 @@ contract GlowUnlockerTest is Test {
 
         reward1 = disperser.nextReward(rewardAddress1);
         assert(reward1 == 0 ether);
-        //fast forward 4 years to mark the end of the vesting period
-
-        vm.warp(block.timestamp + uint256(4 * 365 days));
+        //fast forward 3 years to mark the end of the vesting period
+        vm.warp(block.timestamp + uint256(3 * 365 days));
         reward1 = disperser.nextReward(rewardAddress1);
-        assert(reward1 == uint256(5_000_000 ether) * uint256(4) / uint256(6));
+        // console.log("reward1", reward1);
+        assert(reward1 == uint256(5_000_000 ether) * uint256(3) / uint256(5));
         //claim again
         vm.startPrank(rewardAddress1);
         disperser.claim(rewardAddress1);
@@ -117,21 +118,30 @@ contract GlowUnlockerTest is Test {
         vm.stopPrank();
 
         uint256 balance = glw.balanceOf(rewardAddress1);
-        console.log("balance", balance);
+        // console.log("balance", balance);
         //Tiny offset for dust
-        assert(glw.balanceOf(rewardAddress1) == 4999999999999999999999999);
+        assert(glw.balanceOf(rewardAddress1) == 5000000 ether);
 
         vm.startPrank(rewardAddress11);
         disperser.claim(rewardAddress11);
         vm.stopPrank();
         balance = glw.balanceOf(rewardAddress11);
-        console.log("balance", balance);
+        // console.log("balance", balance);
         //Tiny offset for dust
         assert(balance == 10_000_000 ether);
     }
 
+    function testFuzz_claimingBeforeReleaseStartTimestamp_shouldRevert(uint256 timeToWarp) public {
+        //release period is frozen between contract creation time and 1 year after
+        timeToWarp = block.timestamp + timeToWarp % 365 days;
+        vm.warp(timeToWarp);
+        address rewardAddress1 = addresses[0];
+        vm.expectRevert(GlowUnlocker.ReleasePeriodNotStarted.selector);
+        disperser.claim(rewardAddress1);
+    }
+
     function testFuzz_warpRandomTime_rewardsShouldNeverOverflow(uint128 secondsToWarpForward) public {
-        vm.assume(secondsToWarpForward > 0);
+        vm.assume(secondsToWarpForward > uint256(365 days));
         vm.warp(block.timestamp + secondsToWarpForward);
         address rewardAddress1 = addresses[0];
         vm.startPrank(rewardAddress1);

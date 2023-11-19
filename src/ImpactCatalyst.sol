@@ -117,8 +117,8 @@ contract ImpactCatalyst {
         }
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
-        uint256 amountToSwap = findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
-            / USDC_MAGNIFICATION;
+        uint256 amountToSwap =
+            findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION) / USDC_MAGNIFICATION;
         uint256 amountToAddInLiquidity = amount - amountToSwap;
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amount);
         address[] memory path = new address[](2);
@@ -139,8 +139,8 @@ contract ImpactCatalyst {
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
-        uint256 amountToSwap = findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION)
-            / USDC_MAGNIFICATION;
+        uint256 amountToSwap =
+            findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION) / USDC_MAGNIFICATION;
         //.....
         uint256 gccEstimate = UniswapV2Library.getAmountOut(amountToSwap, reserveUSDC, reserveGCC);
         uint256 amountUSDCToAddInLP = amount - amountToSwap;

@@ -10,15 +10,19 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * @notice A contract for unlocking glow tokens
  *         - the contract takes in a list of addresses and amounts
  *         - and unlocks the glow tokens for those respective addresses and amounts over 6 years
+ *            - The first year, no tokens are unlocked
+ *            - Every year after, for 5 years, 20% of the tokens are unlocked
  */
 contract GlowUnlocker is Ownable {
     error ZeroAddressInConstructor();
     error NothingToClaim();
+    error ReleasePeriodNotStarted();
 
+    uint256 private constant RELEASE_OFFSET = uint256(365 days); // 1 year
     /**
-     * @dev the vesting period for glow tokens
+     * @dev the release duration for glow tokens
      */
-    uint256 private constant VESTING_PERIOD = uint256(365 days) * 6; //6 years
+    uint256 private constant RELEASE_DURATION = uint256(365 days) * 5; //5 years
 
     /**
      * @notice the amount of glow tokens each address unlocks over the course of the vesting period
@@ -90,14 +94,25 @@ contract GlowUnlocker is Ownable {
      * @return reward - next reward for a given address
      */
     function nextReward(address from) public view returns (uint256) {
+        uint256 _genesisTimestamp = genesisTimestamp;
+        uint256 releaseStartTimestamp = _genesisTimestamp + RELEASE_OFFSET;
         uint256 amount = amountUnlockable[from];
+        if (block.timestamp < releaseStartTimestamp) {
+            revert ReleasePeriodNotStarted();
+        }
         uint256 lastClaimedTimestampUser = lastClaimedTimestamp[from];
         if (lastClaimedTimestampUser == 0) {
-            lastClaimedTimestampUser = genesisTimestamp;
+            lastClaimedTimestampUser = releaseStartTimestamp;
         }
-        uint256 timestampToCompare = min(block.timestamp, genesisTimestamp + VESTING_PERIOD);
+
+        uint256 maxClaimableTimestamp = releaseStartTimestamp + RELEASE_DURATION;
+        if (lastClaimedTimestampUser > maxClaimableTimestamp) {
+            return 0;
+        }
+
+        uint256 timestampToCompare = min(block.timestamp, maxClaimableTimestamp);
         uint256 timeSinceLastClaim = timestampToCompare - lastClaimedTimestampUser;
-        uint256 amountToClaim = (timeSinceLastClaim * amount) / VESTING_PERIOD;
+        uint256 amountToClaim = (timeSinceLastClaim * amount) / RELEASE_DURATION;
         return amountToClaim;
     }
 
