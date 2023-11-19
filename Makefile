@@ -46,7 +46,16 @@ deploy.full.testnet :; forge script script/Testnet/DeployFull.s.sol --rpc-url ${
 deploy.full.anvil :; forge script script/Testnet/DeployFull.s.sol --rpc-url  http://127.0.0.1:8545 --broadcast -vvvv --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
 #---- [solhint] -----------------------------------------------------------------------------------
-solhint :; find ./src -type f \( -name "*.sol" ! -path "./src/temp/*" ! -path "./src/testing/*" ! -path "./src/libraries/ABDKMath64x64.sol" ! -path "./src/MinerPoolAndGCA/mock/*" \) -exec solhint {} +
+solhint :; find ./src -type f \( -name "*.sol"  \
+ 		! -path "./src/temp/*" \
+		! -path "./src/testing/*" \
+		! -path "./src/libraries/ABDKMath64x64.sol"  \
+		! -path "./src/UnifapV2/*" \
+		! -path "./src/libraries/UniswapV2Library.sol" \
+		! -path "./src/interfaces/IUniswapV2Pair.sol" \
+		! -path "./src/UniswapV2/*" \
+		! -path "./src/MinerPoolAndGCA/mock/*" \) \
+		 -exec solhint {} +
 
 
 
