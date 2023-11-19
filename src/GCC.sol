@@ -99,7 +99,13 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         GOVERNANCE = IGovernance(_governance);
         GLOW = _glowToken;
         CarbonCreditDutchAuction cccAuction =
-            new CarbonCreditDutchAuction(IERC20(_glowToken), IERC20(address(this)), 1e6);
+        //Starting price of Carbon Credit Auction is $10
+        //Since there will be at least 2 weeks until the first gcc is minted,
+        //We set the price at $40 because there is a half life of 1 week on the price per gcc
+        //The carbon credit auction sells units of GCC in 1e6.
+        //If 1e18 GCC = 40 * 1e6, then 1e10 GCC = 40
+        //TODO: come back here and finish teh comments
+         new CarbonCreditDutchAuction(IERC20(_glowToken), IERC20(address(this)), 1e6);
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));
         address factory = UNISWAP_ROUTER.factory();
         address pair = getPair(factory, _usdc);

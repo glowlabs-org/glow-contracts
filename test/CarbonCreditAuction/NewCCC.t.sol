@@ -151,6 +151,15 @@ contract CarbonCreditDutchAuctionTest is Test {
         vm.stopPrank();
     }
 
+    function test_longTime() public {
+        test_BuyCCAuction();
+        vm.warp(block.timestamp + uint(90 days));
+        uint256 price = auction.getPricePerUnit();
+        console.log("price = ", price);
+    }
+
+    //-------------------------------------------------------------------------------------//
+
     function valFallsInRange(uint256 val, uint256 min, uint256 max) internal pure returns (bool) {
         return val >= min && val <= max;
     }

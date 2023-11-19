@@ -62,10 +62,10 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
     uint256 internal pricePerSaleUnit;
 
     /**
-     * @notice the amount of GCC sold within a single unit (0.000000000001 GCC)
-     * @dev This is equal to 1*10^-12 GCC (or .000000000001 GCC)
+     * @notice the amount of GCC sold within a single unit
+     * @dev This is equal to 1*10^-4 GCC (or .0001 GCC)
      */
-    uint256 public constant SALE_UNIT = 1e6;
+    uint256 public constant SALE_UNIT = 1e14;
 
     /**
      * @dev A struct to keep track of the timestamps all in a single slot
