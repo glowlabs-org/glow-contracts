@@ -1303,7 +1303,7 @@ contract Governance is IGovernance, EIP712 {
         _proposals[proposalId] = IGovernance.Proposal(
             proposalType,
             SafeCast.toUint64(block.timestamp + MAX_PROPOSAL_DURATION),
-            SafeCast.toUint184(nominationCost),
+            SafeCast.toUint184(totalNominationsToSpend),
             data
         );
 
