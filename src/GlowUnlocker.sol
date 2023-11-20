@@ -81,7 +81,7 @@ contract GlowUnlocker is Ownable {
      * @notice Initializes the contract
      * @dev can only be called once
      */
-    function initialize(address _glow) external {
+    function initialize(address _glow) external onlyOwner {
         require(address(glow) == address(0), "Already initialized");
         glow = IGlow(_glow);
         genesisTimestamp = glow.GENESIS_TIMESTAMP();
