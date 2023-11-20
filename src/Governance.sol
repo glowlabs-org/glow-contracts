@@ -1309,8 +1309,8 @@ contract Governance is IGovernance, EIP712 {
 
         ++proposalId;
         _proposalCount = proposalId;
-
-        return (proposalId, totalNominationsToSpend);
+        //Need to send the preincremented proposalId
+        return (proposalId - 1, totalNominationsToSpend);
     }
 
     /**
