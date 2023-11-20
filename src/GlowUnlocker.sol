@@ -69,7 +69,7 @@ contract GlowUnlocker is Ownable {
      *             - to initiate the tx
      */
     function claim(address to) external {
-        uint256 reward = nextReward(msg.sender);
+        uint256 reward = nextReward(to);
         if (reward == 0) {
             revert NothingToClaim();
         }
