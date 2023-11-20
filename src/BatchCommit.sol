@@ -68,6 +68,7 @@ contract BatchCommit {
         USDC.transferFrom(msg.sender, address(this), amount);
         uint256 balAfter = USDC.balanceOf(address(this));
         uint256 amountToRetire = balAfter - balBefore;
+        USDC.approve(address(GCC), amountToRetire);
         GCC.commitUSDC(amountToRetire, rewardAddress);
         emit USDCEmission(data);
     }
