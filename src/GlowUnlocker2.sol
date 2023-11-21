@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {IGlow} from "@/interfaces/IGlow.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /// @dev should be deployed by glow contract
 
 /**
@@ -13,7 +12,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  *            - The first year, no tokens are unlocked
  *            - Every year after, for 5 years, 20% of the tokens are unlocked
  */
-contract GlowUnlocker is Ownable {
+contract GlowUnlocker2 {
     error ZeroAddressInConstructor();
     error NothingToClaim();
     error ReleasePeriodNotStarted();
@@ -44,23 +43,6 @@ contract GlowUnlocker is Ownable {
     uint256 public genesisTimestamp;
 
     /**
-     * @param _addresses the addresses to unlock glow tokens for
-     * @param _amounts the amounts to unlock glow tokens for
-     * @dev the length of _addresses and _amounts must be the same
-     * @dev there is a one to one mapping between _addresses and _amounts
-     */
-    constructor(address[] memory _addresses, uint256[] memory _amounts) Ownable(tx.origin) {
-        unchecked {
-            for (uint256 i; i < _addresses.length; ++i) {
-                if (_addresses[i] == address(0)) {
-                    revert ZeroAddressInConstructor();
-                }
-                amountUnlockable[_addresses[i]] = _amounts[i];
-            }
-        }
-    }
-
-    /**
      * @notice Claims glow tokens {to}
      * @param to address to send glow tokens
      * @dev anyone can call this function
@@ -81,11 +63,18 @@ contract GlowUnlocker is Ownable {
      * @notice Initializes the contract
      * @dev can only be called once
      */
-    function initialize(address _glow) external onlyOwner {
+    function initialize(address _glow, address[] memory _addresses, uint256[] memory _amounts) external {
         require(address(glow) == address(0), "Already initialized");
         glow = IGlow(_glow);
         genesisTimestamp = glow.GENESIS_TIMESTAMP();
-        _transferOwnership(address(0));
+        unchecked {
+            for (uint256 i; i < _addresses.length; ++i) {
+                if (_addresses[i] == address(0)) {
+                    revert ZeroAddressInConstructor();
+                }
+                amountUnlockable[_addresses[i]] = _amounts[i];
+            }
+        }
     }
 
     /**
