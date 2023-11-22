@@ -29,6 +29,53 @@ interface IGCC is IERC20 {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                                   events                                  */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @notice is emitted when a user commits credits
+     * @param account the account that committed credits
+     * @param rewardAddress the address that earned the credits and nominations
+     * @param gccAmount the amount of credits committed
+     * @param usdcEffect the amount of USDC effect
+     * @param impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
+     * @param referralAddress the address that referred the account
+     *             - zero address if no referral
+     */
+    event GCCCommitted(
+        address indexed account,
+        address indexed rewardAddress,
+        uint256 gccAmount,
+        uint256 usdcEffect,
+        uint256 impactPower,
+        address referralAddress
+    );
+
+    /**
+     * @notice is emitted when a user commits USDC
+     * @param account the account that commit the USDC
+     * @param rewardAddress the address that earns nominations
+     * @param amount the amount of USDC commit
+     * @param impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
+     * @param referralAddress the address that referred the account
+     *             - zero address if no referral
+     */
+    event USDCCommitted(
+        address indexed account,
+        address indexed rewardAddress,
+        uint256 amount,
+        uint256 impactPower,
+        address referralAddress
+    );
+
+    /**
+     * @notice is emitted when a user approves a spender to commit credits on their behalf
+     * @param account the account that approved a spender
+     * @param spender the address of the spender
+     * @param value -  new total allowance
+     */
+    event CommitGCCAllowance(address indexed account, address indexed spender, uint256 value);
+
+    /* -------------------------------------------------------------------------- */
     /*                                   commits                                  */
     /* -------------------------------------------------------------------------- */
     /**
@@ -240,51 +287,4 @@ interface IGCC is IERC20 {
      * @param account the address of the account to check
      */
     function nextCommitNonce(address account) external view returns (uint256);
-
-    /* -------------------------------------------------------------------------- */
-    /*                                   events                                  */
-    /* -------------------------------------------------------------------------- */
-    /**
-     * @notice is emitted when a user commits credits
-     * @param account the account that committed credits
-     * @param rewardAddress the address that earned the credits and nominations
-     * @param gccAmount the amount of credits committed
-     * @param usdcEffect the amount of USDC effect
-     * @param impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
-     * @param referralAddress the address that referred the account
-     *             - zero address if no referral
-     */
-    event GCCCommitted(
-        address indexed account,
-        address indexed rewardAddress,
-        uint256 gccAmount,
-        uint256 usdcEffect,
-        uint256 impactPower,
-        address referralAddress
-    );
-
-    /**
-     * @notice is emitted when a user commits USDC
-     * @param account the account that commit the USDC
-     * @param rewardAddress the address that earns nominations
-     * @param amount the amount of USDC commit
-     * @param impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
-     * @param referralAddress the address that referred the account
-     *             - zero address if no referral
-     */
-    event USDCCommitted(
-        address indexed account,
-        address indexed rewardAddress,
-        uint256 amount,
-        uint256 impactPower,
-        address referralAddress
-    );
-
-    /**
-     * @notice is emitted when a user approves a spender to commit credits on their behalf
-     * @param account the account that approved a spender
-     * @param spender the address of the spender
-     * @param value -  new total allowance
-     */
-    event CommitGCCAllowance(address indexed account, address indexed spender, uint256 value);
 }

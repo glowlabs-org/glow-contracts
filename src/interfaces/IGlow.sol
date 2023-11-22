@@ -4,6 +4,9 @@ pragma solidity ^0.8.19;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IGlow is IERC20 {
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                   */
+    /* -------------------------------------------------------------------------- */
     error UnstakeAmountExceedsStakedBalance();
     error InsufficientClaimableBalance();
     error CannotStakeZeroTokens();
@@ -18,6 +21,9 @@ interface IGlow is IERC20 {
     error DuplicateAddressNotAllowed();
     error CannotClaimZeroTokens();
 
+    /* -------------------------------------------------------------------------- */
+    /*                                      events                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice Emitted when a user stakes GLOW
      * @param user The address of the user that is staking
@@ -39,6 +45,9 @@ interface IGlow is IERC20 {
      */
     event ClaimUnstakedGLW(address indexed user, uint256 amount);
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   structs                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice represents an unstaked position
      * @param amount The amount of GLOW unstaked
@@ -48,6 +57,10 @@ interface IGlow is IERC20 {
         uint192 amount;
         uint64 cooldownEnd;
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   staking                                  */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice The entry point for a user to stake glow.
@@ -62,23 +75,9 @@ interface IGlow is IERC20 {
      */
     function unstake(uint256 amount) external;
 
-    /**
-     * @notice Returns the unstaked positions of a user
-     * @param account The address of the user
-     */
-    function unstakedPositionsOf(address account) external view returns (UnstakedPosition[] memory);
-
-    /**
-     * @notice Returns the unstaked positions of a user
-     * @param account The address of the user
-     * @param start The start index of the positions to return
-     * @param end The end index of the positions to return
-     */
-    function unstakedPositionsOf(address account, uint256 start, uint256 end)
-        external
-        view
-        returns (UnstakedPosition[] memory);
-
+    /* -------------------------------------------------------------------------- */
+    /*                                   inflation                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice Entry point for users to claim unstaked tokens that are no longer on cooldown
      * @param amount The amount of tokens to claim
@@ -104,6 +103,30 @@ interface IGlow is IERC20 {
      */
     function claimGLWFromGrantsTreasury() external returns (uint256);
 
+    /* -------------------------------------------------------------------------- */
+    /*                            view unstaked positions                          */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Returns the unstaked positions of a user
+     * @param account The address of the user
+     */
+    function unstakedPositionsOf(address account) external view returns (UnstakedPosition[] memory);
+
+    /**
+     * @notice Returns the unstaked positions of a user
+     * @param account The address of the user
+     * @param start The start index of the positions to return
+     * @param end The end index of the positions to return
+     */
+    function unstakedPositionsOf(address account, uint256 start, uint256 end)
+        external
+        view
+        returns (UnstakedPosition[] memory);
+
+    /* -------------------------------------------------------------------------- */
+    /*                             view inflation data                           */
+    /* -------------------------------------------------------------------------- */
     /**
      * @return lastClaimTimestamp The last time the GCA and Miner Pool Contract claimed GLW
      * @return totalAlreadyClaimed The total amount of GLW already claimed by the GCA and Miner Pool Contract
@@ -134,6 +157,9 @@ interface IGlow is IERC20 {
         view
         returns (uint256 lastClaimTimestamp, uint256 totalAlreadyClaimed, uint256 totalToClaim);
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   view                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @return the genesis timestamp
      */

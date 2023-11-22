@@ -97,6 +97,61 @@ interface IGCA {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                                   events                                   */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @dev Emitted when a gca submits a new compensation plan.
+     * @param agent - the address of the gca agent proposing
+     * @param plan - the compensation plan of the agent
+     */
+    event CompensationPlanSubmitted(address indexed agent, uint32[5] plan);
+
+    /**
+     * @dev Emitted when a gca claims their payout
+     * @param agent - the address of the gca agent claiming
+     * @param amount - the amount of tokens claimed
+     * @param totalSlashableBalance - the total slashable balance of the gca
+     */
+    event GCAPayoutClaimed(address indexed agent, uint256 amount, uint256 totalSlashableBalance);
+
+    /**
+     * @dev Emitted when a proposal hash is acted upon
+     * @param index - the index of the proposal hash inside the {proposalHashes} array
+     * @param proposalHash - the proposal hash
+     */
+    event ProposalHashUpdate(uint256 indexed index, bytes32 proposalHash);
+
+    /**
+     * @dev Emitted when governacne updates the {requirementsHash}
+     * @param requirementsHash - the new requirements hash gcas must abide by
+     */
+    event RequirementsHashUpdated(bytes32 requirementsHash);
+
+    /**
+     * @notice emitted when a GCA submits a report for a bucket
+     * @param bucketId - the id of the bucket
+     * @param gca - the address of the gca agent submitting the report
+     * @param slashNonce - the slash nonce at the time of report submission
+     * @param totalNewGCC - the total amount of new gcc from the farms the GCA is reporting on
+     * @param totalGlwRewardsWeight - the total amount of glw rewards weight from the farms the GCA is reporting on
+     * @param totalGRCRewardsWeight - the total amount of grc rewards weight from the farms the GCA is reporting on
+     * @param root - the merkle root of the reports
+     * @param extraData - extra data to be emitted.
+     *                         - This extra data can be anything as long as the GCA communicates it to the community
+     *                         - and should ideally, if possible, be the leaves of the merkle tree
+     */
+    event BucketSubmissionEvent(
+        uint256 indexed bucketId,
+        address gca,
+        uint256 slashNonce,
+        uint256 totalNewGCC,
+        uint256 totalGlwRewardsWeight,
+        uint256 totalGRCRewardsWeight,
+        bytes32 root,
+        bytes extraData
+    );
+
+    /* -------------------------------------------------------------------------- */
     /*                                 state changing funcs                       */
     /* -------------------------------------------------------------------------- */
     /**
@@ -186,59 +241,4 @@ interface IGCA {
      */
 
     function isBucketFinalized(uint256 bucketId) external view returns (bool);
-
-    /* -------------------------------------------------------------------------- */
-    /*                                   events                                   */
-    /* -------------------------------------------------------------------------- */
-    /**
-     * @dev Emitted when a gca submits a new compensation plan.
-     * @param agent - the address of the gca agent proposing
-     * @param plan - the compensation plan of the agent
-     */
-    event CompensationPlanSubmitted(address indexed agent, uint32[5] plan);
-
-    /**
-     * @dev Emitted when a gca claims their payout
-     * @param agent - the address of the gca agent claiming
-     * @param amount - the amount of tokens claimed
-     * @param totalSlashableBalance - the total slashable balance of the gca
-     */
-    event GCAPayoutClaimed(address indexed agent, uint256 amount, uint256 totalSlashableBalance);
-
-    /**
-     * @dev Emitted when a proposal hash is acted upon
-     * @param index - the index of the proposal hash inside the {proposalHashes} array
-     * @param proposalHash - the proposal hash
-     */
-    event ProposalHashUpdate(uint256 indexed index, bytes32 proposalHash);
-
-    /**
-     * @dev Emitted when governacne updates the {requirementsHash}
-     * @param requirementsHash - the new requirements hash gcas must abide by
-     */
-    event RequirementsHashUpdated(bytes32 requirementsHash);
-
-    /**
-     * @notice emitted when a GCA submits a report for a bucket
-     * @param bucketId - the id of the bucket
-     * @param gca - the address of the gca agent submitting the report
-     * @param slashNonce - the slash nonce at the time of report submission
-     * @param totalNewGCC - the total amount of new gcc from the farms the GCA is reporting on
-     * @param totalGlwRewardsWeight - the total amount of glw rewards weight from the farms the GCA is reporting on
-     * @param totalGRCRewardsWeight - the total amount of grc rewards weight from the farms the GCA is reporting on
-     * @param root - the merkle root of the reports
-     * @param extraData - extra data to be emitted.
-     *                         - This extra data can be anything as long as the GCA communicates it to the community
-     *                         - and should ideally, if possible, be the leaves of the merkle tree
-     */
-    event BucketSubmissionEvent(
-        uint256 indexed bucketId,
-        address gca,
-        uint256 slashNonce,
-        uint256 totalNewGCC,
-        uint256 totalGlwRewardsWeight,
-        uint256 totalGRCRewardsWeight,
-        bytes32 root,
-        bytes extraData
-    );
 }
