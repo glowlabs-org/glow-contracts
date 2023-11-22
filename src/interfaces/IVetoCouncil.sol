@@ -13,12 +13,7 @@ interface IVetoCouncil {
     /* -------------------------------------------------------------------------- */
     /*                                   events                                    */
     /* -------------------------------------------------------------------------- */
-    /**
-     * @notice returns true if the agent is a council member
-     * @param agent The address of the agent to be checked
-     * @return - true if the agent is a council member
-     */
-    function isCouncilMember(address agent) external view returns (bool);
+
 
     /**
      * @param oldAgent The address of the agent to be slashed or removed
@@ -65,4 +60,10 @@ interface IVetoCouncil {
     /* -------------------------------------------------------------------------- */
     /*                                   view                                    */
     /* -------------------------------------------------------------------------- */
+        /**
+     * @notice returns true if the agent is a council member
+     * @param agent The address of the agent to be checked
+     * @return - true if the agent is a council member
+     */
+    function isCouncilMember(address agent) external view returns (bool);
 }
