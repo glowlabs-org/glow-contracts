@@ -4,6 +4,10 @@ pragma solidity ^0.8.19;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IGCC is IERC20 {
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                  */
+    /* -------------------------------------------------------------------------- */
+
     error CallerNotGCAContract();
     error BucketAlreadyMinted();
     error CommitPermitSignatureExpired();
@@ -11,6 +15,9 @@ interface IGCC is IERC20 {
     error CommitAllowanceUnderflow();
     error MustIncreaseCommitAllowanceByAtLeastOne();
     error CannotReferSelf();
+    /* -------------------------------------------------------------------------- */
+    /*                                   structs                                  */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @param lastUpdatedTimestamp - the last timestamp a user earned or used nominations
@@ -21,21 +28,9 @@ interface IGCC is IERC20 {
         uint192 amount;
     }
 
-    /**
-     * @notice allows gca contract to mint GCC to the carbon credit auction
-     * @dev must callback to the carbon credit auction contract so it can organize itself
-     * @dev a bucket can only be minted from once
-     * @param bucketId the id of the bucket to mint from
-     * @param amount the amount of GCC to mint
-     */
-    function mintToCarbonCreditAuction(uint256 bucketId, uint256 amount) external;
-
-    /**
-     * @notice returns a boolean indicating if the bucket has been minted
-     * @return if the bucket has been minted
-     */
-    function isBucketMinted(uint256 bucketId) external view returns (bool);
-
+    /* -------------------------------------------------------------------------- */
+    /*                                   commits                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice allows a user to commit credits
      * @param amount the amount of credits to commit
@@ -64,97 +59,6 @@ interface IGCC is IERC20 {
     function commitGCC(uint256 amount, address rewardAddress, address referralAddress)
         external
         returns (uint256 usdcEffect, uint256 impactPower);
-
-    /**
-     * @notice Allows a user to commit USDC
-     * @param amount the amount of USDC to commit
-     * @param rewardAddress the address to commit the USDC to
-     * @param referralAddress the address that referred the account
-     * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
-     */
-    function commitUSDC(uint256 amount, address rewardAddress, address referralAddress)
-        external
-        returns (uint256 impactPower);
-
-    /**
-     * @notice Allows a user to commit USDC
-     * @param amount the amount of USDC to commit
-     * @param rewardAddress the address to commit the USDC to
-     * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
-     */
-    function commitUSDC(uint256 amount, address rewardAddress) external returns (uint256 impactPower);
-
-    /**
-     * @notice Allows a user to commit USDC using permit
-     * @param amount the amount of USDC to commit
-     * @param rewardAddress the address to commit the USDC to
-     * @param referralAddress the address that referred the account
-     * @param deadline the deadline for the signature
-     * @param v the v value of the signature for permit
-     * @param r the r value of the signature for permit
-     * @param s the s value of the signature for permit
-     * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
-     */
-    function commitUSDCSignature(
-        uint256 amount,
-        address rewardAddress,
-        address referralAddress,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external returns (uint256 impactPower);
-
-    /**
-     * @notice direct setter to set transfer allowance and committing allowance in one transaction for a {spender}
-     * @param spender the address of the spender to set the allowances for
-     * @param transferAllowance the amount of transfer allowance to set
-     * @param committingAllowance the amount of committing allowance to set
-     */
-    function setAllowances(address spender, uint256 transferAllowance, uint256 committingAllowance) external;
-
-    /**
-     * @notice approves a spender to commit credits on behalf of the caller
-     * @param spender the address of the spender
-     * @param amount the amount of credits to approve
-     */
-    function increaseCommitAllowance(address spender, uint256 amount) external;
-
-    /**
-     * @notice decreases a spender's allowance to commit credits on behalf of the caller
-     * @param spender the address of the spender
-     * @param amount the amount of credits to decrease the allowance by
-     */
-    function decreaseCommitAllowance(address spender, uint256 amount) external;
-
-    /**
-     * @notice allows a user to increase the erc20 and committing allowance of a spender in one transaction
-     * @param spender the address of the spender
-     * @param addedValue the amount of credits to increase the allowance by
-     */
-    function increaseAllowances(address spender, uint256 addedValue) external;
-
-    /**
-     * @notice allows a user to decrease the erc20 and committing allowance of a spender in one transaction
-     * @param spender the address of the spender
-     * @param requestedDecrease the amount of credits to decrease the allowance by
-     */
-    function decreaseAllowances(address spender, uint256 requestedDecrease) external;
-
-    /**
-     * @notice returns the committing allowance for a user
-     * @param account the address of the account to check
-     * @param spender the address of the spender to check
-     * @return the committing allowance
-     */
-    function commitAllowance(address account, address spender) external view returns (uint256);
-
-    /**
-     * @notice returns the next nonce to be used when committing credits
-     *         - only applies when the user is using EIP712 signatures similar to Permit
-     * @param account the address of the account to check
-     */
-    function nextCommitNonce(address account) external view returns (uint256);
 
     /**
      * @notice the entry point for an approved entity to commit credits on behalf of a user
@@ -225,6 +129,121 @@ interface IGCC is IERC20 {
         address referralAddress
     ) external returns (uint256 usdcEffect, uint256 impactPower);
 
+    /**
+     * @notice Allows a user to commit USDC
+     * @param amount the amount of USDC to commit
+     * @param rewardAddress the address to commit the USDC to
+     * @param referralAddress the address that referred the account
+     * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
+     */
+    function commitUSDC(uint256 amount, address rewardAddress, address referralAddress)
+        external
+        returns (uint256 impactPower);
+
+    /**
+     * @notice Allows a user to commit USDC
+     * @param amount the amount of USDC to commit
+     * @param rewardAddress the address to commit the USDC to
+     * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
+     */
+    function commitUSDC(uint256 amount, address rewardAddress) external returns (uint256 impactPower);
+
+    /**
+     * @notice Allows a user to commit USDC using permit
+     * @param amount the amount of USDC to commit
+     * @param rewardAddress the address to commit the USDC to
+     * @param referralAddress the address that referred the account
+     * @param deadline the deadline for the signature
+     * @param v the v value of the signature for permit
+     * @param r the r value of the signature for permit
+     * @param s the s value of the signature for permit
+     * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
+     */
+    function commitUSDCSignature(
+        uint256 amount,
+        address rewardAddress,
+        address referralAddress,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (uint256 impactPower);
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   minting                                  */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @notice allows gca contract to mint GCC to the carbon credit auction
+     * @dev must callback to the carbon credit auction contract so it can organize itself
+     * @dev a bucket can only be minted from once
+     * @param bucketId the id of the bucket to mint from
+     * @param amount the amount of GCC to mint
+     */
+    function mintToCarbonCreditAuction(uint256 bucketId, uint256 amount) external;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   view functions                                  */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @notice returns a boolean indicating if the bucket has been minted
+     * @return if the bucket has been minted
+     */
+    function isBucketMinted(uint256 bucketId) external view returns (bool);
+
+    /**
+     * @notice direct setter to set transfer allowance and committing allowance in one transaction for a {spender}
+     * @param spender the address of the spender to set the allowances for
+     * @param transferAllowance the amount of transfer allowance to set
+     * @param committingAllowance the amount of committing allowance to set
+     */
+    function setAllowances(address spender, uint256 transferAllowance, uint256 committingAllowance) external;
+
+    /**
+     * @notice approves a spender to commit credits on behalf of the caller
+     * @param spender the address of the spender
+     * @param amount the amount of credits to approve
+     */
+    function increaseCommitAllowance(address spender, uint256 amount) external;
+
+    /**
+     * @notice decreases a spender's allowance to commit credits on behalf of the caller
+     * @param spender the address of the spender
+     * @param amount the amount of credits to decrease the allowance by
+     */
+    function decreaseCommitAllowance(address spender, uint256 amount) external;
+
+    /**
+     * @notice allows a user to increase the erc20 and committing allowance of a spender in one transaction
+     * @param spender the address of the spender
+     * @param addedValue the amount of credits to increase the allowance by
+     */
+    function increaseAllowances(address spender, uint256 addedValue) external;
+
+    /**
+     * @notice allows a user to decrease the erc20 and committing allowance of a spender in one transaction
+     * @param spender the address of the spender
+     * @param requestedDecrease the amount of credits to decrease the allowance by
+     */
+    function decreaseAllowances(address spender, uint256 requestedDecrease) external;
+
+    /**
+     * @notice returns the committing allowance for a user
+     * @param account the address of the account to check
+     * @param spender the address of the spender to check
+     * @return the committing allowance
+     */
+    function commitAllowance(address account, address spender) external view returns (uint256);
+
+    /**
+     * @notice returns the next nonce to be used when committing credits
+     *         - only applies when the user is using EIP712 signatures similar to Permit
+     * @param account the address of the account to check
+     */
+    function nextCommitNonce(address account) external view returns (uint256);
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   events                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice is emitted when a user commits credits
      * @param account the account that committed credits
