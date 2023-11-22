@@ -2,7 +2,9 @@
 pragma solidity ^0.8.19;
 
 interface IMinerPool {
-    //----------------- ERRORS -----------------//
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                    */
+    /* -------------------------------------------------------------------------- */
     error ElectricityFuturesSignatureExpired();
     error ElectricityFuturesAuctionEnded();
     error ElectricityFuturesAuctionBidTooLow();
@@ -26,6 +28,9 @@ interface IMinerPool {
     error GlowWeightGreaterThanTotalWeight();
     error GRCWeightGreaterThanTotalWeight();
 
+    /* -------------------------------------------------------------------------- */
+    /*                                     state-changing                        */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice Allows anyone to donate GRC into the miner grc rewards pool
      * @notice the amount is split across 192 weeks starting at the current week + 16
@@ -85,6 +90,9 @@ interface IMinerPool {
      */
     function delayBucketFinalization(uint256 bucketId) external;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   view                                    */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice returns true if a bucket has been delayed
      * @param bucketId - the id of the bucket

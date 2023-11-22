@@ -2,6 +2,10 @@
 pragma solidity ^0.8.19;
 
 interface ICarbonCreditAuction {
+    /* -------------------------------------------------------------------------- */
+    /*                                   state-changing                           */
+    /* -------------------------------------------------------------------------- */
+
     /**
      * @notice receives GCC from the miner pool
      * @param amount the amount of GCC to receive
@@ -14,6 +18,10 @@ interface ICarbonCreditAuction {
      * @param maxPricePerUnit the maximum price per unit that the user is willing to pay
      */
     function buyGCC(uint256 unitsToBuy, uint256 maxPricePerUnit) external;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 view functions                             */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice returns the price per unit of GCC
