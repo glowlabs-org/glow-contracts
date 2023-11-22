@@ -7,9 +7,9 @@ import {IGrantsTreasury} from "./interfaces/IGrantsTreasury.sol";
 /**
  * @title GrantsTreasury
  * @author DavidVorick
- * @author 0xSimon, 0xSimbo
- * @notice The GreantsTreasury contract is used to manage the distribution of GLW to grant recipients
- *                 - rewards are allocated through Governance
+ * @author 0xSimon(twitter) - 0xSimbo(github)
+ * @notice The GrantsTreasury contract is used to manage the distribution of GLOW to grant recipients
+ *         - rewards are allocated through Governance
  */
 contract GrantsTreasury is IGrantsTreasury {
     /// @notice glow token
@@ -54,18 +54,23 @@ contract GrantsTreasury is IGrantsTreasury {
      * @inheritdoc IGrantsTreasury
      */
     function allocateGrantFunds(address to, uint256 amount) external returns (bool) {
+        //Only governance can allocate funds
         if (msg.sender != GOVERNANCE) _revert(IGrantsTreasury.CallerNotGovernance.selector);
+        //Always sync before allocating funds to ensure that the treasury has the most up to date balance
         sync();
+        //Load balance
         uint256 balance = totalBalanceInGrantsTreasury();
+        //If the balance is less than the amount requested, return false
+        //Else, we keep going
         if (balance < amount) {
             emit IGrantsTreasury.GrantFundsAllocationFailed(to, amount);
             return false;
         }
-
-        /// can't overflow because {amount} will never be greater than GLW's total supply
+        //allocate funds
+        /// can't overflow because {recipientBalance + amount} should never be greater than GLOW's total supply
         recipientBalance[to] += amount;
 
-        /// can't overflow because {amount} will never be greater than GLW's total supply
+        /// can't overflow because {amount} will never be greater than GLOW's total supply
         /// and glow token's total supply will never be greater than 2^256
         cumulativeAllocated += amount;
         emit IGrantsTreasury.GrantFundsAllocated(to, amount);
@@ -82,7 +87,7 @@ contract GrantsTreasury is IGrantsTreasury {
         cumulativePaidOut += allocation;
         GLOW_TOKEN.transfer(msg.sender, allocation);
 
-        //Can't overflow because the amount a recipient will never be greater than the total supply of GLW
+        //Can't overflow because the amount a recipient will never be greater than the total supply of GLOW
         emit IGrantsTreasury.GrantFundsClaimed(msg.sender, allocation);
     }
 
@@ -90,7 +95,7 @@ contract GrantsTreasury is IGrantsTreasury {
      * @inheritdoc IGrantsTreasury
      */
     function sync() public {
-        uint256 amt = GLOW_TOKEN.claimGLWFromGrantsTreasury();
+        uint256 amt = GLOW_TOKEN.claimGLOWFromGrantsTreasury();
         emit IGrantsTreasury.TreasurySynced(amt);
     }
 
@@ -102,7 +107,14 @@ contract GrantsTreasury is IGrantsTreasury {
      */
     function totalBalanceInGrantsTreasury() public view returns (uint256) {
         uint256 balance = GLOW_TOKEN.balanceOf(address(this));
-        /// @dev having two vars saves gas on sstores by almost always guaranteeing a hot sstore
+
+        //By tracking the cumulativePaidOut and cumulativeAllocated, we can calculate the total balance in the treasury
+        //cumulativePaid out tracks the total amount of GLOW that has been paid out to recipients
+        //cumulativeAllocated tracks the total amount of GLOW that has been allocated to recipients
+        //balance tracks the total amount of GLOW that is currently in the treasury
+        //that means that the total balance in the treasury is equal to the balance + cumulativePaidOut - cumulativeAllocated
+        //which is essentially, glow balance - debt
+        /// while having two vars means 2 sloads, we actually save gas on sstores by almost always guaranteeing a hot sstore
         return balance + cumulativePaidOut - cumulativeAllocated;
     }
 
