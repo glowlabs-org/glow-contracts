@@ -8,7 +8,7 @@ import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 
 /**
  * @title ImpactCatalyst
- * @notice A contract for managing the GCC and USDC committments
+ * @notice A contract for managing the GCC and USDC commitment
  *         A committment is when a user `donates` their GCC or USDC to the GCC-USDC pool
  *         to increase the liquidity of the pool and earn nominations
  *         For each commit, `amount` of GCC or USDC is swapped for the other token
@@ -18,7 +18,7 @@ import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
  *         - Nominations are granted as (sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition))
  *         - This is done to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
  * @dev only the GCC contract can call this contract since GCC is the only contract that is allowed to grant nominations
- * - having the catalyst calls be open would lead to committments that would not earn any impact points / rewards / nominations
+ * - having the catalyst calls be open would lead to commitment that would not earn any impact points / rewards / nominations
  */
 
 contract ImpactCatalyst {
@@ -75,28 +75,43 @@ contract ImpactCatalyst {
      *                        - we do this to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
      */
     function commitGCC(uint256 amount) external returns (uint256 usdcEffect, uint256 nominations) {
+        //Commitments can only be made through the GCC contract
         if (msg.sender != GCC) {
             _revert(CallerNotGCC.selector);
         }
+        //Find the reserves of GCC and USDC in the GCC-USDC pool
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
+        //Find the reserve of GCC and USDC in the GCC-USDC pool
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
 
+        //Find the optimal amount of GCC to swap for USDC
+        //This ensures that the the return amount of USDC after the swap
+        //Should be exactly enough to add liquidity to the GCC-USDC pool with the remainder of `amount` of GCC left over
         uint256 amountToSwap =
             findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
+        //The amount of GCC to add to the liquidity position
         uint256 amountToAddInLiquidity = amount - amountToSwap;
 
+        //Approve the GCC token to be spent by the router
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amount);
+        //Create the path for the swap
         address[] memory path = new address[](2);
         path[0] = GCC;
         path[1] = USDC;
+        //Swap the GCC for USDC
         uint256[] memory amounts =
             UNISWAP_ROUTER.swapExactTokensForTokens(amountToSwap, 0, path, address(this), block.timestamp);
+        //Find how much USDC was received from the swap
         uint256 amountUSDCReceived = amounts[1];
+        //Approve the USDC token to be spent by the router
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amountUSDCReceived);
+        //Add liquidity to the GCC-USDC pool
         UNISWAP_ROUTER.addLiquidity(
             GCC, USDC, amountToAddInLiquidity, amountUSDCReceived, 0, 0, address(this), block.timestamp
         );
+        //Set usdcEffect to the amount of USDC used in the liquidity position
         usdcEffect = amountUSDCReceived;
+        //set the nominations to sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
         nominations = sqrt(amountToAddInLiquidity * amountUSDCReceived);
     }
 
@@ -112,27 +127,40 @@ contract ImpactCatalyst {
      *                        - we do this to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
      */
     function commitUSDC(uint256 amount) external returns (uint256 nominations) {
+        //Commitments can only be made through the GCC contract
         if (msg.sender != GCC) {
             _revert(CallerNotGCC.selector);
         }
+        //Find the reserves of GCC and USDC in the GCC-USDC pool
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
+        //Find the reserve of GCC and USDC in the GCC-USDC pool
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
+        //Find the optimal amount of USDC to swap for GCC
+        //This ensures that the the return amount of GCC after the swap
+        //Should be exactly enough to add liquidity to the GCC-USDC pool with the remainder of `amount` of USDC left over
         uint256 amountToSwap =
             findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION) / USDC_MAGNIFICATION;
+        //The amount of USDC to add to the liquidity position
         uint256 amountToAddInLiquidity = amount - amountToSwap;
+        //Approve the USDC token to be spent by the router
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amount);
+        //Create the path for the swap
         address[] memory path = new address[](2);
         path[0] = USDC;
         path[1] = GCC;
+        //Swap the USDC for GCC
         uint256[] memory amounts =
             UNISWAP_ROUTER.swapExactTokensForTokens(amountToSwap, 0, path, address(this), block.timestamp);
+        //Approve the GCC token to be spent by the router
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amounts[1]);
+        //Add liquidity to the GCC-USDC pool
         UNISWAP_ROUTER.addLiquidity(USDC, GCC, amountToAddInLiquidity, amounts[1], 0, 0, address(this), block.timestamp);
+        //set the nominations to sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
         nominations = sqrt(amountToAddInLiquidity * amounts[1]);
     }
 
     /**
-     * @notice estimates how many nominations will be earned if USDC is committed
+     * @notice estimates how many nominations will be earned if `amount` of USDC is committed
      * @param amount the amount of USDC to commit
      */
     function estimateUSDCCommitImpactPower(uint256 amount) external view returns (uint256) {
@@ -141,14 +169,13 @@ contract ImpactCatalyst {
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
         uint256 amountToSwap =
             findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION) / USDC_MAGNIFICATION;
-        //.....
         uint256 gccEstimate = UniswapV2Library.getAmountOut(amountToSwap, reserveUSDC, reserveGCC);
         uint256 amountUSDCToAddInLP = amount - amountToSwap;
         return sqrt(amountUSDCToAddInLP * gccEstimate);
     }
 
     /**
-     * @notice estimates how many nominations will be earned if GCC is committed
+     * @notice estimates how many nominations will be earned if `amount` of GCC is committed
      * @param amount the amount of GCC to commit
      */
     function estimateGCCCommitImpactPower(uint256 amount) external view returns (uint256) {

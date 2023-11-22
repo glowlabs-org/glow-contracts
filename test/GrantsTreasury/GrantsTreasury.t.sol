@@ -70,7 +70,7 @@ contract GrantsTreasuryTest is Test {
     function test_AllocationShouldReturnTrueAndRecipientShouldClaim() public {
         vm.startPrank(GOVERNANCE);
         vm.warp(block.timestamp + 365 days);
-        grantsTreasury.sync();
+        grantsTreasury.claimGlowFromTreasury();
         uint256 balBefore = glw.balanceOf(address(grantsTreasury));
         bool succesfulCall = grantsTreasury.allocateGrantFunds(SIMON, 1 ether);
         assertEq(succesfulCall, true);
@@ -92,7 +92,7 @@ contract GrantsTreasuryTest is Test {
     function test_actualBalanceTooLow() public {
         vm.startPrank(GOVERNANCE);
         vm.warp(block.timestamp + 365 days);
-        grantsTreasury.sync();
+        grantsTreasury.claimGlowFromTreasury();
         uint256 balBefore = glw.balanceOf(address(grantsTreasury));
         bool succesfulCall = grantsTreasury.allocateGrantFunds(SIMON, balBefore);
         assertEq(succesfulCall, true);
@@ -128,7 +128,7 @@ contract GrantsTreasuryTest is Test {
         uint256 balBefore = glw.balanceOf(address(grantsTreasury));
         assertEq(balBefore, STARTING_GRANTS_BALANCE);
         vm.warp(block.timestamp + 7 days);
-        grantsTreasury.sync();
+        grantsTreasury.claimGlowFromTreasury();
         uint256 balAfter = glw.balanceOf(address(grantsTreasury));
 
         assertEq(

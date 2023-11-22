@@ -24,7 +24,7 @@ interface IGrantsTreasury {
     /**
      * @notice pulls any unclaimed GLW from the Glow contract
      */
-    function sync() external;
+    function claimGlowFromTreasury() external;
 
     /**
      * @notice returns the total balance of GLW in the GrantsTreasury

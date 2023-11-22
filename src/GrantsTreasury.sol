@@ -57,7 +57,7 @@ contract GrantsTreasury is IGrantsTreasury {
         //Only governance can allocate funds
         if (msg.sender != GOVERNANCE) _revert(IGrantsTreasury.CallerNotGovernance.selector);
         //Always sync before allocating funds to ensure that the treasury has the most up to date balance
-        sync();
+        claimGlowFromTreasury();
         //Load balance
         uint256 balance = totalBalanceInGrantsTreasury();
         //If the balance is less than the amount requested, return false
@@ -94,8 +94,8 @@ contract GrantsTreasury is IGrantsTreasury {
     /**
      * @inheritdoc IGrantsTreasury
      */
-    function sync() public {
-        uint256 amt = GLOW_TOKEN.claimGLOWFromGrantsTreasury();
+    function claimGlowFromTreasury() public {
+        uint256 amt = GLOW_TOKEN.claimGLWFromGrantsTreasury();
         emit IGrantsTreasury.TreasurySynced(amt);
     }
 
