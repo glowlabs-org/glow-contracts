@@ -15,7 +15,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 /**
  * @title Governance
  * @author DavidVorick
- * @author 0xSimon , 0xSimbo
+ * @author 0xSimon(twitter) - 0xSimbo(githuhb)
  * @notice This contract is used to manage the Glow governance
  *               - The governance contract is used to manage the Glow protocol
  *               - Proposals are denoted by their types in {ProposalType} enum
