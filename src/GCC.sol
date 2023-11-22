@@ -17,14 +17,18 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 /**
  * @title GCC (Glow Carbon Credit)
  * @author DavidVorick
- * @author 0xSimon
+ * @author 0xSimon(twitter) - 0xSimbo(github)
  * @notice This contract is the ERC20 token for Glow Carbon Credits (GCC).
- *         - 1e18 GCC represents 1 metric ton of CO2 offsets
+ *         - 1 GCC or (1e18 wei of GCC) represents 1 metric ton of CO2 offsets
  *         - GCC is minted by the Glow protocol as farms produce clean solar
- *         - GCC can be committed for nominations and karma
+ *         - GCC can be committed for nominations and permanent impact power
+ *         - Nominations are used to vote on proposals in governance and are in 12 decimals
+ *         - Impact power is an on-chain record of the sum of total impact power earned by a user
+ *         - It currently has no use, but can be used to integrate with other protocols
  *         - Once GCC is committed, it can't be uncommitted
  *         - GCC is sold in the carbon credit auction
- *          - The amount of nominations earned is equal to two times the USDC earned from a swap in the commitGCC event as called in the `Swapper`
+ *          - The amount of nominations earned is equal to the sqrt(amountGCCAddedToUniV2LP * amountUSDCAddedToUniV2LP)
+ *              - earned from a swap in the commitGCC or commitUSDC functions in the `impactCatalyst`
  *              - When committing USDC, the amount of nominations earned is equal to the amount of USDC committed
  */
 
@@ -41,11 +45,17 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /// @notice the address of the GLOW token
     address public immutable GLOW;
 
+    /// @notice the address of the ImpactCatalyst contract
+    /// @dev the impact catalyst is responsible for handling the commitments of GCC and USDC
     ImpactCatalyst public immutable IMPACT_CATALYST;
     /// @notice The maximum shift for a bucketId
     uint256 private constant _BITS_IN_UINT = 256;
 
-    IUniswapRouterV2 public immutable UNISWAP_ROUTER = IUniswapRouterV2(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+    /// @notice The Uniswap router
+    /// @dev used to swap USDC for GCC and vice versa
+    IUniswapRouterV2 public immutable UNISWAP_ROUTER;
+
+    /// @notice The address of the USDC token
     address public immutable USDC;
 
     /// @notice The EIP712 typehash for the CommitPermit struct used by the permit
@@ -72,7 +82,6 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
 
     /**
      * @notice The next commit nonce for a user
-     * @dev similar to ERC20
      */
     mapping(address => uint256) public nextCommitNonce;
 
@@ -84,6 +93,9 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
      * @notice GCC constructor
      * @param _gcaAndMinerPoolContract The address of the GCAAndMinerPool contract
      * @param _governance The address of the governance contract
+     * @param _glowToken The address of the GLOW token
+     * @param _usdc The address of the USDC token
+     * @param _uniswapRouter The address of the Uniswap V2 router
      */
     constructor(
         address _gcaAndMinerPoolContract,
@@ -91,31 +103,31 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         address _glowToken,
         address _usdc,
         address _uniswapRouter
-    ) payable ERC20("Glow Carbon Credit", "GCC") EIP712("Glow Carbon Credit", "1") {
+    ) payable ERC20("Glow Carbon Certificate", "GCC") EIP712("Glow Carbon Certificate", "1") {
+        //Set the immutable variables
         USDC = _usdc;
-        UNISWAP_ROUTER = IUniswapRouterV2(_uniswapRouter);
-        // CARBON_CREDIT_AUCTION = ICarbonCreditAuction(_carbonCreditAuction);
         GCA_AND_MINER_POOL_CONTRACT = _gcaAndMinerPoolContract;
+        UNISWAP_ROUTER = IUniswapRouterV2(_uniswapRouter);
         GOVERNANCE = IGovernance(_governance);
         GLOW = _glowToken;
+        //Create the carbon credit auction directly in the constructor
         CarbonCreditDutchAuction cccAuction =
             new CarbonCreditDutchAuction(IERC20(_glowToken), IERC20(address(this)), 1e6);
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));
+        //Create the impact catalyst
         address factory = UNISWAP_ROUTER.factory();
         address pair = getPair(factory, _usdc);
         //Mint 1 to set the LP with USDC
         if (block.chainid == 1) {
             _mint(tx.origin, 1 ether);
         }
+        //The impact catalyst is responsible for handling the commitments of GCC and USDC
         IMPACT_CATALYST = new ImpactCatalyst(_usdc,_uniswapRouter,factory,pair);
     }
 
-    //************************************************************* */
-    //*************  EXTERNAL STATE CHANGING FUNCS    ************ */
-    //************************************************************* */
-
-    //-----------------  MINTING -----------------//
-
+    /* -------------------------------------------------------------------------- */
+    /*                                   minting                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @inheritdoc IGCC
      */
@@ -126,7 +138,9 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         _mint(address(CARBON_CREDIT_AUCTION), amount);
     }
 
-    //-----------------  committing -----------------//
+    /* -------------------------------------------------------------------------- */
+    /*                                   commits                                  */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @inheritdoc IGCC
@@ -135,9 +149,97 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         public
         returns (uint256 usdcEffect, uint256 impactPower)
     {
+        //Transfer GCC from the msg.sender to the impact catalyst
         _transfer(_msgSender(), address(IMPACT_CATALYST), amount);
+        //get back the amount of USDC that was used in the LP and the impact power earned
         (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount);
+        //handle the commitment
         _handleCommitment(_msgSender(), rewardAddress, amount, usdcEffect, impactPower, referralAddress);
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function commitGCC(uint256 amount, address rewardAddress) external returns (uint256, uint256) {
+        //Same as above, but with no referrer
+        return (commitGCC(amount, rewardAddress, address(0)));
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function commitGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress)
+        public
+        returns (uint256 usdcEffect, uint256 impactPower)
+    {
+        //Transfer GCC `from` to the impact catalyst
+        transferFrom(from, address(IMPACT_CATALYST), amount);
+        //If the msg.sender is not `from`, then check and decrease the allowance
+        if (_msgSender() != from) {
+            _decreaseCommitAllowance(from, _msgSender(), amount, false);
+        }
+        //get back the amount of USDC that was used in the LP and the impact power earned
+        (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount);
+        //handle the commitment
+        _handleCommitment(from, rewardAddress, amount, usdcEffect, impactPower, referralAddress);
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function commitGCCFor(address from, address rewardAddress, uint256 amount) public returns (uint256, uint256) {
+        //Same as above, but with no referrer
+        return (commitGCCFor(from, rewardAddress, amount, address(0)));
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function commitGCCForAuthorized(
+        address from,
+        address rewardAddress,
+        uint256 amount,
+        uint256 deadline,
+        bytes calldata signature,
+        address referralAddress
+    ) public returns (uint256, uint256) {
+        //Check the deadline
+        if (block.timestamp > deadline) {
+            _revert(IGCC.CommitPermitSignatureExpired.selector);
+        }
+
+        //Load the next nonce
+        uint256 _nextCommitNonce = nextCommitNonce[from]++;
+        //Construct the message to be signed
+        bytes32 message = _constructCommitPermitDigest(
+            from, _msgSender(), rewardAddress, referralAddress, amount, _nextCommitNonce, deadline
+        );
+        //Check the signature
+        if (!_checkCommitPermitSignature(from, message, signature)) {
+            _revert(IGCC.CommitSignatureInvalid.selector);
+        }
+        //Increase the allowance for the msg.sender on the `from` account
+        _increaseCommitAllowance(from, _msgSender(), amount, false);
+        uint256 transferAllowance = allowance(from, _msgSender());
+        if (transferAllowance < amount) {
+            _approve(from, _msgSender(), amount, false);
+        }
+        //Commit the GCC
+        return (commitGCCFor(from, rewardAddress, amount, referralAddress));
+    }
+
+    /**
+     * @inheritdoc IGCC
+     */
+    function commitGCCForAuthorized(
+        address from,
+        address rewardAddress,
+        uint256 amount,
+        uint256 deadline,
+        bytes calldata signature
+    ) external returns (uint256 usdcEffect, uint256 impactPower) {
+        //Same as above, but with no referrer
+        return (commitGCCForAuthorized(from, rewardAddress, amount, deadline, signature, address(0)));
     }
 
     /**
@@ -147,11 +249,17 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         public
         returns (uint256 impactPower)
     {
-        uint256 swapperBalBefore = IERC20(USDC).balanceOf(address(IMPACT_CATALYST));
+        //Read in the balance of the impact catalyst before the transfer
+        uint256 impactCatalystBalBefore = IERC20(USDC).balanceOf(address(IMPACT_CATALYST));
+        //Transfer USDC from the msg.sender to the impact catalyst
         IERC20(USDC).transferFrom(msg.sender, address(IMPACT_CATALYST), amount);
-        uint256 swapperBalAfter = IERC20(USDC).balanceOf(address(IMPACT_CATALYST));
-        uint256 usdcUsing = swapperBalAfter - swapperBalBefore;
+        //Read in the balance of the impact catalyst after the transfer
+        uint256 impactCatalystBalAfter = IERC20(USDC).balanceOf(address(IMPACT_CATALYST));
+        //Calculate the actual amount of USDC available from the transfer (in case of fees since USDC is upgradable)
+        uint256 usdcUsing = impactCatalystBalAfter - impactCatalystBalBefore;
+        //get back the impaoct power earned
         impactPower = IMPACT_CATALYST.commitUSDC(usdcUsing);
+        //handle the commitment
         _handleUSDCcommitment(_msgSender(), rewardAddress, amount, impactPower, referralAddress);
     }
 
@@ -159,6 +267,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
      * @inheritdoc IGCC
      */
     function commitUSDC(uint256 amount, address rewardAddress) external returns (uint256) {
+        //Same as above, but with no referrer
         return (commitUSDC(amount, rewardAddress, address(0)));
     }
 
@@ -184,78 +293,9 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         return (commitUSDC(amount, rewardAddress, referralAddress));
     }
 
-    /**
-     * @inheritdoc IGCC
-     */
-    function commitGCC(uint256 amount, address rewardAddress) external returns (uint256, uint256) {
-        return (commitGCC(amount, rewardAddress, address(0)));
-    }
-
-    /**
-     * @inheritdoc IGCC
-     */
-    function commitGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress)
-        public
-        returns (uint256 usdcEffect, uint256 impactPower)
-    {
-        transferFrom(from, address(IMPACT_CATALYST), amount);
-        if (_msgSender() != from) {
-            _decreaseCommitAllowance(from, _msgSender(), amount, false);
-        }
-        (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount);
-        _handleCommitment(from, rewardAddress, amount, usdcEffect, impactPower, referralAddress);
-    }
-
-    /**
-     * @inheritdoc IGCC
-     */
-    function commitGCCFor(address from, address rewardAddress, uint256 amount) public returns (uint256, uint256) {
-        return (commitGCCFor(from, rewardAddress, amount, address(0)));
-    }
-
-    /**
-     * @inheritdoc IGCC
-     */
-    function commitGCCForAuthorized(
-        address from,
-        address rewardAddress,
-        uint256 amount,
-        uint256 deadline,
-        bytes calldata signature,
-        address referralAddress
-    ) public returns (uint256, uint256) {
-        if (block.timestamp > deadline) {
-            _revert(IGCC.CommitPermitSignatureExpired.selector);
-        }
-
-        uint256 _nextCommitNonce = nextCommitNonce[from]++;
-        bytes32 message = _constructCommitPermitDigest(
-            from, _msgSender(), rewardAddress, referralAddress, amount, _nextCommitNonce, deadline
-        );
-        if (!_checkCommitPermitSignature(from, message, signature)) {
-            _revert(IGCC.CommitSignatureInvalid.selector);
-        }
-        _increaseCommitAllowance(from, _msgSender(), amount, false);
-        uint256 transferAllowance = allowance(from, _msgSender());
-        if (transferAllowance < amount) {
-            _approve(from, _msgSender(), amount, false);
-        }
-        return (commitGCCFor(from, rewardAddress, amount, referralAddress));
-    }
-
-    /// @inheritdoc IGCC
-    function commitGCCForAuthorized(
-        address from,
-        address rewardAddress,
-        uint256 amount,
-        uint256 deadline,
-        bytes calldata signature
-    ) external returns (uint256 usdcEffect, uint256 impactPower) {
-        return (commitGCCForAuthorized(from, rewardAddress, amount, deadline, signature, address(0)));
-    }
-
-    //-----------------  ALLOWANCES -----------------//
-
+    /* -------------------------------------------------------------------------- */
+    /*                        commit allowance  & allowances                      */
+    /* -------------------------------------------------------------------------- */
     /// @inheritdoc IGCC
     function setAllowances(address spender, uint256 transferAllowance, uint256 committingAllowance) external {
         _approve(_msgSender(), spender, transferAllowance);
@@ -295,9 +335,9 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         _decreaseCommitAllowance(_msgSender(), spender, amount, true);
     }
 
-    //************************************************************* */
-    //******************  EXTERNAL VIEW FUNCS    ***************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                              view functions                              */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @inheritdoc IGCC
@@ -323,10 +363,9 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         return _domainSeparatorV4();
     }
 
-    //************************************************************* */
-    //***************  PRIVATE STATE CHANGING FUNCS   ************** */
-    //************************************************************* */
-
+    /* -------------------------------------------------------------------------- */
+    /*                              private functions                              */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice sets the bucket as minted
      * @param bucketId the id of the bucket to set as minted
@@ -341,11 +380,10 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     }
 
     /**
-     * @notice handles the storage writes and event emissions relating to committing carbon credits.
-     * @dev should only be used internally and by function that require a transfer of {amount} to address(this)
+     * @notice handles the storage writes and event emissions relating to committing gcc.
      * @param from the address of the account committing the credits
      * @param rewardAddress the address to receive the benefits of committing
-     * @param usdcEffect - the amount of USDC added into the lp position
+     * @param usdcEffect - the amount of USDC added into the uniswap v2 lp position
      * @param gccCommitted the amount of GCC committed
      * @param impactPower the effect of committing on the USDC balance
      * @param referralAddress the address of the referrer (zero for no referrer)
@@ -359,10 +397,14 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         address referralAddress
     ) private {
         if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
-        //committing GCC is also responsible for syncing proposals in governance.
+        //committing USDC calls syncProposals in governance to ensure that the proposals are up to date
+        //This design is meant to ensure that the proposals are as up to date as possible
         GOVERNANCE.syncProposals();
+        //Increase the total impact power earned by the reward address
         totalImpactPowerEarned[rewardAddress] += impactPower;
+        //Grant the nominations to the reward address
         GOVERNANCE.grantNominations(rewardAddress, impactPower);
+        //Emit a GCCCommitted event
         emit IGCC.GCCCommitted(from, rewardAddress, gccCommitted, usdcEffect, impactPower, referralAddress);
     }
 
@@ -382,10 +424,14 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         address referralAddress
     ) private {
         if (from == referralAddress) _revert(IGCC.CannotReferSelf.selector);
-        //committing GCC is also responsible for syncing proposals in governance.
+        //committing USDC calls syncProposals in governance to ensure that the proposals are up to date
+        //This design is meant to ensure that the proposals are as up to date as possible
         GOVERNANCE.syncProposals();
+        //Increase the total impact power earned by the reward address
         totalImpactPowerEarned[rewardAddress] += impactPower;
+        //Grant the nominations to the reward address
         GOVERNANCE.grantNominations(rewardAddress, impactPower);
+        //Emit a USDCCommitted event
         emit IGCC.USDCCommitted(from, rewardAddress, amount, impactPower, referralAddress);
     }
 
