@@ -2,6 +2,9 @@
 pragma solidity ^0.8.19;
 
 interface IEarlyLiquidity {
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                  */
+    /* -------------------------------------------------------------------------- */
     error PriceTooHigh();
     error ModNotZero();
     error AllSold();
@@ -35,7 +38,9 @@ interface IEarlyLiquidity {
      * @return currentPrice current price of the next token in microdollars
      */
     function getCurrentPrice() external view returns (uint256);
-
+    /* -------------------------------------------------------------------------- */
+    /*                                   events                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice emitted when a purchase is made
      * @param buyer The address of the buyer
@@ -43,5 +48,6 @@ interface IEarlyLiquidity {
      * @param totalUSDCSpent The total amount of USDC the buyer spent to buy the tokens
      * @dev emitted when {buy} is successfully called
      */
+
     event Purchase(address indexed buyer, uint256 glwReceived, uint256 totalUSDCSpent);
 }
