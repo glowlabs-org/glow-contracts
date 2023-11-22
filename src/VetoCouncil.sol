@@ -21,7 +21,7 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
     /// @notice the address of the GLOW token
     IERC20 public immutable GLOW_TOKEN;
 
-    /// @notice the veto council is awared 10_000 GLOW per week
+    /// @notice the veto council is awared 5_000 GLOW per week
     uint256 public constant REWARDS_PER_SECOND_FOR_ALL = 5_000 ether / uint256(7 days);
 
     /// @dev 1% of the rewards vest per week

@@ -34,7 +34,6 @@ struct Status {
  * @dev a nonce is a unique identifier for a shift and is incremented every time the salary rate changes
  *         - if an member is removed before the rate has changed, they will earn until their `shiftEndTimestamp`
  *  @dev payouts vest linearly at 1% per week.
- *         - It takes 100 weeks for a payout to fully vest
  */
 contract VetoCouncilSalaryHelper {
     error HashesNotUpdated();
@@ -52,7 +51,7 @@ contract VetoCouncilSalaryHelper {
 
     /**
      * @notice The nonce at which the current shift started
-     * @dev store as 1 to avoid cold sstore for the first payment nonce
+     * @dev initialized as 1 to avoid cold sstore for the first payment nonce
      */
     uint256 public paymentNonce = 1;
 
@@ -80,6 +79,7 @@ contract VetoCouncilSalaryHelper {
 
     /**
      * @notice The amount of tokens that have been withdrawn from a given payment nonce for a given member
+     * @dev member -> payment nonce -> amount withdrawn
      */
     mapping(address => mapping(uint256 => uint256)) public amountAlreadyWithdrawnFromPaymentNonce;
     /**
@@ -176,7 +176,7 @@ contract VetoCouncilSalaryHelper {
      * @param oldMember The address of the member to be slashed or removed
      * @param newMember The address of the new member (0 = no new member)
      * @param slashOldMember Whether to slash the member or not
-     * @return - true if the council member was added or removed, false if nothing was done
+     * @return - true if a council member was added or removed, false if nothing was done
      */
     function replaceMember(address oldMember, address newMember, bool slashOldMember) internal returns (bool) {
         //Cache the old member index
@@ -184,7 +184,7 @@ contract VetoCouncilSalaryHelper {
 
         bool isoldMemberZeroAddress = isZero(oldMember);
         bool isnewMemberZeroAddress = isZero(newMember);
-        //If the old member is the zero addres,
+        //If the old member is the zero address,
         //We need to loop until we find the first position in the array
         //Until we find a null address as that's where
         //we'll write the new member to
@@ -254,15 +254,15 @@ contract VetoCouncilSalaryHelper {
     /**
      * @dev Used to payout the council member for their work at a given nonce
      * @param member The address of the council member
-     * @param nonce The payout nonce to claim from
+     * @param payoutNonce The payout nonce to claim from
      * @param token The token to pay out (GLOW)
      * @param members The addresses of the council members that were active at `nonce`
      *         -   This is used to verify that the member was active at the nonce
      *         -   By comparing the hash of the members at the nonce to the hash stored in the contract
      */
-    function claimPayout(address member, uint256 nonce, IERC20 token, address[] memory members) internal {
-        uint256 withdrawableAmount = nextPayoutAmount(member, nonce, members);
-        amountAlreadyWithdrawnFromPaymentNonce[member][nonce] += withdrawableAmount;
+    function claimPayout(address member, uint256 payoutNonce, IERC20 token, address[] memory members) internal {
+        uint256 withdrawableAmount = nextPayoutAmount(member, payoutNonce, members);
+        amountAlreadyWithdrawnFromPaymentNonce[member][payoutNonce] += withdrawableAmount;
         SafeERC20.safeTransfer(token, member, withdrawableAmount);
     }
 
@@ -290,10 +290,12 @@ contract VetoCouncilSalaryHelper {
         view
         returns (uint256 rewardPerSecond, uint256 secondsActive, uint256 secondsStopped, uint256 amountAlreadyWithdrawn)
     {
+        //Hash the members array and check if it matches the hash stored in the contract
         if (keccak256(abi.encodePacked(members)) != paymentNonceTomembersHash[nonce]) {
             _revert(HashMismatch.selector);
         }
 
+        //Check if the member was active at the nonce
         {
             bool found;
             unchecked {
@@ -309,8 +311,7 @@ contract VetoCouncilSalaryHelper {
             }
         }
 
-        //Should not get a divison by zero error
-        //Since found should have reverted beforehand.
+        //Should not get a divison by zero error as {found} should be true if there is at least one member
         uint256 rewardPerSecond = REWARDS_PER_SECOND / members.length;
         uint256 shiftStartTimestamp = _paymentNonceToShiftStartTimestamp[nonce];
         //We dont need to check the shift start timestamp
@@ -396,7 +397,7 @@ contract VetoCouncilSalaryHelper {
      * @dev removes all null addresses from an array
      * @param arr the array to sanitize
      * @dev used to sanitize _vetoCouncilMembers before encoding and hashing
-     * @return sanitizedArray - the sanitized array
+     * @return sanitizedArray - the sanitized array without any null addresses
      */
     function arrayWithoutNulls(address[7] memory arr) internal pure returns (address[] memory) {
         address[] memory sanitizedArray = new address[](arr.length);
@@ -431,7 +432,7 @@ contract VetoCouncilSalaryHelper {
     }
 
     /**
-     * @notice More efficiently reverts with a bytes4 selector
+     * @notice Efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
      */
     function _revert(bytes4 selector) internal pure {
