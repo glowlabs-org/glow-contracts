@@ -308,9 +308,6 @@ contract Governance is IGovernance, EIP712 {
             _revert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
         }
 
-        //Start C2:
-        //C2 checks to see if there are enough ratify votes to execute the proposal
-
         //If the proposal is a gca election, we can check endorsements to
         //dynamically determine the required percentage to execute the proposal
         //The default percentage to execute a  proposal is 60%
@@ -392,9 +389,6 @@ contract Governance is IGovernance, EIP712 {
                 lastExecutedWeek = _nextWeekToExecute == 0 ? type(uint256).max : _nextWeekToExecute - 1;
                 return;
             }
-
-            //Start C2:
-            //C2 checks to see if there are enough ratify votes to execute the proposal
 
             //If the proposal is a gca election, we can check endorsements to
             //dynamically determine the required percentage to execute the proposal
@@ -546,9 +540,9 @@ contract Governance is IGovernance, EIP712 {
      * @param to the address to grant nominations to
      * @param amount the amount of nominations to grant
      * @dev this function is only callable by the GCC contract
-     * @dev nominations decay according to the half-life formula
+     * @dev nominations decay with a half life of 1 year.
+     *         -for implementation details check {src/libraries/HalfLife.sol}
      */
-
     function grantNominations(address to, uint256 amount) external override {
         if (msg.sender != _gcc) {
             _revert(IGovernance.CallerNotGCC.selector);
@@ -568,22 +562,34 @@ contract Governance is IGovernance, EIP712 {
      * @dev also syncs proposals if need be.
      */
     function useNominationsOnProposal(uint256 proposalId, uint256 amount) public {
+        //Sync the proposals
         syncProposals();
+        //If the proposal has been executed or vetoed, using nominations should revert
         _revertIfProposalExecutedOrVetoed(proposalId);
+        //Cache the nomination end timestamp
         uint256 nominationEndTimestamp = _proposals[proposalId].expirationTimestamp;
-        /// @dev we don't need this check, but we add it for clarity on the revert reason
+        // we don't need this check, but we add it for clarity on the revert reason
         if (nominationEndTimestamp == 0) {
             _revert(IGovernance.ProposalDoesNotExist.selector);
         }
+        //nomination spend on expired proposals is not allowed
         if (block.timestamp > nominationEndTimestamp) {
             _revert(IGovernance.ProposalExpired.selector);
         }
 
+        //Spend the nominations
         _spendNominations(msg.sender, amount);
+        //Get the new total votes
         uint184 newTotalVotes = SafeCast.toUint184(_proposals[proposalId].votes + amount);
+        //Update the state of the proposal with the new total votes
         _proposals[proposalId].votes = newTotalVotes;
+        //Get teh current week
         uint256 currentWeek = currentWeek();
+        //Grab the currently most popular proposal at the current week
         uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
+        //If the proposal which nominatiosn are being used on
+        //has more nominatiosn than the current most popular proposal
+        //we update the most popular proposal to the one on which nominations are being used
         if (proposalId != _mostPopularProposalOfWeek) {
             if (newTotalVotes > _proposals[_mostPopularProposalOfWeek].votes) {
                 mostPopularProposalOfWeek[currentWeek] = proposalId;
@@ -598,11 +604,6 @@ contract Governance is IGovernance, EIP712 {
     /*                         selecting most popular proposal                    */
     /* -------------------------------------------------------------------------- */
 
-    /**
-     * @notice sets the proposal as the most popular proposal for the current week
-     * @dev
-     * @param proposalId The ID of the proposal to set as the most popular.
-     */
     /**
      * @notice sets the proposal as the most popular proposal for the current week
      * @dev checks if the proposal is the most popular proposal for the current week and sets it if it is
@@ -647,19 +648,25 @@ contract Governance is IGovernance, EIP712 {
      * @param weekOfMostPopularProposal - the week that the proposal got selected as the most popular proposal for
      * @param trueForRatify  - if true the stakers are ratifying the proposal
      *                             - if false they are rejecting it
-     * @param numVotes - the number of ratify/reject votes they want to apply on this proposal
-     *                       - the total number of ratify/reject votes must always be lte than
-     *                             - the total glow they have staked
+     * @param numVotes  - the number of ratify/reject votes they want to apply on this proposal
+     *                  - the total number of ratify/reject votes must always be lte than
+     *                  - the total glow they have staked
      */
     function ratifyOrReject(uint256 weekOfMostPopularProposal, bool trueForRatify, uint256 numVotes) external {
+        //Cache the current week
         uint256 currentWeek = currentWeek();
-        //Week needs to finalize.
+        //Cache the most popular propsal at `weekOfMostPopularProposal`
         uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[weekOfMostPopularProposal];
 
+        //Get the proposal status
         IGovernance.ProposalStatus status = getProposalStatus(_mostPopularProposalOfWeek);
+        //if the proposal has been vetoed,
+        //It cannot accept ratify or reject votes
         if (status == IGovernance.ProposalStatus.VETOED) {
             _revert(IGovernance.ProposalAlreadyVetoed.selector);
         }
+        //If the proposal has already been executed
+        //The proposal cannot accept ratify or reject votes
         if (
             status == IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY
                 || status == IGovernance.ProposalStatus.EXECUTED_WITH_ERROR
@@ -667,22 +674,34 @@ contract Governance is IGovernance, EIP712 {
             _revert(IGovernance.ProposalAlreadyExecuted.selector);
         }
 
+        //The week of which the proposal is the most popular proposal for
+        //must have already ended
         if (weekOfMostPopularProposal >= currentWeek) {
-            _revert(IGovernance.WeekNotStarted.selector);
+            _revert(IGovernance.WeekMustHaveEndedToAcceptRatifyOrRejectVotes.selector);
         }
 
+        //The proposal cannot accept ratify/reject votes
+        //Past the ratify/reject window
         if (block.timestamp > _weekEndTime(weekOfMostPopularProposal + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
             _revert(IGovernance.RatifyOrRejectPeriodEnded.selector);
         }
-        //We also need to check to make sure that the proposal was created.
-        uint256 userNumStakedGlow = IGlow(_glw).numStaked(msg.sender);
+        //If the proposal was not set at all
+        //The function must revert as well
         if (_mostPopularProposalOfWeek == 0) {
             _revert(IGovernance.MostPopularProposalNotSelected.selector);
         }
+
+        //Load the amount of glow the sender has staked
+        uint256 userNumStakedGlow = IGlow(_glw).numStaked(msg.sender);
+        //Load how many votes the sender has already used on this proposal
         uint256 amountVotesUsed = longStakerVotesForProposal[msg.sender][_mostPopularProposalOfWeek];
+        //revert if the amount of votes the sender has already used
+        //Plus the additional votes to cast is greater than their total amount of staked glow
         if (amountVotesUsed + numVotes > userNumStakedGlow) {
             _revert(IGovernance.InsufficientRatifyOrRejectVotes.selector);
         }
+
+        //Spend the ratify/reject votes accordingly
         if (trueForRatify) {
             _proposalLongStakerVotes[_mostPopularProposalOfWeek].ratifyVotes += uint128(numVotes);
             emit IGovernance.RatifyCast(_mostPopularProposalOfWeek, msg.sender, numVotes);
@@ -690,6 +709,7 @@ contract Governance is IGovernance, EIP712 {
             _proposalLongStakerVotes[_mostPopularProposalOfWeek].rejectionVotes += uint128(numVotes);
             emit IGovernance.RejectCast(_mostPopularProposalOfWeek, msg.sender, numVotes);
         }
+        //Update the amount of votes the sender has spent on this proposal
         longStakerVotesForProposal[msg.sender][_mostPopularProposalOfWeek] = amountVotesUsed + numVotes;
     }
 

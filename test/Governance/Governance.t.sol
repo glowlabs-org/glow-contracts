@@ -1401,7 +1401,7 @@ contract GovernanceTest is Test {
         glow.mint(SIMON, 100 ether);
         glow.stake(100 ether);
 
-        vm.expectRevert(IGovernance.WeekNotStarted.selector);
+        vm.expectRevert(IGovernance.WeekMustHaveEndedToAcceptRatifyOrRejectVotes.selector);
         governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 100 ether});
 
         vm.stopPrank();
@@ -1418,7 +1418,7 @@ contract GovernanceTest is Test {
         glow.mint(SIMON, 100 ether);
         glow.stake(100 ether);
 
-        vm.expectRevert(IGovernance.WeekNotStarted.selector);
+        vm.expectRevert(IGovernance.WeekMustHaveEndedToAcceptRatifyOrRejectVotes.selector);
         governance.ratifyOrReject({weekOfMostPopularProposal: 1, trueForRatify: false, numVotes: 100 ether});
 
         vm.stopPrank();

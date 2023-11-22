@@ -40,6 +40,7 @@ interface IGovernance {
     error SpendNominationsOnProposalSignatureExpired();
     error ProposalIsVetoed();
     error VetoMemberCannotBeNullAddress();
+    error WeekMustHaveEndedToAcceptRatifyOrRejectVotes();
 
     enum ProposalType {
         NONE, //default value for unset proposals
