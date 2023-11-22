@@ -22,7 +22,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
  *               - Proposals can be created by anyone and cost nominations
  *               - It should cost (1.1)^n nominations where n = # of active proposals
  *                 - Proposals can be ratified or rejected by long stakers
- *                 - Veto council members can veto proposals (besides elections)
+ *                 - Veto council members can veto proposals (besides elections proposals)
  *                 - Proposals can be executed if they are ratified
  *                     -   RFC Proposals and Grants Proposals don't need to be ratified to be executed
  *                 - Once created, proposals are active for 16 weeks
@@ -33,16 +33,16 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
  *                 - Nominations are in 12 decimals
  *                      - the equation for calculating nominations is sqrt(amount gcc added to lp * amount usdc added in lp) from a 'commit' event
  *                      - multiplying gcc (18 decimals) and usdc (6 decimals) gives us an output in 24 decimals.
- *                      - since we are sqrt'ing this, we factor our 12 decimals of precision since sqrt(1e24) = 1e12
+ *                      - since we are sqrt'ing this, we factor out 12 decimals of precision since sqrt(1e24) = 1e12
  *                      - and end up in 12 decimals of precision
  */
 
 contract Governance is IGovernance, EIP712 {
     using ABDKMath64x64 for int128;
+
     /**
      * @notice  Spend nominations EIP712 Typehash
      */
-
     bytes32 public constant SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH = keccak256(
         "SpendNominationsOnProposal(uint8 proposalType,uint256 nominationsToSpend,uint256 nonce,uint256 deadline,bytes data)"
     );
@@ -52,6 +52,7 @@ contract Governance is IGovernance, EIP712 {
      * @dev This is used to prevent replay attacks
      */
     mapping(address => uint256) public spendNominationsOnProposalNonce;
+
     /**
      * @dev one in 64x64 fixed point
      */
@@ -89,7 +90,7 @@ contract Governance is IGovernance, EIP712 {
     /**
      * @dev there can be a maximum of 5 endorsements on a GCA election proposal
      */
-    uint256 private constant MAXENDORSEMENTS_ON_GCA_PROPOSALS = 5;
+    uint256 private constant MAX_ENDORSEMENTS_ON_GCA_PROPOSALS = 5;
 
     /**
      * @dev the maximum number of GCA council members that can be concurrently active
@@ -103,7 +104,7 @@ contract Governance is IGovernance, EIP712 {
     uint256 private constant MAX_SLASHES_IN_ONE_GCA_ELECTION = 10;
 
     /**
-     * @dev the maximum number of concurrently actibe GCA council members
+     * @dev the maximum number of concurrently active GCA council members
      */
     uint256 private constant MAX_GCAS = 5;
 
@@ -149,20 +150,20 @@ contract Governance is IGovernance, EIP712 {
     address private _glw;
 
     /**
-     * @notice The last updated proposal id (should not be used for anything other than caching)
+     * @notice The last expired proposal id (should not be used for anything other than caching)
      * @dev The last proposal that expired (in storage)
      * @dev this may be out of sync with the actual last expired proposal id
      *      -  it's used as a cache to make _numActiveProposalsAndLastExpiredProposalId() more efficient
-     * @return lastExpiredProposalId the last expired proposal id
      */
-    uint256 public lastExpiredProposalId;
+    uint256 internal lastExpiredProposalId;
 
     /**
-     * @notice the last executed proposal id (should not be used for anything other than caching)
+     * @notice the last executed week (should not be used for anything other than caching)
      * @dev The last proposal that was executed
      * @dev this may be out of sync with the actual last executed proposal id
+     * @dev initiaized as type(uint256).max to avoid conflicts which starting checks at week 0
      */
-    uint256 public lastExecutedWeek = type(uint256).max;
+    uint256 internal lastExecutedWeek = type(uint256).max;
 
     /**
      * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC
@@ -206,8 +207,8 @@ contract Governance is IGovernance, EIP712 {
      *         -   we need this mapping to prevent double spend.
      *         -   the protocol does not worry about adjusting for unstaked glow
      *             - for example, a user is allowed to stake 100 glw , vote on a proposal, and then unstake 100 glw
-     *             - the protocol will not adjust for the unstaked glw
-     *             - there is a 5 year cooldown for unstaking glw so this should not be a problem
+     *             - the protocol will not adjust for the unstaked glow
+     *             - there is a 5 year cooldown when claiming tokens after unstaking glow so this should not be a problem
      */
     mapping(address => mapping(uint256 => uint256)) public longStakerVotesForProposal;
 
@@ -217,15 +218,29 @@ contract Governance is IGovernance, EIP712 {
     mapping(address => Nominations) private _nominations;
 
     /**
-     * @dev The proposals
+     * @dev proposalId -> Proposal
      */
     mapping(uint256 => IGovernance.Proposal) private _proposals;
 
     /**
-     * @notice the most popular proposal at a given week
-     * @dev It is manually updated whenever an action is triggered
+     * @notice the most popular proposal of a given week
+     * @dev Certain actions such as using nominations will trigger this update for the current week
+     * @dev At the start of every new week, there is no mostt popular proposal stored for that week
+     *         -  the {setMostPopularProposalForCurrentWeek} or {useNominationsOnProposal} are the only ways to update
+     *         - the mostPopularProposalOfWeek
+     *         - Governance relies on those functions to be called to correctly set the most popular proposal
+     * @dev if neither of the functions mentioned above are called within the week, the week will not contain a most popular proposal
+     *        - as it was not explicitly set
+     * @dev it is also possible for a proposal that is not actually the most popular to be selected as the most popular proposal for that week
+     *         - For example, if it's a new week and Proposal A and Proposal B have 20 and 10 nominations respectively,
+     *         - It is possible to set the most popular proposal to Proposal A.
+     *         - If {setMostPopularProposalForCurrentWeek} isn't called to set Proposal B as the most popular proposal
+     *         - Or if no nominations are used on Proposal B during that week,
+     *         - The week will finalize with Proposal A as the most popular proposal for that week even though proposal B had more nominations
+     *         - This is not a problem as the {setMostPopularProposalForCurrentWeek} is permissionless
+     * @dev updating the mostPopularProposalOfWeek can be manu
      */
-    mapping(uint256 => uint256) public mostPopularProposal;
+    mapping(uint256 => uint256) public mostPopularProposalOfWeek;
 
     /// @dev The most popular proposal status at a proposal id
     /// @dev since there are only 8 proposal statuses, we can use a uint256 to store the status
@@ -233,12 +248,11 @@ contract Governance is IGovernance, EIP712 {
     mapping(uint256 => uint256) private _packedProposalStatus;
 
     /**
-     * @notice the number of endorsements on the most popular proposal at a given week
+     * @notice the number of endorsements on the most popular proposal of a given week
      * @dev only GCA elections can be endorsed
      * @dev only veto council members can endorse a proposal
      * @dev an endorsement represents a 5% drop to the default percentage to execute a proposal
      * @dev the default percentage to execute a proposal is 60%
-     * @dev the weight of an endorsement is 5%
      * @dev the minimum percentage to execute GCA election proposal is 35%
      *             -  that means there can be a maximumn of 5 endorsements on a GCA election proposal
      */
@@ -251,15 +265,16 @@ contract Governance is IGovernance, EIP712 {
      *             - if the bit is set, then the veto council agent has vetoed the most popular proposal for that week
      */
     mapping(address => mapping(uint256 => uint256)) private _hasEndorsedProposalBitmap;
-    //************************************************************* */
-    //*****************  CONSTRUCTOR   ************** */
-    //************************************************************* */
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
 
     constructor() payable EIP712("Glow Governance", "1") {}
 
-    //************************************************************* */
-    //************  EXTERNAL/STATE CHANGING FUNCS    ************* */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                               proposal execution                           */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @inheritdoc IGovernance
@@ -268,7 +283,7 @@ contract Governance is IGovernance, EIP712 {
     function executeProposalAtWeek(uint256 week) public {
         uint256 _nextWeekToExecute = lastExecutedWeek;
         unchecked {
-            //We actually want this to overflow
+            //We actually want this to overflow since we start at type(uint256).max
             ++_nextWeekToExecute;
         }
 
@@ -277,7 +292,7 @@ contract Governance is IGovernance, EIP712 {
             _revert(IGovernance.ProposalsMustBeExecutedSynchonously.selector);
         }
 
-        uint256 proposalId = mostPopularProposal[week];
+        uint256 proposalId = mostPopularProposalOfWeek[week];
 
         if (!isProposalEligibleForExecution(proposalId)) {
             lastExecutedWeek = week;
@@ -288,9 +303,15 @@ contract Governance is IGovernance, EIP712 {
         IGovernance.ProposalType proposalType = proposal.proposalType;
         ProposalLongStakerVotes memory longStakerVotes = _proposalLongStakerVotes[proposalId];
 
-        //For all other proposals, we need to make sure that the ratify/reject period has ended
-        if (block.timestamp < _weekEndTime(week + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
-            _revert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
+        bool isNotGrantsAndIsNotRFC = proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
+            && proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT;
+
+        //All proposals except grants and RFC's should
+        //Revert if the ratify/reject period is not yet ended as grants and RFC's dont need ratification approval
+        if (isNotGrantsAndIsNotRFC) {
+            if (block.timestamp < _weekEndTime(week + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
+                _revert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
+            }
         }
 
         //Start C2:
@@ -316,12 +337,7 @@ contract Governance is IGovernance, EIP712 {
                 return;
             }
         } else {
-            if (
-                (
-                    proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT
-                        && proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
-                )
-            ) {
+            if (isNotGrantsAndIsNotRFC) {
                 uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
                 if (totalVotes == 0) {
                     lastExecutedWeek = week;
@@ -363,7 +379,7 @@ contract Governance is IGovernance, EIP712 {
         for (_nextWeekToExecute; _nextWeekToExecute < currentWeek; ++_nextWeekToExecute) {
             //If the proposal is vetoed, we can skip the execution
             //We still need to update the lastExecutedWeek so the next proposal can be executed
-            uint256 proposalId = mostPopularProposal[_nextWeekToExecute];
+            uint256 proposalId = mostPopularProposalOfWeek[_nextWeekToExecute];
             if (!isProposalEligibleForExecution(proposalId)) {
                 continue;
             }
@@ -371,14 +387,17 @@ contract Governance is IGovernance, EIP712 {
             IGovernance.Proposal memory proposal = _proposals[proposalId];
             IGovernance.ProposalType proposalType = proposal.proposalType;
             ProposalLongStakerVotes memory longStakerVotes = _proposalLongStakerVotes[proposalId];
+            bool isNotGrantsAndIsNotRFC = proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
+                && proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT;
 
-            //For all other proposals, we need to make sure that the ratify/reject period has ended
-
-            if (block.timestamp < _weekEndTime(_nextWeekToExecute + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
-                lastExecutedWeek = _nextWeekToExecute == 0 ? type(uint256).max : _nextWeekToExecute - 1;
-                return;
+            //All proposals except grants and RFC's should
+            //Revert if the ratify/reject period is not yet ended as grants and RFC's dont need ratification approval
+            if (isNotGrantsAndIsNotRFC) {
+                if (block.timestamp < _weekEndTime(_nextWeekToExecute + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
+                    lastExecutedWeek = _nextWeekToExecute == 0 ? type(uint256).max : _nextWeekToExecute - 1;
+                    return;
+                }
             }
-
             //Start C2:
             //C2 checks to see if there are enough ratify votes to execute the proposal
 
@@ -401,12 +420,7 @@ contract Governance is IGovernance, EIP712 {
                     continue;
                 }
             } else {
-                if (
-                    (
-                        proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT
-                            && proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
-                    )
-                ) {
+                if (isNotGrantsAndIsNotRFC) {
                     uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
                     //If no one votes, we don't execute the proposal
                     //Prevent division by zero error
@@ -423,6 +437,10 @@ contract Governance is IGovernance, EIP712 {
         }
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                            proposal   endorsement                          */
+    /* -------------------------------------------------------------------------- */
+
     /**
      * @inheritdoc IGovernance
      */
@@ -433,7 +451,7 @@ contract Governance is IGovernance, EIP712 {
 
         uint256 _currentWeek = currentWeek();
         if (weekId >= _currentWeek) {
-            _revert(IGovernance.WeekNotFinalized.selector);
+            _revert(IGovernance.WeekNotStarted.selector);
         }
         //Also make sure it's not already finalized
         uint256 _weekEndTime = _weekEndTime(weekId + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL);
@@ -450,19 +468,23 @@ contract Governance is IGovernance, EIP712 {
         }
         _hasEndorsedProposalBitmap[msg.sender][key] = existingEndorsementBitmap | bitVal;
         uint256 numEndorsements = numEndorsementsOnWeek[weekId];
-        uint256 proposalId = mostPopularProposal[weekId];
+        uint256 proposalId = mostPopularProposalOfWeek[weekId];
         IGovernance.ProposalType proposalType = _proposals[proposalId].proposalType;
         if (proposalType != IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
             _revert(IGovernance.OnlyGCAElectionsCanBeEndorsed.selector);
         }
 
         numEndorsements += 1;
-        if (numEndorsements > MAXENDORSEMENTS_ON_GCA_PROPOSALS) {
+        if (numEndorsements > MAX_ENDORSEMENTS_ON_GCA_PROPOSALS) {
             _revert(IGovernance.MaxGCAEndorsementsReached.selector);
         }
 
         numEndorsementsOnWeek[weekId] = numEndorsements;
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                              nonce management                              */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice Allows a user to increase their nonce
@@ -472,6 +494,10 @@ contract Governance is IGovernance, EIP712 {
     function selfIncrementNonce() external {
         ++spendNominationsOnProposalNonce[msg.sender];
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                veto proposals                              */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice entrypoint for veto council members to veto a most popular proposal
@@ -483,13 +509,13 @@ contract Governance is IGovernance, EIP712 {
             _revert(IGovernance.CallerNotVetoCouncilMember.selector);
         }
 
-        if (mostPopularProposal[weekId] != proposalId) {
+        if (mostPopularProposalOfWeek[weekId] != proposalId) {
             _revert(IGovernance.ProposalIdDoesNotMatchMostPopularProposal.selector);
         }
 
         uint256 _currentWeek = currentWeek();
         if (weekId >= _currentWeek) {
-            _revert(IGovernance.WeekNotFinalized.selector);
+            _revert(IGovernance.WeekNotStarted.selector);
         }
         //Also make sure it's not already finalized
         uint256 _weekEndTime = _weekEndTime(weekId + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL);
@@ -510,6 +536,10 @@ contract Governance is IGovernance, EIP712 {
         _setProposalStatus(proposalId, IGovernance.ProposalStatus.VETOED);
         emit IGovernance.ProposalVetoed(weekId, msg.sender, proposalId);
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 nominations                                */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice Entry point for GCC contract to grant nominations to {to} when they retire GCC
@@ -553,16 +583,20 @@ contract Governance is IGovernance, EIP712 {
         uint184 newTotalVotes = SafeCast.toUint184(_proposals[proposalId].votes + amount);
         _proposals[proposalId].votes = newTotalVotes;
         uint256 currentWeek = currentWeek();
-        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
-        if (proposalId != _mostPopularProposal) {
-            if (newTotalVotes > _proposals[_mostPopularProposal].votes) {
-                mostPopularProposal[currentWeek] = proposalId;
+        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
+        if (proposalId != _mostPopularProposalOfWeek) {
+            if (newTotalVotes > _proposals[_mostPopularProposalOfWeek].votes) {
+                mostPopularProposalOfWeek[currentWeek] = proposalId;
                 emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
             }
         }
 
         emit IGovernance.NominationsUsedOnProposal(proposalId, msg.sender, amount);
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                         selecting most popular proposal                    */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice sets the proposal as the most popular proposal for the current week
@@ -581,7 +615,7 @@ contract Governance is IGovernance, EIP712 {
         // get the current week
         uint256 currentWeek = currentWeek();
         // get the most popular proposal for the current week
-        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
+        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
         // get the expiration timestamp of the proposal
         uint256 expirationTimestamp = _proposals[proposalId].expirationTimestamp;
         // get the number of votes on the proposal
@@ -591,11 +625,11 @@ contract Governance is IGovernance, EIP712 {
             _revert(IGovernance.ProposalExpired.selector);
         }
         // check if the proposal is already the most popular proposal
-        if (proposalId != _mostPopularProposal) {
+        if (proposalId != _mostPopularProposalOfWeek) {
             // check if the number of votes on the proposal is greater than the number of votes on the current most popular proposal
-            if (numVotesOnProposal > _proposals[_mostPopularProposal].votes) {
+            if (numVotesOnProposal > _proposals[_mostPopularProposalOfWeek].votes) {
                 // set the proposal as the most popular proposal for the current week
-                mostPopularProposal[currentWeek] = proposalId;
+                mostPopularProposalOfWeek[currentWeek] = proposalId;
             } else {
                 // throw an error if the proposal is not the most popular proposal
                 _revert(IGovernance.ProposalNotMostPopular.selector);
@@ -604,6 +638,10 @@ contract Governance is IGovernance, EIP712 {
         emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                ratify/reject                               */
+    /* -------------------------------------------------------------------------- */
+
     /**
      * @notice entrypoint for long staked glow holders to vote on proposals
      * @param weekOfMostPopularProposal - the week that the proposal got selected as the most popular proposal for
@@ -611,14 +649,14 @@ contract Governance is IGovernance, EIP712 {
      *                             - if false they are rejecting it
      * @param numVotes - the number of ratify/reject votes they want to apply on this proposal
      *                       - the total number of ratify/reject votes must always be lte than
-     *                             - the total glw they have staked
+     *                             - the total glow they have staked
      */
     function ratifyOrReject(uint256 weekOfMostPopularProposal, bool trueForRatify, uint256 numVotes) external {
         uint256 currentWeek = currentWeek();
         //Week needs to finalize.
-        uint256 _mostPopularProposal = mostPopularProposal[weekOfMostPopularProposal];
+        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[weekOfMostPopularProposal];
 
-        IGovernance.ProposalStatus status = getProposalStatus(_mostPopularProposal);
+        IGovernance.ProposalStatus status = getProposalStatus(_mostPopularProposalOfWeek);
         if (status == IGovernance.ProposalStatus.VETOED) {
             _revert(IGovernance.ProposalAlreadyVetoed.selector);
         }
@@ -630,7 +668,7 @@ contract Governance is IGovernance, EIP712 {
         }
 
         if (weekOfMostPopularProposal >= currentWeek) {
-            _revert(IGovernance.WeekNotFinalized.selector);
+            _revert(IGovernance.WeekNotStarted.selector);
         }
 
         if (block.timestamp > _weekEndTime(weekOfMostPopularProposal + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
@@ -638,23 +676,26 @@ contract Governance is IGovernance, EIP712 {
         }
         //We also need to check to make sure that the proposal was created.
         uint256 userNumStakedGlow = IGlow(_glw).numStaked(msg.sender);
-        if (_mostPopularProposal == 0) {
+        if (_mostPopularProposalOfWeek == 0) {
             _revert(IGovernance.MostPopularProposalNotSelected.selector);
         }
-        uint256 amountVotesUsed = longStakerVotesForProposal[msg.sender][_mostPopularProposal];
+        uint256 amountVotesUsed = longStakerVotesForProposal[msg.sender][_mostPopularProposalOfWeek];
         if (amountVotesUsed + numVotes > userNumStakedGlow) {
             _revert(IGovernance.InsufficientRatifyOrRejectVotes.selector);
         }
         if (trueForRatify) {
-            _proposalLongStakerVotes[_mostPopularProposal].ratifyVotes += uint128(numVotes);
-            emit IGovernance.RatifyCast(_mostPopularProposal, msg.sender, numVotes);
+            _proposalLongStakerVotes[_mostPopularProposalOfWeek].ratifyVotes += uint128(numVotes);
+            emit IGovernance.RatifyCast(_mostPopularProposalOfWeek, msg.sender, numVotes);
         } else {
-            _proposalLongStakerVotes[_mostPopularProposal].rejectionVotes += uint128(numVotes);
-            emit IGovernance.RejectCast(_mostPopularProposal, msg.sender, numVotes);
+            _proposalLongStakerVotes[_mostPopularProposalOfWeek].rejectionVotes += uint128(numVotes);
+            emit IGovernance.RejectCast(_mostPopularProposalOfWeek, msg.sender, numVotes);
         }
-        longStakerVotesForProposal[msg.sender][_mostPopularProposal] = amountVotesUsed + numVotes;
+        longStakerVotesForProposal[msg.sender][_mostPopularProposalOfWeek] = amountVotesUsed + numVotes;
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 initializers                               */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice A one time setter to set the contract addresses
      * @param gcc the GCC contract address
@@ -683,6 +724,11 @@ contract Governance is IGovernance, EIP712 {
         _grantsTreasury = grantsTreasury;
         _glw = glw;
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                              creating proposals                            */
+    /* -------------------------------------------------------------------------- */
+
     /**
      * @notice Creates a proposal to send a grant to a recipient
      * @param grantsRecipient the recipient of the grant
@@ -709,9 +755,9 @@ contract Governance is IGovernance, EIP712 {
         );
 
         uint256 currentWeek = currentWeek();
-        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
-        if (nominationCost > _proposals[_mostPopularProposal].votes) {
-            mostPopularProposal[currentWeek] = proposalId;
+        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposalOfWeek].votes) {
+            mostPopularProposalOfWeek[currentWeek] = proposalId;
             emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
@@ -741,9 +787,9 @@ contract Governance is IGovernance, EIP712 {
         );
 
         uint256 currentWeek = currentWeek();
-        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
-        if (nominationCost > _proposals[_mostPopularProposal].votes) {
-            mostPopularProposal[currentWeek] = proposalId;
+        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposalOfWeek].votes) {
+            mostPopularProposalOfWeek[currentWeek] = proposalId;
             emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
@@ -778,9 +824,9 @@ contract Governance is IGovernance, EIP712 {
         );
 
         uint256 currentWeek = currentWeek();
-        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
-        if (nominationCost > _proposals[_mostPopularProposal].votes) {
-            mostPopularProposal[currentWeek] = proposalId;
+        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposalOfWeek].votes) {
+            mostPopularProposalOfWeek[currentWeek] = proposalId;
             emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
@@ -827,9 +873,9 @@ contract Governance is IGovernance, EIP712 {
         );
 
         uint256 currentWeek = currentWeek();
-        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
-        if (nominationCost > _proposals[_mostPopularProposal].votes) {
-            mostPopularProposal[currentWeek] = proposalId;
+        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposalOfWeek].votes) {
+            mostPopularProposalOfWeek[currentWeek] = proposalId;
             emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
@@ -842,28 +888,28 @@ contract Governance is IGovernance, EIP712 {
 
     /**
      * @notice Creates a proposal to add, replace, or slash Veto a single veto council member
-     * @param oldAgent the old agent to be replaced
+     * @param oldMember the old agent to be replaced
      *         -   If the agent is address(0), it means we are simply adding a new agent
-     * @param newAgent the new agent to replace the old agent
+     * @param newMember the new agent to replace the old agent
      *         -   If the agent is address(0), it means we are simply removing an agent
-     * @param slashOldAgent whether or not to slash the old agent
+     * @param slashOldMember whether or not to slash the old agent
      * @param maxNominations the maximum amount of nominations to spend on this proposal
      */
     function createVetoCouncilElectionOrSlash(
-        address oldAgent,
-        address newAgent,
-        bool slashOldAgent,
+        address oldMember,
+        address newMember,
+        bool slashOldMember,
         uint256 maxNominations
     ) external {
-        if (oldAgent == newAgent) {
-            _revert(IGovernance.VetoCouncilProposalCreationOldAgentCannotEqualNewAgent.selector);
+        if (oldMember == newMember) {
+            _revert(IGovernance.VetoCouncilProposalCreationOldMemberCannotEqualNewMember.selector);
         }
 
-        if (oldAgent == NULL_ADDRESS) {
-            _revert(IGovernance.VetoAgentCannotBeNullAddress.selector);
+        if (oldMember == NULL_ADDRESS) {
+            _revert(IGovernance.VetoMemberCannotBeNullAddress.selector);
         }
-        if (newAgent == NULL_ADDRESS) {
-            _revert(IGovernance.VetoAgentCannotBeNullAddress.selector);
+        if (newMember == NULL_ADDRESS) {
+            _revert(IGovernance.VetoMemberCannotBeNullAddress.selector);
         }
 
         uint256 proposalId = _proposalCount;
@@ -876,19 +922,19 @@ contract Governance is IGovernance, EIP712 {
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
             uint64(block.timestamp + MAX_PROPOSAL_DURATION),
             SafeCast.toUint184(nominationCost),
-            abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp)
+            abi.encode(oldMember, newMember, slashOldMember, block.timestamp)
         );
         uint256 currentWeek = currentWeek();
-        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
-        if (nominationCost > _proposals[_mostPopularProposal].votes) {
-            mostPopularProposal[currentWeek] = proposalId;
+        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposalOfWeek].votes) {
+            mostPopularProposalOfWeek[currentWeek] = proposalId;
             emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
         _proposalCount = proposalId + 1;
 
         emit IGovernance.VetoCouncilElectionOrSlash(
-            proposalId, msg.sender, oldAgent, newAgent, slashOldAgent, nominationCost
+            proposalId, msg.sender, oldMember, newMember, slashOldMember, nominationCost
         );
     }
 
@@ -994,36 +1040,36 @@ contract Governance is IGovernance, EIP712 {
 
     /**
      * @notice Creates a proposal to add, replace, or slash Veto a single veto council member
-     * @param oldAgent the old agent to be replaced
+     * @param oldMember the old agent to be replaced
      *         -   If the agent is address(0), it means we are simply adding a new agent
-     * @param newAgent the new agent to replace the old agent
+     * @param newMember the new agent to replace the old agent
      *         -   If the agent is address(0), it means we are simply removing an agent
-     * @param slashOldAgent whether or not to slash the old agent
+     * @param slashOldMember whether or not to slash the old agent
      */
     function createVetoCouncilElectionOrSlashSigs(
-        address oldAgent,
-        address newAgent,
-        bool slashOldAgent,
+        address oldMember,
+        address newMember,
+        bool slashOldMember,
         uint256[] memory deadlines,
         uint256[] memory nominationsToSpend,
         address[] memory signers,
         bytes[] memory sigs
     ) external {
-        if (oldAgent == newAgent) {
-            _revert(IGovernance.VetoCouncilProposalCreationOldAgentCannotEqualNewAgent.selector);
+        if (oldMember == newMember) {
+            _revert(IGovernance.VetoCouncilProposalCreationOldMemberCannotEqualNewMember.selector);
         }
         /// Note: these bytes do not match the bytes that will be saved in storage through the
         /// `checkBulkSignaturesAndCheckSufficientNominations` function
         /// We need to encode this data to check the signatures
         /// Checking `data` as processed in `createVetoCouncilElectionOrSlash` would be painful
         /// As signers would need to align on the `block.timestamp`
-        bytes memory data = abi.encode(oldAgent, newAgent, slashOldAgent);
+        bytes memory data = abi.encode(oldMember, newMember, slashOldMember);
         (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
             deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH
         );
 
         emit IGovernance.VetoCouncilElectionOrSlash(
-            proposalId, msg.sender, oldAgent, newAgent, slashOldAgent, nominationsSpent
+            proposalId, msg.sender, oldMember, newMember, slashOldMember, nominationsSpent
         );
     }
 
@@ -1037,9 +1083,10 @@ contract Governance is IGovernance, EIP712 {
         lastExpiredProposalId = _lastExpiredProposalId;
     }
 
-    //************************************************************* */
-    //***************  PUBLIC/EXTERNAL VIEW FUNCTIONS    **************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                 view functions                             */
+    /* -------------------------------------------------------------------------- */
+
     /**
      * @notice returns {true} if a gca has endorsed the proposal at {weekId}
      */
@@ -1081,7 +1128,7 @@ contract Governance is IGovernance, EIP712 {
     }
 
     /**
-     * @notice Gets the status of the most popular proposal at a given week
+     * @notice Gets the status of the most popular proposal of a given week
      * @param proposalId the id of the proposal
      * @return status the status of the proposal
      */
@@ -1121,9 +1168,9 @@ contract Governance is IGovernance, EIP712 {
         return _proposalLongStakerVotes[proposalId];
     }
 
-    //************************************************************* */
-    //*****************  INTERNAL/PRIVATE FUNCS   ****************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                 internal                                 */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @dev internal function to execute a proposal
@@ -1140,8 +1187,8 @@ contract Governance is IGovernance, EIP712 {
     ) internal {
         bool success;
         if (proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
-            (address oldAgent, address newAgent, bool slashOldAgent) = abi.decode(data, (address, address, bool));
-            success = IVetoCouncil(_vetoCouncil).addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent);
+            (address oldMember, address newMember, bool slashOldMember) = abi.decode(data, (address, address, bool));
+            success = IVetoCouncil(_vetoCouncil).addAndRemoveCouncilMember(oldMember, newMember, slashOldMember);
         }
 
         if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
@@ -1204,7 +1251,7 @@ contract Governance is IGovernance, EIP712 {
     }
 
     /**
-     * @dev sets the proposal status for the most popular proposal at a given week
+     * @dev sets the proposal status for the most popular proposal of a given week
      * @param proposalId the id of the proposal
      * @param status the status of the proposal
      */
@@ -1282,9 +1329,9 @@ contract Governance is IGovernance, EIP712 {
         }
 
         uint256 currentWeek = currentWeek();
-        uint256 _mostPopularProposal = mostPopularProposal[currentWeek];
-        if (nominationCost > _proposals[_mostPopularProposal].votes) {
-            mostPopularProposal[currentWeek] = proposalId;
+        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposalOfWeek].votes) {
+            mostPopularProposalOfWeek[currentWeek] = proposalId;
             emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
         }
 
@@ -1296,8 +1343,8 @@ contract Governance is IGovernance, EIP712 {
         }
 
         if (proposalType == IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
-            (address oldAgent, address newAgent, bool slashOldAgent) = abi.decode(data, (address, address, bool));
-            data = abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp);
+            (address oldMember, address newMember, bool slashOldMember) = abi.decode(data, (address, address, bool));
+            data = abi.encode(oldMember, newMember, slashOldMember, block.timestamp);
         }
 
         _proposals[proposalId] = IGovernance.Proposal(
@@ -1375,8 +1422,9 @@ contract Governance is IGovernance, EIP712 {
         uint256 cachedLastExpiredProposalId = lastExpiredProposalId;
         _lastExpiredProposalId = cachedLastExpiredProposalId;
         _lastExpiredProposalId = _lastExpiredProposalId == 0 ? 1 : _lastExpiredProposalId;
+        uint256 cachedProposalCount = _proposalCount;
         unchecked {
-            for (uint256 i = _lastExpiredProposalId; i < _proposalCount; ++i) {
+            for (uint256 i = _lastExpiredProposalId; i < cachedProposalCount; ++i) {
                 if (_proposals[i].expirationTimestamp < block.timestamp) {
                     _lastExpiredProposalId = i;
                 } else {
@@ -1384,7 +1432,7 @@ contract Governance is IGovernance, EIP712 {
                 }
             }
         }
-        numActiveProposals = _proposalCount - _lastExpiredProposalId;
+        numActiveProposals = cachedProposalCount - _lastExpiredProposalId;
         updateState = _lastExpiredProposalId != cachedLastExpiredProposalId;
     }
 

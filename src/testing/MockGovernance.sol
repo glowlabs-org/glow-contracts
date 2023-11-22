@@ -22,4 +22,12 @@ contract MockGovernance is Governance {
     ) external view returns (bytes32) {
         return _createSpendNominationsOnProposalDigest(proposalType, nominationsToSpend, nonce, deadline, data);
     }
+
+    function getLastExpiredProposalId() public view returns (uint256) {
+        return lastExpiredProposalId;
+    }
+
+    function getLastExecutedWeek() public view returns (uint256) {
+        return lastExecutedWeek;
+    }
 }

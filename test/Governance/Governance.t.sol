@@ -277,7 +277,7 @@ contract GovernanceTest is Test {
         test_createGrantsProposal();
         vm.warp(block.timestamp + ONE_WEEK * 16 + 1);
         governance.updateLastExpiredProposalId();
-        assertEq(governance.lastExpiredProposalId(), 1);
+        assertEq(governance.getLastExpiredProposalId(), 1);
     }
 
     function test_grantNomination_halfLifeShouldCorrectlyCalculate() public {
@@ -591,7 +591,7 @@ contract GovernanceTest is Test {
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
         assertEq(proposal.votes, nominationsToUse);
 
-        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+        assertEq(governance.mostPopularProposalOfWeek(governance.currentWeek()), 2);
         vm.stopPrank();
     }
 
@@ -757,7 +757,7 @@ contract GovernanceTest is Test {
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
         assertEq(proposal.votes, nominationsToUse);
 
-        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+        assertEq(governance.mostPopularProposalOfWeek(governance.currentWeek()), 2);
 
         vm.stopPrank();
     }
@@ -895,7 +895,7 @@ contract GovernanceTest is Test {
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
         assertEq(proposal.votes, nominationsToUse);
 
-        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+        assertEq(governance.mostPopularProposalOfWeek(governance.currentWeek()), 2);
 
         vm.stopPrank();
     }
@@ -1047,7 +1047,7 @@ contract GovernanceTest is Test {
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
         assertEq(proposal.votes, nominationsToUse);
 
-        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+        assertEq(governance.mostPopularProposalOfWeek(governance.currentWeek()), 2);
         vm.stopPrank();
     }
 
@@ -1178,7 +1178,7 @@ contract GovernanceTest is Test {
         uint256 maxNominations = nominationsOfSimon;
         uint256 creationTimestamp = block.timestamp;
         uint256 nominationsToUse = governance.costForNewProposal();
-        vm.expectRevert(IGovernance.VetoCouncilProposalCreationOldAgentCannotEqualNewAgent.selector);
+        vm.expectRevert(IGovernance.VetoCouncilProposalCreationOldMemberCannotEqualNewMember.selector);
         governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
         vm.stopPrank();
     }
@@ -1222,7 +1222,7 @@ contract GovernanceTest is Test {
         assertEq(slashOldAgent_, slashOldAgent);
         assertEq(creationTimestamp_, creationTimestamp);
 
-        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+        assertEq(governance.mostPopularProposalOfWeek(governance.currentWeek()), 2);
 
         vm.stopPrank();
     }
@@ -1341,7 +1341,7 @@ contract GovernanceTest is Test {
         assertEq(simonNominationsBefore - nominationsToUse, simonNominationsAfter);
         assertEq(numVotesBefore + nominationsToUse, numVotesAfter);
         assertTrue(numVotesAfter > governance.proposals(2).votes);
-        assertEq(governance.mostPopularProposal(governance.currentWeek()), 1);
+        assertEq(governance.mostPopularProposalOfWeek(governance.currentWeek()), 1);
     }
 
     //----------------------------------------------------//
@@ -1401,7 +1401,7 @@ contract GovernanceTest is Test {
         glow.mint(SIMON, 100 ether);
         glow.stake(100 ether);
 
-        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        vm.expectRevert(IGovernance.WeekNotStarted.selector);
         governance.ratifyOrReject({weekOfMostPopularProposal: 0, trueForRatify: false, numVotes: 100 ether});
 
         vm.stopPrank();
@@ -1418,7 +1418,7 @@ contract GovernanceTest is Test {
         glow.mint(SIMON, 100 ether);
         glow.stake(100 ether);
 
-        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        vm.expectRevert(IGovernance.WeekNotStarted.selector);
         governance.ratifyOrReject({weekOfMostPopularProposal: 1, trueForRatify: false, numVotes: 100 ether});
 
         vm.stopPrank();
@@ -1566,7 +1566,7 @@ contract GovernanceTest is Test {
 
         //Should be the most popular proposal now
         vm.startPrank(SIMON);
-        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        vm.expectRevert(IGovernance.WeekNotStarted.selector);
         governance.vetoProposal(0, 1);
         vm.stopPrank();
     }
@@ -1642,14 +1642,14 @@ contract GovernanceTest is Test {
         test_createGCAElectionOrSlashProposal();
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + ONE_WEEK - 1);
-        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        vm.expectRevert(IGovernance.WeekNotStarted.selector);
         governance.endorseGCAProposal(0);
     }
 
     function test_endorseGCAProposal_futureWeek_shouldRevert() public {
         test_createGCAElectionOrSlashProposal();
         vm.startPrank(SIMON);
-        vm.expectRevert(IGovernance.WeekNotFinalized.selector);
+        vm.expectRevert(IGovernance.WeekNotStarted.selector);
         governance.endorseGCAProposal(1);
     }
 
@@ -1758,7 +1758,7 @@ contract GovernanceTest is Test {
         vm.startPrank(grantsRecipient);
         grantsTreasury.claimGrantReward();
         vm.stopPrank();
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1775,7 +1775,7 @@ contract GovernanceTest is Test {
         // vm.startPrank(grantsRecipient);
         // grantsTreasury.claimGrantReward();
         // vm.stopPrank();
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         console.log("last executed week = ", lastExecutedWeek);
         /**
          * [week 0] - create proposal
@@ -1801,7 +1801,7 @@ contract GovernanceTest is Test {
         // vm.startPrank(grantsRecipient);
         // grantsTreasury.claimGrantReward();
         // vm.stopPrank();
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         console.log("last executed week = ", lastExecutedWeek);
         /**
          * [week 0] - create proposal
@@ -1836,7 +1836,7 @@ contract GovernanceTest is Test {
          * [week 0] - create proposal
          *         [week 1] - create veto council election proposal
          */
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1846,7 +1846,7 @@ contract GovernanceTest is Test {
         castLongStakedVotes(SIMON, 0, true, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.syncProposals();
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1857,7 +1857,7 @@ contract GovernanceTest is Test {
         //We actually don't need this syncProposals call since
         //{createVetoCouncilElectionOrSlashProposal} alreadys calls it in the {commitGCC} method
         governance.syncProposals();
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         console.log("last executed week = ", lastExecutedWeek);
         assertEq(lastExecutedWeek, 0);
     }
@@ -1872,7 +1872,7 @@ contract GovernanceTest is Test {
         governance.syncProposals();
         assertEq(minerPoolAndGCA.proposalHashes(0), hash);
         assertEq(minerPoolAndGCA.slashNonce(), incrementSlashNonce ? 1 : 0);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1888,7 +1888,7 @@ contract GovernanceTest is Test {
         vm.expectRevert();
         bytes32 hashInArray = minerPoolAndGCA.proposalHashes(0);
         assertEq(minerPoolAndGCA.slashNonce(), 0);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1904,7 +1904,7 @@ contract GovernanceTest is Test {
         governance.syncProposals();
         assertEq(minerPoolAndGCA.proposalHashes(0), hash);
         assertEq(minerPoolAndGCA.slashNonce(), incrementSlashNonce ? 1 : 0);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1919,7 +1919,7 @@ contract GovernanceTest is Test {
         governance.syncProposals();
         assert(vetoCouncil.isCouncilMember(newAgent_));
         assert(!vetoCouncil.isCouncilMember(oldAgent_));
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1934,7 +1934,7 @@ contract GovernanceTest is Test {
         governance.syncProposals();
         assert(!vetoCouncil.isCouncilMember(newAgent_));
         assert(vetoCouncil.isCouncilMember(oldAgent_));
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1951,7 +1951,7 @@ contract GovernanceTest is Test {
         governance.syncProposals();
         assert(vetoCouncil.isCouncilMember(newAgent_));
         assert(!vetoCouncil.isCouncilMember(oldAgent_));
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -1963,7 +1963,7 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.syncProposals();
         assertEq(minerPoolAndGCA.requirementsHash(), expectedHash);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
         /**
          * [week 0] - create proposal
@@ -1984,7 +1984,7 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.syncProposals();
         assert(minerPoolAndGCA.requirementsHash() != expectedHash);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
         /**
          * [week 0] - create proposal
@@ -2008,7 +2008,7 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.syncProposals();
         assertEq(minerPoolAndGCA.requirementsHash(), expectedHash);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         console.log("last executed week = ", lastExecutedWeek);
         assertEq(lastExecutedWeek, 0);
     }
@@ -2035,7 +2035,7 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.executeProposalAtWeek(0);
         assertEq(minerPoolAndGCA.requirementsHash(), expectedHash);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -2045,7 +2045,7 @@ contract GovernanceTest is Test {
         castLongStakedVotes(SIMON, 0, true, 1);
         vm.warp(block.timestamp + (ONE_WEEK * 4));
         governance.executeProposalAtWeek(0);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -2059,7 +2059,7 @@ contract GovernanceTest is Test {
         governance.executeProposalAtWeek(0);
         assertEq(minerPoolAndGCA.proposalHashes(0), hash);
         assertEq(minerPoolAndGCA.slashNonce(), incrementSlashNonce ? 1 : 0);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -2074,7 +2074,7 @@ contract GovernanceTest is Test {
         governance.executeProposalAtWeek(0);
         assert(vetoCouncil.isCouncilMember(newAgent_));
         assert(!vetoCouncil.isCouncilMember(oldAgent_));
-        // uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        // uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         // assertEq(lastExecutedWeek, 0);
     }
 
@@ -2090,7 +2090,7 @@ contract GovernanceTest is Test {
         vm.startPrank(grantsRecipient);
         grantsTreasury.claimGrantReward();
         vm.stopPrank();
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -2102,7 +2102,7 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.executeProposalAtWeek(0);
         assert(minerPoolAndGCA.requirementsHash() != expectedHash);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -2113,7 +2113,7 @@ contract GovernanceTest is Test {
         castLongStakedVotes(SIMON, 0, false, 1);
         vm.warp(block.timestamp + (ONE_WEEK * 4));
         governance.executeProposalAtWeek(0);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -2131,7 +2131,7 @@ contract GovernanceTest is Test {
         bytes32 hash2 = minerPoolAndGCA.proposalHashes(0);
 
         assertEq(minerPoolAndGCA.slashNonce(), 0);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -2146,7 +2146,7 @@ contract GovernanceTest is Test {
         governance.executeProposalAtWeek(0);
         assert(!vetoCouncil.isCouncilMember(newAgent_));
         assert(vetoCouncil.isCouncilMember(oldAgent_));
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -2169,7 +2169,7 @@ contract GovernanceTest is Test {
         cost = governance.costForNewProposal();
         bytes32 secondNewRequirementsHash = keccak256("second new hash");
         governance.createChangeGCARequirementsProposal(secondNewRequirementsHash, cost);
-        assertEq(governance.mostPopularProposal(governance.currentWeek()), 2);
+        assertEq(governance.mostPopularProposalOfWeek(governance.currentWeek()), 2);
         vm.warp(block.timestamp + ONE_WEEK + 1);
         vm.stopPrank();
 
@@ -2177,7 +2177,7 @@ contract GovernanceTest is Test {
 
         vm.startPrank(SIMON);
         governance.useNominationsOnProposal(1, 100);
-        assertEq(governance.mostPopularProposal(governance.currentWeek()), 1);
+        assertEq(governance.mostPopularProposalOfWeek(governance.currentWeek()), 1);
         governance.useNominationsOnProposal(1, 100);
         // Warp forward to make sure we can execute all proposals in one go
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -2269,7 +2269,7 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK + 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.executeProposalAtWeek(0);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -2347,7 +2347,7 @@ contract GovernanceTest is Test {
         vm.warp(block.timestamp + ONE_WEEK * 4);
 
         governance.executeProposalAtWeek(0);
-        uint256 lastExecutedWeek = governance.lastExecutedWeek();
+        uint256 lastExecutedWeek = governance.getLastExecutedWeek();
         assertEq(lastExecutedWeek, 0);
     }
 
@@ -2355,7 +2355,7 @@ contract GovernanceTest is Test {
         test_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + (ONE_WEEK * 5) + 1);
         governance.executeProposalAtWeek(0);
-        assertEq(governance.lastExecutedWeek(), 0);
+        assertEq(governance.getLastExecutedWeek(), 0);
     }
 
     /**
@@ -2380,9 +2380,9 @@ contract GovernanceTest is Test {
         //Create a grants proposal
         vm.warp(block.timestamp + (ONE_WEEK * 6));
         governance.executeProposalAtWeek(0);
-        assertEq(governance.lastExecutedWeek(), 0);
+        assertEq(governance.getLastExecutedWeek(), 0);
         governance.executeProposalAtWeek(1);
-        assertEq(governance.lastExecutedWeek(), 1);
+        assertEq(governance.getLastExecutedWeek(), 1);
     }
 
     function test_setMostPopularProposalAtWeek() public {
@@ -2403,10 +2403,10 @@ contract GovernanceTest is Test {
         //set the most popular proposal to 2 even though it should be 3
         //Then we should be able to update it to 3
         governance.setMostPopularProposalForCurrentWeek(2);
-        uint256 mostPopularProposal = governance.mostPopularProposal(governance.currentWeek());
+        uint256 mostPopularProposal = governance.mostPopularProposalOfWeek(governance.currentWeek());
         assertEq(mostPopularProposal, 2);
         governance.setMostPopularProposalForCurrentWeek(3);
-        mostPopularProposal = governance.mostPopularProposal(governance.currentWeek());
+        mostPopularProposal = governance.mostPopularProposalOfWeek(governance.currentWeek());
         vm.expectRevert(IGovernance.ProposalNotMostPopular.selector);
         governance.setMostPopularProposalForCurrentWeek(2);
 

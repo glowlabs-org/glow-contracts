@@ -14,7 +14,7 @@ interface IGovernance {
     error ContractsAlreadySet();
     error NominationCostGreaterThanAllowance();
     error ProposalDoesNotExist();
-    error WeekNotFinalized();
+    error WeekNotStarted();
     error InsufficientRatifyOrRejectVotes();
     error RatifyOrRejectPeriodEnded();
     error RatifyOrRejectPeriodNotEnded();
@@ -31,14 +31,14 @@ interface IGovernance {
     error ProposalAlreadyExecuted();
     error ProposalIdDoesNotMatchMostPopularProposal();
     error ProposalNotMostPopular();
-    error VetoCouncilProposalCreationOldAgentCannotEqualNewAgent();
+    error VetoCouncilProposalCreationOldMemberCannotEqualNewMember();
     error MaximumNumberOfGCAS();
     error InvalidSpendNominationsOnProposalSignature();
 
     error MaxSlashesInGCAElection();
     error SpendNominationsOnProposalSignatureExpired();
     error ProposalIsVetoed();
-    error VetoAgentCannotBeNullAddress();
+    error VetoMemberCannotBeNullAddress();
 
     enum ProposalType {
         NONE, //default value for unset proposals
