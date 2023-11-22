@@ -1109,6 +1109,9 @@ contract Governance is IGovernance, EIP712 {
 
     /**
      * @notice returns {true} if a gca has endorsed the proposal at {weekId}
+     * @param gca - the address of the gca to check
+     * @param weekId - the week to check
+     * @return hasEndorsedProposal - true if the specified gca endorsed the proposal at the specified week
      */
     function hasEndorsedProposal(address gca, uint256 weekId) external view returns (bool) {
         uint256 key = weekId / 256;
@@ -1247,7 +1250,7 @@ contract Governance is IGovernance, EIP712 {
     }
 
     /**
-     * @dev internal function to get the cost for a new proposal and also update the
+     * @dev internal function to get the cost for a new proposal that also updates the
      *         -  last expired proposal id if need be
      */
     function costForNewProposalAndUpdateLastExpiredProposalId() internal returns (uint256) {
@@ -1462,13 +1465,12 @@ contract Governance is IGovernance, EIP712 {
      * @param proposalId - the proposal id to check
      */
     function isProposalEligibleForExecution(uint256 proposalId) internal view returns (bool) {
-        //If the proposal is vetoed, we can skip the execution
-        //We still need to update the lastExecutedWeek so the next proposal can be executed
-        //We also skip execution if the proposal somehow gets elected twice for execution
         IGovernance.ProposalStatus status = getProposalStatus(proposalId);
+        //If the proposal is vetoed, we can skip the execution
         if (status == IGovernance.ProposalStatus.VETOED) {
             return false;
         }
+        //We also skip execution if the proposal somehow gets elected twice for execution
         if (
             status == IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY
                 || status == IGovernance.ProposalStatus.EXECUTED_WITH_ERROR
