@@ -30,6 +30,7 @@ contract GlowUnlockerTest is Test {
 
     //-------------------- Setup --------------------
     function setUp() public {
+        vm.startPrank(tx.origin);
         uint256 sum = 0;
         for (uint256 i = 0; i < 10; i++) {
             addresses.push(address(uint160(SIMON) + addressOffset));
@@ -51,6 +52,7 @@ contract GlowUnlockerTest is Test {
 
         //Make sure early liquidity receives 12 million tokens
         assertEq(glw.balanceOf(EARLY_LIQUIDITY), 12_000_000 ether);
+        vm.stopPrank();
     }
 
     function test_disperser_getNextReward() public {
