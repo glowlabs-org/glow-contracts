@@ -179,12 +179,8 @@ contract VetoCouncilSalaryHelper {
      * @return - true if the council member was added or removed, false if nothing was done
      */
     function replaceMember(address oldMember, address newMember, bool slashOldMember) internal returns (bool) {
-        //cache the payment nonce
-        uint256 paymentNonceToWriteTo = paymentNonce;
         //Cache the old member index
         uint8 memberOldIndex;
-        //Increment the cached payment nonce
-        ++paymentNonceToWriteTo;
 
         bool isoldMemberZeroAddress = isZero(oldMember);
         bool isnewMemberZeroAddress = isZero(newMember);
@@ -239,6 +235,11 @@ contract VetoCouncilSalaryHelper {
         }
 
         _vetoCouncilMembers[memberOldIndex] = isnewMemberZeroAddress ? NULL_ADDRESS : newMember;
+
+        //cache the payment nonce
+        uint256 paymentNonceToWriteTo = paymentNonce;
+        //Increment the cached payment nonce
+        ++paymentNonceToWriteTo;
 
         //Set the hash for the new payment nonce
         paymentNonceTomembersHash[paymentNonceToWriteTo] =
