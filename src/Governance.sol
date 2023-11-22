@@ -303,15 +303,9 @@ contract Governance is IGovernance, EIP712 {
         IGovernance.ProposalType proposalType = proposal.proposalType;
         ProposalLongStakerVotes memory longStakerVotes = _proposalLongStakerVotes[proposalId];
 
-        bool isNotGrantsAndIsNotRFC = proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
-            && proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT;
-
-        //All proposals except grants and RFC's should
-        //Revert if the ratify/reject period is not yet ended as grants and RFC's dont need ratification approval
-        if (isNotGrantsAndIsNotRFC) {
-            if (block.timestamp < _weekEndTime(week + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
-                _revert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
-            }
+        //Revert if the ratify/reject period and veto period is not yet ended
+        if (block.timestamp < _weekEndTime(week + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
+            _revert(IGovernance.RatifyOrRejectPeriodNotEnded.selector);
         }
 
         //Start C2:
@@ -337,7 +331,12 @@ contract Governance is IGovernance, EIP712 {
                 return;
             }
         } else {
-            if (isNotGrantsAndIsNotRFC) {
+            if (
+                (
+                    proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT
+                        && proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
+                )
+            ) {
                 uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
                 if (totalVotes == 0) {
                     lastExecutedWeek = week;
@@ -387,17 +386,13 @@ contract Governance is IGovernance, EIP712 {
             IGovernance.Proposal memory proposal = _proposals[proposalId];
             IGovernance.ProposalType proposalType = proposal.proposalType;
             ProposalLongStakerVotes memory longStakerVotes = _proposalLongStakerVotes[proposalId];
-            bool isNotGrantsAndIsNotRFC = proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
-                && proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT;
 
-            //All proposals except grants and RFC's should
-            //Revert if the ratify/reject period is not yet ended as grants and RFC's dont need ratification approval
-            if (isNotGrantsAndIsNotRFC) {
-                if (block.timestamp < _weekEndTime(_nextWeekToExecute + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
-                    lastExecutedWeek = _nextWeekToExecute == 0 ? type(uint256).max : _nextWeekToExecute - 1;
-                    return;
-                }
+            //Revert if the ratify/reject and veto period is not yet ended
+            if (block.timestamp < _weekEndTime(_nextWeekToExecute + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL)) {
+                lastExecutedWeek = _nextWeekToExecute == 0 ? type(uint256).max : _nextWeekToExecute - 1;
+                return;
             }
+
             //Start C2:
             //C2 checks to see if there are enough ratify votes to execute the proposal
 
@@ -420,7 +415,12 @@ contract Governance is IGovernance, EIP712 {
                     continue;
                 }
             } else {
-                if (isNotGrantsAndIsNotRFC) {
+                if (
+                    (
+                        proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT
+                            && proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
+                    )
+                ) {
                     uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
                     //If no one votes, we don't execute the proposal
                     //Prevent division by zero error

@@ -15,6 +15,7 @@ interface IGovernance {
     error NominationCostGreaterThanAllowance();
     error ProposalDoesNotExist();
     error WeekNotStarted();
+    error WeekNotFinalized();
     error InsufficientRatifyOrRejectVotes();
     error RatifyOrRejectPeriodEnded();
     error RatifyOrRejectPeriodNotEnded();
