@@ -73,7 +73,7 @@ contract VetoCouncilTest is Test {
         assert(vetoCouncil.addAndRemoveCouncilMember(SIMON, address(0), slashOldAgent));
         //Try re-adding the already active `oldAgent`
         assert(vetoCouncil.addAndRemoveCouncilMember(address(0), address(0x1234512345), slashOldAgent));
-        Status memory oldAgentStatus = vetoCouncil.agentStatus(address(0x1234512345));
+        Status memory oldAgentStatus = vetoCouncil.memberStatus(address(0x1234512345));
         //The old agent, aka the agent we added,
         //Should now be active
         assert(oldAgentStatus.isActive);
@@ -112,7 +112,7 @@ contract VetoCouncilTest is Test {
         newAgent = SIMON;
         slashOldAgent = false;
         assert(vetoCouncil.addAndRemoveCouncilMember(oldAgent, newAgent, slashOldAgent) == false);
-        Status memory simonStatus = vetoCouncil.agentStatus(SIMON);
+        Status memory simonStatus = vetoCouncil.memberStatus(SIMON);
         assert(simonStatus.isActive == false);
         assert(simonStatus.indexInArray == type(uint8).max); //this is the null index
         assert(simonStatus.isSlashed);
@@ -132,7 +132,7 @@ contract VetoCouncilTest is Test {
         assert(vetoCouncil.addAndRemoveCouncilMember(SIMON, address(0), slashOldAgent));
         //Try re-adding the already active `oldAgent`
         assert(!vetoCouncil.addAndRemoveCouncilMember(address(0), oldAgent, slashOldAgent));
-        Status memory oldAgentStatus = vetoCouncil.agentStatus(oldAgent);
+        Status memory oldAgentStatus = vetoCouncil.memberStatus(oldAgent);
         //None of the old agent status should have changed
         assert(oldAgentStatus.isActive);
         assert(oldAgentStatus.indexInArray == 1);
@@ -227,12 +227,12 @@ contract VetoCouncilTest is Test {
         assert(vetoCouncil.isCouncilMember(SIMON));
         assert(vetoCouncil.isCouncilMember(OTHER_1));
         assert(vetoCouncil.isCouncilMember(OTHER_2));
-        assert(_containsElement(vetoCouncil.vetoCouncilAgents(), SIMON));
-        assert(_containsElement(vetoCouncil.vetoCouncilAgents(), OTHER_1));
-        assert(_containsElement(vetoCouncil.vetoCouncilAgents(), OTHER_2));
+        assert(_containsElement(vetoCouncil.vetoCouncilMembers(), SIMON));
+        assert(_containsElement(vetoCouncil.vetoCouncilMembers(), OTHER_1));
+        assert(_containsElement(vetoCouncil.vetoCouncilMembers(), OTHER_2));
         uint256 shiftOneStartTimesatmp = vetoCouncil.paymentNonceToShiftStartTimestamp(1);
         // //All other addresss should be the null address
-        assert(vetoCouncil.vetoCouncilAgents().length == 3);
+        assert(vetoCouncil.vetoCouncilMembers().length == 3);
         //We create the protocol at timestamp = 1 in the `setUp` function
         assert(shiftOneStartTimesatmp == 1);
         //Shift two should not be setup.
@@ -242,7 +242,7 @@ contract VetoCouncilTest is Test {
 
     function test_addAndRemoveCouncilMembers_slashing_shouldDeletePayout() public {
         vm.warp(block.timestamp + 365 days);
-        address[] memory agents = vetoCouncil.vetoCouncilAgents();
+        address[] memory agents = vetoCouncil.vetoCouncilMembers();
 
         vm.startPrank(SIMON);
         (uint256 a, uint256 b) = vetoCouncil.payoutData(SIMON, 1, agents);
@@ -270,7 +270,7 @@ contract VetoCouncilTest is Test {
     function test_addAndRemoveCouncilMembers_notSlashing_shouldKeepPayout() public {
         vm.warp(block.timestamp + 365 days);
         vm.startPrank(SIMON);
-        address[] memory agents = vetoCouncil.vetoCouncilAgents();
+        address[] memory agents = vetoCouncil.vetoCouncilMembers();
         (uint256 a, uint256 b) = vetoCouncil.payoutData(SIMON, 1, agents);
         assertTrue(a > 0);
         assertTrue(b > 0);
@@ -295,7 +295,7 @@ contract VetoCouncilTest is Test {
         uint256 startingAgentsLength = 3;
         //Warp one day
         vm.warp(block.timestamp + 1 weeks);
-        address[] memory agents = vetoCouncil.vetoCouncilAgents();
+        address[] memory agents = vetoCouncil.vetoCouncilMembers();
         (uint256 withdrawableAmount, uint256 slashableAmount) = vetoCouncil.payoutData(SIMON, 1, agents);
         uint256 totalBalance = withdrawableAmount + slashableAmount;
 
@@ -319,7 +319,7 @@ contract VetoCouncilTest is Test {
         assert(withdrawableAmount == totalBalance);
 
         vm.startPrank(SIMON);
-        vetoCouncil.claimPayout({agent: SIMON, nonce: 1, sync: true, agents: agents});
+        vetoCouncil.claimPayout({member: SIMON, nonce: 1, sync: true, members: agents});
         (withdrawableAmount, slashableAmount) = vetoCouncil.payoutData(SIMON, 1, agents);
         // PayoutHelper memory payoutHelper = vetoCouncil.payoutHelper(SIMON, 1);
         // assert(payoutHelper.amountAlreadyWithdrawn == totalBalance);
@@ -331,7 +331,7 @@ contract VetoCouncilTest is Test {
         uint256 startingAgentsLength = 3;
         //Warp one day
         vm.warp(block.timestamp + 1 weeks);
-        address[] memory agents = vetoCouncil.vetoCouncilAgents();
+        address[] memory agents = vetoCouncil.vetoCouncilMembers();
         (uint256 withdrawableAmount, uint256 slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1, agents);
         uint256 totalBalance = withdrawableAmount + slashableAmount;
 
@@ -365,7 +365,7 @@ contract VetoCouncilTest is Test {
         uint256 startingAgentsLength = 3;
         //Warp one day
         vm.warp(block.timestamp + 1 weeks);
-        address[] memory agents = vetoCouncil.vetoCouncilAgents();
+        address[] memory agents = vetoCouncil.vetoCouncilMembers();
         address newRandomAgentToAdd = address(0x22222aaaaaddddd);
         (uint256 withdrawableAmount, uint256 slashableAmount) = vetoCouncil.payoutData(OTHER_1, 1, agents);
         uint256 totalBalance = withdrawableAmount + slashableAmount;
@@ -398,23 +398,23 @@ contract VetoCouncilTest is Test {
 
     function test_claimPayoutInputArrayDoesNotMatchActualArray_shouldRevert() public {
         vm.startPrank(SIMON);
-        address[] memory agents = vetoCouncil.vetoCouncilAgents();
+        address[] memory agents = vetoCouncil.vetoCouncilMembers();
         agents[0] = address(0xdeadddadadadadada);
         vm.expectRevert(VetoCouncilSalaryHelper.HashMismatch.selector);
-        vetoCouncil.claimPayout({agent: SIMON, nonce: 1, sync: true, agents: agents});
+        vetoCouncil.claimPayout({member: SIMON, nonce: 1, sync: true, members: agents});
     }
 
     function test_claimPayout_recipientNotInArray_shouldRevert() public {
         vm.startPrank(SIMON);
-        address[] memory agents = vetoCouncil.vetoCouncilAgents();
+        address[] memory agents = vetoCouncil.vetoCouncilMembers();
         address notInArray = address(0xdeadddadadadadada);
-        vm.expectRevert(VetoCouncilSalaryHelper.AgentNotFound.selector);
-        vetoCouncil.claimPayout({agent: notInArray, nonce: 1, sync: true, agents: agents});
+        vm.expectRevert(VetoCouncilSalaryHelper.MemberNotFound.selector);
+        vetoCouncil.claimPayout({member: notInArray, nonce: 1, sync: true, members: agents});
     }
 
     // function test_claimPayout_futureNonce_shouldRevert() public {
     //     vm.startPrank(address(0));
-    //     address[] memory agents = vetoCouncil.vetoCouncilAgents();
+    //     address[] memory agents = vetoCouncil.vetoCouncilMembers();
     //     // vm.expectRevert(VetoCouncilSalaryHelper.ShiftHasNotStarted.selector);
     //     vetoCouncil.claimPayout({agent: address(0), nonce: 2, sync: true, agents: new address[](0)});
     // }

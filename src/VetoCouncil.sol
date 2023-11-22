@@ -35,9 +35,9 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
 
     /**
      * @notice the number of council members
-     * @dev this is equivalent to `vetoCouncilAgents`.length
-     * @dev we use this variable to avoid having to call `vetoCouncilAgents.length` in the `addAndRemoveCouncilMember` function
-     *         - it reduces gas by not having to iterate over the _vetoCouncilAgents array in VetoCouncilSalaryHelper
+     * @dev this is equivalent to `vetoCouncilMembers`.length
+     * @dev we use this variable to avoid having to call `vetoCouncilMembers.length` in the `addAndRemoveCouncilMember` function
+     *         - it reduces gas by not having to iterate over the _vetoCouncilMembers array in VetoCouncilSalaryHelper
      *         - To find the true number of council members
      */
     uint256 public numberOfCouncilMembers;
@@ -47,11 +47,11 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
     /**
      * @param governance the address of the governance contract
      * @param _glowToken the address of the GLOW token
-     * @param _startingAgents the addresses of the starting council members
-     * @dev starting with zero agents will cause a divide by zero error
-     *     - It's expected that _startingAgents will never be empty
+     * @param _startingMembers the addresses of the starting council members
+     * @dev starting with zero members will cause a divide by zero error
+     *     - It's expected that _startingMembers will never be empty
      */
-    constructor(address governance, address _glowToken, address[] memory _startingAgents) payable {
+    constructor(address governance, address _glowToken, address[] memory _startingMembers) payable {
         if (_isZeroAddress(governance)) {
             _revert(IVetoCouncil.ZeroAddressInConstructor.selector);
         }
@@ -59,11 +59,11 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
             _revert(IVetoCouncil.ZeroAddressInConstructor.selector);
         }
 
-        numberOfCouncilMembers = _startingAgents.length;
+        numberOfCouncilMembers = _startingMembers.length;
 
         //Impossible to have more than 7 council members
         //No risk of large array allocation
-        if (_startingAgents.length > MAX_COUNCIL_MEMBERS) {
+        if (_startingMembers.length > MAX_COUNCIL_MEMBERS) {
             _revert(IVetoCouncil.MaxCouncilMembersExceeded.selector);
         }
 
@@ -76,11 +76,11 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
         //Pull the Genesis timestamp from the GLOW token
         GENESIS_TIMESTAMP = IGlow(_glowToken).GENESIS_TIMESTAMP();
 
-        initializeAgents(_startingAgents, GENESIS_TIMESTAMP);
+        initializeMembers(_startingMembers, GENESIS_TIMESTAMP);
     }
 
     /// @inheritdoc IVetoCouncil
-    function addAndRemoveCouncilMember(address oldAgent, address newAgent, bool slashOldAgent)
+    function addAndRemoveCouncilMember(address oldMember, address newMember, bool slashOldMember)
         external
         override
         returns (bool)
@@ -91,53 +91,53 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
         uint256 _numCouncilMembers = numberOfCouncilMembers;
 
         //Should already be filtered by the governance contract.
-        if (oldAgent == newAgent) {
+        if (oldMember == newMember) {
             return false;
         }
 
-        bool isOldAgentZeroAddress = _isZeroAddress(oldAgent);
-        bool isNewAgentZeroAddress = _isZeroAddress(newAgent);
-        //if old agent is the zero address, we arent removing an agent
-        //however, it it's not, then we are removing an agent
-        uint256 numAgentsRemoving = isOldAgentZeroAddress ? 0 : 1;
-        //if new agent is the zero address, we arent adding an agent
-        //however, if it's not, then we are adding an agent
-        uint256 numAgentsAdding = isNewAgentZeroAddress ? 0 : 1;
+        bool isoldMemberZeroAddress = _isZeroAddress(oldMember);
+        bool isnewMemberZeroAddress = _isZeroAddress(newMember);
+        //if old member is the zero address, we arent removing an member
+        //however, it it's not, then we are removing an member
+        uint256 numMembersRemoving = isoldMemberZeroAddress ? 0 : 1;
+        //if new member is the zero address, we arent adding an member
+        //however, if it's not, then we are adding an member
+        uint256 numMembersAdding = isnewMemberZeroAddress ? 0 : 1;
         if (_numCouncilMembers == 0) {
             //If we don't check this, there can be an underflow
             //and the entire system can freeze;
-            //We should not be able to remove an agent if there are no agents
-            if (numAgentsRemoving > 0) {
+            //We should not be able to remove an member if there are no members
+            if (numMembersRemoving > 0) {
                 return false;
             }
         }
 
-        _numCouncilMembers = _numCouncilMembers - numAgentsRemoving + numAgentsAdding;
+        _numCouncilMembers = _numCouncilMembers - numMembersRemoving + numMembersAdding;
         if (_numCouncilMembers > MAX_COUNCIL_MEMBERS) {
             return false;
         }
-        if (!replaceAgent(oldAgent, newAgent, slashOldAgent)) {
+        if (!replaceMember(oldMember, newMember, slashOldMember)) {
             return false;
         }
 
         numberOfCouncilMembers = _numCouncilMembers;
-        emit IVetoCouncil.VetoCouncilSeatsEdited(oldAgent, newAgent, slashOldAgent);
+        emit IVetoCouncil.VetoCouncilSeatsEdited(oldMember, newMember, slashOldMember);
         return true;
     }
 
     /// @inheritdoc IVetoCouncil
-    function claimPayout(address agent, uint256 nonce, bool sync, address[] memory agents) public {
+    function claimPayout(address member, uint256 nonce, bool sync, address[] memory members) public {
         if (sync) {
             pullGlowFromInflation();
         }
-        VetoCouncilSalaryHelper.claimPayout(agent, nonce, GLOW_TOKEN, agents);
+        VetoCouncilSalaryHelper.claimPayout(member, nonce, GLOW_TOKEN, members);
     }
 
     //----------------- GETTERS -----------------
 
     /// @inheritdoc IVetoCouncil
-    function isCouncilMember(address agent) public view override returns (bool) {
-        return VetoCouncilSalaryHelper._isCouncilMember(agent);
+    function isCouncilMember(address member) public view override returns (bool) {
+        return VetoCouncilSalaryHelper._isCouncilMember(member);
     }
 
     /// @notice pulls glow from inflation for the veto council contract

@@ -63,7 +63,7 @@ contract VetoCouncilExecutionShouldBeAtomic is Test {
      */
     function invariant_numberOfCouncilMembersInStorage_shouldEqualLengthOfVetoCouncilMembersArray() public {
         uint256 numberOfCouncilMembersInStorage = vetoCouncil.numberOfCouncilMembers();
-        uint256 lengthOfVetoCouncilMembersArray = vetoCouncil.vetoCouncilAgents().length;
+        uint256 lengthOfVetoCouncilMembersArray = vetoCouncil.vetoCouncilMembers().length;
         assertTrue(numberOfCouncilMembersInStorage == lengthOfVetoCouncilMembersArray);
     }
     // //-------------------  HELPERS  -----------------------------
