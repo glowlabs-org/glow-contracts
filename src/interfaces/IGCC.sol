@@ -7,7 +7,6 @@ interface IGCC is IERC20 {
     /* -------------------------------------------------------------------------- */
     /*                                   errors                                  */
     /* -------------------------------------------------------------------------- */
-
     error CallerNotGCAContract();
     error BucketAlreadyMinted();
     error CommitPermitSignatureExpired();
