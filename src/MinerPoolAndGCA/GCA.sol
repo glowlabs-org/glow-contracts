@@ -575,6 +575,15 @@ contract GCA is IGCA, GCASalaryHelper {
         GLOW_TOKEN.claimGLWFromGCAAndMinerPool();
     }
 
+    /**
+     * @dev handles the store for a new report in a bucket
+     * @param bucket - the bucket to store the report in
+     * @param foundIndex - the index of the report in the bucket
+     * @param totalNewGCC - the total amount of new gcc that the gca is reporting
+     * @param totalGlwRewardsWeight - the total amount of glw rewards weight that the gca is reporting
+     * @param totalGRCRewardsWeight - the total amount of grc rewards weight that the gca is reporting
+     * @param root - the merkle root containing all the reports (leaves) for the period
+     */
     function handleBucketStore(
         IGCA.Bucket storage bucket,
         uint256 foundIndex,
