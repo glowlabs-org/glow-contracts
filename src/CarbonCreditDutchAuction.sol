@@ -21,15 +21,17 @@ import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
  */
 
 contract CarbonCreditDutchAuction is ICarbonCreditAuction {
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                   */
+    /* -------------------------------------------------------------------------- */
     error CallerNotGCC();
     error UserPriceNotHighEnough();
     error NotEnoughGCCForSale();
     error CannotBuyZeroUnits();
 
-    /// @notice The GLOW token
-    IERC20 public immutable GLOW;
-    /// @notice The GCC token
-    IERC20 public immutable GCC;
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
 
     /// @dev The precision (magnifier) used for calculations
     uint256 private constant PRECISION = 1e8;
@@ -43,6 +45,18 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
      */
     uint256 public constant SALE_UNIT = 1e6;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 immutables                                 */
+    /* -------------------------------------------------------------------------- */
+
+    /// @notice The GLOW token
+    IERC20 public immutable GLOW;
+    /// @notice The GCC token
+    IERC20 public immutable GCC;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev a variable to keep track of the total amount of GCC that has been fully vested
      *         - it's not accurate and should only be used in conjunction with
@@ -66,6 +80,12 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
     /// @dev this price is not the actual price, and should be used in conjunction with {getPricePerUnit}
     uint256 internal pricePerSaleUnit;
 
+    /// @notice The timestamps
+    Timestamps public timestamps;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   structs                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev A struct to keep track of the timestamps all in a single slot
      * @param lastSaleTimestamp the timestamp of the last sale
@@ -79,9 +99,9 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
         uint64 firstReceivedTimestamp;
     }
 
-    /// @notice The timestamps
-    Timestamps public timestamps;
-
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @param glow the GLOW token
      * @param gcc the GCC token
@@ -94,29 +114,9 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
         pseudoPrice24HoursAgo = startingPrice;
     }
 
-    //************************************************************* */
-    //************  EXTERNAL STATE CHANGING FUNCTIONS    ********* */
-    //************************************************************* */
-
-    /**
-     * @inheritdoc ICarbonCreditAuction
-     */
-    function receiveGCC(uint256 amount) external {
-        if (msg.sender != address(GCC)) {
-            _revert(CallerNotGCC.selector);
-        }
-        Timestamps memory _timestamps = timestamps;
-        _pesudoTotalAmountFullyAvailableForSale = totalSupply();
-        timestamps = Timestamps({
-            lastSaleTimestamp: _timestamps.lastSaleTimestamp,
-            lastReceivedTimestamp: uint64(block.timestamp),
-            lastPriceChangeTimestamp: _timestamps.lastPriceChangeTimestamp,
-            firstReceivedTimestamp: _timestamps.firstReceivedTimestamp == 0
-                ? uint64(block.timestamp)
-                : _timestamps.firstReceivedTimestamp
-        });
-        totalAmountReceived += amount;
-    }
+    /* -------------------------------------------------------------------------- */
+    /*                                 buy gcc                                    */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @inheritdoc ICarbonCreditAuction
@@ -170,9 +170,34 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
         GCC.transfer(msg.sender, gccPurchasing);
     }
 
-    //************************************************************* */
-    //*****************  EXTERNAL GETTER FUNCTIONS    ************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                 receive gcc                                */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @inheritdoc ICarbonCreditAuction
+     */
+    function receiveGCC(uint256 amount) external {
+        if (msg.sender != address(GCC)) {
+            _revert(CallerNotGCC.selector);
+        }
+        Timestamps memory _timestamps = timestamps;
+        _pesudoTotalAmountFullyAvailableForSale = totalSupply();
+        timestamps = Timestamps({
+            lastSaleTimestamp: _timestamps.lastSaleTimestamp,
+            lastReceivedTimestamp: uint64(block.timestamp),
+            lastPriceChangeTimestamp: _timestamps.lastPriceChangeTimestamp,
+            firstReceivedTimestamp: _timestamps.firstReceivedTimestamp == 0
+                ? uint64(block.timestamp)
+                : _timestamps.firstReceivedTimestamp
+        });
+        totalAmountReceived += amount;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 view functions                             */
+    /* -------------------------------------------------------------------------- */
+
     /**
      * @inheritdoc ICarbonCreditAuction
      */
@@ -217,9 +242,9 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
         return totalSupply() / (SALE_UNIT);
     }
 
-    //************************************************************* */
-    //*****************  INTERNAL GETTER FUNCTIONS   ************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                     utils                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @param a the first number
      * @param b the second number
