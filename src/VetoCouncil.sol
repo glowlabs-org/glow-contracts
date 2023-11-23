@@ -15,11 +15,9 @@ import {VetoCouncilSalaryHelper} from "@/generic/VetoCouncilSalaryHelper.sol";
  */
 
 contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
-    /// @notice the address of the governance contract
-    address public immutable GOVERNANCE;
-
-    /// @notice the address of the GLOW token
-    IERC20 public immutable GLOW_TOKEN;
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
 
     /// @notice the veto council is awared 5_000 GLOW per week
     uint256 public constant REWARDS_PER_SECOND_FOR_ALL = 5_000 ether / uint256(7 days);
@@ -30,8 +28,21 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
     /// @notice the maximum number of council members
     uint256 public constant MAX_COUNCIL_MEMBERS = 7;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 immutables                                 */
+    /* -------------------------------------------------------------------------- */
+    /// @notice the address of the governance contract
+    address public immutable GOVERNANCE;
+
+    /// @notice the address of the GLOW token
+    IERC20 public immutable GLOW_TOKEN;
+
     /// @notice the genesis timestamp of the glow protocol
     uint256 public immutable GENESIS_TIMESTAMP;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice the number of council members
@@ -42,8 +53,9 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
      */
     uint256 public numberOfCouncilMembers;
 
-    //-------------- CONSTRUCTOR -----------------
-
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @param governance the address of the governance contract
      * @param _glowToken the address of the GLOW token
@@ -79,6 +91,9 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
         initializeMembers(_startingMembers, GENESIS_TIMESTAMP);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                            adding/removing members                         */
+    /* -------------------------------------------------------------------------- */
     /// @inheritdoc IVetoCouncil
     function addAndRemoveCouncilMember(address oldMember, address newMember, bool slashOldMember)
         external
@@ -125,6 +140,9 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
         return true;
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                               claiming payouts                             */
+    /* -------------------------------------------------------------------------- */
     /// @inheritdoc IVetoCouncil
     function claimPayout(address member, uint256 nonce, bool sync, address[] memory members) public {
         if (sync) {
@@ -133,8 +151,9 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
         VetoCouncilSalaryHelper.claimPayout(member, nonce, GLOW_TOKEN, members);
     }
 
-    //----------------- GETTERS -----------------
-
+    /* -------------------------------------------------------------------------- */
+    /*                                view functions                              */
+    /* -------------------------------------------------------------------------- */
     /// @inheritdoc IVetoCouncil
     function isCouncilMember(address member) public view override returns (bool) {
         return VetoCouncilSalaryHelper._isCouncilMember(member);
@@ -145,8 +164,9 @@ contract VetoCouncil is IVetoCouncil, VetoCouncilSalaryHelper {
         IGlow(address(GLOW_TOKEN)).claimGLWFromVetoCouncil();
     }
 
-    //----------------- UTILS -----------------
-
+    /* -------------------------------------------------------------------------- */
+    /*                               private utils                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev efficiently determines if an address is the zero address
      * @param a the address to check
