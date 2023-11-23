@@ -2,6 +2,9 @@
 pragma solidity ^0.8.19;
 
 contract BucketSubmission {
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice the start offset to the current bucket for the grc deposit
      * @dev when depositing grc, the grc is evenly distributed across 192 weeks
@@ -23,9 +26,9 @@ contract BucketSubmission {
     /// @notice a constant holding the total vesting periods for a grc donation (192)
     uint256 public constant TOTAL_VESTING_PERIODS = OFFSET_RIGHT - OFFSET_LEFT;
 
-    /// @notice mappings bucketId -> WeeklyReward
-    mapping(uint256 => WeeklyReward) internal rewards;
-
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev a helper to cache the last updated bucket
      *         -   and the first bucket that USDC was deposited to
@@ -33,6 +36,15 @@ contract BucketSubmission {
      */
     BucketTracker internal bucketTracker;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   mappings                                  */
+    /* -------------------------------------------------------------------------- */
+    /// @notice mappings bucketId -> WeeklyReward
+    mapping(uint256 => WeeklyReward) internal rewards;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   structs                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev a helper to keep track of last updated bucket ids for buckets
      * @param lastUpdatedBucket - the last bucket + 16 that grc was deposited to this bucket
@@ -60,9 +72,9 @@ contract BucketSubmission {
         uint256 amountToDeduct;
     }
 
-    //************************************************************* */
-    //***************  EXTERNAL/PUBLIC VIEW FUNCTIONS  ************ */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                 view functions                             */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice returns the current bucket
@@ -90,9 +102,9 @@ contract BucketSubmission {
         return bucket;
     }
 
-    //************************************************************* */
-    //*****************  INTERNAL STATE CHANGING FUNCS  ************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                             internal add to bucket                         */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice adds the grc to the current bucket
@@ -192,6 +204,26 @@ contract BucketSubmission {
         }
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                internal helpers                            */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @dev gets the total amount of grc in a bucket that is available to withdraw and initializes it
+     *             - this is a helper function only meant to be used inside the claimRewards function
+     * @param id - the id of the bucket
+     */
+    function _getAmountForTokenAndInitIfNot(uint256 id) internal returns (uint256) {
+        (WeeklyReward memory weeklyReward, bool needsInitializing) = _rewardWithNeedsInitializing(id);
+        if (needsInitializing) {
+            weeklyReward.inheritedFromLastWeek = true;
+            rewards[id] = weeklyReward;
+        }
+        return weeklyReward.amountInBucket;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 internal view                              */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice returns the weekly reward for a given bucket
      * @dev if the bucket has not yet been initialized,
@@ -254,28 +286,9 @@ contract BucketSubmission {
         return (bucket, true);
     }
 
-    //************************************************************* */
-    //**************  INTERNAL/PRIVATE STATE CHANGING  ************ */
-    //************************************************************* */
-
-    /**
-     * @dev gets the total amount of grc in a bucket that is available to withdraw and initializes it
-     *             - this is a helper function only meant to be used inside the claimRewards function
-     * @param id - the id of the bucket
-     */
-    function _getAmountForTokenAndInitIfNot(uint256 id) internal returns (uint256) {
-        (WeeklyReward memory weeklyReward, bool needsInitializing) = _rewardWithNeedsInitializing(id);
-        if (needsInitializing) {
-            weeklyReward.inheritedFromLastWeek = true;
-            rewards[id] = weeklyReward;
-        }
-        return weeklyReward.amountInBucket;
-    }
-
-    //************************************************************* */
-    //**************  INTERNAL/PRIVATE VIEW  ************ */
-    //************************************************************* */
-
+    /* -------------------------------------------------------------------------- */
+    /*                              functions to override                         */
+    /* -------------------------------------------------------------------------- */
     /// @dev this must be overriden inside the parent contract.
     function _genesisTimestamp() internal view virtual returns (uint256) {
         return 0;
