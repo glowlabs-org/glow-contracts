@@ -24,8 +24,9 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
  * @notice It is the entry point for farms participating in GLOW to claim their rewards for their contributions
  */
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
-    //----------------- CONSTANTS -----------------//
-
+    /* -------------------------------------------------------------------------- */
+    /*                                 constants                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev the amount to increase the finalization timestamp of a bucket by
      *             -   only veto council agents can delay a bucket.
@@ -69,11 +70,16 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     ///     - This should give enough time to rectify the situation
     IHoldingContract public immutable HOLDING_CONTRACT;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
+
     /// @notice the GCC contract
     IGCC public gccContract;
 
-    //----------------- MAPPINGS -----------------//
-
+    /* -------------------------------------------------------------------------- */
+    /*                                   mappings                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev a mapping of (bucketId / 256) -> user  -> bitmap
      */
@@ -100,6 +106,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     mapping(uint256 => PushedWeights) internal _weightsPushed;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   structs                                  */
+    /* -------------------------------------------------------------------------- */
+
     /**
      * @param pushedGlwWeight - the aggregate amount of glw weight pushed
      * @param pushedGrcWeight - the aggregate amount of grc weight pushed
@@ -112,10 +122,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint64 pushedGlwWeight;
         uint64 pushedGrcWeight;
     }
-
-    //************************************************************* */
-    //*****************  CONSTRUCTOR   ************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice constructs a new MinerPoolAndGCA contract
@@ -144,11 +153,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         USDC = _grcToken;
     }
 
-    //************************************************************* */
-    //***********  EXTERNAL/PUBLIC STATE CHANGING FUNCS    ******** */
-    //************************************************************* */
-
-    //----------------- DONATIONS -----------------//
+    /* -------------------------------------------------------------------------- */
+    /*                                   donations                                */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @inheritdoc IMinerPool
@@ -168,7 +175,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _addToCurrentBucket(amount);
     }
 
-    //----------------- CLAIMING -----------------//
+    /* -------------------------------------------------------------------------- */
+    /*                       minting to carbon credit auction                     */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice Handles minting to the carbon credit auction in case the bucket is finalized and no one has claimed from it
@@ -183,6 +192,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _handleMintToCarbonCreditAuction(bucketId, amountToMint);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 claiming rewards                           */
+    /* -------------------------------------------------------------------------- */
     /**
      * @inheritdoc IMinerPool
      */
@@ -259,8 +271,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
     }
 
-    //----------------- BUCKET DELAY -----------------//
-
+    /* -------------------------------------------------------------------------- */
+    /*                                 bucket delays                              */
+    /* -------------------------------------------------------------------------- */
     /**
      * @inheritdoc IMinerPool
      */
@@ -304,9 +317,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         gccContract = IGCC(gcc);
     }
 
-    //************************************************************* */
-    //*************  PUBLIC/EXTERNAL VIEW FUNCTIONS   ************ */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                view functions                              */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice returns the bucket claim bitmap for a user
      * @param bucketId - the bucket id to check
@@ -361,9 +374,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         );
     }
 
-    //************************************************************* */
-    //*************  INTERNAL STATE CHANGING FUNCS   ************ */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                          internal state changing funcs                     */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice used internally to mint `amount` of GCC to the carbon credit auction contract
@@ -399,9 +412,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user] = userBitmap;
     }
 
-    //************************************************************* */
-    //***************  INTERNAL VIEW/PURE FUNCTIONS   ************ */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                 internal view                              */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @dev user internally to check if a user has already claimed for a bucket
