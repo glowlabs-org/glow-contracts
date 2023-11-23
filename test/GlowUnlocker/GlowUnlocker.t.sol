@@ -6,7 +6,8 @@ import "../../src/testing/TestGLOW.sol";
 import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {GlowUnlocker} from "@/GlowUnlocker.sol";
+import {GlowUnlocker2} from "@/GlowUnlocker2.sol";
+import {GlowUnlockerFactory} from "@/GlowUnlockerFactory.sol";
 
 contract GlowUnlockerTest is Test {
     //-------------------- Mock Addresses --------------------
@@ -17,10 +18,13 @@ contract GlowUnlockerTest is Test {
     address public constant GRANTS_TREASURY = address(0x3);
     address public constant EARLY_LIQUIDITY = address(0x4);
     address public constant VESTING_CONTRACT = address(0x5);
-    GlowUnlocker public disperser;
+    GlowUnlockerFactory public factory;
+    GlowUnlocker2 public disperser;
     address[] public addresses;
     uint256[] public amounts;
     uint160 addressOffset = 100;
+    address unlockerOwner = address(0x123456789);
+    address vestingContractReceiver = address(0x123455556789);
 
     //Make 10 addresses that each get 5 million,
     //and 4 addresses that each get 10 million
@@ -45,10 +49,18 @@ contract GlowUnlockerTest is Test {
             addressOffset++;
         }
         assert(sum == 90_000_000 ether);
-        disperser = new GlowUnlocker(addresses, amounts);
+        factory = new GlowUnlockerFactory(unlockerOwner);
+        vm.stopPrank();
+        //Create disperser
         //Create contracts
-        glw = new TestGLOW(EARLY_LIQUIDITY,address(disperser));
-        disperser.initialize(address(glw));
+        glw = new TestGLOW(EARLY_LIQUIDITY,address(vestingContractReceiver));
+        vm.startPrank(unlockerOwner);
+        disperser = GlowUnlocker2(factory.deployUnlocker(address(glw), addresses, amounts));
+        vm.stopPrank();
+
+        vm.startPrank(vestingContractReceiver);
+        glw.transfer(address(disperser), 90_000_000 ether);
+        vm.stopPrank();
 
         //Make sure early liquidity receives 12 million tokens
         assertEq(glw.balanceOf(EARLY_LIQUIDITY), 12_000_000 ether);
@@ -115,7 +127,7 @@ contract GlowUnlockerTest is Test {
 
         //make sure it reverts
         vm.startPrank(rewardAddress1);
-        vm.expectRevert(GlowUnlocker.NothingToClaim.selector);
+        vm.expectRevert(GlowUnlocker2.NothingToClaim.selector);
         disperser.claim(rewardAddress1);
         vm.stopPrank();
 
@@ -138,7 +150,7 @@ contract GlowUnlockerTest is Test {
         timeToWarp = block.timestamp + timeToWarp % 365 days;
         vm.warp(timeToWarp);
         address rewardAddress1 = addresses[0];
-        vm.expectRevert(GlowUnlocker.ReleasePeriodNotStarted.selector);
+        vm.expectRevert(GlowUnlocker2.ReleasePeriodNotStarted.selector);
         disperser.claim(rewardAddress1);
     }
 

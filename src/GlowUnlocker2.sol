@@ -16,7 +16,15 @@ contract GlowUnlocker2 {
     error ZeroAddressInConstructor();
     error NothingToClaim();
     error ReleasePeriodNotStarted();
+    error InitializerAmountDoesNotMatchExpectedAmount();
 
+    /**
+     * @dev the expected amount of glow tokens to be unlocked
+     */
+    uint256 private constant EXPECTED_GLOW = 90_000_000 ether;
+    /**
+     * @dev the offset for the release period
+     */
     uint256 private constant RELEASE_OFFSET = uint256(365 days); // 1 year
     /**
      * @dev the release duration for glow tokens
@@ -62,9 +70,11 @@ contract GlowUnlocker2 {
     /**
      * @notice Initializes the contract
      * @dev can only be called once
+     * @dev called directly in the GlowUnlockerFactory
      */
     function initialize(address _glow, address[] memory _addresses, uint256[] memory _amounts) external {
         require(address(glow) == address(0), "Already initialized");
+        uint256 totalGlow;
         glow = IGlow(_glow);
         genesisTimestamp = glow.GENESIS_TIMESTAMP();
         unchecked {
@@ -72,8 +82,12 @@ contract GlowUnlocker2 {
                 if (_addresses[i] == address(0)) {
                     revert ZeroAddressInConstructor();
                 }
+                totalGlow += _amounts[i];
                 amountUnlockable[_addresses[i]] = _amounts[i];
             }
+        }
+        if (totalGlow != EXPECTED_GLOW) {
+            revert InitializerAmountDoesNotMatchExpectedAmount();
         }
     }
 

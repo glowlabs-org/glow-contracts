@@ -8,7 +8,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract GlowUnlockerFactory is Ownable {
     event GlowUnlockerDeployed(address indexed unlocker);
 
-    constructor() Ownable(tx.origin) {}
+    constructor(address _factoryOwner) Ownable(_factoryOwner) {}
 
     bytes32 private constant SALT = bytes32(uint256(0xfffff));
 
