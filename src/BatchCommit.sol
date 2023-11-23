@@ -17,12 +17,18 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *         bytes = abi.encode(Commitment[])
  */
 contract BatchCommit {
+    /* -------------------------------------------------------------------------- */
+    /*                                 immutables                                 */
+    /* -------------------------------------------------------------------------- */
     /// @notice the GCC token
     IGCC public immutable GCC;
 
     /// @notice the USDC token
     IERC20 public immutable USDC;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   events                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice emitted when GCC is committed
      * @param data the bytes that capture the breakdown of the commitments
@@ -36,6 +42,9 @@ contract BatchCommit {
      */
     event USDCEmission(bytes data);
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @param gcc the address of the GCC token
      * @param usdc the address of the USDC token
@@ -45,6 +54,9 @@ contract BatchCommit {
         USDC = IERC20(usdc);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 gcc commits                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice the entry point for committing GCC
      * @param amount the amount of GCC to commit
@@ -57,6 +69,9 @@ contract BatchCommit {
         emit GCCEmission(data);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 usdc commits                               */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice the entry point for committing USDC
      * @param amount the amount of USDC to commit
