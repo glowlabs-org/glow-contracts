@@ -33,8 +33,9 @@ struct Pointers {
  *             - anchoring lasts 5 years from the point of unstaking
  */
 contract Glow is ERC20, ERC20Permit, IGlow {
-    //----------------------- CONSTANTS -----------------------//
-
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
     /// @notice The cooldown period after unstaking before a user can claim their tokens
     uint256 private constant _STAKE_COOLDOWN_PERIOD = 365 days * 5;
 
@@ -59,8 +60,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /// @notice the cooldown period once users stake over 100 times
     uint256 public constant EMERGENCY_COOLDOWN_PERIOD = 1 days;
 
-    //----------------------- IMMUTABLES -----------------------//
-
+    /* -------------------------------------------------------------------------- */
+    /*                                  immutables                                */
+    /* -------------------------------------------------------------------------- */
     /// @notice The timestamp of the genesis block
     // solhint-disable-next-line var-name-mixedcase
     uint256 public immutable GENESIS_TIMESTAMP;
@@ -69,8 +71,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     //  solhint-disable-next-line var-name-mixedcase
     address public immutable EARLY_LIQUIDITY_ADDRESS;
 
-    //----------------------- STATE VARIABLES -----------------------//
-
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
     /// @notice The last time the GCA and Miner Pool claimed GLW
     uint256 public gcaAndMinerPoolLastClaimedTimestamp;
 
@@ -89,8 +92,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /// @notice the Grants Treasury address
     address public grantsTreasuryAddress;
 
-    //----------------------- MAPPINGS -----------------------//
-
+    /* -------------------------------------------------------------------------- */
+    /*                                   mappings                                  */
+    /* -------------------------------------------------------------------------- */
     /// @notice stores the total amount of GLOW staked by a user
     mapping(address => uint256) public numStaked;
 
@@ -105,9 +109,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /// @notice stores the last time a user staked in case the user has over 100 staked positions
     mapping(address => uint256) public emergencyLastUnstakeTimestamp;
 
-    //************************************************************* */
-    //************************  CONSTRUCTOR    ******************* */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
 
     /// @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
     /// @notice sends 12 million GLW to the Early Liquidity Contract and 90 million GLW to the unlocker contract
@@ -124,6 +128,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         _mint(_vestingContract, 96_000_000 ether);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  staking                                   */
+    /* -------------------------------------------------------------------------- */
     /**
      * @inheritdoc IGlow
      * @dev if the user has unstaked positions that have already expired,
@@ -360,6 +367,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         _revert(IGlow.InsufficientClaimableBalance.selector);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  inflation                                 */
+    /* -------------------------------------------------------------------------- */
     /**
      * @inheritdoc IGlow
      */
@@ -441,9 +451,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         return amountToClaim;
     }
 
-    //************************************************************* */
-    //**********************  VIEW FUNCTIONS    ******************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                view functions                              */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @inheritdoc IGlow
@@ -615,9 +625,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
-    //************************************************************* */
-    //*********************  ONE TIME SETTERS    ******************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                one time setters                            */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice Sets the addresses of the GCA and Miner Pool, Veto Council, and Grants Treasury
@@ -646,9 +656,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         grantsTreasuryAddress = _grantsTreasuryAddress;
     }
 
-    //************************************************************* */
-    //*******************  PRIVATE HELPER FUNCS    **************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                 privte utils                              */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice Returns the smaller of two numbers

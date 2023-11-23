@@ -25,7 +25,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
  */
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     /* -------------------------------------------------------------------------- */
-    /*                                 constants                                */
+    /*                                  constants                                 */
     /* -------------------------------------------------------------------------- */
     /**
      * @dev the amount to increase the finalization timestamp of a bucket by
@@ -43,6 +43,14 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     );
 
     /**
+     * @notice the total amount of glow rewards available for farms per bucket
+     */
+    uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                  immutables                                */
+    /* -------------------------------------------------------------------------- */
+    /**
      * @notice the address of the early liquidity contract
      * @dev used for authorization in {donateToGRCMinerRewardsPoolEarlyLiquidity}
      */
@@ -52,11 +60,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @dev the address of the veto council contract.
      */
     address private immutable _VETO_COUNCIL;
-
-    /**
-     * @notice the total amount of glow rewards available for farms per bucket
-     */
-    uint256 public constant GLOW_REWARDS_PER_BUCKET = 175_000 ether;
 
     /// @notice USDC token address
     address public immutable USDC;
@@ -122,6 +125,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         uint64 pushedGlwWeight;
         uint64 pushedGrcWeight;
     }
+
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
