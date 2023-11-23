@@ -23,7 +23,7 @@ struct Pointers {
 /**
  * @title Glow
  * @author DavidVorick
- * @author 0xSimon , 0xSimbo
+ * @author 0xSimon(twitter) - OxSimbo(github)
  * @notice The Glow token is the backbone of the protocol
  *         - Solar farms are rewarded with glow tokens as they produce solar
  *         - GCA's (Glow Certification Agents) and Veto Council Members are rewarded in GLOW
@@ -110,8 +110,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     //************************************************************* */
 
     /// @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
-    /// @notice sends 12 million GLW to the Early Liquidity Contract
+    /// @notice sends 12 million GLW to the Early Liquidity Contract and 90 million GLW to the unlocker contract
     /// @param _earlyLiquidityAddress The address of the Early Liquidity Contract
+    /// @param _vestingContract The address of the vesting contract
     constructor(address _earlyLiquidityAddress, address _vestingContract)
         payable
         ERC20("Glow", "GLOW")
@@ -120,7 +121,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         GENESIS_TIMESTAMP = block.timestamp;
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
         _mint(EARLY_LIQUIDITY_ADDRESS, 12_000_000 ether);
-        _mint(_vestingContract, 90_000_000 ether);
+        _mint(_vestingContract, 96_000_000 ether);
     }
 
     /**
@@ -139,32 +140,38 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         //Init the unstakedTotal
         uint256 amountInUserUnstakePool;
 
-        //Init the neadHead
+        //Init the new head
         uint256 newHead = head;
 
         uint256 tail = pointers.tail;
 
         //We need to loop through starting from the head (newest positions)
         for (uint256 i = head; i >= tail; --i) {
+            //load the posiiton from storage into memory
             UnstakedPosition memory position = _unstakedPositions[msg.sender][i];
-            //Check if there is amount claimable
-            uint256 iterAmountInUserStakePool = position.amount;
 
-            amountInUserUnstakePool += iterAmountInUserStakePool;
+            //increase the amount in the user unstake pool
+            //by the amount that is in the position we are on
+            amountInUserUnstakePool += position.amount;
 
+            //If it's exactly equal, that means the data will be fully cleared
+            //And the head moves to i-1 or 0(if fully empty now)
             if (amountInUserUnstakePool == stakeAmount) {
-                //If it's exactly equal, that means the data will be fully cleared
-                //And the head moves to i-1 or 0(if fully empty now)
-
+                //If i is 0 and the amount is exactly zero,
+                //that means we can restart the unstaked positions from scratch
                 if (i == 0) {
                     newHead = 0;
                     delete _unstakedPositions[msg.sender][newHead];
-                } else {
+                }
+                //If i is not zero, we can just move the head to i-1
+                else {
                     newHead = i - 1;
                 }
                 break;
             }
 
+            //If the amount in the user unstake pool is greater than the stake amount
+            //That means we overshot and we need to pull back the amount we overshot by
             if (amountInUserUnstakePool > stakeAmount) {
                 uint256 overshoot = amountInUserUnstakePool - stakeAmount;
                 //Let;s say we are at 49 in the stake pool, and then the current position has 10.
@@ -178,6 +185,8 @@ contract Glow is ERC20, ERC20Permit, IGlow {
                 break;
             }
 
+            //If we have reached the tail (oldest position) and we still haven't overshot
+            //We delete the tail
             if (i == tail) {
                 if (stakeAmount > amountInUserUnstakePool) {
                     delete _unstakedPositions[msg.sender][tail];
@@ -187,10 +196,14 @@ contract Glow is ERC20, ERC20Permit, IGlow {
             }
         }
 
+        //If the new head is not equal to the old head, we update the head in storage
+        //We use this equality check to prevent redundant sstores
         if (newHead != head) {
             _unstakedPositionPointers[msg.sender].head = SafeCast.toUint128(newHead);
         }
 
+        //If the stake amount is greater than the amount in the user unstake pool
+        //Then we need to transfer the difference from the user to the contract
         if (stakeAmount > amountInUserUnstakePool) {
             uint256 amountGlowToTransfer = stakeAmount - amountInUserUnstakePool;
             _transfer(msg.sender, address(this), amountGlowToTransfer);
@@ -198,8 +211,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
 
         //Note: We don't handle the zero case since that would be a redundant transfer
 
-        //Emit the Stake event
+        //Increase the number of tokens staked by the user
         numStaked[msg.sender] += stakeAmount;
+        //Emit the Stake event
         emit IGlow.Stake(msg.sender, stakeAmount);
     }
 
@@ -285,20 +299,18 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         for (uint256 i = tail; i <= head; ++i) {
             //Read the position from storage
             UnstakedPosition storage position = _unstakedPositions[msg.sender][i];
-            //another way of saying this is block.timestamp >= position.cooldownEnd
+            //if block.timestamp <= position.cooldownEnd
             //If the position is not ready to be claimed, we revert
             //  -   this is so because we can't claim tokens that are not ready to be claimed
             //  -   and positions are chronologically ordered, so if one position is not ready to be claimed,
             //  -   all following positions are not ready to be claimed
             //  -   therefore, we can revert early since we'll never have enough tokens to fulfill the claim
-            if (!(position.cooldownEnd < block.timestamp)) {
+            if (position.cooldownEnd >= block.timestamp) {
                 _revert(IGlow.InsufficientClaimableBalance.selector);
             }
 
-            //Cache the position amount (the amount of glow that is unstaked in the position)
-            uint256 positionAmount = position.amount;
             //Increment the claimableTotal by the position amount
-            claimableTotal += positionAmount;
+            claimableTotal += position.amount;
 
             //If the claimableTotal is equal to the amount, we need to delete the old position and increment the newTail
             // - since the old unstaked positions EXACTLY fulfill the amount
@@ -347,10 +359,6 @@ contract Glow is ERC20, ERC20Permit, IGlow {
 
         _revert(IGlow.InsufficientClaimableBalance.selector);
     }
-
-    //************************************************************* */
-    //*********************  TOKEN INFLATION STATE    ******************** */
-    //************************************************************* */
 
     /**
      * @inheritdoc IGlow
@@ -459,7 +467,6 @@ contract Glow is ERC20, ERC20Permit, IGlow {
             ++start;
         }
         unchecked {
-            //The sload is safe since it's in storage through {unstake}
             //Start is always less than end so no risk of underflow
             //start should also be close to end since we delete unstaked positions as we claim them
             // and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
@@ -480,7 +487,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
                         break;
                     }
                 }
-                //No addittion, therefore no risk of overflow
+                //No addition, therefore no risk of overflow
                 //i always >= start so no risk of underflow
                 positions[i - start] = position;
             }
@@ -513,7 +520,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
             end = pointers.head + 1;
         }
 
-        //If the start is greater than the length, we return an empty array
+        //If the start is greater than the end, we return an empty array
         if (start >= end) {
             return new UnstakedPosition[](0);
         }
@@ -533,7 +540,6 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         }
 
         unchecked {
-            //The sload is safe since it's in storage through {unstake}
             //Start is always less than end so no risk of underflow
             //start should also be close to end since we delete unstaked positions as we claim them
             // and we restrict the number of unstaked positions to 100 before a cooldown is enforced on the user
@@ -554,7 +560,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
                         break;
                     }
                 }
-                //No addittion, therefore no risk of overflow
+                //No addition, therefore no risk of overflow
                 //i always >= start so no risk of underflow
                 positions[i - start] = position;
             }
@@ -633,8 +639,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         if (_gcaAndMinerPoolAddress == _vetoCouncilAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
         if (_gcaAndMinerPoolAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
         if (_vetoCouncilAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
+
+        //Set the addresses
         gcaAndMinerPoolAddress = _gcaAndMinerPoolAddress;
-        _mint(_grantsTreasuryAddress, 6_000_000 ether);
         vetoCouncilAddress = _vetoCouncilAddress;
         grantsTreasuryAddress = _grantsTreasuryAddress;
     }

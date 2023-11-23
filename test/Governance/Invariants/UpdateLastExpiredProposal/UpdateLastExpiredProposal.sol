@@ -52,7 +52,7 @@ contract UpdateLastExpiredProposal is Test {
         uint256 lastId = weekIds[weekIds.length - 1];
         vm.warp(16 weeks);
         governance.updateLastExpiredProposalId();
-        assertEq(governance.lastExpiredProposalId(), lastId);
+        assertEq(governance.getLastExpiredProposalId(), lastId);
     }
 
     function invariant_setProposalStatus_badInvariant_shouldNotCorrectlySet() public {
@@ -63,7 +63,7 @@ contract UpdateLastExpiredProposal is Test {
         uint256 lastId = weekIds[weekIds.length - 1];
         vm.warp(16 weeks);
         governance.updateLastExpiredProposalId();
-        assert(governance.lastExpiredProposalId() != lastId + 1);
-        assert(governance.lastExpiredProposalId() != lastId - 1);
+        assert(governance.getLastExpiredProposalId() != lastId + 1);
+        assert(governance.getLastExpiredProposalId() != lastId - 1);
     }
 }

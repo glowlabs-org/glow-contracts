@@ -16,6 +16,13 @@ import {IHoldingContract} from "@/HoldingContract.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
+/**
+ * @title Miner Pool And GCA
+ * @author @DavidVorick
+ * @author @0xSimon(twitter) - 0xSimon(github)
+ *  @notice this contract allows veto council members to delay buckets as defined in the `GCA` contract
+ * @notice It is the entry point for farms participating in GLOW to claim their rewards for their contributions
+ */
 contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- CONSTANTS -----------------//
 
@@ -24,13 +31,13 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      *             -   only veto council agents can delay a bucket.
      *             -   the delay is 13 weeks
      */
-    uint256 private constant _BUCKET_DELAY_LENGTH = uint256(7 days) * 13;
+    uint256 private constant _BUCKET_DELAY_DURATION = uint256(7 days) * 13;
 
     /// @dev a helper used in a bitmap
     uint256 private constant _BITS_IN_UINT = 256;
 
     /// @dev the typehash for the claim reward from bucket eip712 message
-    bytes32 private constant CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
+    bytes32 private constant _CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
         "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,bool claimFromInflation)"
     );
 
@@ -68,17 +75,17 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //----------------- MAPPINGS -----------------//
 
     /**
-     * @dev a mapping of (bucketId / 256) -> user  -> address -> bitmap
+     * @dev a mapping of (bucketId / 256) -> user  -> bitmap
      */
     mapping(uint256 => mapping(address => uint256)) private _bucketClaimBitmap;
 
     /**
-     * @dev a mapping of (bucketId / 256) -> user -> bitmap
+     * @dev a mapping of (bucketId / 256) -> bitmap
      */
     mapping(uint256 => uint256) private _mintedToCarbonCreditAuctionBitmap;
 
     /**
-     * @dev a mapping of (bucketId / 256) -> -user -> bitmap
+     * @dev a mapping of (bucketId / 256) -> bitmap
      * @dev a bucket can only be delayed once
      */
     mapping(uint256 => uint256) private _bucketDelayedBitmap;
@@ -111,7 +118,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //************************************************************* */
 
     /**
-     * @notice constructs a new GCA contract
+     * @notice constructs a new MinerPoolAndGCA contract
      * @param _gcaAgents the addresses of the gca agents the contract starts with
      * @param _glowToken the address of the glow token
      * @param _governance the address of the governance contract
@@ -261,6 +268,9 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         if (isBucketFinalized(bucketId)) {
             _revert(IGCA.BucketAlreadyFinalized.selector);
         }
+        if (!IVetoCouncil(_VETO_COUNCIL).isCouncilMember(msg.sender)) {
+            _revert(IMinerPool.CallerNotVetoCouncilMember.selector);
+        }
 
         if (_buckets[bucketId].lastUpdatedNonce != slashNonce) {
             _revert(IMinerPool.CannotDelayBucketThatNeedsToUpdateSlashNonce.selector);
@@ -282,11 +292,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             _revert(IMinerPool.CannotDelayEmptyBucket.selector);
         }
 
-        _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(_BUCKET_DELAY_LENGTH);
-
-        if (!IVetoCouncil(_VETO_COUNCIL).isCouncilMember(msg.sender)) {
-            _revert(IMinerPool.CallerNotVetoCouncilMember.selector);
-        }
+        _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(_BUCKET_DELAY_DURATION);
     }
 
     /// @notice initializes the gcc token
@@ -301,6 +307,21 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     //************************************************************* */
     //*************  PUBLIC/EXTERNAL VIEW FUNCTIONS   ************ */
     //************************************************************* */
+    /**
+     * @notice returns the bucket claim bitmap for a user
+     * @param bucketId - the bucket id to check
+     * @dev Each bit in the 256 bit word is a flag for whether the user has claimed from that bucket.
+     * @dev for example, for bitmap with b'....0011'  with an input of any bucketId between `0-255` means that the user has claimed from buckets 0 and 1
+     * @dev If `bucketId` is 256, the bitmap returned will start at bucketId 256 in the 0 binary slot.
+     * @dev a few examples:
+     *             `bucketId` = 12 returns the bitmap at position 0 which contains the flags for buckets 0-255
+     *             `bucketId` = 256 returns the bitmap at position 1 which contains the flags for buckets 256- 511
+     *             `bucketId` = 515 returns the bitmap at position 2 which contains the flags for buckets  512-767
+     * @return bitmap - the bitmap in which the bucket claim flag is located for the `user`
+     */
+    function bucketClaimBitmap(uint256 bucketId, address user) public view returns (uint256) {
+        return _getUserBitmapForBucket(bucketId, user);
+    }
 
     /**
      * @inheritdoc IMinerPool
@@ -333,7 +354,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
                 _domainSeparatorV4(),
                 keccak256(
                     abi.encode(
-                        CLAIM_REWARD_FROM_BUCKET_TYPEHASH, bucketId, glwWeight, grcWeight, index, claimFromInflation
+                        _CLAIM_REWARD_FROM_BUCKET_TYPEHASH, bucketId, glwWeight, grcWeight, index, claimFromInflation
                     )
                 )
             )
@@ -376,10 +397,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      */
     function _setUserBitmapForBucket(uint256 bucketId, address user, uint256 userBitmap) internal {
         _bucketClaimBitmap[bucketId / _BITS_IN_UINT][user] = userBitmap;
-    }
-
-    function bucketClaimBitmap(uint256 bucketId, address user) public view returns (uint256) {
-        return _getUserBitmapForBucket(bucketId, user);
     }
 
     //************************************************************* */

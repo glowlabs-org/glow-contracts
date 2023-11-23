@@ -20,7 +20,7 @@ contract Handler is Test {
     }
 
     function addAndRemoveCouncilMember(uint256 oldAgentIndex, address newAgent, bool slashOldAgent) public {
-        address[] memory councilMembers = vetoCouncil.vetoCouncilAgents();
+        address[] memory councilMembers = vetoCouncil.vetoCouncilMembers();
         if (newAgent == NULL_ADDRESS) {
             newAgent = address(0x1);
         }
@@ -49,7 +49,7 @@ contract Handler is Test {
     }
 
     function addAndRemoveCouncilMemberNewAgentAlwaysZeroAddress(uint256 oldAgentIndex, bool slashOldAgent) public {
-        address[] memory councilMembers = vetoCouncil.vetoCouncilAgents();
+        address[] memory councilMembers = vetoCouncil.vetoCouncilMembers();
         address oldAgent;
         //Old agent and new agent cannot both be zero address
         if (oldAgentIndex == 0) {

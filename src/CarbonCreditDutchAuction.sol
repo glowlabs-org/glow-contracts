@@ -17,7 +17,7 @@ import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
  *         - There is no cap on the amount of GCC that can be purchased in a single transaction
  *         - All GCC donations must be registered by the miner pool contract
  * @author DavidVorick
- * @author 0xSimon , 0xSimbo
+ * @author 0xSimon(twitter) -  0xSimbo(github)
  */
 
 contract CarbonCreditDutchAuction is ICarbonCreditAuction {
@@ -37,6 +37,11 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
     uint256 private constant ONE_DAY = uint256(1 days);
     /// @dev The number of seconds in a week
     uint256 private constant ONE_WEEK = uint256(7 days);
+    /**
+     * @notice the amount of GCC sold within a single unit (0.000000000001 GCC)
+     * @dev This is equal to 1e-12 GCC
+     */
+    uint256 public constant SALE_UNIT = 1e6;
 
     /**
      * @dev a variable to keep track of the total amount of GCC that has been fully vested
@@ -44,7 +49,7 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
      *             - {totalAmountReceived} to calculate the total supply
      *             - as shown in {totalSupply}
      */
-    uint256 internal totalAmountFullyAvailableForSale;
+    uint256 internal _pesudoTotalAmountFullyAvailableForSale;
 
     /// @notice The total amount of GLOW received from the miner pool
     uint256 public totalAmountReceived;
@@ -55,17 +60,11 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
     /// @notice The price of GCC 24 hours ago
     ///         - this price is not accurate if there have been no sales in the last 24 hours
     ///         - it should not be relied on for accurate calculations
-    uint256 public price24HoursAgo;
+    uint256 public pseudoPrice24HoursAgo;
 
     /// @dev The price of GCC per sale unit
     /// @dev this price is not the actual price, and should be used in conjunction with {getPricePerUnit}
     uint256 internal pricePerSaleUnit;
-
-    /**
-     * @notice the amount of GCC sold within a single unit (0.000000000001 GCC)
-     * @dev This is equal to 1*10^-12 GCC (or .000000000001 GCC)
-     */
-    uint256 public constant SALE_UNIT = 1e6;
 
     /**
      * @dev A struct to keep track of the timestamps all in a single slot
@@ -92,7 +91,7 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
         GLOW = glow;
         GCC = gcc;
         pricePerSaleUnit = startingPrice;
-        price24HoursAgo = startingPrice;
+        pseudoPrice24HoursAgo = startingPrice;
     }
 
     //************************************************************* */
@@ -107,8 +106,7 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
             _revert(CallerNotGCC.selector);
         }
         Timestamps memory _timestamps = timestamps;
-        totalAmountFullyAvailableForSale = totalSupply();
-        // timestamps.lastReceivedTimestamp = uint64(block.timestamp);
+        _pesudoTotalAmountFullyAvailableForSale = totalSupply();
         timestamps = Timestamps({
             lastSaleTimestamp: _timestamps.lastSaleTimestamp,
             lastReceivedTimestamp: uint64(block.timestamp),
@@ -129,7 +127,7 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
         }
         Timestamps memory _timestamps = timestamps;
         uint256 _lastPriceChangeTimestamp = _timestamps.lastPriceChangeTimestamp;
-        uint256 _price24HoursAgo = price24HoursAgo;
+        uint256 _pseudoPrice24HoursAgo = pseudoPrice24HoursAgo;
         uint256 price = getPricePerUnit();
         if (price > maxPricePerUnit) {
             _revert(UserPriceNotHighEnough.selector);
@@ -147,14 +145,14 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
         uint256 newPrice = price + (price * (unitsToBuy * PRECISION / saleUnitsLeftForSale) / PRECISION);
 
         //The new price can never grow more than 100% in 24 hours
-        if (newPrice * PRECISION / _price24HoursAgo > 2 * PRECISION) {
-            newPrice = _price24HoursAgo * 2;
+        if (newPrice * PRECISION / _pseudoPrice24HoursAgo > 2 * PRECISION) {
+            newPrice = _pseudoPrice24HoursAgo * 2;
         }
         //If it's been more than a day since the last sale, then update the price
         //To the price in the current tx
         //Also update the last price change timestamp
         if (block.timestamp - _lastPriceChangeTimestamp > ONE_DAY) {
-            price24HoursAgo = price;
+            pseudoPrice24HoursAgo = price;
             _lastPriceChangeTimestamp = block.timestamp;
         }
 
@@ -200,9 +198,9 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
         Timestamps memory _timestamps = timestamps;
         uint256 _lastReceivedTimestamp = _timestamps.lastReceivedTimestamp;
         uint256 _totalAmountReceived = totalAmountReceived;
-        uint256 amountThatNeedsToVest = _totalAmountReceived - totalAmountFullyAvailableForSale;
-        uint256 timeDiff = min(ONE_WEEK, block.timestamp - _lastReceivedTimestamp);
-        return (totalAmountFullyAvailableForSale + amountThatNeedsToVest * timeDiff / ONE_WEEK);
+        uint256 amountThatNeedsToVest = _totalAmountReceived - _pesudoTotalAmountFullyAvailableForSale;
+        uint256 timeDiff = _min(ONE_WEEK, block.timestamp - _lastReceivedTimestamp);
+        return (_pesudoTotalAmountFullyAvailableForSale + amountThatNeedsToVest * timeDiff / ONE_WEEK);
     }
 
     /**
@@ -227,7 +225,7 @@ contract CarbonCreditDutchAuction is ICarbonCreditAuction {
      * @param b the second number
      * @return smaller - the smaller of the two numbers
      */
-    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a > b ? b : a;
     }
 

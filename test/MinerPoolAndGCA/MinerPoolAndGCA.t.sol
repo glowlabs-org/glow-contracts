@@ -146,7 +146,7 @@ contract MinerPoolAndGCATest is Test {
         //------ START PRANK ------
         vm.startPrank(gcaToSubmitAs);
 
-        minerPoolAndGCA.issueWeeklyReport(
+        minerPoolAndGCA.submitWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
 
@@ -1566,8 +1566,10 @@ contract MinerPoolAndGCATest is Test {
     }
 
     function test_delayBucketFinalization_bucketNotInitialized_shouldRevert() public {
+        vm.startPrank(SIMON);
         vm.expectRevert(IMinerPool.CannotDelayEmptyBucket.selector);
         minerPoolAndGCA.delayBucketFinalization(0);
+        vm.stopPrank();
     }
 
     function test_delayBucketFinalization_shouldComplete() public {

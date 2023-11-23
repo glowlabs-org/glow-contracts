@@ -59,7 +59,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
     /// @dev tokens are demagnified by 1e18 to make floating point math easier
     /// @dev the {totalSold} function returns the total sold in 1e18 (GLW DECIMALS)
-    uint256 private _totalIncrements;
+    uint256 private _totalIncrementsSold;
 
     /**
      * @notice USDC token
@@ -77,11 +77,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
     address public immutable HOLDING_CONTRACT;
 
     /**
-     * @notice the minimum increment that tokens can be bought in
-     *     -   .01 GLW
+     * @notice the minimum increment that tokens can be bought in .01 GLW
      * @dev The minimum increment that tokens can be bought in
      * @dev this is essential so our floating point math doesn't break
-     * @dev .01 GLW
      */
     uint256 public constant MIN_TOKEN_INCREMENT = 1e16;
 
@@ -113,7 +111,6 @@ contract EarlyLiquidity is IEarlyLiquidity {
      * @notice Constructs the EarlyLiquidity contract
      * @param _usdcAddress The address of the USDC token
      * @param _holdingContract The address of the holding contract
-     * @dev does not take in Glow token since it is not deployed yet
      */
     constructor(address _usdcAddress, address _holdingContract) payable {
         USDC_TOKEN = IERC20(_usdcAddress);
@@ -131,11 +128,6 @@ contract EarlyLiquidity is IEarlyLiquidity {
         // Cache the minerPool in memory for gas optimization.
         IMinerPool pool = minerPool;
         address _holdingContract = HOLDING_CONTRACT;
-
-        // // Check if the cached pool address is the zero address. If it is, revert the transaction.
-        // if (_isZeroAddress(poolAddress)) {
-        //     _revert(IEarlyLiquidity.ZeroAddress.selector);
-        // }
 
         // Calculate the total cost of the desired amount of tokens.
         uint256 totalCost = getPrice(increments);
@@ -170,7 +162,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
         pool.donateToGRCMinerRewardsPoolEarlyLiquidity(diff);
 
         // Update the total amount of tokens sold by adding the normalized amount to the total.
-        _totalIncrements += increments;
+        _totalIncrementsSold += increments;
 
         // Emit an event to log the purchase details.
         emit IEarlyLiquidity.Purchase(msg.sender, glowToSend, totalCost);
@@ -215,21 +207,21 @@ contract EarlyLiquidity is IEarlyLiquidity {
     function getPrice(uint256 incrementsToPurchase) public view returns (uint256) {
         if (incrementsToPurchase == 0) return 0;
 
-        return _getPrice(_totalIncrements, incrementsToPurchase);
+        return _getPrice(_totalIncrementsSold, incrementsToPurchase);
     }
 
     /**
      * @inheritdoc IEarlyLiquidity
      */
     function totalSold() public view returns (uint256) {
-        return _totalIncrements * MIN_TOKEN_INCREMENT;
+        return _totalIncrementsSold * MIN_TOKEN_INCREMENT;
     }
 
     /**
      * @inheritdoc IEarlyLiquidity
      */
     function getCurrentPrice() external view returns (uint256) {
-        return _getPrice(_totalIncrements, 1);
+        return _getPrice(_totalIncrementsSold, 1);
     }
 
     //************************************************************* */
@@ -297,12 +289,12 @@ contract EarlyLiquidity is IEarlyLiquidity {
         //This cant overflow since it's < 2^63-1
     }
 
+    //TODO: fix all the math explanation now that we switched to .1 starting price
     /**
      *   @notice Calculates the first term in the geometric series for the current price of the current token
      *  @param totalIncrementsSold - the total number of increments that have already been sold
      *   @return  firstTerm -  first term to be used in the geometric series
      */
-
     function _getFirstTermInSeries(uint256 totalIncrementsSold) private pure returns (int128) {
         // Convert 'totalSold' to a fixed-point representation using ABDKMath64x64.
         // This is done to perform mathematical operations with precision.

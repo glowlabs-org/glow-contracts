@@ -22,9 +22,13 @@ abstract contract GCASalaryHelper {
     /**
      * @notice the amount of shares required per agent when submitting a compensation plan
      * @dev this is not strictly enforced, but rather the
-     *         the total shares in a comp plan but equal the SHARES_REQUIRED_PER_COMP_PLAN * gcaAgents.length
+     *         the total shares in a comp plan must equal the SHARES_REQUIRED_PER_COMP_PLAN
      */
     uint256 public constant SHARES_REQUIRED_PER_COMP_PLAN = 100_000;
+
+    /// @dev the type hash for a claim payout relay permit
+    bytes32 public constant CLAIM_PAYOUT_RELAY_PERMIT_TYPEHASH =
+        keccak256("ClaimPayoutRelay(address relayer,uint256 paymentNonce)");
 
     //payment nonce -> gca index -> comp plan
     mapping(uint256 => mapping(uint256 => uint32[5])) private _paymentNonceToCompensationPlan;
@@ -42,22 +46,18 @@ abstract contract GCASalaryHelper {
     /// The public paymentNonce() function should be the _privatePaymentNonce + proposalHashes.length;
     uint256 private _privatePaymentNonce;
 
-    //keccak256(abi.encodePacked(address[]));
-    mapping(uint256 => bytes32) private _payoutNonceToGCAs;
+    // paymentNonce -> keccak256(abi.encodePacked(address[]));
+    mapping(uint256 => bytes32) private _paymentNonceToGCAs;
 
     /// @notice the next nonce to use in the relay signature
     mapping(address => uint256) public nextRelayNonce;
-
-    /// @dev the type hash for a claim payout relay permit
-    bytes32 public constant CLAIM_PAYOUT_RELAY_PERMIT_TYPEHASH =
-        keccak256("ClaimPayoutRelay(address relayer,uint256 paymentNonce)");
 
     /**
      * @param startingAgents the starting gca agents
      */
     constructor(address[] memory startingAgents) payable {
         if (startingAgents.length == 0) return;
-        _payoutNonceToGCAs[0] = keccak256(abi.encodePacked(startingAgents));
+        _paymentNonceToGCAs[0] = keccak256(abi.encodePacked(startingAgents));
         unchecked {
             for (uint256 i; i < startingAgents.length; ++i) {
                 //starting payment nonce is 0
@@ -67,137 +67,6 @@ abstract contract GCASalaryHelper {
             }
         }
     }
-
-    /// @dev should only be used once in the constructor of GCA
-    function setZeroPaymentStartTimestamp() internal {
-        _paymentNonceToShiftStartTimestamp[0] = _genesisTimestamp();
-    }
-
-    /**
-     * @param compPlan the comp plans to submit
-     * @param indexOfGCA the index of the gca submitting the comp plan
-     * @param totalGCAs the total number of gca agents
-     */
-    function handleCompensationPlanSubmission(uint32[5] calldata compPlan, uint256 indexOfGCA, uint256 totalGCAs)
-        internal
-    {
-        uint256 totalShares;
-        uint256 expectedShares = SHARES_REQUIRED_PER_COMP_PLAN;
-        for (uint256 i; i < totalGCAs; ++i) {
-            totalShares += compPlan[i];
-        }
-        if (totalShares != expectedShares) {
-            _revert(InvalidShares.selector);
-        }
-
-        //Get the current payment nonce.
-        uint256 _paymentNonce = paymentNonce();
-        uint256 nextPaymentNonce = _paymentNonce + 1;
-
-        uint256 currentShiftStartTimestamp = _paymentNonceToShiftStartTimestamp[_paymentNonce];
-
-        /**
-         * When we create a new comp plan, we increment the payment nonce by 1.
-         *         We only increment the nonce when the comp. period has actually begun.
-         *
-         *         For example, if we're in comp period 1, and we submit a new comp plan for comp period 2,
-         *         we initialize comp period 2 to start at block.timestamp + ONE_WEEK,
-         *         Therefore, there is a 1 week period where the comp plan is not active and comp plan 1
-         *         is still being acted upon, BUT, the nonce has already been incremented.
-         *
-         *         Therefore, that means that {currentShiftStartTimestamp} is the start of period 2,
-         *         and if block.timestamp is LESS than that, that means that comp period 2 has not started
-         *         and all comp. plans that are submitted will have an affect on comp period 2.
-         *
-         *         Once, block.timestamp is greater than {currentShiftStartTimestamp}, that means that
-         *         comp period 2 has started, and all comp plans submitted will have an affect on comp period 3.
-         *
-         *         This keeps going on and on and on.
-         */
-
-        /**
-         * This evaluates as the initializer for the comp plan being proposed.
-         */
-        if (block.timestamp > currentShiftStartTimestamp) {
-            //We need to increment the nonce
-            _paymentNonceToShiftStartTimestamp[nextPaymentNonce] = block.timestamp + ONE_WEEK;
-
-            //Make sure that all the hashes are updated
-            bytes32 gcaHash = _payoutNonceToGCAs[_paymentNonce];
-            _payoutNonceToGCAs[nextPaymentNonce] = gcaHash;
-            //The gca proposing the comp plan is the one in the index and also is responsible for
-            //porting over the past hash of the gca's as well as the payment plans.
-            for (uint256 i; i < totalGCAs; ++i) {
-                if (i == indexOfGCA) {
-                    _paymentNonceToCompensationPlan[nextPaymentNonce][i] = compPlan;
-                } else {
-                    _paymentNonceToCompensationPlan[nextPaymentNonce][i] =
-                        _paymentNonceToCompensationPlan[_paymentNonce][i];
-                }
-            }
-            _privatePaymentNonce = nextPaymentNonce;
-            return;
-        }
-
-        //If we are still in the current week, we need to put the comp plan
-        //in the current payment nonce (which is the next upcoming plan).
-
-        _paymentNonceToCompensationPlan[_paymentNonce][indexOfGCA] = compPlan;
-    }
-
-    /**
-     * @param gcaAgents the gca agents
-     * @dev handles incrementing payment nonce,
-     *             - setting the gca agents hash
-     *             - setting the shift start timestamp
-     *             - setting the comp plans to the identity matrix
-     *                 - (i.e. each gca agent gets 100_000 shares)
-     */
-    function callbackInElectionEvent(address[] memory gcaAgents) internal {
-        //Make sure to check proposalHashes.length mistmatchs
-        uint256 _paymentNonce = paymentNonce();
-        uint256 currentShiftStartTimestamp = _paymentNonceToShiftStartTimestamp[_paymentNonce];
-
-        //If the current bucket has started, we override the next bucket
-        if (block.timestamp > currentShiftStartTimestamp) {
-            ++_paymentNonce;
-            _privatePaymentNonce = _paymentNonce;
-        }
-
-        //Set the gca agents hash
-        _payoutNonceToGCAs[_paymentNonce] = keccak256(abi.encodePacked(gcaAgents));
-        _paymentNonceToShiftStartTimestamp[_paymentNonce] = block.timestamp;
-        //All the reports in here need to be set to a identity matrix
-        unchecked {
-            for (uint256 i; i < gcaAgents.length; ++i) {
-                _paymentNonceToCompensationPlan[_paymentNonce][i] = defaultCompPlan(i);
-            }
-        }
-    }
-
-    /**
-     * @notice returns the bytes32 digest used for the relay signature
-     * @param relayer the relayer that is being granted permission
-     * @param paymentNonce the payment nonce that the relayer is being granted permission for
-     * @param relayNonce the relay nonce that the relayer is being granted permission for
-     * @dev this function is used to create the digest for the relay signature
-     * @return digest - the bytes32 digest
-     */
-    function createRelayDigest(address relayer, uint256 paymentNonce, uint256 relayNonce)
-        public
-        view
-        returns (bytes32)
-    {
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                _domainSeperatorV4Main(),
-                keccak256(abi.encode(CLAIM_PAYOUT_RELAY_PERMIT_TYPEHASH, relayer, paymentNonce, relayNonce))
-            )
-        );
-        return digest;
-    }
-
     /**
      * @dev we don't need a deadline on the sig since the relayer cant make the funds go anywhere else,
      *             except for the user's address.
@@ -209,6 +78,7 @@ abstract contract GCASalaryHelper {
      * @param claimFromInflation whether or not to claim glow from inflation
      * @param sig the relay signature
      */
+
     function claimPayout(
         address user,
         uint256 paymentNonce,
@@ -236,6 +106,28 @@ abstract contract GCASalaryHelper {
     }
 
     /**
+     * @notice returns the bytes32 digest used for the relay signature
+     * @param relayer the relayer that is being granted permission
+     * @param paymentNonce the payment nonce that the relayer is being granted permission for
+     * @param relayNonce the relay nonce that the relayer is being granted permission for
+     * @return digest - the bytes32 digest
+     */
+    function createRelayDigest(address relayer, uint256 paymentNonce, uint256 relayNonce)
+        public
+        view
+        returns (bytes32)
+    {
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                _domainSeperatorV4Main(),
+                keccak256(abi.encode(CLAIM_PAYOUT_RELAY_PERMIT_TYPEHASH, relayer, paymentNonce, relayNonce))
+            )
+        );
+        return digest;
+    }
+
+    /**
      * @notice gets the payout data for an agent
      * @param user the user to get the payout data for
      * @param paymentNonce the payment nonce to get the payout data for
@@ -251,7 +143,7 @@ abstract contract GCASalaryHelper {
         address[] calldata activeGCAsAtPaymentNonce,
         uint256 userIndex
     ) public view returns (uint256 withdrawableAmount, uint256 slashableAmount, uint256 amountAlreadyWithdrawn) {
-        if (keccak256(abi.encodePacked(activeGCAsAtPaymentNonce)) != _payoutNonceToGCAs[paymentNonce]) {
+        if (keccak256(abi.encodePacked(activeGCAsAtPaymentNonce)) != _paymentNonceToGCAs[paymentNonce]) {
             _revert(InvalidGCAHash.selector);
         }
         if (user != activeGCAsAtPaymentNonce[userIndex]) {
@@ -304,7 +196,7 @@ abstract contract GCASalaryHelper {
      * @return gcaHash - the gca agents hash for the payment nonce
      */
     function payoutNonceToGCAHash(uint256 nonce) external view returns (bytes32) {
-        return _payoutNonceToGCAs[nonce];
+        return _paymentNonceToGCAs[nonce];
     }
 
     /**
@@ -325,6 +217,118 @@ abstract contract GCASalaryHelper {
         return _privatePaymentNonce;
     }
 
+    /// @dev should only be used once in the constructor of GCA
+    function setZeroPaymentStartTimestamp() internal {
+        _paymentNonceToShiftStartTimestamp[0] = _genesisTimestamp();
+    }
+    /**
+     * @notice slashes an agent
+     * @param user the user to slash
+     */
+
+    function _slash(address user) internal {
+        isSlashed[user] = true;
+    }
+
+    /**
+     * @param compPlan the comp plans to submit
+     * @param indexOfGCA the index of the gca submitting the comp plan
+     * @param totalGCAs the total number of gca agents
+     */
+    function handleCompensationPlanSubmission(uint32[5] calldata compPlan, uint256 indexOfGCA, uint256 totalGCAs)
+        internal
+    {
+        uint256 totalShares;
+        for (uint256 i; i < totalGCAs; ++i) {
+            totalShares += compPlan[i];
+        }
+        if (totalShares != SHARES_REQUIRED_PER_COMP_PLAN) {
+            _revert(InvalidShares.selector);
+        }
+
+        //Get the current payment nonce.
+        uint256 _paymentNonce = paymentNonce();
+        uint256 nextPaymentNonce = _paymentNonce + 1;
+
+        uint256 currentShiftStartTimestamp = _paymentNonceToShiftStartTimestamp[_paymentNonce];
+
+        /**
+         * When we create a new comp plan, we increment the payment nonce by 1.
+         *         We only increment the nonce when the comp. period has actually begun.
+         *
+         *         For example, if we're in comp period 1, and we submit a new comp plan for comp period 2,
+         *         we initialize comp period 2 to start at block.timestamp + ONE_WEEK,
+         *         Therefore, there is a 1 week period where the comp plan is not active and comp plan 1
+         *         is still being acted upon, BUT, the nonce has already been incremented.
+         *
+         *         Therefore, that means that {currentShiftStartTimestamp} is the start of period 2,
+         *         and if block.timestamp is LESS than that, that means that comp period 2 has not started
+         *         and all comp. plans that are submitted will have an effect on comp period 2.
+         *
+         *         Once block.timestamp is greater than {currentShiftStartTimestamp}, that means that
+         *         comp period 2 has started, and all comp plans submitted will have an effect on comp period 3.
+         *
+         *         This keeps going on and on and on.
+         */
+
+        /**
+         * This evaluates as the initializer for the comp plan being proposed.
+         */
+        if (block.timestamp > currentShiftStartTimestamp) {
+            //We need to increment the nonce
+            _paymentNonceToShiftStartTimestamp[nextPaymentNonce] = block.timestamp + ONE_WEEK;
+
+            //Make sure that all the hashes are updated
+            bytes32 gcaHash = _paymentNonceToGCAs[_paymentNonce];
+            _paymentNonceToGCAs[nextPaymentNonce] = gcaHash;
+            for (uint256 i; i < totalGCAs; ++i) {
+                if (i == indexOfGCA) {
+                    _paymentNonceToCompensationPlan[nextPaymentNonce][i] = compPlan;
+                } else {
+                    _paymentNonceToCompensationPlan[nextPaymentNonce][i] =
+                        _paymentNonceToCompensationPlan[_paymentNonce][i];
+                }
+            }
+            _privatePaymentNonce = nextPaymentNonce;
+            return;
+        }
+
+        //If we are still in the current week, we need to put the comp plan
+        //in the current payment nonce (which is the next upcoming plan).
+
+        _paymentNonceToCompensationPlan[_paymentNonce][indexOfGCA] = compPlan;
+    }
+
+    /**
+     * @param gcaAgents the gca agents
+     * @dev handles incrementing payment nonce,
+     *             - setting the gca agents hash
+     *             - setting the shift start timestamp
+     *             - setting the comp plans to the identity matrix
+     *                 - (i.e. each gca agent gets 100_000 shares)
+     */
+    function callbackInElectionEvent(address[] memory gcaAgents) internal {
+        //TODO: come back to this comment and decipher - Make sure to check proposalHashes.length mistmatchs
+        uint256 _paymentNonce = paymentNonce();
+        uint256 currentShiftStartTimestamp = _paymentNonceToShiftStartTimestamp[_paymentNonce];
+
+        //If the current bucket has started, we move to the next bucket
+        if (block.timestamp > currentShiftStartTimestamp) {
+            ++_paymentNonce;
+            _privatePaymentNonce = _paymentNonce;
+        }
+
+        //Set the gca agents hash
+        _paymentNonceToGCAs[_paymentNonce] = keccak256(abi.encodePacked(gcaAgents));
+        _paymentNonceToShiftStartTimestamp[_paymentNonce] = block.timestamp;
+        //All the reports in here need to be set to a identity matrix
+        unchecked {
+            for (uint256 i; i < gcaAgents.length; ++i) {
+                _paymentNonceToCompensationPlan[_paymentNonce][i] = defaultCompPlan(i);
+            }
+        }
+    }
+
     /**
      * @notice returns the default comp plan for a gca agent
      * @param gcaIndex the index of the gca agent
@@ -334,14 +338,6 @@ abstract contract GCASalaryHelper {
     function defaultCompPlan(uint256 gcaIndex) internal pure returns (uint32[5] memory shares) {
         shares[gcaIndex] = uint32(SHARES_REQUIRED_PER_COMP_PLAN);
         return shares;
-    }
-
-    /**
-     * @notice slashes an agent
-     * @param user the user to slash
-     */
-    function _slash(address user) internal {
-        isSlashed[user] = true;
     }
 
     /**

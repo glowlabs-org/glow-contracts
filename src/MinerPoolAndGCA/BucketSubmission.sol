@@ -5,8 +5,8 @@ contract BucketSubmission {
     /**
      * @notice the start offset to the current bucket for the grc deposit
      * @dev when depositing grc, the grc is evenly distributed across 192 weeks
-     *         -   The first bucket to receive grc is the current bucket + 16
-     *         -   The last bucket to receive grc is the current bucket + 208
+     *         -   The first bucket to receive grc is the current bucket + 16 weeks
+     *         -   The last bucket to receive grc is the current bucket + 208 weeks
      */
     uint256 public constant OFFSET_LEFT = 16;
 
@@ -50,7 +50,7 @@ contract BucketSubmission {
     /**
      * @dev a struct to help track the amount in weekly rewards
      * @param inheritedFromLastWeek - a flag to see if the bucket has inherited
-     *             -   it's vesting amount from past buckets using recursion
+     *             -   its vesting amount from past buckets
      * @param amountInBucket - the current amount in the bucket available as rewards
      * @param amountToDeduct - the amount to deduct from the {amountInBucket} when it initializes itself
      */
@@ -98,22 +98,19 @@ contract BucketSubmission {
      * @notice adds the grc to the current bucket
      * @dev this function is called when a user donates grc to the contract
      * @param amount - the amount of grc to add to the current bucket
-     * @dev the parent function should check to ensure that grcToken is valid
      */
     function _addToCurrentBucket(uint256 amount) internal {
-        //Find the current bucket
+        //Calculate the current bucket
         uint256 currentBucketId = currentBucket();
         //The bucket to add to is always the current bucket + OFFSET_LEFT
         uint256 bucketToAddTo = currentBucketId + OFFSET_LEFT;
         //The bucket to deduct from is always the bucketToAddTo + TOTAL_VESTING_PERIODS
         uint256 bucketToDeductFrom = bucketToAddTo + TOTAL_VESTING_PERIODS;
 
-        //The amount to add or subtract is the amount / TOTAL_VESTING_PERIODS
-        //it adds {amount} / {TOTAL_VESTING_PERIODS} to the bucketToAddTo
-        //and subtracts {amount} / {TOTAL_VESTING_PERIODS} from the bucketToDeductFrom
+        //The amount to add to the bucketToAddTo OR subtract from the bucketToDeductFrom
         uint256 amountToAddOrSubtract = amount / TOTAL_VESTING_PERIODS;
 
-        //Load the _bucketTracker into memory
+        //Load  bucketTracker into memory
         //Bucket trackers are used to keep track of the last updated bucket
         //and are used for caching to reduce gas costs
         BucketTracker memory _bucketTracker = bucketTracker;
@@ -131,7 +128,7 @@ contract BucketSubmission {
         }
 
         //Cache the last updated bucket
-        //The last updated bucket is, the last bucket thats {amountInBucket} was updated
+        //The last updated bucket is the last bucket thats {amountInBucket} was updated
         //If the last updated bucket has never been set (aka == 0),
         //then that means the first bucket to be updated is the bucketToAddTo
         //If the last updated bucket was already set, then we use that
@@ -179,8 +176,11 @@ contract BucketSubmission {
          *         Once we adjust the amount in the bucket, we set the {inheritedFromLastWeek} to true
          *         We also set the {amountToDeduct} to 0 since we don't need to deduct anything from the bucket anymore
          */
-        rewards[bucketToAddTo] =
-            WeeklyReward(true, (lastBucket.amountInBucket + amountToAddOrSubtract) - totalToDeductFromBucket, 0);
+        rewards[bucketToAddTo] = WeeklyReward({
+            inheritedFromLastWeek: true,
+            amountInBucket: (lastBucket.amountInBucket + amountToAddOrSubtract) - totalToDeductFromBucket,
+            amountToDeduct: 0
+        });
 
         //If the lastUpdatedBucket has changed, then we update the lastUpdatedBucket
         if (_bucketTracker.lastUpdatedBucket != bucketToAddTo) {
@@ -219,7 +219,7 @@ contract BucketSubmission {
         }
 
         uint256 amountToSubtract = bucket.amountToDeduct;
-        //Can't underflow siince we start at id 16
+        //Can't underflow since we start at id 16
         uint256 lastBucketId = id - 1;
 
         //We get the first added bucket id from the bucket tracker.

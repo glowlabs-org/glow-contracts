@@ -58,6 +58,32 @@ contract CarbonCreditDutchAuctionTest is Test {
         assert(valFallsInRange(auction.getPricePerUnit(), expectedPrice * 99 / 100, expectedPrice * 101 / 100));
     }
 
+    function test_buyOneShouldShouldEqualPointOneGlow() public {
+        sendGCCToAuction(100000 ether);
+        vm.warp(block.timestamp + ONE_WEEK);
+        uint256 pricePerUnit = auction.getPricePerUnit();
+        //1 week elapsed, price should have halved
+        console.log("price per unit = ", pricePerUnit);
+        //Purchase 1
+        vm.startPrank(operator);
+        glow.mint(operator, 10 ether);
+        uint256 glowBalBefore = glow.balanceOf(operator);
+        glow.approve(address(auction), 100_000_000_000_000_000 ether);
+        auction.buyGCC({unitsToBuy: 1 ether / SALE_UNIT, maxPricePerUnit: pricePerUnit});
+        vm.stopPrank();
+
+        uint256 gccBalance = gcc.balanceOf(operator);
+        uint256 glowBalAfter = glow.balanceOf(operator);
+
+        console.log("gcc balance = ", gccBalance);
+        uint256 glowDiff = glowBalBefore - glowBalAfter;
+        console.log("glow diff = ", glowDiff);
+        //Since prive halved, we should have spend .05 glow
+        //We need to adjust for precision errors
+        assertTrue(valFallsInRange(glowDiff, 0.0499 ether, 0.05 ether));
+        assertEq(gccBalance, 1 ether);
+    }
+
     function test_BuyCCAuction() public {
         uint256 startingPrice = auction.getPricePerUnit();
         sendGCCToAuction(10_000 ether);
