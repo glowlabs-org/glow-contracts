@@ -78,36 +78,7 @@ interface IGovernance {
         bytes data;
     }
 
-    /**
-     * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC
-     * @param to the address to grant nominations to
-     * @param amount the amount of nominations to grant
-     */
-    function grantNominations(address to, uint256 amount) external;
-
-    /**
-     * @notice Executes a most popular proposal at a given week
-     * @dev a proposal that has not been ratified or rejected can be executed
-     *         - but should never make any changes to the system (exceptions are detailed in the implementation)
-     * @dev proposals that have met their requirements to perform state changes are executed as well
-     * @dev no execution of any proposal should ever revert as this will freeze the governance contract
-     * @param weekId the weekId that containst the 'mostPopularProposal' at that week
-     * @dev proposals must be executed synchronously to ensure that the state of the system is consistent
-     */
-    function executeProposalAtWeek(uint256 weekId) external;
-
-    /**
-     * @notice syncs all proposals that must be synced
-     */
-    function syncProposals() external;
-
-    /**
-     * @notice allows a veto council member to endorse a gca election
-     * @param weekId the weekId of the gca election to endorse
-     */
-    function endorseGCAProposal(uint256 weekId) external;
-
-    /* -------------------------------------------------------------------------- */
+      /* -------------------------------------------------------------------------- */
     /*                                   events                                   */
     /* -------------------------------------------------------------------------- */
     /**
@@ -244,4 +215,36 @@ interface IGovernance {
      * @param success - whether or not the proposal was executed succesfully
      */
     event ProposalExecution(uint256 indexed week, uint256 proposalId, ProposalType proposalType, bool success);
+    
+
+    /**
+     * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC
+     * @param to the address to grant nominations to
+     * @param amount the amount of nominations to grant
+     */
+    function grantNominations(address to, uint256 amount) external;
+
+    /**
+     * @notice Executes a most popular proposal at a given week
+     * @dev a proposal that has not been ratified or rejected can be executed
+     *         - but should never make any changes to the system (exceptions are detailed in the implementation)
+     * @dev proposals that have met their requirements to perform state changes are executed as well
+     * @dev no execution of any proposal should ever revert as this will freeze the governance contract
+     * @param weekId the weekId that containst the 'mostPopularProposal' at that week
+     * @dev proposals must be executed synchronously to ensure that the state of the system is consistent
+     */
+    function executeProposalAtWeek(uint256 weekId) external;
+
+    /**
+     * @notice syncs all proposals that must be synced
+     */
+    function syncProposals() external;
+
+    /**
+     * @notice allows a veto council member to endorse a gca election
+     * @param weekId the weekId of the gca election to endorse
+     */
+    function endorseGCAProposal(uint256 weekId) external;
+
+  
 }
