@@ -2,7 +2,9 @@
 pragma solidity ^0.8.19;
 
 interface IGovernance {
-    //---------- ERRORS -----------------//
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                   */
+    /* -------------------------------------------------------------------------- */
     error ProposalHasNotExpired(uint256 proposalId);
     error ProposalExpired();
     error InsufficientNominations();
@@ -42,6 +44,9 @@ interface IGovernance {
     error VetoMemberCannotBeNullAddress();
     error WeekMustHaveEndedToAcceptRatifyOrRejectVotes();
 
+    /* -------------------------------------------------------------------------- */
+    /*                                    enums                                   */
+    /* -------------------------------------------------------------------------- */
     enum ProposalType {
         NONE, //default value for unset proposals
         VETO_COUNCIL_ELECTION_OR_SLASH,
@@ -58,6 +63,9 @@ interface IGovernance {
         VETOED
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   structs                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @param proposalType the type of the proposal
      * @param expirationTimestamp the timestamp at which the proposal expires
@@ -99,6 +107,9 @@ interface IGovernance {
      */
     function endorseGCAProposal(uint256 weekId) external;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   events                                   */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice Emitted when a Veto Council Election or Slash proposal is created
      * @param proposalId the id of the proposal
@@ -166,15 +177,14 @@ interface IGovernance {
     );
 
     /**
-     * TODO: make sure to change name of requirements hash to rfc hash
      * @notice emitted when a request for comment is created
      * @param proposalId the id of the proposal
      * @param proposer the address of the proposer
-     * @param requirementsHash the hash of the requirements string
+     * @param rfcHash the hash of the requirements string
      * @param nominationsUsed the amount of nominations used
      */
     event RFCProposalCreation(
-        uint256 indexed proposalId, address indexed proposer, bytes32 requirementsHash, uint256 nominationsUsed
+        uint256 indexed proposalId, address indexed proposer, bytes32 rfcHash, uint256 nominationsUsed
     );
 
     /**
