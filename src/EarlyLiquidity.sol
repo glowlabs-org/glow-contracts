@@ -35,6 +35,9 @@ interface IDecimals {
 contract EarlyLiquidity is IEarlyLiquidity {
     using ABDKMath64x64 for int128;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
     /// @dev Represents 1.0000000069314718 in 64x64 format, or `r` in the geometric series
     int128 private constant _RATIO = 18446744201572638720;
 
@@ -57,31 +60,8 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /// @dev r =  1 - 1.0000000069314718 =  0000000069314718
     int128 private constant _DENOMINATOR = -127863086349;
 
-    /// @dev tokens are demagnified by 1e18 to make floating point math easier
-    /// @dev the {totalSold} function returns the total sold in 1e18 (GLW DECIMALS)
-    uint256 private _totalIncrementsSold;
-
-    /**
-     * @notice USDC token
-     * @dev The USDC token
-     */
-    IERC20 public immutable USDC_TOKEN;
-
     /// @dev The number of decimals for USDC
     uint256 public constant USDC_DECIMALS = 6;
-
-    /**
-     * @notice The address of the holding contract
-     * @dev the holding contract holds all GRC tokens
-     */
-    address public immutable HOLDING_CONTRACT;
-
-    /**
-     * @notice the minimum increment that tokens can be bought in .01 GLW
-     * @dev The minimum increment that tokens can be bought in
-     * @dev this is essential so our floating point math doesn't break
-     */
-    uint256 public constant MIN_TOKEN_INCREMENT = 1e16;
 
     /**
      * @notice the total amount of .01 increments to sell
@@ -92,9 +72,35 @@ contract EarlyLiquidity is IEarlyLiquidity {
      */
     uint256 public constant TOTAL_INCREMENTS_TO_SELL = 1_200_000_000;
 
-    //************************************************************* */
-    //*****************  FLOATING POINT CONSTANTS    ************** */
-    //************************************************************* */
+    /**
+     * @notice the minimum increment that tokens can be bought in .01 GLW
+     * @dev The minimum increment that tokens can be bought in
+     * @dev this is essential so our floating point math doesn't break
+     */
+    uint256 public constant MIN_TOKEN_INCREMENT = 1e16;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 immutables                                 */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice USDC token
+     * @dev The USDC token
+     */
+    IERC20 public immutable USDC_TOKEN;
+
+    /**
+     * @notice The address of the holding contract
+     * @dev the holding contract holds all GRC tokens
+     */
+    address public immutable HOLDING_CONTRACT;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
+    /// @dev tokens are demagnified by 1e18 to make floating point math easier
+    /// @dev the {totalSold} function returns the total sold in 1e18 (GLW DECIMALS)
+    uint256 private _totalIncrementsSold;
 
     /// @notice The Glow token
     IERC20 public glowToken;
@@ -103,10 +109,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /// @dev all USDC is donated to the miner pool
     IMinerPool public minerPool;
 
-    //************************************************************* */
-    //*******************  CONSTRUCTOR    **************** */
-    //************************************************************* */
-
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice Constructs the EarlyLiquidity contract
      * @param _usdcAddress The address of the USDC token
@@ -121,6 +126,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
         HOLDING_CONTRACT = _holdingContract;
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  buy glow                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @inheritdoc IEarlyLiquidity
      */
@@ -170,10 +178,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
         // End of function; the explicit 'return' here is unnecessary but it indicates the function's conclusion.
         return;
     }
-
-    //************************************************************* */
-    //*******************  ONE TIME USE SETTERS    **************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                               one time setters                             */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice Sets the glow token address
@@ -197,9 +204,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
         minerPool = IMinerPool(_minerPoolAddress);
     }
 
-    //************************************************************* */
-    //*******************     GETTERS    ******************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                 view functions                             */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @inheritdoc IEarlyLiquidity
@@ -224,9 +231,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
         return _getPrice(_totalIncrementsSold, 1);
     }
 
-    //************************************************************* */
-    //*******************     TOKEN MATH    ******************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                 internal view                              */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice Calculates the price of a given amount of tokens
@@ -327,10 +334,9 @@ contract EarlyLiquidity is IEarlyLiquidity {
         return result;
     }
 
-    //************************************************************* */
-    //*******************     UTILS    ******************** */
-    //************************************************************* */
-
+    /* -------------------------------------------------------------------------- */
+    /*                                 private utils                              */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
