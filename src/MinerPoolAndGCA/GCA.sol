@@ -668,6 +668,14 @@ contract GCA is IGCA, GCASalaryHelper {
         if (totalNewGCC > _200_BILLION) _revert(IGCA.ReportGCCMustBeLT200Billion.selector);
     }
 
+    /**
+     * @dev finds the index of the report in the bucket
+     *             - if the report is not found, it returns _INDEX_NOT_FOUND
+     * @param reportArrayStartSlot - the storage start slot of the reports
+     * @param len - the length of the reports array
+     * @return foundIndex - the index of the report in the bucket
+     * @return gcaReportStartSlot - the start slot of the report in storage
+     */
     function findReportIndexOrUintMax(uint256 reportArrayStartSlot, uint256 len)
         internal
         view
@@ -697,8 +705,9 @@ contract GCA is IGCA, GCASalaryHelper {
                 }
             }
         }
-
-        return (foundIndex, reportArrayStartSlot);
+        //Increased readability
+        uint256 gcaReportStartSlot = reportArrayStartSlot;
+        return (foundIndex, gcaReportStartSlot);
     }
 
     /**
