@@ -22,8 +22,26 @@ import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
  */
 
 contract ImpactCatalyst {
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                   */
+    /* -------------------------------------------------------------------------- */
     error CallerNotGCC();
     error PrecisionLossLeadToUnderflow();
+
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
+    /// @dev the magnification of GCC to use in {findOptimalAmountToSwap} to reduce precision loss
+    /// @dev GCC is in 18 decimals, so we can make it 1e18 to reduce precision loss
+    uint256 private constant GCC_MAGNIFICATION = 1e18;
+
+    /// @dev the magnification of USDC to use in {findOptimalAmountToSwap} to reduce precision loss
+    /// @dev USDC is in 6 decimals, so we can make it 1e24 to reduce precision loss
+    uint256 private constant USDC_MAGNIFICATION = 1e24;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 immutables                                 */
+    /* -------------------------------------------------------------------------- */
 
     /// @notice the GCC token
     address public immutable GCC;
@@ -40,13 +58,9 @@ contract ImpactCatalyst {
     /// @notice the uniswap pair of GCC and USDC
     address public immutable UNISWAP_V2_PAIR;
 
-    /// @dev the magnification of GCC to use in {findOptimalAmountToSwap} to reduce precision loss
-    /// @dev GCC is in 18 decimals, so we can make it 1e18 to reduce precision loss
-    uint256 private constant GCC_MAGNIFICATION = 1e18;
-
-    /// @dev the magnification of USDC to use in {findOptimalAmountToSwap} to reduce precision loss
-    /// @dev USDC is in 6 decimals, so we can make it 1e24 to reduce precision loss
-    uint256 private constant USDC_MAGNIFICATION = 1e24;
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @param _usdc - the address of the USDC token
@@ -62,6 +76,9 @@ contract ImpactCatalyst {
         UNISWAP_V2_PAIR = pair;
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 gcc commits                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice entry point for GCC to commit GCC
      * @dev the commit process is as follows:
@@ -115,6 +132,9 @@ contract ImpactCatalyst {
         nominations = sqrt(amountToAddInLiquidity * amountUSDCReceived);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 usdc commits                               */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice entry point for GCC to commit USDC
      * @dev the commit process is as follows:
@@ -159,6 +179,9 @@ contract ImpactCatalyst {
         nominations = sqrt(amountToAddInLiquidity * amounts[1]);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 view functions                             */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice estimates how many nominations will be earned if `amount` of USDC is committed
      * @param amount the amount of USDC to commit
@@ -209,6 +232,9 @@ contract ImpactCatalyst {
         return res;
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                    utils                                   */
+    /* -------------------------------------------------------------------------- */
     /// @dev forked from solady library
     /// @param x - the number to calculate the square root of
     /// @return z - the square root of x
