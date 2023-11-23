@@ -146,7 +146,7 @@ contract MinerPoolAndGCATest is Test {
         //------ START PRANK ------
         vm.startPrank(gcaToSubmitAs);
 
-        minerPoolAndGCA.issueWeeklyReport(
+        minerPoolAndGCA.submitWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
 

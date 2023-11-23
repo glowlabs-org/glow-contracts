@@ -177,7 +177,7 @@ interface IGCA {
     /// @dev allows GCAs to submit a compensation plan
     function submitCompensationPlan(uint32[5] calldata plan, uint256 indexOfGCA) external;
 
-    /// @dev allows the contrac to pull glow from inflation
+    /// @dev allows the contract to pull glow from inflation
     function claimGlowFromInflation() external;
 
     /* -------------------------------------------------------------------------- */
@@ -198,7 +198,7 @@ interface IGCA {
      */
     function isGCA(address account, uint256 index) external view returns (bool);
 
-    /// @return - returns all thFe gcas
+    /// @return - returns all the gcas
     function allGcas() external view returns (address[] memory);
 
     /**

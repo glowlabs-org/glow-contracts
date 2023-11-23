@@ -5,13 +5,34 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {GCASalaryHelper} from "./GCASalaryHelper.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 /**
  * @title GCA (Glow Certification Agent)
  * @author @DavidVorick
  * @author @0xSimon
+ *  @notice this contract is the entry point for GCAs to submit reports and claim payouts
+ *  @notice GCA's submit weekly reports that contain how many carbon credits have been created
+ *             - and which farms should get rewarded for the creation of those credits
+ * @notice The weekly reports that GCA's submit into are called `buckets`
+ * @notice Each `bucket` has a 1 week period for report submission
+ *             - followed by a 1 week period before its finalized
+ *             - during this finalization period, the veto council can decide to delay the bucket by 90 days
+ *             - should they find anything suspicious in the bucket.
+ *                - A delayed bucket should always finalize 90 days after the delay event
+ *                - This should give governance enough time to slash the GCA that submitted the faulty report
+ *                - This slash event causes all buckets that were not finalized at the time of the slash, to be permanently slashed
+ *                - The exception is that the current GCA's have 1-2 weeks after the slash to reinstate the bucket
+ *                - Reinstating the buckets deletes all the past reports and allows the GCAs to submit fresh reports
+ *             - after the bucket has passed this finalization period, the bucket's rewards become available for distribution to solar farms,
+ *                and the GCC created is minted and sent to the Carbon Credit Auction
+ *             - These actions above take place in the `MinerPoolAndGCA` contract
+ * @notice Governance has the ability to change and slash the GCA's.
+ *
  */
-
 contract GCA is IGCA, GCASalaryHelper {
+    /// @dev the return value if an index position is not found in an array
+    uint256 private constant _INDEX_NOT_FOUND = type(uint256).max;
+
     /// @notice the shift to apply to the bitpacked compensation plans
     uint256 private constant _UINT24_SHIFT = 24;
 
@@ -38,7 +59,7 @@ contract GCA is IGCA, GCASalaryHelper {
     uint256 internal constant _UINT64_MASK = (1 << 64) - 1;
 
     /// @dev buckets last 1 week
-    uint256 private constant BUCKET_LENGTH = 7 * uint256(1 days);
+    uint256 private constant BUCKET_DURATION = 7 * uint256(1 days);
 
     /// @notice the address of the glow token
     IGlow public immutable GLOW_TOKEN;
@@ -94,13 +115,19 @@ contract GCA is IGCA, GCASalaryHelper {
         payable
         GCASalaryHelper(_gcaAgents)
     {
+        //Set the glow token
         GLOW_TOKEN = IGlow(_glowToken);
+        //Set governance
         GOVERNANCE = _governance;
+        //Set the GCA's
         _setGCAs(_gcaAgents);
+        //Set the genesis timestamp
         GENESIS_TIMESTAMP = GLOW_TOKEN.GENESIS_TIMESTAMP();
+        //Initialize the payouts for the gcas
         for (uint256 i; i < _gcaAgents.length; ++i) {
             _gcaPayouts[_gcaAgents[i]].lastClaimedTimestamp = uint64(GENESIS_TIMESTAMP);
         }
+        //Set the GCA requirements hash
         requirementsHash = _requirementsHash;
         GCASalaryHelper.setZeroPaymentStartTimestamp();
     }
@@ -144,7 +171,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @param root - the merkle root containing all the reports (leaves) for the period
      * @param data - the data to emit
      */
-    function issueWeeklyReportWithBytes(
+    function submitWeeklyReportWithBytes(
         uint256 bucketId,
         uint256 totalNewGCC,
         uint256 totalGlwRewardsWeight,
@@ -152,7 +179,7 @@ contract GCA is IGCA, GCASalaryHelper {
         bytes32 root,
         bytes calldata data
     ) external {
-        _issueWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+        _submitWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
         emit IGCA.BucketSubmissionEvent(
             bucketId, msg.sender, slashNonce, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root, data
         );
@@ -169,14 +196,14 @@ contract GCA is IGCA, GCASalaryHelper {
      * @param totalGRCRewardsWeight - the total amount of grc rewards weight in the report
      * @param root - the merkle root containing all the reports (leaves) for the period
      */
-    function issueWeeklyReport(
+    function submitWeeklyReport(
         uint256 bucketId,
         uint256 totalNewGCC,
         uint256 totalGlwRewardsWeight,
         uint256 totalGRCRewardsWeight,
         bytes32 root
     ) external {
-        _issueWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+        _submitWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
         emit IGCA.BucketSubmissionEvent(
             bucketId, msg.sender, slashNonce, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root, ""
         );
@@ -193,7 +220,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @param totalGRCRewardsWeight - the total amount of grc rewards weight in the report
      * @param root - the merkle root containing all the reports (leaves) for the period
      */
-    function _issueWeeklyReport(
+    function _submitWeeklyReport(
         uint256 bucketId,
         uint256 totalNewGCC,
         uint256 totalGlwRewardsWeight,
@@ -245,9 +272,9 @@ contract GCA is IGCA, GCASalaryHelper {
                         bucket.lastUpdatedNonce = SafeCast.toUint64(_slashNonce);
                         //Need to check before storing the finalization timestamp in case
                         //the bucket was delayed.
-                        if (bucketSubmissionEndTimestamp + BUCKET_LENGTH > bucketFinalizationTimestamp) {
+                        if (bucketSubmissionEndTimestamp + BUCKET_DURATION > bucketFinalizationTimestamp) {
                             bucket.finalizationTimestamp =
-                                SafeCast.toUint128(bucketSubmissionEndTimestamp + BUCKET_LENGTH);
+                                SafeCast.toUint128(bucketSubmissionEndTimestamp + BUCKET_DURATION);
                         }
                         //conditionally delete all reports in storage
                         if (len > 0) {
@@ -392,7 +419,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
     function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return SafeCast.toUint128(bucketId * BUCKET_LENGTH + GENESIS_TIMESTAMP);
+        return SafeCast.toUint128(bucketId * BUCKET_DURATION + GENESIS_TIMESTAMP);
     }
 
     /**
@@ -403,7 +430,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
     function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return SafeCast.toUint128(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
+        return SafeCast.toUint128(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_DURATION);
     }
 
     /**
@@ -413,7 +440,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
     function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return SafeCast.toUint128(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_LENGTH);
+        return SafeCast.toUint128(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_DURATION);
     }
 
     /**
@@ -556,7 +583,7 @@ contract GCA is IGCA, GCASalaryHelper {
                         reportArrayStartSlot := add(reportArrayStartSlot, 3)
                     }
                     if (proposingAgent == msg.sender) {
-                        foundIndex = i == 0 ? type(uint256).max : i;
+                        foundIndex = i == 0 ? _INDEX_NOT_FOUND : i;
                         // solhint-disable-next-line no-inline-assembly
                         assembly {
                             //since we incremented the slot by 3, we need to decrement it by 3 to get the start of the packed data
@@ -593,7 +620,7 @@ contract GCA is IGCA, GCASalaryHelper {
             );
             //else we write the the index we found
         } else {
-            bucket.reports[foundIndex == type(uint256).max ? 0 : foundIndex] = IGCA.Report({
+            bucket.reports[foundIndex == _INDEX_NOT_FOUND ? 0 : foundIndex] = IGCA.Report({
                 //Redundant sstore on {proposingAgent}
                 proposingAgent: msg.sender,
                 totalNewGCC: SafeCast.toUint128(totalNewGCC),
@@ -748,9 +775,10 @@ contract GCA is IGCA, GCASalaryHelper {
      */
     function _WCEIL(uint256 _slashNonce) internal view returns (uint256) {
         //This will underflow if slashNonceToSlashTimestamp[_slashNonce] has not yet been written to
-        uint256 bucketNonceWasSlashedAt = (slashNonceToSlashTimestamp[_slashNonce] - GENESIS_TIMESTAMP) / BUCKET_LENGTH;
+        uint256 bucketNonceWasSlashedAt =
+            (slashNonceToSlashTimestamp[_slashNonce] - GENESIS_TIMESTAMP) / BUCKET_DURATION;
         //the end submission period is the bucket + 2
-        return (bucketNonceWasSlashedAt + 2) * BUCKET_LENGTH + GENESIS_TIMESTAMP;
+        return (bucketNonceWasSlashedAt + 2) * BUCKET_DURATION + GENESIS_TIMESTAMP;
     }
 
     function getPackedBucketGlobalState(uint256 bucketId) internal view returns (uint256 packedGlobalState) {
