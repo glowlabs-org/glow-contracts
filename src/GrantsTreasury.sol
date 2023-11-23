@@ -12,6 +12,9 @@ import {IGrantsTreasury} from "./interfaces/IGrantsTreasury.sol";
  *         - rewards are allocated through Governance
  */
 contract GrantsTreasury is IGrantsTreasury {
+    /* -------------------------------------------------------------------------- */
+    /*                                  immutables                                */
+    /* -------------------------------------------------------------------------- */
     /// @notice glow token
     IGlow public immutable GLOW_TOKEN;
 
@@ -21,10 +24,9 @@ contract GrantsTreasury is IGrantsTreasury {
     /// @notice timestamp of the genesis block of the glow token
     uint256 public immutable GENESIS_TIMESTAMP;
 
-    /// @notice the balance of each recipient
-    /// @dev this is a mapping of recipient => balance
-    /// @dev if a user has a balance of 0, they are not owed any funds
-    mapping(address => uint256) public recipientBalance;
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
 
     /// @notice the cumulative amount of funds allocated to recipients
     uint256 public cumulativeAllocated;
@@ -32,9 +34,18 @@ contract GrantsTreasury is IGrantsTreasury {
     /// @notice the cumulative amount of funds paid out to recipients
     uint256 public cumulativePaidOut;
 
-    //************************************************************* */
-    //*********************  CONSTRUCTOR    ********************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                   mappings                                  */
+    /* -------------------------------------------------------------------------- */
+
+    /// @notice the balance of each recipient
+    /// @dev this is a mapping of recipient => balance
+    /// @dev if a user has a balance of 0, they are not owed any funds
+    mapping(address => uint256) public recipientBalance;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice GrantsTreasury constructor
      *     @param _glowToken The address of the Glow token
@@ -46,9 +57,9 @@ contract GrantsTreasury is IGrantsTreasury {
         GENESIS_TIMESTAMP = GLOW_TOKEN.GENESIS_TIMESTAMP();
     }
 
-    //************************************************************* */
-    //*********************  EXTERNAL FUNCS    ********************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                              grant allocations                             */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @inheritdoc IGrantsTreasury
@@ -77,6 +88,9 @@ contract GrantsTreasury is IGrantsTreasury {
         return true;
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                              claiming allocations                          */
+    /* -------------------------------------------------------------------------- */
     /**
      * @inheritdoc IGrantsTreasury
      */
@@ -91,6 +105,9 @@ contract GrantsTreasury is IGrantsTreasury {
         emit IGrantsTreasury.GrantFundsClaimed(msg.sender, allocation);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                           claiming inflation glow                          */
+    /* -------------------------------------------------------------------------- */
     /**
      * @inheritdoc IGrantsTreasury
      */
@@ -99,9 +116,9 @@ contract GrantsTreasury is IGrantsTreasury {
         emit IGrantsTreasury.TreasurySynced(amt);
     }
 
-    //************************************************************* */
-    //*********************  VIEW FUNCS    ********************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                view functions                              */
+    /* -------------------------------------------------------------------------- */
     /**
      * @inheritdoc IGrantsTreasury
      */
@@ -118,9 +135,9 @@ contract GrantsTreasury is IGrantsTreasury {
         return balance + cumulativePaidOut - cumulativeAllocated;
     }
 
-    //************************************************************* */
-    //*********************  PRIVATE UTILS    ********************** */
-    //************************************************************* */
+    /* -------------------------------------------------------------------------- */
+    /*                                private utils                               */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice More efficiently reverts with a bytes4 selector
