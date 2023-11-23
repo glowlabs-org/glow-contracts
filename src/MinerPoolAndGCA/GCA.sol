@@ -239,7 +239,7 @@ contract GCA is IGCA, GCASalaryHelper {
             uint256 bucketFinalizationTimestamp = bucket.finalizationTimestamp;
 
             uint256 lastUpdatedNonce = bucket.lastUpdatedNonce;
-            //The submission start timestamp always remains the same
+            //Get the submission start itimestamp
             uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
             if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
 
@@ -247,7 +247,7 @@ contract GCA is IGCA, GCASalaryHelper {
             //So on the first init, we need to set the bucketNonce to the slashNonce in storage
             {
                 uint256 _slashNonce = slashNonce;
-                //If not init
+                //If not inititialized, intitialize the bucket
                 if (bucketFinalizationTimestamp == 0) {
                     bucket.originalNonce = SafeCast.toUint64(_slashNonce);
                     bucket.lastUpdatedNonce = SafeCast.toUint64(_slashNonce);
@@ -258,8 +258,8 @@ contract GCA is IGCA, GCASalaryHelper {
 
                 {
                     /**
-                     * If it is a reinstating tx,
-                     *             we need to set reinstated to true
+                     * If the bucket needs to be reinstated
+                     *             we need to update the bucket accordingly
                      *             and we need to change the finalization timestamp
                      *             lastly, we need to delete all reports in storage if there are any
                      */
@@ -632,7 +632,10 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     /**
-     * @dev , an efficient function to get the root of a bucket at a given index
+     * @dev an efficient function to get the merkle root of a bucket at a given index
+     * @param bucketId - the bucket id to find the root for
+     * @param index - the index of the report in the reports[] array for the bucket
+     * @return root - the merkle root for the report for the given bucket at the specific index
      */
     function getBucketRootAtIndexEfficient(uint256 bucketId, uint256 index) internal view returns (bytes32 root) {
         // solhint-disable-next-line no-inline-assembly
