@@ -121,7 +121,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         GENESIS_TIMESTAMP = block.timestamp;
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
         _mint(EARLY_LIQUIDITY_ADDRESS, 12_000_000 ether);
-        _mint(_vestingContract, 90_000_000 ether);
+        _mint(_vestingContract, 96_000_000 ether);
     }
 
     /**
@@ -640,9 +640,8 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         if (_gcaAndMinerPoolAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
         if (_vetoCouncilAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
 
-        //Set the addresses and mint 6 million GLW to the Grants Treasury
+        //Set the addresses
         gcaAndMinerPoolAddress = _gcaAndMinerPoolAddress;
-        _mint(_grantsTreasuryAddress, 6_000_000 ether);
         vetoCouncilAddress = _vetoCouncilAddress;
         grantsTreasuryAddress = _grantsTreasuryAddress;
     }

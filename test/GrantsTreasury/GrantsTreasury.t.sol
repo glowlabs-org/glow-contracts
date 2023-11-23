@@ -22,7 +22,7 @@ contract GrantsTreasuryTest is Test {
     address public constant GOVERNANCE = address(0x6);
     address public constant NOT_GOVERNANCE = address(0x7);
     uint256 public constant GRANTS_INFLATION_PER_WEEK = 40_000 ether;
-    uint256 constant STARTING_GRANTS_BALANCE = 6_000_000 ether;
+    uint256 constant STARTING_GRANTS_BALANCE = 0 ether;
 
     function setUp() public {
         glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
