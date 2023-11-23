@@ -42,6 +42,9 @@ interface IHoldingContract {
  *         - A holding can be max delayed for 97 days
  */
 contract HoldingContract {
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                   */
+    /* -------------------------------------------------------------------------- */
     error OnlyMinerPoolCanAddHoldings();
     error WithdrawalNotReady();
     error CallerMustBeVetoCouncilMember();
@@ -50,6 +53,9 @@ contract HoldingContract {
     error AlreadyWithdrawnFromHolding();
     error MinerPoolAlreadySet();
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice the default delay for withdrawals
      * @dev the default delay is 7 days
@@ -78,11 +84,18 @@ contract HoldingContract {
      */
     uint256 public constant FIVE_WEEKS = uint256(5 weeks);
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 immutables                                 */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice the address of the veto council
      * @dev veto council members can delay the network
      */
     IVetoCouncil public immutable VETO_COUNCIL;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice the address of the miner pool
@@ -96,6 +109,9 @@ contract HoldingContract {
      */
     uint256 public minimumWithdrawTimestamp;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   mappings                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice the holdings for each user
      *     Note: We could have chosen an array of holdings
@@ -108,6 +124,9 @@ contract HoldingContract {
      */
     mapping(address => mapping(address => Holding)) private _holdings;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   events                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev emitted when there is a network delay
      * @param vetoAgent the address of the veto agent that delayed the network
@@ -126,12 +145,20 @@ contract HoldingContract {
      */
     event HoldingAdded(address indexed user, address indexed token, uint192 amount);
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
+
     /**
      * @param _vetoCouncil the address of the veto council
      */
     constructor(address _vetoCouncil) payable {
         VETO_COUNCIL = IVetoCouncil(_vetoCouncil);
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                    delay                                   */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice allows veto council members to delay the network by 13 weeks
@@ -156,6 +183,10 @@ contract HoldingContract {
 
         minimumWithdrawTimestamp = block.timestamp + VETO_HOLDING_DELAY;
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   claim                                    */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice entrypoint to claim holdings
@@ -198,28 +229,9 @@ contract HoldingContract {
         SafeERC20.safeTransfer(IERC20(token), user, holding.amount);
     }
 
-    /**
-     * @notice a one time setter to set the miner pool
-     * @dev the miner pool calls this function upon deployment
-     * @param _minerPool the address of the miner pool
-     */
-    function setMinerPool(address _minerPool) external {
-        //Make sure the miner pool is not already set
-        if (minerPool != address(0)) {
-            _revert(MinerPoolAlreadySet.selector);
-        }
-        minerPool = _minerPool;
-    }
-
-    /**
-     * @notice returns the Holding struct for a user and token pair
-     * @param user the address of the user
-     * @param token the address of the grc token to withdraw
-     * @return holding - the Holding struct
-     */
-    function holdings(address user, address token) external view returns (Holding memory) {
-        return _holdings[user][token];
-    }
+    /* -------------------------------------------------------------------------- */
+    /*                                 add holdings                               */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice an internal method to increment the amount in a holding
@@ -234,6 +246,36 @@ contract HoldingContract {
         _holdings[user][token].amount += amount;
         _holdings[user][token].expirationTimestamp = uint64(block.timestamp + DEFAULT_DELAY);
         emit HoldingAdded(user, token, amount);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               one time setters                             */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice a one time setter to set the miner pool
+     * @dev the miner pool calls this function upon deployment
+     * @param _minerPool the address of the miner pool
+     */
+    function setMinerPool(address _minerPool) external {
+        //Make sure the miner pool is not already set
+        if (minerPool != address(0)) {
+            _revert(MinerPoolAlreadySet.selector);
+        }
+        minerPool = _minerPool;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 view functions                             */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @notice returns the Holding struct for a user and token pair
+     * @param user the address of the user
+     * @param token the address of the grc token to withdraw
+     * @return holding - the Holding struct
+     */
+    function holdings(address user, address token) external view returns (Holding memory) {
+        return _holdings[user][token];
     }
 
     /**
@@ -260,6 +302,9 @@ contract HoldingContract {
         }
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   utils                                    */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev more efficient reverts
      * @param selector the selector of the error
