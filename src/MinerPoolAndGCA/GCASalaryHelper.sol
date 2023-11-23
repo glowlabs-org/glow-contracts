@@ -5,6 +5,9 @@ import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 abstract contract GCASalaryHelper {
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                   */
+    /* -------------------------------------------------------------------------- */
     error HashesNotUpdated();
     error CannotSetNonceToZero();
     error InvalidRelaySignature();
@@ -13,6 +16,9 @@ abstract contract GCASalaryHelper {
     error InvalidShares();
     error SlashedAgentCannotClaimReward();
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
     /// @dev one week in seconds
     uint256 private constant ONE_WEEK = uint256(7 days);
 
@@ -30,6 +36,19 @@ abstract contract GCASalaryHelper {
     bytes32 public constant CLAIM_PAYOUT_RELAY_PERMIT_TYPEHASH =
         keccak256("ClaimPayoutRelay(address relayer,uint256 paymentNonce)");
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
+
+    ///  Private payment nonce.
+    /// Private payment nonce only needs to be incremented when a gca submits a new overriding comp plan.
+    /// The public paymentNonce() function is also incremented whenever there's a slash event
+    /// The public paymentNonce() function should be the _privatePaymentNonce + proposalHashes.length;
+    uint256 private _privatePaymentNonce;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   mappings                                  */
+    /* -------------------------------------------------------------------------- */
     //payment nonce -> gca index -> comp plan
     mapping(uint256 => mapping(uint256 => uint32[5])) private _paymentNonceToCompensationPlan;
     //payment nonce -> shift start timestamp
@@ -40,11 +59,6 @@ abstract contract GCASalaryHelper {
 
     /// @dev slashed agents cannot claim rewards
     mapping(address => bool) public isSlashed;
-    //  Private payment nonce.
-    /// Private payment nonce only needs to be incremented when a gca submits a new overriding comp plan.
-    /// The public paymentNonce() function is also incremented whenever there's a slash event
-    /// The public paymentNonce() function should be the _privatePaymentNonce + proposalHashes.length;
-    uint256 private _privatePaymentNonce;
 
     // paymentNonce -> keccak256(abi.encodePacked(address[]));
     mapping(uint256 => bytes32) private _paymentNonceToGCAs;
@@ -52,6 +66,9 @@ abstract contract GCASalaryHelper {
     /// @notice the next nonce to use in the relay signature
     mapping(address => uint256) public nextRelayNonce;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @param startingAgents the starting gca agents
      */
@@ -67,6 +84,10 @@ abstract contract GCASalaryHelper {
             }
         }
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               claiming payout                              */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev we don't need a deadline on the sig since the relayer cant make the funds go anywhere else,
      *             except for the user's address.
@@ -105,6 +126,9 @@ abstract contract GCASalaryHelper {
         _transferGlow(user, withdrawableAmount);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                view functions                              */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice returns the bytes32 digest used for the relay signature
      * @param relayer the relayer that is being granted permission
@@ -221,6 +245,10 @@ abstract contract GCASalaryHelper {
     function setZeroPaymentStartTimestamp() internal {
         _paymentNonceToShiftStartTimestamp[0] = _genesisTimestamp();
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                  internal                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice slashes an agent
      * @param user the user to slash
@@ -329,6 +357,9 @@ abstract contract GCASalaryHelper {
         }
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                         internal view/pure functions                       */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice returns the default comp plan for a gca agent
      * @param gcaIndex the index of the gca agent
@@ -340,16 +371,9 @@ abstract contract GCASalaryHelper {
         return shares;
     }
 
-    /**
-     * @dev returns the min of (a,b)
-     * @param a the first number
-     * @param b the second number
-     * @return min - the min of (a,b)
-     */
-    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
-    }
-
+    /* -------------------------------------------------------------------------- */
+    /*                            functions to override                           */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice claims glow from inflation
      * @dev the function must be overriden by the parent contract
@@ -382,6 +406,19 @@ abstract contract GCASalaryHelper {
      * @dev the function must be overriden by the parent contract
      */
     function _transferGlow(address to, uint256 amount) internal virtual;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                    utils                                   */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @dev returns the min of (a,b)
+     * @param a the first number
+     * @param b the second number
+     * @return min - the min of (a,b)
+     */
+    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
 
     /**
      * @notice More efficiently reverts with a bytes4 selector
