@@ -15,7 +15,7 @@ In addition to serving as a token to trade for GCC, GLOW also serves as a govern
 
 
 ## Governance Proposals
-Governance has 5 types of proposals. Proposals are created by spending nominations. The cost to create a proposal grows by 10% for each active proposal. Proposals are active for 16 weeks after they are created. Once created, other nomination holders can use their nominations to elect a proposal. Each week, the proposal with the most nominations is elected as the 'most popular proposal'. Once elected, there is a 4 week period in which the proposal is reviewed by the veto council and ratified/rejected by glow stakers. 
+Governance has 5 types of proposals. Proposals are created by spending nominations. The cost to create a proposal grows by 10% for each active proposal. Proposals are active for 16 weeks after they are created. Once created, other nomination holders can use their nominations to elect a proposal. Each week, the proposal with the most nominations is elected as the 'most popular proposal'. Once elected, there is a 4 week period in which the proposal is reviewed by the veto council and ratified/rejected by glow stakers. If the proposal is ratified and is not-vetoed by the veto council, its intents are acted upon and result in state changes for the ecosystem. Below are the 5 types of governance proposals.
 
 1. Veto Council Elections
     - A veto council election can at most add and remove exactly one council member at a time.
