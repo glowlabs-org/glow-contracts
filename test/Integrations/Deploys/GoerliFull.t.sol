@@ -80,7 +80,7 @@ contract GoerliFullDeploy is Test {
             address(treasury),
             address(glow)
         );
-        gcc.commitGCC(5 ether, tx.origin);
+        gcc.commitGCC(5 ether, tx.origin, 0);
         uint256 nextNominationCost = governance.costForNewProposal();
         governance.createChangeGCARequirementsProposal(keccak256("new requiremenents hash"), nextNominationCost);
         nextNominationCost = governance.costForNewProposal();

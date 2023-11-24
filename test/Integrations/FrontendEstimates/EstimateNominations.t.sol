@@ -120,7 +120,7 @@ contract EstimateNominationsTest is Test {
             uint256 amountNeeded = amount - gcc.balanceOf(from);
             gcc.mint(from, amountNeeded);
         }
-        gcc.commitGCC(amount, from);
+        gcc.commitGCC(amount, from, 0);
         vm.stopPrank();
     }
 
@@ -131,7 +131,7 @@ contract EstimateNominationsTest is Test {
             usdc.mint(from, amountNeeded);
         }
         usdc.approve(address(gcc), amount);
-        gcc.commitUSDC(amount, from);
+        gcc.commitUSDC(amount, from, 0);
         vm.stopPrank();
     }
 

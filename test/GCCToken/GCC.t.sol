@@ -23,6 +23,9 @@ import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {UnifapV2Pair} from "@unifapv2/UnifapV2Pair.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
+// @dev, to test the results for enough precision if you are saving the csv
+// run python3 repo-utils/commit-analysis/main.py to get the results
+
 bytes32 constant PERMIT_TYPEHASH =
     keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 uint256 constant GCC_MAGNIFICATION = 1e18;
@@ -665,17 +668,25 @@ contract GCCTest is Test {
     function test_commitGCC() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
-        gcc.commitGCC(100 ether, SIMON);
+        gcc.commitGCC(100 ether, SIMON, 0);
         // assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
         // assertEq(gcc.totalCreditsCommitted(SIMON), 1e20 ether);
         // assertEq(gcc.balanceOf(address(gcc)), 1e20 ether);
     }
 
+    function test_commitGCC_notEnoughNominationsShouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        //Should earn earned 74550935508537, so we add 1 and it should revert
+        vm.expectRevert(ImpactCatalyst.NotEnoughImpactPowerFromCommitment.selector);
+        gcc.commitGCC(100 ether, SIMON, 74550935508537 + 1);
+    }
+
     function test_commitGCC_GiveRewardsToOthers() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 1 ether);
-        (, uint256 impactPower) = gcc.commitGCC(1 ether, other);
+        (, uint256 impactPower) = gcc.commitGCC(1 ether, other, 0);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
         assertEq(gcc.totalImpactPowerEarned(other), impactPower);
@@ -696,7 +707,7 @@ contract GCCTest is Test {
                 1e20 ether //needed
             )
         );
-        gcc.commitGCCFor(SIMON, other, 1e20 ether);
+        gcc.commitGCCFor(SIMON, other, 1e20 ether, 0);
         vm.stopPrank();
     }
 
@@ -774,7 +785,7 @@ contract GCCTest is Test {
                 1e20 ether //needed
             )
         );
-        gcc.commitGCCFor(SIMON, other, 1e20 ether);
+        gcc.commitGCCFor(SIMON, other, 1e20 ether, 0);
         vm.stopPrank();
     }
 
@@ -787,7 +798,7 @@ contract GCCTest is Test {
         vm.startPrank(other);
         /// spender,allowance,needed
         vm.expectRevert(stdError.arithmeticError);
-        gcc.commitGCCFor(SIMON, other, 1e20 ether);
+        gcc.commitGCCFor(SIMON, other, 1e20 ether, 0);
         vm.stopPrank();
     }
 
@@ -800,7 +811,7 @@ contract GCCTest is Test {
         vm.stopPrank();
 
         vm.startPrank(other);
-        gcc.commitGCCFor(SIMON, other, 1 ether);
+        gcc.commitGCCFor(SIMON, other, 1 ether, 0);
         vm.stopPrank();
     }
 
@@ -813,7 +824,8 @@ contract GCCTest is Test {
         );
 
         vm.startPrank(other);
-        (, uint256 impactPower) = gcc.commitGCCForAuthorized(SIMON, other, 1 ether, block.timestamp + 1000, signature);
+        (, uint256 impactPower) =
+            gcc.commitGCCForAuthorized(SIMON, other, 1 ether, block.timestamp + 1000, signature, 0);
 
         assertEq(gcc.balanceOf(SIMON), 0);
         uint256 otherImpactPower = gcc.totalImpactPowerEarned(other);
@@ -832,7 +844,7 @@ contract GCCTest is Test {
 
         vm.startPrank(other);
         vm.expectRevert(IGCC.CannotReferSelf.selector);
-        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, block.timestamp + 1000, signature, SIMON);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, block.timestamp + 1000, signature, SIMON, 0);
     }
 
     function test_commitGCC_Signature_expirationInPast_shouldRevert() public {
@@ -849,7 +861,7 @@ contract GCCTest is Test {
         vm.warp(sigTimestamp + 1);
 
         vm.expectRevert(IGCC.CommitPermitSignatureExpired.selector);
-        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature, 0);
     }
 
     function test_commitGCC_Signature_badSignature_shouldFail() public {
@@ -864,7 +876,7 @@ contract GCCTest is Test {
 
         vm.startPrank(other);
         vm.expectRevert(IGCC.CommitSignatureInvalid.selector);
-        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp + 1, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp + 1, signature, 0);
     }
 
     function test_commitGCC_badSigner_shouldFail() public {
@@ -887,7 +899,7 @@ contract GCCTest is Test {
 
         vm.startPrank(other);
         vm.expectRevert(IGCC.CommitSignatureInvalid.selector);
-        gcc.commitGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1e20 ether, sigTimestamp, signature, 0);
     }
 
     function test_cannotincreaseCommitAllowanceByZero() public {
@@ -908,16 +920,16 @@ contract GCCTest is Test {
         );
 
         vm.startPrank(other);
-        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature, 0);
         vm.expectRevert(IGCC.CommitSignatureInvalid.selector);
-        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature);
+        gcc.commitGCCForAuthorized(SIMON, other, 1 ether, sigTimestamp, signature, 0);
     }
 
     function test_commitUSDC_referral() public {
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
-        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, address(0));
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, address(0), 0);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
         assertEq(gcc.totalImpactPowerEarned(SIMON), impactPower);
@@ -930,7 +942,7 @@ contract GCCTest is Test {
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
         vm.expectRevert(IGCC.CannotReferSelf.selector);
-        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, SIMON);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, SIMON, 0);
         vm.stopPrank();
     }
 
@@ -938,11 +950,22 @@ contract GCCTest is Test {
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
-        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, 0);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
         assertEq(gcc.totalImpactPowerEarned(SIMON), impactPower);
         assertEq(gov.nominationsOf(SIMON), impactPower);
+        vm.stopPrank();
+    }
+
+    function test_commitUSDC_notEnoughImpactPowerShouldRevert() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        //Should give us 261693317327390 impact power
+        //so we add 1 and it should revert
+        vm.expectRevert(ImpactCatalyst.NotEnoughImpactPowerFromCommitment.selector);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, 261693317327390 + 1);
         vm.stopPrank();
     }
 
@@ -951,7 +974,7 @@ contract GCCTest is Test {
         usdc.mint(SIMON, 1000 * 1e6);
         usdc.approve(address(gcc), 1000 * 1e6);
         address rewardAddress = address(0xffffaa);
-        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, rewardAddress);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, rewardAddress, 0);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
         assertEq(gcc.totalImpactPowerEarned(rewardAddress), impactPower);
@@ -967,7 +990,7 @@ contract GCCTest is Test {
         (uint8 v, bytes32 r, bytes32 s) =
             _signUSDCPermit(SIMON, address(gcc), 1000 * 1e6, usdc.nonces(SIMON), deadline, SIMON_PK);
 
-        uint256 impactPower = gcc.commitUSDCSignature(1000 * 1e6, SIMON, address(0), deadline, v, r, s);
+        uint256 impactPower = gcc.commitUSDCSignature(1000 * 1e6, SIMON, address(0), deadline, v, r, s, 0);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
         assertEq(gcc.totalImpactPowerEarned(SIMON), impactPower);
@@ -983,7 +1006,7 @@ contract GCCTest is Test {
         (uint8 v, bytes32 r, bytes32 s) =
             _signUSDCPermit(SIMON, address(gcc), 1000 * 1e6, usdc.nonces(SIMON), deadline, SIMON_PK);
         address rewardAddress = address(0xffffaa);
-        uint256 impactPower = gcc.commitUSDCSignature(1000 * 1e6, rewardAddress, address(0), deadline, v, r, s);
+        uint256 impactPower = gcc.commitUSDCSignature(1000 * 1e6, rewardAddress, address(0), deadline, v, r, s, 0);
         assertEq(gcc.balanceOf(SIMON), 0);
         //make sure i get neutrality
         assertEq(gcc.totalImpactPowerEarned(rewardAddress), impactPower);
@@ -1054,7 +1077,7 @@ contract GCCTest is Test {
         usdc.approve(address(uniswapRouter), 2000 * 1e6);
         gcc.approve(address(uniswapRouter), 1e20 ether);
 
-        gcc.commitGCC(50 ether, SIMON);
+        gcc.commitGCC(50 ether, SIMON, 0);
         vm.stopPrank();
         address swapper = address(gcc.IMPACT_CATALYST());
         console.log("swapper usdc balance after = ", IERC20(usdc).balanceOf(swapper));

@@ -61,11 +61,13 @@ contract BatchCommit {
      * @notice the entry point for committing GCC
      * @param amount the amount of GCC to commit
      * @param data the bytes that capture the breakdown of the commitments
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
+     *
      *         -   as mentioned in the contract description
      */
-    function commitGCC(uint256 amount, address rewardAddress, bytes calldata data) external {
+    function commitGCC(uint256 amount, address rewardAddress, uint256 minImpactPower, bytes calldata data) external {
         GCC.transferFrom(msg.sender, address(this), amount);
-        GCC.commitGCC(amount, rewardAddress);
+        GCC.commitGCC(amount, rewardAddress, minImpactPower);
         emit GCCEmission(data);
     }
 
@@ -77,14 +79,15 @@ contract BatchCommit {
      * @param amount the amount of USDC to commit
      * @param data the bytes that capture the breakdown of the commitments
      *         -   as mentioned in the contract description
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
      */
-    function commitUSDC(uint256 amount, address rewardAddress, bytes calldata data) external {
+    function commitUSDC(uint256 amount, address rewardAddress, uint256 minImpactPower, bytes calldata data) external {
         uint256 balBefore = USDC.balanceOf(address(this));
         USDC.transferFrom(msg.sender, address(this), amount);
         uint256 balAfter = USDC.balanceOf(address(this));
         uint256 amountToRetire = balAfter - balBefore;
         USDC.approve(address(GCC), amountToRetire);
-        GCC.commitUSDC(amountToRetire, rewardAddress);
+        GCC.commitUSDC(amountToRetire, rewardAddress, minImpactPower);
         emit USDCEmission(data);
     }
 }

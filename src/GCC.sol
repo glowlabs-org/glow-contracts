@@ -150,14 +150,14 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /**
      * @inheritdoc IGCC
      */
-    function commitGCC(uint256 amount, address rewardAddress, address referralAddress)
+    function commitGCC(uint256 amount, address rewardAddress, address referralAddress, uint256 minImpactPower)
         public
         returns (uint256 usdcEffect, uint256 impactPower)
     {
         //Transfer GCC from the msg.sender to the impact catalyst
         _transfer(_msgSender(), address(IMPACT_CATALYST), amount);
         //get back the amount of USDC that was used in the LP and the impact power earned
-        (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount);
+        (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount, minImpactPower);
         //handle the commitment
         _handleCommitment(_msgSender(), rewardAddress, amount, usdcEffect, impactPower, referralAddress);
     }
@@ -165,18 +165,24 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /**
      * @inheritdoc IGCC
      */
-    function commitGCC(uint256 amount, address rewardAddress) external returns (uint256, uint256) {
+    function commitGCC(uint256 amount, address rewardAddress, uint256 minImpactPower)
+        external
+        returns (uint256, uint256)
+    {
         //Same as above, but with no referrer
-        return (commitGCC(amount, rewardAddress, address(0)));
+        return (commitGCC(amount, rewardAddress, address(0), minImpactPower));
     }
 
     /**
      * @inheritdoc IGCC
      */
-    function commitGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress)
-        public
-        returns (uint256 usdcEffect, uint256 impactPower)
-    {
+    function commitGCCFor(
+        address from,
+        address rewardAddress,
+        uint256 amount,
+        address referralAddress,
+        uint256 minImpactPower
+    ) public returns (uint256 usdcEffect, uint256 impactPower) {
         //Transfer GCC `from` to the impact catalyst
         transferFrom(from, address(IMPACT_CATALYST), amount);
         //If the msg.sender is not `from`, then check and decrease the allowance
@@ -184,7 +190,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
             _decreaseCommitAllowance(from, _msgSender(), amount, false);
         }
         //get back the amount of USDC that was used in the LP and the impact power earned
-        (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount);
+        (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount, minImpactPower);
         //handle the commitment
         _handleCommitment(from, rewardAddress, amount, usdcEffect, impactPower, referralAddress);
     }
@@ -192,9 +198,12 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /**
      * @inheritdoc IGCC
      */
-    function commitGCCFor(address from, address rewardAddress, uint256 amount) public returns (uint256, uint256) {
+    function commitGCCFor(address from, address rewardAddress, uint256 amount, uint256 minImpactPower)
+        public
+        returns (uint256, uint256)
+    {
         //Same as above, but with no referrer
-        return (commitGCCFor(from, rewardAddress, amount, address(0)));
+        return (commitGCCFor(from, rewardAddress, amount, address(0), minImpactPower));
     }
 
     /**
@@ -206,7 +215,8 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         uint256 amount,
         uint256 deadline,
         bytes calldata signature,
-        address referralAddress
+        address referralAddress,
+        uint256 minImpactPower
     ) public returns (uint256, uint256) {
         //Check the deadline
         if (block.timestamp > deadline) {
@@ -230,7 +240,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
             _approve(from, _msgSender(), amount, false);
         }
         //Commit the GCC
-        return (commitGCCFor(from, rewardAddress, amount, referralAddress));
+        return (commitGCCFor(from, rewardAddress, amount, referralAddress, minImpactPower));
     }
 
     /**
@@ -241,16 +251,17 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         address rewardAddress,
         uint256 amount,
         uint256 deadline,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 minImpactPower
     ) external returns (uint256 usdcEffect, uint256 impactPower) {
         //Same as above, but with no referrer
-        return (commitGCCForAuthorized(from, rewardAddress, amount, deadline, signature, address(0)));
+        return (commitGCCForAuthorized(from, rewardAddress, amount, deadline, signature, address(0), minImpactPower));
     }
 
     /**
      * @inheritdoc IGCC
      */
-    function commitUSDC(uint256 amount, address rewardAddress, address referralAddress)
+    function commitUSDC(uint256 amount, address rewardAddress, address referralAddress, uint256 minImpactPower)
         public
         returns (uint256 impactPower)
     {
@@ -263,7 +274,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         //Calculate the actual amount of USDC available from the transfer (in case of fees since USDC is upgradable)
         uint256 usdcUsing = impactCatalystBalAfter - impactCatalystBalBefore;
         //get back the impaoct power earned
-        impactPower = IMPACT_CATALYST.commitUSDC(usdcUsing);
+        impactPower = IMPACT_CATALYST.commitUSDC(usdcUsing, minImpactPower);
         //handle the commitment
         _handleUSDCcommitment(_msgSender(), rewardAddress, amount, impactPower, referralAddress);
     }
@@ -271,9 +282,9 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /**
      * @inheritdoc IGCC
      */
-    function commitUSDC(uint256 amount, address rewardAddress) external returns (uint256) {
+    function commitUSDC(uint256 amount, address rewardAddress, uint256 minImpactPower) external returns (uint256) {
         //Same as above, but with no referrer
-        return (commitUSDC(amount, rewardAddress, address(0)));
+        return (commitUSDC(amount, rewardAddress, address(0), minImpactPower));
     }
 
     /**
@@ -286,7 +297,8 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         uint256 deadline,
         uint8 v,
         bytes32 r,
-        bytes32 s
+        bytes32 s,
+        uint256 minImpactPower
     ) external returns (uint256 impactPower) {
         // Execute the transfer with a signed authorization
         IERC20Permit paymentToken = IERC20Permit(USDC);
@@ -295,7 +307,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         if (allowance < amount) {
             paymentToken.permit(msg.sender, address(this), amount, deadline, v, r, s);
         }
-        return (commitUSDC(amount, rewardAddress, referralAddress));
+        return (commitUSDC(amount, rewardAddress, referralAddress, minImpactPower));
     }
 
     /* -------------------------------------------------------------------------- */

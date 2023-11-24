@@ -78,7 +78,7 @@ interface IGovernance {
         bytes data;
     }
 
-      /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------------------- */
     /*                                   events                                   */
     /* -------------------------------------------------------------------------- */
     /**
@@ -215,7 +215,6 @@ interface IGovernance {
      * @param success - whether or not the proposal was executed succesfully
      */
     event ProposalExecution(uint256 indexed week, uint256 proposalId, ProposalType proposalType, bool success);
-    
 
     /**
      * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC
@@ -245,6 +244,4 @@ interface IGovernance {
      * @param weekId the weekId of the gca election to endorse
      */
     function endorseGCAProposal(uint256 weekId) external;
-
-  
 }

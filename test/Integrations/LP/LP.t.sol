@@ -92,7 +92,7 @@ contract SmallLPTest is Test {
             uint256 amountNeeded = amount - gcc.balanceOf(from);
             gcc.mint(from, amountNeeded);
         }
-        gcc.commitGCC(amount, from);
+        gcc.commitGCC(amount, from, 0);
         vm.stopPrank();
     }
 

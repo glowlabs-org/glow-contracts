@@ -84,10 +84,11 @@ interface IGCC is IERC20 {
      *     -   Rewards Address earns:
      *     -       1.  Carbon Neutrality
      *     -       2.  Nominations
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
      * @return usdcEffect the amount of USDC used in the LP position
      * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      */
-    function commitGCC(uint256 amount, address rewardAddress)
+    function commitGCC(uint256 amount, address rewardAddress, uint256 minImpactPower)
         external
         returns (uint256 usdcEffect, uint256 impactPower);
 
@@ -99,10 +100,12 @@ interface IGCC is IERC20 {
      *     -       1.  Carbon Neutrality
      *     -       2.  Nominations
      * @param referralAddress the address that referred the account
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
+     *
      * @return usdcEffect the amount of USDC used in the LP position
      * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      */
-    function commitGCC(uint256 amount, address rewardAddress, address referralAddress)
+    function commitGCC(uint256 amount, address rewardAddress, address referralAddress, uint256 minImpactPower)
         external
         returns (uint256 usdcEffect, uint256 impactPower);
 
@@ -113,10 +116,14 @@ interface IGCC is IERC20 {
      *         - Carbon Neutrality
      *         - Nominations
      * @param amount the amount of credits to commit
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
+     *
      * @return usdcEffect the amount of USDC used in the LP position
      * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      */
-    function commitGCCFor(address from, address rewardAddress, uint256 amount) external returns (uint256, uint256);
+    function commitGCCFor(address from, address rewardAddress, uint256 amount, uint256 minImpactPower)
+        external
+        returns (uint256, uint256);
 
     /**
      * @notice the entry point for an approved entity to commit credits on behalf of a user
@@ -127,11 +134,17 @@ interface IGCC is IERC20 {
      * @param amount the amount of credits to commit
      * @param referralAddress - the address that referred the account
      * @param usdcEffect the amount of USDC used in the LP position
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
+     *
      * @param impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      */
-    function commitGCCFor(address from, address rewardAddress, uint256 amount, address referralAddress)
-        external
-        returns (uint256 usdcEffect, uint256 impactPower);
+    function commitGCCFor(
+        address from,
+        address rewardAddress,
+        uint256 amount,
+        address referralAddress,
+        uint256 minImpactPower
+    ) external returns (uint256 usdcEffect, uint256 impactPower);
 
     /**
      * @notice the entry point for an approved entity to commit credits on behalf of a user using EIP712 signatures
@@ -142,6 +155,8 @@ interface IGCC is IERC20 {
      * @param amount the amount of credits to commit
      * @param deadline the deadline for the signature
      * @param signature - the signature
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
+     *
      * @return usdcEffect the amount of USDC used in the LP position
      * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      */
@@ -150,7 +165,8 @@ interface IGCC is IERC20 {
         address rewardAddress,
         uint256 amount,
         uint256 deadline,
-        bytes calldata signature
+        bytes calldata signature,
+        uint256 minImpactPower
     ) external returns (uint256 usdcEffect, uint256 impactPower);
 
     /**
@@ -163,6 +179,8 @@ interface IGCC is IERC20 {
      * @param deadline the deadline for the signature
      * @param signature - the signature
      * @param referralAddress - the address that referred the account
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
+     *
      * @return usdcEffect the amount of USDC used in the LP position
      * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      */
@@ -172,7 +190,8 @@ interface IGCC is IERC20 {
         uint256 amount,
         uint256 deadline,
         bytes calldata signature,
-        address referralAddress
+        address referralAddress,
+        uint256 minImpactPower
     ) external returns (uint256 usdcEffect, uint256 impactPower);
 
     /**
@@ -180,9 +199,11 @@ interface IGCC is IERC20 {
      * @param amount the amount of USDC to commit
      * @param rewardAddress the address to commit the USDC to
      * @param referralAddress the address that referred the account
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
+     *
      * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      */
-    function commitUSDC(uint256 amount, address rewardAddress, address referralAddress)
+    function commitUSDC(uint256 amount, address rewardAddress, address referralAddress, uint256 minImpactPower)
         external
         returns (uint256 impactPower);
 
@@ -190,9 +211,13 @@ interface IGCC is IERC20 {
      * @notice Allows a user to commit USDC
      * @param amount the amount of USDC to commit
      * @param rewardAddress the address to commit the USDC to
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
+     *
      * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      */
-    function commitUSDC(uint256 amount, address rewardAddress) external returns (uint256 impactPower);
+    function commitUSDC(uint256 amount, address rewardAddress, uint256 minImpactPower)
+        external
+        returns (uint256 impactPower);
 
     /**
      * @notice Allows a user to commit USDC using permit
@@ -203,6 +228,8 @@ interface IGCC is IERC20 {
      * @param v the v value of the signature for permit
      * @param r the r value of the signature for permit
      * @param s the s value of the signature for permit
+     * @param minImpactPower - the minimum amount of impact power to receive from the commitment
+     *
      * @return impactPower - sqrt(amount gcc used in lp * amountc usdc used in lp) aka nominations granted
      */
     function commitUSDCSignature(
@@ -212,7 +239,8 @@ interface IGCC is IERC20 {
         uint256 deadline,
         uint8 v,
         bytes32 r,
-        bytes32 s
+        bytes32 s,
+        uint256 minImpactPower
     ) external returns (uint256 impactPower);
 
     /* -------------------------------------------------------------------------- */
