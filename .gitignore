@@ -13,3 +13,24 @@ artifacts/
 typechain-types/
 
 report/
+
+lcov.info
+
+.env
+countlines.py
+cloc.md 
+gen_cloc.py
+cloc_outputs
+
+swap-errors.csv
+gcc.csv
+gcc2.csv
+swap-succeses.csv
+exec.py
+swap-succeses-usdc.csv
+simulations.csv
+abis
+utils/
+cloc-table.md
+
+test/EarlyLiquidity/data/

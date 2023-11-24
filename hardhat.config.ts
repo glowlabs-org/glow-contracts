@@ -3,6 +3,10 @@ import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "hardhat-preprocessor";
 import { HardhatUserConfig, task } from "hardhat/config";
+import "hardhat-gas-reporter"
+import 'solidity-docgen';
+import "@nomiclabs/hardhat-solhint";
+
 
 import example from "./tasks/example";
 
@@ -26,6 +30,14 @@ const config: HardhatUserConfig = {
       },
     },
   },
+  //@ts-ignore
+  docgen : {
+
+  },
+  //@ts-ignore
+  gasReporter: {
+    enabled:true,
+  },
   paths: {
     sources: "./src", // Use ./src rather than ./contracts as Hardhat expects
     cache: "./cache_hardhat", // Use a different cache for Hardhat than Foundry
@@ -45,6 +57,9 @@ const config: HardhatUserConfig = {
       },
     }),
   },
+  mocha:{
+    timeout: 400_000_000
+  }
 };
 
 export default config;
