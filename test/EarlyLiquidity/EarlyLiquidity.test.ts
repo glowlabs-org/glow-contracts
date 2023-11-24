@@ -32,12 +32,11 @@ const csvHeaders = [
   'divergencePercent',
 ];
 
-
 type ClaimLeaf = {
-  address:string,
-  w1:string,
-  w2:string,
-}
+  address: string;
+  w1: string;
+  w2: string;
+};
 
 /***
  * @dev staging function to deploy contracts and mint USDC to the signer.
@@ -53,30 +52,40 @@ async function stage() {
   await mockUSDC.deployed();
 
   const holdingContract = await ethers.getContractFactory('HoldingContract');
-  const vetoCouncilPlaceholderAddress = '0x591749484BFb1737473bf1E7Bb453257BdA452A9';
+  const vetoCouncilPlaceholderAddress =
+    '0x591749484BFb1737473bf1E7Bb453257BdA452A9';
   const holding = await holdingContract.deploy(vetoCouncilPlaceholderAddress);
-
 
   // Mint USDC to signer
   await mockUSDC.mint(signer.address, STARTING_USDC_BALANCE);
   const EarlyLiquidity = await ethers.getContractFactory('EarlyLiquidity');
-  const earlyLiquidity = await EarlyLiquidity.deploy(mockUSDC.address,holding.address);
+  const earlyLiquidity = await EarlyLiquidity.deploy(
+    mockUSDC.address,
+    holding.address,
+  );
   await earlyLiquidity.deployed();
   const MockGlow = await ethers.getContractFactory('TestGLOW');
   //Random vesting contract address
   const vestingContractPlaceholderAddress =
-  '0x591749484BFb1737473bf1E7Bb453257BdA452A9';
+    '0x591749484BFb1737473bf1E7Bb453257BdA452A9';
   const mockGlow = await MockGlow.deploy(
     earlyLiquidity.address,
     vestingContractPlaceholderAddress,
-    );
-    await mockGlow.deployed();
+  );
+  await mockGlow.deployed();
 
-    //----------------- DEPLOY MINER POOL -----------------
-    const MinerPool = await ethers.getContractFactory('EarlyLiquidityMockMinerPool');
-    const minerPool = await MinerPool.deploy(earlyLiquidity.address,mockGlow.address,mockUSDC.address,holding.address);
-    await minerPool.deployed();
-    await earlyLiquidity.setMinerPool(minerPool.address);
+  //----------------- DEPLOY MINER POOL -----------------
+  const MinerPool = await ethers.getContractFactory(
+    'EarlyLiquidityMockMinerPool',
+  );
+  const minerPool = await MinerPool.deploy(
+    earlyLiquidity.address,
+    mockGlow.address,
+    mockUSDC.address,
+    holding.address,
+  );
+  await minerPool.deployed();
+  await earlyLiquidity.setMinerPool(minerPool.address);
   await earlyLiquidity.setGlowToken(mockGlow.address);
   return { earlyLiquidity, mockUSDC, mockGlow, signer, other };
 }
@@ -108,7 +117,6 @@ describe('Test: Early Liquidity', function () {
           earlyLiquidity.address,
         );
 
-
         //Divide by 1e16 to get the number of increments left in the EL contract.
         const earlyLiquidityGlowBalanceDiv1e16 =
           earlyLiquidityGlowBalanceBN.div(BigNumber.from(10).pow(16));
@@ -122,25 +130,23 @@ describe('Test: Early Liquidity', function () {
           earlyLiquidityGlowBalanceDiv1e16,
         );
 
-        
-
         // console.log(`increments to buy: ${incrementsToBuy.toString()}`)
         const totalCostFromContract =
-        await earlyLiquidity.getPrice(incrementsToBuy);
+          await earlyLiquidity.getPrice(incrementsToBuy);
 
         //Get the price from the local function
-        const totalSold = ((await earlyLiquidity.totalSold()).div(`${1e16}`)).toNumber();
+        const totalSold = (await earlyLiquidity.totalSold())
+          .div(`${1e16}`)
+          .toNumber();
         //This gets me totalSold / 1e16, I want to get these in decimal format, so i need to divide by 1e16 again
         const totalCostLocal = getPriceOfTokens(
           totalSold,
           incrementsToBuy.toNumber(),
         );
 
-        const ff = Array.from({length: 40}, () => 'f').join('');
+        const ff = Array.from({ length: 40 }, () => 'f').join('');
 
-
-
-        //An increment is .01 tokens, so the tota amount of tokens we are buying is equal to 
+        //An increment is .01 tokens, so the tota amount of tokens we are buying is equal to
         // For example, 100 increments is equal to 1 token
         const tokensToBuy = incrementsToBuy.toNumber() / 100;
 
@@ -150,17 +156,23 @@ describe('Test: Early Liquidity', function () {
           BigNumber.from(`${totalCostLocal}`),
         );
         if (diverges) {
-          console.log(`total tokens sold: ${totalSold}`)
-          console.log(`expected (local result) ${totalCostLocal.toString()} USDC`);
-          console.log(`got (contract result) ${totalCostFromContract.toString()} USDC`);
+          console.log(`total tokens sold: ${totalSold}`);
+          console.log(
+            `expected (local result) ${totalCostLocal.toString()} USDC`,
+          );
+          console.log(
+            `got (contract result) ${totalCostFromContract.toString()} USDC`,
+          );
           console.log(
             `Diverged by ${totalCostFromContract
               .sub(totalCostLocal)
               .abs()
               .toString()} USDC`,
           );
-          console.log(`total cost from local: \n totalSold: ${totalSold} \n incrementsToBuy: ${incrementsToBuy.toNumber()}`)
-          console.log(`total cost from contract \n totalSold:  `)
+          console.log(
+            `total cost from local: \n totalSold: ${totalSold} \n incrementsToBuy: ${incrementsToBuy.toNumber()}`,
+          );
+          console.log(`total cost from contract \n totalSold:  `);
           // console.log(`inputs ti total cost local, `)
         }
         const message = `Diverged by ${totalCostFromContract}`;
@@ -202,10 +214,7 @@ describe('Test: Early Liquidity', function () {
           ]);
         }
         //Purchase the tokens
-        await earlyLiquidity.buy(
-          incrementsToBuy,
-          totalCostFromContract,
-        );
+        await earlyLiquidity.buy(incrementsToBuy, totalCostFromContract);
         totalTokensSold += tokensToBuy;
         const signerGlowBalanceAfter = await mockGlow.balanceOf(signer.address);
         const signerUSDCBalanceAfter = await mockUSDC.balanceOf(signer.address);
@@ -282,11 +291,11 @@ function getPriceOfToken(totalTokensSold: number): number {
 function getRandomBigNumberWithUpperBound(upperBound: BigNumber) {
   //If upperbound is 1 return 1, this is to ensure all tokens are sold
   if (upperBound.eq(1)) return BigNumber.from(1);
-  
+
   //max tokens we can buy in one go is 400_000
   //each increment is .01 tokens, so that would be 40_000_000 increments
   //15427135
-  const asda =   15_427_135
+  const asda = 15_427_135;
   const maxVal = 40_000_000;
   const upperBoundRevised = upperBound.gt(maxVal)
     ? BigNumber.from(`${maxVal}`)
@@ -315,7 +324,6 @@ function divergeMoreThanDivergencePercent(
   return percentDiff.gt(MAX_DIVERGENCE_PERCENT_E5);
 }
 
-
 function geometricSeriesSum(
   startingValue: number,
   ratio: number,
@@ -323,26 +331,19 @@ function geometricSeriesSum(
 ): number {
   return startingValue * ((1 - ratio ** numTerms) / (1 - ratio));
 }
-const incrementsToBuy = 15971269
+const incrementsToBuy = 15971269;
 // console.log(getPriceOfTokens(0, 15971269).toString())
 // console.log(getPriceOfToken(100_000_000))
 
 const ratio = 1.0000000069314718;
 
-
-
 const getPriceOfTokens = (totalTokensSold: number, totalToBuy: number) => {
-  const firstTerm = .001 * 2 ** (totalTokensSold / 100_000_000);
-  const price = geometricSeriesSum(
-    firstTerm,
-    ratio,
-    totalToBuy,
-  );
-  //Strong change this may 
+  const firstTerm = 0.001 * 2 ** (totalTokensSold / 100_000_000);
+  const price = geometricSeriesSum(firstTerm, ratio, totalToBuy);
+  //Strong change this may
   //We need to multiply by 1e6 to account for the floating point math adjustment
   return Math.floor(price * 1e6);
-}
-
+};
 
 /**
 Test: Early Liquidity

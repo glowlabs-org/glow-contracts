@@ -22,7 +22,7 @@ gen-html :;  make gen-lcov && genhtml -o report --branch-coverage lcov.info --ig
 run-coverage :; forge coverage;
 test.no.ffi :;  forge test --no-match-test "test_MinerPoolFFI"
 test.ffi :; forge test --ffi 
-test :; forge test --ffi -vv
+test.all :; forge test --ffi -vv && make hardhat-test
 
 # --- [ Specific Tests ] -----------------------------------------------------------------------------------
 test.minerpool.math :; forge test --match-path test/temp/MinerDistributionMath.t.sol -vvv --ffi
@@ -60,7 +60,15 @@ solhint :; find ./src -type f \( -name "*.sol"  \
 
 
 cloc:
-	@FILES=$$(find ./src -type f \( -name "*.sol" ! -path "./src/temp/*" ! -path "./src/testing/*" ! -path "./src/libraries/ABDKMath64x64.sol" ! -path "./src/MinerPoolAndGCA/mock/*" \)); \
+	@FILES=$$(find ./src -type f \( -name "*.sol"  \
+	 ! -path "./src/temp/*" ! -path "./src/testing/*" \
+	 ! -path "./src/libraries/ABDKMath64x64.sol" \
+	 ! -path "./src/MinerPoolAndGCA/mock/*" \
+	 ! -path "./src/UnifapV2/*" \
+	 ! -path "./src/libraries/UniswapV2Library.sol" \
+	 ! -path "./src/interfaces/IUniswapV2Pair.sol" \
+	 ! -path "./src/interfaces/IUniswapRouterV2.sol" \
+	 ! -path "./src/UniswapV2/*" \)); \
 	if [ -n "$$FILES" ]; then \
 		for file in $$FILES; do \
 			echo "Processing $$file"; \
@@ -69,4 +77,5 @@ cloc:
 		done; \
 	else \
 		echo "No files found."; \
-	fi
+	fi \
+	&& python3 repo-utils/cloc/gen-markdown-table.py

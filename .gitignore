@@ -31,3 +31,6 @@ swap-succeses-usdc.csv
 simulations.csv
 abis
 utils/
+cloc-table.md
+
+test/EarlyLiquidity/data/
