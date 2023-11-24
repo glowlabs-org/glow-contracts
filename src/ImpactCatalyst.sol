@@ -88,6 +88,7 @@ contract ImpactCatalyst {
      *         3. The caller receives 2x the amount of USDC received from the swap in nominations
      *     - The point is to commit the GCC while adding liquidity to increase incentives for farms
      * @param amount the amount of GCC to commit
+     * @param minImpactPower the minimum amount of impact power expected to be earned from the commitment
      * @return usdcEffect - the amount of USDC used in the LP Position
      * @return nominations - the amount of nominations to earn sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
      *                        - we do this to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
@@ -109,7 +110,7 @@ contract ImpactCatalyst {
         //This ensures that the the return amount of USDC after the swap
         //Should be exactly enough to add liquidity to the GCC-USDC pool with the remainder of `amount` of GCC left over
         (uint256 amountToSwap, uint256 amountToAddInLiquidity, uint256 expectedImpactPower) =
-            _estimateGCCCommitImpactPower(amount);
+            _calculateGCCCommitVars(amount);
         if (expectedImpactPower < minImpactPower) {
             _revert(NotEnoughImpactPowerFromCommitment.selector);
         }
@@ -147,7 +148,7 @@ contract ImpactCatalyst {
      *         2. GCC and USDC are added to the GCC-USDC pool
      *         3. The caller `amount` of USDC used / committed
      * @param amount the amount of USDC to commit
-     * @dev no need to return anything as the caller is the GCC contract and knows how much USDC was used
+     * @param minImpactPower the minimum amount of impact power expected to be earned from the commitment
      * @return nominations - the amount of nominations to earn sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
      *                        - we do this to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
      */
@@ -164,7 +165,7 @@ contract ImpactCatalyst {
         //This ensures that the the return amount of GCC after the swap
         //Should be exactly enough to add liquidity to the GCC-USDC pool with the remainder of `amount` of USDC left over
         (uint256 optimalSwapAmount, uint256 amountToAddInLiquidity, uint256 expectedImpactPower) =
-            _estimateUSDCCommitImpactPower(amount);
+            _calculateUSDCCommitVars(amount);
         if (expectedImpactPower < minImpactPower) {
             _revert(NotEnoughImpactPowerFromCommitment.selector);
         }
@@ -190,13 +191,23 @@ contract ImpactCatalyst {
     /*                                 view functions                             */
     /* -------------------------------------------------------------------------- */
 
+    /**
+     * @notice a helper function to estimate the impact power expected from a GCC commit
+     * @param amount the amount of GCC to commit
+     * @return expectedImpactPower - the amount of impact power expected to be earned from the commitment
+     */
     function estimateUSDCCommitImpactPower(uint256 amount) external view returns (uint256 expectedImpactPower) {
-        (,, expectedImpactPower) = _estimateUSDCCommitImpactPower(amount);
+        (,, expectedImpactPower) = _calculateUSDCCommitVars(amount);
         return expectedImpactPower;
     }
 
+    /**
+     * @notice a helper function to estimate the impact power expected from a USDC commit
+     * @param amount the amount of USDC to commit
+     * @return expectedImpactPower - the amount of impact power expected to be earned from the commitment
+     */
     function estimateGCCCommitImpactPower(uint256 amount) external view returns (uint256 expectedImpactPower) {
-        (,, expectedImpactPower) = _estimateGCCCommitImpactPower(amount);
+        (,, expectedImpactPower) = _calculateGCCCommitVars(amount);
         return expectedImpactPower;
     }
 
@@ -224,13 +235,13 @@ contract ImpactCatalyst {
     /*                               internal view funcs                          */
     /* -------------------------------------------------------------------------- */
     /**
-     * @notice estimates how many nominations will be earned if `amount` of USDC is committed
+     * @notice returns {optimalSwapAmount, amountToAddInLiquidity, impactPowerExpected} for an USDC commit
      * @param amount the amount of USDC to commit
      * @return optimalSwapAmount - the optimal amount of USDC to swap for GCC
      * @return amountToAddInLiquidity - the amount of USDC to add to the liquidity position
      * @return impactPowerExpected - the amount of impact power expected to be earned from the commitment
      */
-    function _estimateUSDCCommitImpactPower(uint256 amount)
+    function _calculateUSDCCommitVars(uint256 amount)
         internal
         view
         returns (uint256 optimalSwapAmount, uint256 amountToAddInLiquidity, uint256 impactPowerExpected)
@@ -247,13 +258,13 @@ contract ImpactCatalyst {
     }
 
     /**
-     * @notice estimates how many nominations will be earned if `amount` of GCC is committed
+     * @notice returns {optimalSwapAmount, amountToAddInLiquidity, impactPowerExpected} for a GCC commit
      * @param amount the amount of GCC to commit
      * @return optimalSwapAmount - the optimal amount of GCC to swap
      * @return amountToAddInLiquidity - the amount of GCC to add to the liquidity position
      * @return impactPowerExpected - the amount of impact power expected to be earned from the commitment
      */
-    function _estimateGCCCommitImpactPower(uint256 amount)
+    function _calculateGCCCommitVars(uint256 amount)
         internal
         view
         returns (uint256 optimalSwapAmount, uint256 amountToAddInLiquidity, uint256 impactPowerExpected)
