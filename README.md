@@ -111,6 +111,9 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
     - When new GCC is added, all pending vesting amounts and the new amount are vested over the course of a week
     - There is no cap on the amount of GCC that can be purchased in a single transaction
 
+## Simple Flow
+<img src="./assets/glow-flow-diagram.png"></img>
+
 | Contract | LOC | Comments |
 | --- | --- | --- |
 | IGrantsTreasury.sol | 13 | 51 |
