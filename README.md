@@ -8,12 +8,15 @@ At the heart of the protocol are 2 ERC-20 tokens GLOW and GCC (Glow Carbon Credi
 
 Every week, appointed GCAs (Glow Certification Agents) report the carbon offset performed by the registered solar farms to the protocol. Solar farms are rewarded in GLOW and USDC based on their production tbat is reported every week, and GCC is minted according to the amount specified in the reports. The GCAs are also awarded with a fixed amount of GLOW every week from the inflation.
 
-The GCAs are appointed and overseen by the protocol’s governance. To combat fraudulent reporting - a council (the Veto Council) is appointed with the power to delay the finalization of the reports. 
+The GCAs are appointed and overseen by the protocol’s governance. To combat fraudulent reporting - a council (the Veto Council) is appointed with the power to delay the finalization of the reports.
 
 In addition to serving as a token to trade for GCC, GLOW also serves as a governing token governing the entire Glow protocol. Holders of GLOW are able to stake GLOW to obtain ratify/reject votes that can be used to ratify/reject proposals that have been selected for review. Examples of proposals available to be created and voted on include:
 
 
+
 ## Governance Proposals
+Governance has 5 types of proposals. Proposals are created by spending nominations. The cost to create a proposal grows by 10% for each active proposal. Proposals are active for 16 weeks after they are created. Once created, other nomination holders can use their nominations to elect a proposal. Each week, the proposal with the most nominations is elected as the 'most popular proposal'. Once elected, there is a 4 week period in which the proposal is reviewed by the veto council and ratified/rejected by glow stakers. 
+
 1. Veto Council Elections
     - A veto council election can at most add and remove exactly one council member at a time.
     - There are at most 7 veto council members at one point in time.
@@ -32,7 +35,7 @@ In addition to serving as a token to trade for GCC, GLOW also serves as a govern
 4. Request For Comment Proposals
     - When an RFC proposal is passed, veto council members must give written feedback on the RFC contents
     - RFC proposals do not have to be ratified by glow stakers
-    - RFC Proposals can in theory be vetoed, but they are assumed valid the second they are selected
+    - RFC Proposals can in theory be vetoed, but they are assumed valid once they get selected as the most popular proposal of the week.
 5. Change GCA Requirements
     -  This proposal type changes the requirements that the GCA's should adhere to
     -  Requires ratification from glow stakers
