@@ -22,6 +22,7 @@ import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {UnifapV2Pair} from "@unifapv2/UnifapV2Pair.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 
 // @dev, to test the results for enough precision if you are saving the csv
 // run python3 repo-utils/commit-analysis/main.py to get the results
@@ -89,6 +90,38 @@ contract GCCTest is Test {
         // address pairFromFactory = unifactory.pairs(_usdc, address(this));
         // console.log("pair from factory = %s", pairFromFactory);
         // targetSender(GCA_AND_MINER_POOL_CONTRACT);
+    }
+
+    function test_simonaa() public {
+        uniswapFactory = new UnifapV2Factory();
+        weth = new WETH9();
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+        usdc = new MockUSDC();
+        // mainnetFork = vm.createFork(forkUrl);
+        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glw = address(glwContract);
+        (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
+        gov = new Governance();
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
+        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
+
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = Handler.mintToCarbonCreditAuction.selector;
+        FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
+
+        bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));
+        console.logBytes32(initCodePair);
+
+        targetContract(address(handler));
+        seedLP(400 ether, 1000 * 1e6);
+        address pair = uniswapFactory.pairs(address(usdc), address(gcc));
+
+        (uint256 reserveA, uint256 reserveB,) = UnifapV2Pair(pair).getReserves();
+
+        uint256 amountOut = UniswapV2Library.getAmountOut(200 ether, 400 ether, 1000 * 1e6);
+        console.log("amount out = %s", amountOut);
     }
 
     /**
