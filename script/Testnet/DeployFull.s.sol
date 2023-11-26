@@ -22,7 +22,7 @@ string constant fileToWriteTo = "deployedContractsGoerli.json";
 
 contract DeployFull is Test, Script {
     bytes32 gcaRequirementsHash = keccak256("my hash good ser");
-    address vestingContract = tx.origin;
+    address vestingContract = address(0xE414D49268837291fde21c33AD7e30233b7041C2);
 
     MockUSDC mockUSDC;
     EarlyLiquidity earlyLiquidity;

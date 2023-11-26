@@ -19,7 +19,7 @@ interface IDecimals {
  * @author twitter: @0xSimon github: @0xSimbo
  * @notice This contract allows users to buy Glow tokens with USDC
  * @dev the cost of glow rises exponentially with the amount of glow sold
- *         -  The price at increment x = 0.006 * 2^((x)/ 100_000_000)
+ *         -  The price at increment x = 0.001 * 2^((x)/ 100_000_000)
  *            - if the function above to get price of increment x if f(x)
  *            - Then, the price to buy y tokens is Σ f(x) from x = the total increments sold, to x = the total increments sold + y
  *            - For example, to buy the first ten increments, (aka the first .1 tokens), the price is
@@ -29,8 +29,6 @@ interface IDecimals {
  * @dev to calculate the price for y tokens in real time, we use the sum of a geometric series which allows us
  *         - to efficiently calculate the price of y tokens in real time rather than looping through all the increments
  */
-
-//TODO: change comments to match .001
 
 contract EarlyLiquidity is IEarlyLiquidity {
     using ABDKMath64x64 for int128;
@@ -240,7 +238,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
      * @param totalIncrementsSold The total amount of .01 increments sold
      * @param incrementsToBuy The amount of .01 increments to buy
      * @return price price of the increments to purchase in USDC
-     * @dev since our increments are in .01, the function evaluates to Σ .006 * 2^((incrementId)/ 100_000_000)
+     * @dev since our increments are in .01, the function evaluates to Σ .001 * 2^((incrementId)/ 100_000_000)
      *         - for increment id = totalIncrementsSold  id: to incrementId = incrementsToBuy
      *         - rounding errors do occur due to floating point math, but divergence is sub 1e-7
      */
@@ -291,12 +289,11 @@ contract EarlyLiquidity is IEarlyLiquidity {
         //The maximum value of rToTheN is e^(1,200,000,000 * ln(r)) = e^8.317766180304424 = 4096.000055644491
         //The maximum value of numerator is 1 -  4096 = -4095
         //The maximum value of divisionResult is -4095 / -0.0000000069314718  = 590,783,619,721.2834
-        //The maximum value of firstTermInSeries is 6000 * 2^12 = 24576000
-        //The maximum value of geometricSeries is 24576000 * 590,783,619,721.2834  = 14,499,840,000,783,619,721
+        //The maximum value of firstTermInSeries is 1000 * 2^12 = 4096000
+        //The maximum value of geometricSeries is 4096000 * 590,783,619,721.2834  = 2.419849706378377e+18
         //This cant overflow since it's < 2^63-1
     }
 
-    //TODO: fix all the math explanation now that we switched to .1 starting price
     /**
      *   @notice Calculates the first term in the geometric series for the current price of the current token
      *  @param totalIncrementsSold - the total number of increments that have already been sold
@@ -317,7 +314,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
         // because of the earlier logarithmic transformation.
         int128 baseResult = ABDKMath64x64.exp(exponent);
 
-        // Multiply the result by 0.006, where '_POINT_ZERO_ZERO_ONE' is the fixed-point representation of 0.006.
+        // Multiply the result by 0.001, where '_POINT_ZERO_ZERO_ONE' is the fixed-point representation of 0.001.
         int128 result = _POINT_ZERO_ZERO_ONE.mul(baseResult);
 
         // The following comments are for the purpose of explaining why the code cannot overflow.
@@ -328,7 +325,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
         //Max value of baseResult possible is e^8.316 = 4,089 (rounded up)
         //The max input that baseResult can take in is 43 since (e^44 > type(64x64).max > e^43)
         //We will never cause an overflow in the exponent calculation
-        //Max value of result is 6,000 * 4,088 = 2,453,000,000 approx 2.5e9
+        //Max value of result is 1,000 * 4,088 = 4088000
         //This is well within the range of 2^63-1 = 9,223,372,036,854,775,807 approx 9.223372e+18
         // Return the final result.
         return result;
