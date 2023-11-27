@@ -14,6 +14,7 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.6",
+    "@nomiclabs/hardhat-solhint": "^3.0.1",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@typechain/ethers-v5": "^10.0.0",
     "@typechain/hardhat": "^6.0.0",
@@ -34,6 +35,7 @@
   },
   "dependencies": {
     "@openzeppelin/merkle-tree": "^1.0.5",
+    "bignumber.js": "^9.1.2",
     "dotenv": "^16.3.1",
     "keccak256": "^1.0.6",
     "lodash": "^4.17.21",

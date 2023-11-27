@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -32,7 +32,19 @@ interface IHoldingContract {
     function setMinerPool(address _minerPool) external;
 }
 
+/**
+ * @title HoldingContract
+ * @notice This contract is used to hold tokens for users
+ *         - This contract holds all GRC tokens that are part of the protocol
+ *         - Once farms withdraw, there is a 1 week delay before they can claim their tokens
+ *         - The Miner Pool Contract assigns these holdings as part of the withdraw process
+ *         - Veto Agents can delay all withdrawals by 13 weeks
+ *         - A holding can be max delayed for 97 days
+ */
 contract HoldingContract {
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                   */
+    /* -------------------------------------------------------------------------- */
     error OnlyMinerPoolCanAddHoldings();
     error WithdrawalNotReady();
     error CallerMustBeVetoCouncilMember();
@@ -41,6 +53,9 @@ contract HoldingContract {
     error AlreadyWithdrawnFromHolding();
     error MinerPoolAlreadySet();
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice the default delay for withdrawals
      * @dev the default delay is 7 days
@@ -62,18 +77,25 @@ contract HoldingContract {
     uint256 public constant VETO_HOLDING_DELAY = uint256(13 weeks);
 
     /**
-     * @dev a cached version of 10 days in seconds
+     * @dev a cached version of five weeks in seconds
      * @dev used in delayNetwork to ensure that the network can only be delayed every 8 weeks
      * @dev This helps prevent bad veto agents from spamming the delay network function
      *         - by giving governance enough time to kick out the veto agent
      */
     uint256 public constant FIVE_WEEKS = uint256(5 weeks);
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 immutables                                 */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice the address of the veto council
      * @dev veto council members can delay the network
      */
     IVetoCouncil public immutable VETO_COUNCIL;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice the address of the miner pool
@@ -87,6 +109,9 @@ contract HoldingContract {
      */
     uint256 public minimumWithdrawTimestamp;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   mappings                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice the holdings for each user
      *     Note: We could have chosen an array of holdings
@@ -99,6 +124,9 @@ contract HoldingContract {
      */
     mapping(address => mapping(address => Holding)) private _holdings;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   events                                  */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev emitted when there is a network delay
      * @param vetoAgent the address of the veto agent that delayed the network
@@ -117,12 +145,20 @@ contract HoldingContract {
      */
     event HoldingAdded(address indexed user, address indexed token, uint192 amount);
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
+
     /**
      * @param _vetoCouncil the address of the veto council
      */
-    constructor(address _vetoCouncil) {
+    constructor(address _vetoCouncil) payable {
         VETO_COUNCIL = IVetoCouncil(_vetoCouncil);
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                    delay                                   */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice allows veto council members to delay the network by 13 weeks
@@ -137,7 +173,7 @@ contract HoldingContract {
             return;
         }
         if (block.timestamp < _minimumWithdrawTimestamp) {
-            //The block.timestamp needs to be within 10 days of
+            //The block.timestamp needs to be within 5 weeks of
             //minimumWithdrawTimestamp
             uint256 timeLeftInDelay = _minimumWithdrawTimestamp - block.timestamp;
             if (timeLeftInDelay > FIVE_WEEKS) {
@@ -147,6 +183,10 @@ contract HoldingContract {
 
         minimumWithdrawTimestamp = block.timestamp + VETO_HOLDING_DELAY;
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   claim                                    */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice entrypoint to claim holdings
@@ -158,27 +198,11 @@ contract HoldingContract {
     function claimHoldings(ClaimHoldingArgs[] memory args) external {
         //If the network is frozen, don't allow withdrawals
         bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
-
         //Loop over all the arguments
         for (uint256 i; i < args.length; ++i) {
             ClaimHoldingArgs memory arg = args[i];
             Holding memory holding = _holdings[arg.user][arg.token];
-            if (block.timestamp < holding.expirationTimestamp) {
-                _revert(WithdrawalNotReady.selector);
-            }
-            //Can't underflow because of the check above
-            //No claim should be able to be held for more than 97 days
-            //If it's been less than than 97 days since the proposal has expired,
-            //(expiration timestamp is always claim timestamp + 1 week, so )
-            //in order for proposal to be held maximum 97 days,
-            //We need to check if the diff is 90 days
-            if (block.timestamp - holding.expirationTimestamp < NINETY_DAYS) {
-                //If it's been less than 90 days and the network is frozen,
-                //we need to revert
-                if (networkIsFrozen) {
-                    _revert(NetworkIsFrozen.selector);
-                }
-            }
+            checkHoldingAvailable(holding, networkIsFrozen);
             //Delete the holding args.
             //Should set all the data to zero.
             delete _holdings[arg.user][arg.token];
@@ -187,15 +211,17 @@ contract HoldingContract {
         }
     }
 
+    /**
+     * @notice entrypoint to claim a single holding
+     * @param user the address of the user
+     * @param token the address of the grc token to withdraw
+     * @dev should be used if the user only wants to claim their holding
+     */
     function claimHoldingSingleton(address user, address token) external {
+        bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
         //If the network is frozen, don't allow withdrawals
-        if (block.timestamp < minimumWithdrawTimestamp) {
-            _revert(NetworkIsFrozen.selector);
-        }
         Holding memory holding = _holdings[user][token];
-        if (block.timestamp < holding.expirationTimestamp) {
-            _revert(WithdrawalNotReady.selector);
-        }
+        checkHoldingAvailable(holding, networkIsFrozen);
         //Delete the holding args.
         //Should set all the data to zero.
         delete _holdings[user][token];
@@ -203,28 +229,9 @@ contract HoldingContract {
         SafeERC20.safeTransfer(IERC20(token), user, holding.amount);
     }
 
-    /**
-     * @notice a one time setter to set the miner pool
-     * @dev the miner pool calls this function upon deployment
-     * @param _minerPool the address of the miner pool
-     */
-    function setMinerPool(address _minerPool) external {
-        //Make sure the miner pool is not already set
-        if (minerPool != address(0)) {
-            _revert(MinerPoolAlreadySet.selector);
-        }
-        minerPool = _minerPool;
-    }
-
-    /**
-     * @notice returns the Holding struct for a user and token pair
-     * @param user the address of the user
-     * @param token the address of the grc token to withdraw
-     * @return holding - the Holding struct
-     */
-    function holdings(address user, address token) external view returns (Holding memory) {
-        return _holdings[user][token];
-    }
+    /* -------------------------------------------------------------------------- */
+    /*                                 add holdings                               */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice an internal method to increment the amount in a holding
@@ -241,11 +248,69 @@ contract HoldingContract {
         emit HoldingAdded(user, token, amount);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                               one time setters                             */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice a one time setter to set the miner pool
+     * @dev the miner pool calls this function upon deployment
+     * @param _minerPool the address of the miner pool
+     */
+    function setMinerPool(address _minerPool) external {
+        //Make sure the miner pool is not already set
+        if (minerPool != address(0)) {
+            _revert(MinerPoolAlreadySet.selector);
+        }
+        minerPool = _minerPool;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 view functions                             */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @notice returns the Holding struct for a user and token pair
+     * @param user the address of the user
+     * @param token the address of the grc token to withdraw
+     * @return holding - the Holding struct
+     */
+    function holdings(address user, address token) external view returns (Holding memory) {
+        return _holdings[user][token];
+    }
+
+    /**
+     * @dev checks if the holding is available to be withdrawn
+     * @param holding the holding to check
+     * @param isNetworkFrozen whether or not the network is currently frozen
+     * @dev - if the network is frozen, the holding can be withdrawn only if it's been more than 90 days past the expiration of the holding
+     *      - if the network is not frozen, the holding can be withdrawn only if it's past the expiration date of the holding
+     */
+    function checkHoldingAvailable(Holding memory holding, bool isNetworkFrozen) internal view {
+        if (block.timestamp < holding.expirationTimestamp) {
+            _revert(WithdrawalNotReady.selector);
+        }
+        //Can't underflow because of the check above
+        //No claim should be able to be held for more than 97 days
+        //If it's been less than than 97 days since the proposal has expired,
+        //(expiration timestamp is always claim timestamp + 1 week, so )
+        //in order for proposal to be held maximum 97 days,
+        //We need to check if the diff is 90 days
+        if (block.timestamp - holding.expirationTimestamp < NINETY_DAYS) {
+            if (isNetworkFrozen) {
+                _revert(NetworkIsFrozen.selector);
+            }
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   utils                                    */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev more efficient reverts
      * @param selector the selector of the error
      */
     function _revert(bytes4 selector) internal pure {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0, selector)
             revert(0, 4)

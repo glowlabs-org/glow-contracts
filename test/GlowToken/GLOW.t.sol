@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "../../src/testing/TestGLOW.sol";
@@ -154,6 +154,94 @@ contract NewGlowTest is Test {
         assertEq(glw.balanceOf(SIMON), amountToMint);
     }
 
+    function test_DoubleStake2() public {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 15 ether);
+        assert(glw.balanceOf(SIMON) == 15 ether);
+
+        // Stake 12, create two unstaking positions 1 + 12, wait, claim only the first 1 GLOW position
+        glw.stake(13 ether);
+        glw.unstake(1 ether);
+        glw.unstake(12 ether);
+        vm.warp(block.timestamp + FIVE_YEARS + 5 minutes);
+        glw.claimUnstakedTokens(1 ether);
+        assertEq(glw.balanceOf(SIMON), 3 ether); // 15 - 1 - 12 + 1
+        assertEq(glw.numStaked(SIMON), 0);
+
+        /*
+    Pointers head: 1
+    Pointers tail: 1
+    Unstaking:
+        - 1 @ t0 (claimed)
+        - 12 @ t0
+        */
+
+        // !!! Restake reusing unstaking position three times
+        // Each time Simon reuses the 12 unstaking GLOW for free, plus he has to spend extra 1 GLOW,
+        // so he ends up with zero GLOW balance (but 39 staked GLOW)
+
+        glw.stake(13 ether);
+        vm.expectRevert();
+        glw.stake(13 ether);
+        vm.expectRevert();
+        glw.stake(13 ether);
+        // assertEq(glw.balanceOf(SIMON), 0);
+        // assertEq(glw.numStaked(SIMON), 13 ether);
+    }
+
+    function testFail_DoubleStake2() public {
+        address USER = vm.addr(0x13337);
+        vm.startPrank(USER);
+        glw.mint(USER, 15 ether);
+        // Stake 12, create two unstaking positions 1 + 12, wait, claim only
+        //   the first 1 GLOW position
+        glw.stake(13 ether);
+        glw.unstake(1 ether);
+        glw.unstake(12 ether);
+        vm.warp(block.timestamp + FIVE_YEARS + 5 minutes);
+        glw.claimUnstakedTokens(1 ether);
+        assertEq(glw.balanceOf(USER), 3 ether); // 15 - 1 - 12 + 1
+        assertEq(glw.numStaked(USER), 0);
+        /*
+        Pointers head: 1 Pointers tail: 1 Unstaking:
+          - 1 @ t0 (claimed)
+        - 12 @ t0 */
+        // Restake reusing unstaking position three times
+        // Each time the user reuses the 12 unstaking GLOW for free, plus
+        //   they have to spend extra 1 GLOW,
+        // so they end up with zero GLOW balance (but 39 staked GLOW)
+        glw.stake(13 ether);
+        glw.stake(13 ether);
+        glw.stake(13 ether);
+        assertEq(glw.balanceOf(USER), 0);
+        assertEq(glw.numStaked(USER), 13 ether * 3);
+        /*
+        Pointers head: 1 Pointers tail: 1
+        Unstaking:
+        - 1 @ t0 (claimed)
+        - 12 @ t0
+        */
+        glw.unstake(13 ether * 3);
+        assertEq(glw.balanceOf(USER), 0);
+        assertEq(glw.numStaked(USER), 0);
+        /*
+        Pointers head: 2 Pointers tail: 1 Unstaking:
+        - 1 @ t0 (claimed)
+        - 12 @ t0
+        - 39 @ t1
+        */
+        vm.warp(block.timestamp + FIVE_YEARS + 5 minutes);
+        glw.claimUnstakedTokens(12 ether);
+        // The next call will revert because GLOW does not have enough
+        // balance
+        vm.expectRevert();
+        glw.claimUnstakedTokens(39 ether);
+        // to claim their unstaking tokens
+        glw.mint(address(glw), 39 ether);
+        glw.claimUnstakedTokens(39 ether);
+        assertEq(glw.balanceOf(USER), 39 ether + 12 ether);
+    }
+
     //-------------------- SINGLE POSITION TESTING --------------------
 
     /**
@@ -223,6 +311,42 @@ contract NewGlowTest is Test {
         vm.stopPrank();
     }
 
+    function test_stake_withEnoughInAnUnstakedPosition_notAtPosiiton0_shouldTrigger_newHead()
+        public
+        mintTokens(SIMON, 1e9 ether)
+        stakeTokens(SIMON, 1 ether)
+        unstakeTokens(SIMON, 0.2 ether)
+        unstakeTokens(SIMON, 0.2 ether)
+        unstakeTokens(SIMON, 0.6 ether)
+    {
+        //Get pointers
+        Pointers memory pointers = glw.accountUnstakedPositionPointers(SIMON);
+        assert(pointers.head == 2);
+        //We should have 3 unstaked positions
+        //with [.2,.2,.6]
+        //Let's stake .6 and see if the head is now equal to 1
+        //Since the .6 should consume everything in the most recent unstaked position
+        vm.startPrank(SIMON);
+        glw.stake(0.6 ether);
+        pointers = glw.accountUnstakedPositionPointers(SIMON);
+        assert(pointers.head == 1);
+        vm.stopPrank();
+    }
+
+    function test_unstakedPositionsOfPagination_headEqualsTail_emptyPosition_shouldReturnLengthZeroArray() public {
+        IGlow.UnstakedPosition[] memory unstakedPosition = glw.unstakedPositionsOf(SIMON, 0, 10);
+        assert(unstakedPosition.length == 0);
+    }
+
+    function test_unstakedPositionsOfPaginations_headEqualTails_notEmptyPosition_shouldReturnLengthOneArray()
+        public
+        mintTokens(SIMON, 1e9 ether)
+        stakeTokens(SIMON, 1 ether)
+        unstakeTokens(SIMON, 1 ether)
+    {
+        IGlow.UnstakedPosition[] memory unstakedPosition = glw.unstakedPositionsOf(SIMON, 0, 10);
+        assert(unstakedPosition.length == 1);
+    }
     /**
      * @dev When users stake glow, they are allowed to pull from their unstaked positions. For example, if a user has 100 tokens in their unstaked positions,
      *         -   they can reuse those pending tokens to stake. This means that users do not need to put up fresh tokens every single time they stake.
@@ -242,6 +366,7 @@ contract NewGlowTest is Test {
      *         -           The expected behavior is that SIMON receives .5 of that unstaked token and uses the rest to cover his new stake
      *         -   6. Ensure that unstaked positons is correctly updated and that there are now no unstaked positions left.
      */
+
     function test_NewStakeAndUnstake_SinglePosition_stakingShouldClaimGLOW() public {
         test_StakeAndUnstake_SinglePosition();
         vm.startPrank(SIMON);
@@ -706,7 +831,7 @@ contract NewGlowTest is Test {
         vm.warp(glw.GENESIS_TIMESTAMP());
         glw.claimGLWFromGrantsTreasury();
         //Grants treasury starts with 6 million ether
-        uint256 startingBalance = 6_000_000 ether;
+        uint256 startingBalance = 0 ether;
         assertEq(glw.balanceOf(GRANTS_TREASURY), startingBalance);
 
         //Should be able to pull 40,000 * 1e18 tokens in 1 week

@@ -1,12 +1,14 @@
-// SPDX-License-Identifier: UNLICENSED
-
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
 import "@/libraries/ABDKMath64x64.sol";
 
 library HalfLife {
-    /// @dev 1 year in seconds
-    uint256 constant SECONDS_IN_YEAR = 365 * uint256(1 days);
+    /**
+     * @dev the halving period in seconds (1 year)
+     * @dev nominations have a half-life of 1 year
+     */
+    uint256 private constant SECONDS_IN_YEAR = 365 * uint256(1 days);
 
     /**
      * @notice calculates the value remaining after a given amount of time has elapsed

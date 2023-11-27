@@ -1,46 +1,28 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "forge-std/console.sol";
+import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 
-//TODO: Error logic bug where the payout wont carry over when a new nonce is started.....
+/// @dev we use a > 0 value as the null address
+//      - to avoid deleting a slot and having to reinitialize it with a cold sstore
+address constant NULL_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
 
-/**
- * @param rewardPerSecond - the amount of tokens to be distributed per second
- * @param lastApplicableTimestamp - the last time the rewardPerSecond is applicable
- * @dev all agents share the same `rewardPerSecond` for each `nonce` since they all earn at the same rate
- *             - so it's not necessary to track rewardPerSecond on an individual basis.
- */
-struct NonceHelper {
-    uint64 rewardPerSecond;
-    uint64 lastApplicableTimestamp;
-}
+/// @dev since there are no more than 7 veto council members
+///     -   we use uint8.max as the null index
+uint8 constant NULL_INDEX = type(uint8).max;
 
 /**
- * @param shiftStartTimestamp - marks the start of a shift
- * @param shiftEndTimestamp - marks the end of a shift
- * @param amountAlreadyWithdrawn - the amount of tokens an agent has already withdrawn from this shift
- */
-struct PayoutHelper {
-    uint64 shiftStartTimestamp;
-    uint64 shiftEndTimestamp;
-    uint128 amountAlreadyWithdrawn;
-}
-//amount already withdrawn can be packed into 128 bits
-//2**128-1 / 1e18 = 3.4e20. It would take 1307692307692307.8 years to overflow at 5000 glow per week
-
-/**
- * @param isActive - whether or not the agent is active
- * @param isSlashed - whether or not the agent is slashed
- * @param currentPaymentNonce - the nonce at which the agent's current shift started
+ * @param isActive - whether or not the member is active
+ * @param isSlashed - whether or not the member is slashed
+ * @param indexInArray - the index inside the veto council members array
  */
 struct Status {
     bool isActive;
     bool isSlashed;
-    uint120 currentPaymentNonce;
+    uint8 indexInArray;
 }
 
 /**
@@ -50,35 +32,56 @@ struct Status {
  * @author DavidVorick
  * @author 0xSimon(twitter) - 0xSimbo(github)
  * @dev a nonce is a unique identifier for a shift and is incremented every time the salary rate changes
- *         - if an agent is removed before the rate has changed, they will earn until their `shiftEndTimestamp`
+ *         - if an member is removed before the rate has changed, they will earn until their `shiftEndTimestamp`
  *  @dev payouts vest linearly at 1% per week.
- *         - It takes 100 weeks for a payout to fully vest
  */
 contract VetoCouncilSalaryHelper {
     error HashesNotUpdated();
     error CannotSetNonceToZero();
+    error MaxSevenVetoCouncilMembers();
+    error MemberNotFound();
+    error ShiftHasNotStarted();
+    error HashMismatch();
+
+    /**
+     * @dev The amount of GLOW that is awarded per second
+     *          -   for the entire veto council
+     */
+    uint256 private constant REWARDS_PER_SECOND = 5000 ether / uint256(7 days);
 
     /**
      * @notice The nonce at which the current shift started
-     * @dev store as 1 to avoid cold sstore for the first proposal
+     * @dev initialized as 1 to avoid cold sstore for the first payment nonce
      */
     uint256 public paymentNonce = 1;
 
     /**
-     * @dev (Nonce -> NonceHelper)
-     */
-    mapping(uint256 => NonceHelper) internal _nonceHelper;
-
-    /**
-     * @dev (Agent -> Payout Nonce -> PayoutHelper)
-     */
-    mapping(address => mapping(uint256 => PayoutHelper)) private _payoutHelpers;
-
-    /**
-     * @dev (Agent -> Status)
+     * @dev (member -> Status)
      */
     mapping(address => Status) private _status;
 
+    /**
+     * @notice an array containing all the veto council members
+     * @dev the null address is represented as 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF
+     */
+    address[7] private _vetoCouncilMembers;
+
+    /**
+     * @notice paymentNonce -> keccak256(abi.encodePacked(vetoCouncilMembers))
+     * @dev used in withdrawing rewards
+     */
+    mapping(uint256 => bytes32) public paymentNonceTomembersHash;
+
+    /**
+     * @dev payment nonce -> shift start timestamp
+     */
+    mapping(uint256 => uint256) private _paymentNonceToShiftStartTimestamp;
+
+    /**
+     * @notice The amount of tokens that have been withdrawn from a given payment nonce for a given member
+     * @dev member -> payment nonce -> amount withdrawn
+     */
+    mapping(address => mapping(uint256 => uint256)) public amountAlreadyWithdrawnFromPaymentNonce;
     /**
      * ----------------------------------------------
      */
@@ -90,26 +93,43 @@ contract VetoCouncilSalaryHelper {
      */
 
     /**
-     * @notice Returns the payout data for an agent
-     * @dev if the `shiftEndTimestamp` is 0, then the shift hasn't ended yet
-     * @param agent - the address of the agents
-     * @param nonce - the nonce of the payout
-     */
-    function payoutHelper(address agent, uint256 nonce) public view returns (PayoutHelper memory) {
-        return _payoutHelpers[agent][nonce];
-    }
-
-    /**
-     * @notice Returns the (withdrawableAmount, slashableAmount) for an agent for a given nonce
-     * @param agent - the address of the agents
+     * @notice Returns the (withdrawableAmount, slashableAmount) for an member for a given nonce
+     * @param member - the address of the members
      * @param nonce - the nonce of the payout
      * @return (withdrawableAmount, slashableAmount) - the amount of tokens that can be withdrawn and the amount that are still vesting
      */
-    function payoutData(address agent, uint256 nonce) external view returns (uint256, uint256) {
-        if (_status[agent].isSlashed) {
-            return (0, 0);
-        }
-        return _payoutData(agent, nonce);
+    function payoutData(address member, uint256 nonce, address[] memory members)
+        external
+        view
+        returns (uint256, uint256)
+    {
+        return _payoutData(member, nonce, members);
+    }
+
+    /**
+     * @notice returns the `Status` struct for a given member
+     * @param member The address of the member to get the `Status` struct for
+     * @return status - the `Status` struct for the given member
+     */
+    function memberStatus(address member) public view returns (Status memory) {
+        return _status[member];
+    }
+
+    /**
+     * @notice returns the `shiftStartTimestamp` for a given nonce
+     * @param nonce The nonce to get the `shiftStartTimestamp` for
+     * @return shiftStartTimestamp - the `shiftStartTimestamp` for the given nonce
+     */
+    function paymentNonceToShiftStartTimestamp(uint256 nonce) public view returns (uint256) {
+        return _paymentNonceToShiftStartTimestamp[nonce];
+    }
+
+    /**
+     * @notice returns the array of veto council members without null addresses
+     * @return sanitizedArray - all currently active veto council members
+     */
+    function vetoCouncilMembers() external view returns (address[] memory) {
+        return arrayWithoutNulls(_vetoCouncilMembers);
     }
 
     /**
@@ -123,34 +143,127 @@ contract VetoCouncilSalaryHelper {
      */
 
     /**
-     * @dev Adds a new salary for an agent at the current payment nonce.
-     * @dev should not be used independently, it should only be used in the election function
-     * @param agent - the address of the agent
-     *     TODO: is it possible for an agent to be added twice in the same payment nonce? (i think it is, make sure to double check)
+     * @dev Initializes the Veto Council
+     * @dev should only be used in the constructor
+     * @param members The addresses of the starting council members
+     * @param genesisTimestamp The timestamp of the genesis block
      */
-    function addSalary(address agent) internal {
-        _payoutHelpers[agent][paymentNonce] = PayoutHelper({
-            shiftStartTimestamp: uint64(block.timestamp),
-            shiftEndTimestamp: 0, //means shift hasn't ended
-            amountAlreadyWithdrawn: 0
-        });
+    function initializeMembers(address[] memory members, uint256 genesisTimestamp) internal {
+        address[7] memory initmembers;
+        if (members.length > type(uint8).max) {
+            _revert(MaxSevenVetoCouncilMembers.selector);
+        }
+        uint8 len = uint8(members.length);
+        unchecked {
+            for (uint8 i; i < len; ++i) {
+                if (isZero(members[i])) {
+                    _revert(IVetoCouncil.ZeroAddressInConstructor.selector);
+                }
+                initmembers[i] = members[i];
+                _status[members[i]] = Status({isActive: true, isSlashed: false, indexInArray: i});
+            }
+            for (uint8 i = len; i < 7; ++i) {
+                initmembers[i] = NULL_ADDRESS;
+            }
+        }
+        _vetoCouncilMembers = initmembers;
+        paymentNonceTomembersHash[1] = keccak256(abi.encodePacked(members));
+        _paymentNonceToShiftStartTimestamp[1] = genesisTimestamp;
     }
 
-    //Only usable in constructor
-    function setAgentActive(address agent) internal {
-        _status[agent] = Status({isActive: true, isSlashed: false, currentPaymentNonce: uint64(paymentNonce)});
-        return;
+    /**
+     * @dev Add or remove a council member
+     * @param oldMember The address of the member to be slashed or removed
+     * @param newMember The address of the new member (0 = no new member)
+     * @param slashOldMember Whether to slash the member or not
+     * @return - true if a council member was added or removed, false if nothing was done
+     */
+    function replaceMember(address oldMember, address newMember, bool slashOldMember) internal returns (bool) {
+        //Cache the old member index
+        uint8 memberOldIndex;
+
+        bool isoldMemberZeroAddress = isZero(oldMember);
+        bool isnewMemberZeroAddress = isZero(newMember);
+        //If the old member is the zero address,
+        //We need to loop until we find the first position in the array
+        //Until we find a null address as that's where
+        //we'll write the new member to
+        //We start from the back of the array as that's where the null address will most likely be
+        if (isoldMemberZeroAddress) {
+            for (uint256 i; i < 7;) {
+                uint256 index = 6 - i;
+                address _vetomember = _vetoCouncilMembers[index];
+                if (_vetomember == NULL_ADDRESS) {
+                    memberOldIndex = uint8(index);
+                    break;
+                }
+                unchecked {
+                    ++i;
+                }
+            }
+        } else {
+            //load in the old member status
+            Status memory oldMemberStatus = _status[oldMember];
+            //Old member cannot be inactive if they're not the zero address
+            if (!oldMemberStatus.isActive) {
+                return false;
+            }
+            //find old member index to insert the new member
+            memberOldIndex = oldMemberStatus.indexInArray;
+        }
+
+        //if the new member is not the zero address
+        if (!isnewMemberZeroAddress) {
+            Status memory newmemberStatus = _status[newMember];
+            //A slashed member can never become an member again
+            if (newmemberStatus.isSlashed) {
+                return false;
+            }
+            //A new member cannot already be active
+            if (newmemberStatus.isActive) {
+                return false;
+            }
+            //Update the new member status
+            _status[newMember] = Status({isActive: true, isSlashed: false, indexInArray: memberOldIndex});
+        }
+
+        if (!isoldMemberZeroAddress) {
+            //Set the old member to inactive as it's not the zero address
+            //State changes need to happen after all conditions clear,
+            //So we put this change after checking the new member conditions
+            _status[oldMember] = Status({isActive: false, isSlashed: slashOldMember, indexInArray: NULL_INDEX});
+        }
+
+        _vetoCouncilMembers[memberOldIndex] = isnewMemberZeroAddress ? NULL_ADDRESS : newMember;
+
+        //cache the payment nonce
+        uint256 paymentNonceToWriteTo = paymentNonce;
+        //Increment the cached payment nonce
+        ++paymentNonceToWriteTo;
+
+        //Set the hash for the new payment nonce
+        paymentNonceTomembersHash[paymentNonceToWriteTo] =
+            keccak256(abi.encodePacked(arrayWithoutNulls(_vetoCouncilMembers)));
+        //Set the shift start timestamp for the new payment nonce
+        _paymentNonceToShiftStartTimestamp[paymentNonceToWriteTo] = block.timestamp;
+        //Set the new payment nonce
+        paymentNonce = paymentNonceToWriteTo;
+        return true;
     }
 
-    function _removeSalary(address agent) internal {
-        uint256 currentNonce = _status[agent].currentPaymentNonce;
-        _payoutHelpers[agent][currentNonce].shiftEndTimestamp = uint64(block.timestamp);
-    }
-
-    function claimPayout(address agent, uint256 nonce, IERC20 token) internal {
-        uint256 withdrawableAmount = nextPayoutAmount(agent, nonce);
-        _payoutHelpers[agent][nonce].amountAlreadyWithdrawn += uint128(withdrawableAmount);
-        SafeERC20.safeTransfer(token, agent, withdrawableAmount);
+    /**
+     * @dev Used to payout the council member for their work at a given nonce
+     * @param member The address of the council member
+     * @param payoutNonce The payout nonce to claim from
+     * @param token The token to pay out (GLOW)
+     * @param members The addresses of the council members that were active at `nonce`
+     *         -   This is used to verify that the member was active at the nonce
+     *         -   By comparing the hash of the members at the nonce to the hash stored in the contract
+     */
+    function claimPayout(address member, uint256 payoutNonce, IERC20 token, address[] memory members) internal {
+        uint256 withdrawableAmount = nextPayoutAmount(member, payoutNonce, members);
+        amountAlreadyWithdrawnFromPaymentNonce[member][payoutNonce] += withdrawableAmount;
+        SafeERC20.safeTransfer(token, member, withdrawableAmount);
     }
 
     /**
@@ -162,38 +275,79 @@ contract VetoCouncilSalaryHelper {
     /**
      * ----------------------------------------------
      */
-    function getDataToCalculatePayout(address agent, uint256 nonce)
+
+    /**
+     * @dev a helper function to get (rewardPerSecond, secondsActive, secondsStopped, amountAlreadyWithdrawn)
+     * @param member The address of the member to get the data for
+     * @param nonce The nonce to get the data for
+     * @param members The addresses of the council members that were active at `nonce`
+     *         -   This is used to verify that the member was active at the nonce
+     *         -   By comparing the hash of the members at the nonce to the hash stored in the contract
+     */
+
+    function getDataToCalculatePayout(address member, uint256 nonce, address[] memory members)
         internal
         view
         returns (uint256 rewardPerSecond, uint256 secondsActive, uint256 secondsStopped, uint256 amountAlreadyWithdrawn)
     {
-        PayoutHelper memory payoutHelper = _payoutHelpers[agent][nonce];
-        NonceHelper memory nonceHelper = _nonceHelper[nonce];
-
-        rewardPerSecond = nonceHelper.rewardPerSecond;
-        if (payoutHelper.shiftStartTimestamp == 0) revert("Shift hasn't started yet");
-        uint256 shiftEndTimestamp = payoutHelper.shiftEndTimestamp;
-        if (nonceHelper.lastApplicableTimestamp != 0) {
-            shiftEndTimestamp = nonceHelper.lastApplicableTimestamp;
+        //Hash the members array and check if it matches the hash stored in the contract
+        if (keccak256(abi.encodePacked(members)) != paymentNonceTomembersHash[nonce]) {
+            _revert(HashMismatch.selector);
         }
+
+        //Check if the member was active at the nonce
+        {
+            bool found;
+            unchecked {
+                for (uint256 i; i < members.length; ++i) {
+                    if (members[i] == member) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                _revert(MemberNotFound.selector);
+            }
+        }
+
+        //Should not get a divison by zero error as {found} should be true if there is at least one member
+        uint256 rewardPerSecond = REWARDS_PER_SECOND / members.length;
+        uint256 shiftStartTimestamp = _paymentNonceToShiftStartTimestamp[nonce];
+        //We dont need to check the shift start timestamp
+        //Since the hash for an uninitialized nonce will always be zero
+        //and there will be no data
+        uint256 shiftEndTimestamp = _paymentNonceToShiftStartTimestamp[nonce + 1];
+
         //This means the shift has ended
         if (shiftEndTimestamp != 0) {
             secondsStopped = block.timestamp - shiftEndTimestamp;
-            secondsActive = shiftEndTimestamp - payoutHelper.shiftStartTimestamp;
+            secondsActive = shiftEndTimestamp - shiftStartTimestamp;
         } else {
-            secondsActive = block.timestamp - payoutHelper.shiftStartTimestamp;
+            secondsActive = block.timestamp - shiftStartTimestamp;
         }
-        amountAlreadyWithdrawn = payoutHelper.amountAlreadyWithdrawn;
+        amountAlreadyWithdrawn = amountAlreadyWithdrawnFromPaymentNonce[member][nonce];
         return (rewardPerSecond, secondsActive, secondsStopped, amountAlreadyWithdrawn);
     }
 
-    function _payoutData(address agent, uint256 nonce) private view returns (uint256, uint256) {
+    /**
+     * @dev a helper function to get (rewardPerSecond, secondsActive, secondsStopped, amountAlreadyWithdrawn)
+     * @param member The address of the member to get the data for
+     * @param nonce The nonce to get the data for
+     * @param members The addresses of the council members that were active at `nonce`
+     *         -   This is used to verify that the member was active at the nonce
+     *         -   By comparing the hash of the members at the nonce to the hash stored in the contract
+     */
+    function _payoutData(address member, uint256 nonce, address[] memory members)
+        private
+        view
+        returns (uint256, uint256)
+    {
+        if (_status[member].isSlashed) {
+            return (0, 0);
+        }
         (uint256 rewardPerSecond, uint256 secondsActive, uint256 secondsStopped, uint256 amountAlreadyWithdrawn) =
-            getDataToCalculatePayout(agent, nonce);
-        // console.log("rewardPerSecond", rewardPerSecond);
-        // console.log("secondsActive", secondsActive);
-        // console.log("secondsStopped", secondsStopped);
-        // console.log("amountAlreadyWithdrawn", amountAlreadyWithdrawn);
+            getDataToCalculatePayout(member, nonce, members);
         (uint256 withdrawableAmount, uint256 slashableAmount) = VestingMathLib
             .calculateWithdrawableAmountAndSlashableAmount(
             rewardPerSecond, secondsActive, secondsStopped, amountAlreadyWithdrawn
@@ -202,72 +356,88 @@ contract VetoCouncilSalaryHelper {
         return (withdrawableAmount, slashableAmount);
     }
 
-    function nextPayoutAmount(address agent, uint256 nonce) internal view returns (uint256) {
-        (uint256 withdrawableAmount,) = _payoutData(agent, nonce);
+    /**
+     * @dev returns the amount of tokens that can be withdrawn by an member for a given nonce
+     * @param member The address of the member to get the withdrawable amount for
+     * @param nonce The nonce to get the withdrawable amount for
+     * @param members The addresses of the council members that were active at `nonce`
+     *         -   This is used to verify that the member was active at the nonce
+     *         -   By comparing the hash of the members at the nonce to the hash stored in the contract
+     * @return withdrawableAmount - the amount of tokens that can be withdrawn by the member
+     */
+    function nextPayoutAmount(address member, uint256 nonce, address[] memory members)
+        internal
+        view
+        returns (uint256)
+    {
+        (uint256 withdrawableAmount,) = _payoutData(member, nonce, members);
         return withdrawableAmount;
     }
 
-    function removeAgent(address agent, uint256 agentPayoutNonce, uint256 shiftEndTimestamp, bool slash) internal {
-        uint256 _paymentNonce = paymentNonce;
-
-        //1 hot sstore
-        if (slash) {
-            _status[agent] = Status({isActive: false, isSlashed: true, currentPaymentNonce: type(uint120).max});
-        } else {
-            _status[agent] = Status({isActive: false, isSlashed: false, currentPaymentNonce: type(uint120).max});
-        }
-
-        //1 hot sstore
-        _payoutHelpers[agent][agentPayoutNonce].shiftEndTimestamp = uint64(shiftEndTimestamp);
-        return;
-    }
-
-    function agentStatus(address agent) public view returns (Status memory) {
-        return _status[agent];
-    }
-
     /**
-     * @param agent The address of the agent to be checked
+     * @param member The address of the member to be checked
      */
-    function _isCouncilMember(address agent) internal view returns (bool) {
-        return _status[agent].isActive;
-    }
-
-    function nonceHelper(uint256 nonce) public view returns (NonceHelper memory) {
-        return _nonceHelper[nonce];
-    }
-
-    function setRewardPerSecondAtNonce(uint256 nonce, uint256 rewardPerSecond) internal {
-        if (nonce == 0) _revert(CannotSetNonceToZero.selector);
-        _nonceHelper[nonce] = NonceHelper({rewardPerSecond: uint64(rewardPerSecond), lastApplicableTimestamp: 0});
-    }
-
-    function handlePotentialSalaryRateChange(uint256 newRewardsPerSecond) internal {
-        uint256 _paymentNonce = paymentNonce;
-        //If the reward per second hasnt changed
-        if (newRewardsPerSecond == _nonceHelper[_paymentNonce].rewardPerSecond) {
-            //If the agentThatIsBeingAdded already had a shift that ended on that nonce
-            //Then we have to start a new nonce and end the lastApplicableTimestamp
-            // if (_payoutHelpers[agentThatIsBeingAdded][_paymentNonce].shiftEndTimestamp != 0) {
-            //     _nonceHelper[_paymentNonce].lastApplicableTimestamp = uint64(block.timestamp);
-            //     ++_paymentNonce;
-            //     paymentNonce = _paymentNonce;
-            // }
-            return;
-        }
-        _nonceHelper[_paymentNonce].lastApplicableTimestamp = uint64(block.timestamp);
-        ++_paymentNonce;
-        _nonceHelper[_paymentNonce] =
-            NonceHelper({rewardPerSecond: uint64(newRewardsPerSecond), lastApplicableTimestamp: 0});
-        paymentNonce = _paymentNonce;
+    function _isCouncilMember(address member) internal view returns (bool) {
+        return _status[member].isActive;
     }
 
     /**
-     * @notice More efficiently reverts with a bytes4 selector
+     * @dev efficiently determines if an address is the zero address
+     * @param a the address to check
+     * @return res - true if the address is the zero address
+     */
+    function isZero(address a) private pure returns (bool res) {
+        // solhint-disable-next-line no-inline-assembly
+        assembly ("memory-safe") {
+            res := iszero(a)
+        }
+    }
+
+    /**
+     * @dev removes all null addresses from an array
+     * @param arr the array to sanitize
+     * @dev used to sanitize _vetoCouncilMembers before encoding and hashing
+     * @return sanitizedArray - the sanitized array without any null addresses
+     */
+    function arrayWithoutNulls(address[7] memory arr) internal pure returns (address[] memory) {
+        address[] memory sanitizedArray = new address[](arr.length);
+        uint256 numNotNulls;
+        unchecked {
+            for (uint256 i; i < arr.length; ++i) {
+                if (!isNull(arr[i])) {
+                    sanitizedArray[numNotNulls] = arr[i];
+                    ++numNotNulls;
+                }
+            }
+        }
+        // solhint-disable-next-line no-inline-assembly
+        assembly ("memory-safe") {
+            mstore(sanitizedArray, numNotNulls)
+        }
+
+        return sanitizedArray;
+    }
+
+    /**
+     * @dev efficiently determines if an address is null address
+     * @param a the address to check
+     * @return res - true if the address is the null address, false otherwise
+     */
+    function isNull(address a) internal pure returns (bool res) {
+        address _null = NULL_ADDRESS;
+        // solhint-disable-next-line no-inline-assembly
+        assembly ("memory-safe") {
+            res := eq(a, _null)
+        }
+    }
+
+    /**
+     * @notice Efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
      */
     function _revert(bytes4 selector) internal pure {
-        assembly {
+        // solhint-disable-next-line no-inline-assembly
+        assembly ("memory-safe") {
             mstore(0x0, selector)
             revert(0x0, 0x04)
         }

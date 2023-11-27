@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "forge-std/StdUtils.sol";
@@ -55,7 +55,7 @@ contract Handler is Test {
         vm.startPrank(proposer);
         uint256 nominationsToUse = g.costForNewProposal();
         gcc.mint(proposer, nominationsToUse);
-        gcc.retireGCC(nominationsToUse, proposer);
+        gcc.commitGCC(nominationsToUse, proposer, 0);
         g.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
         vm.stopPrank();
     }

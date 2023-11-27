@@ -1,4 +1,13 @@
 {
-    "slither.solcPath": "",
-    "slither.hiddenDetectors": []
+    "solidity.remappings": [    
+     "forge-std/=lib/forge-std/src/",
+    "solmate/=lib/solmate/src/",
+    "ds-test/=lib/forge-std/lib/ds-test/src/",
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@/=src/",
+    "@solady/=lib/solady/src/"
+
+    ],
+
+      
 }

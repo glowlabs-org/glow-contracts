@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "@/testing/TestGLOW.sol";
@@ -24,8 +24,8 @@ contract EarlyLiquidityTest is Test {
     uint256 public constant FIVE_YEARS = 365 days * 5;
     address public constant VESTING_CONTRACT = address(0x5);
     uint256 public constant USDC_DECIMALS = 6;
-    uint256 constant POINT_6_USDC = 6 * (10 ** (USDC_DECIMALS - 1));
-    uint256 public constant MAX_PRICE_EVER = POINT_6_USDC * 4096;
+    uint256 constant STARTING_USDC_PRICE = 1 * (10 ** (USDC_DECIMALS - 1)); //.1
+    uint256 public constant MAX_PRICE_EVER = STARTING_USDC_PRICE * 4096;
 
     //-----------------CONTRACTS-----------------
     TestGLOW public glw;
@@ -51,6 +51,7 @@ contract EarlyLiquidityTest is Test {
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = IEarlyLiquidity.buy.selector;
         FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
+        targetSelector(fs);
         targetContract(address(handler));
     }
 
@@ -197,7 +198,7 @@ contract EarlyLiquidityTest is Test {
 
         assertEq(earlyLiquidity.totalSold(), 400_000 ether);
 
-        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity(address(usdc));
+        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity();
         assertEq(amountReceivedFromELInMP, holdingContractBalanceAfter - holdingContractBalanceBefore);
 
         assertTrue(holdingContractBalanceAfter - totalCost == holdingContractBalanceBefore);
@@ -241,7 +242,7 @@ contract EarlyLiquidityTest is Test {
 
         assertEq(earlyLiquidity.totalSold(), 400_000 ether);
 
-        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity(address(taxUsdc));
+        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity();
         assertEq(amountReceivedFromELInMP, holdingContractBalanceAfter - holdingContractBalanceBefore);
         assertTrue(amountReceivedFromELInMP != totalCost);
     }
@@ -278,7 +279,7 @@ contract EarlyLiquidityTest is Test {
         //starting price should be 60 cents
         uint256 currentPrice = earlyLiquidity.getCurrentPrice();
         console.log("current price", currentPrice);
-        bool withinRange = fallsWithinRange(currentPrice, POINT_6_USDC / 100, 1);
+        bool withinRange = fallsWithinRange(currentPrice, STARTING_USDC_PRICE / 100, 1);
         assertTrue(withinRange);
     }
 

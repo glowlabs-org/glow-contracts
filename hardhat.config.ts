@@ -5,6 +5,7 @@ import "hardhat-preprocessor";
 import { HardhatUserConfig, task } from "hardhat/config";
 import "hardhat-gas-reporter"
 import 'solidity-docgen';
+import "@nomiclabs/hardhat-solhint";
 
 
 import example from "./tasks/example";

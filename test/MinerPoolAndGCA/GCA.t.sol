@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
-// import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
 import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
@@ -50,8 +49,8 @@ contract GCATest is Test {
         handler = new Handler(address(gca));
         addGCA(address(handler));
         bytes4[] memory selectors = new bytes4[](4);
-        selectors[0] = Handler.issueWeeklyReport.selector;
-        selectors[1] = Handler.issueWeeklyReportCurrentBucket.selector;
+        selectors[0] = Handler.submitWeeklyReport.selector;
+        selectors[1] = Handler.submitWeeklyReportCurrentBucket.selector;
         selectors[2] = Handler.incrementSlashNonce.selector;
         selectors[3] = Handler.warp.selector;
 
@@ -85,6 +84,11 @@ contract GCATest is Test {
                 assertEq(bucket.originalNonce, 0);
             }
         }
+    }
+
+    function test_expectCurrentWeek_toRevert_becauseItIsNotOverriden() public {
+        vm.expectRevert();
+        gca.currentWeekInternal();
     }
 
     /**
@@ -126,11 +130,11 @@ contract GCATest is Test {
         vm.warp(submissionStartTimestamp - 1);
 
         vm.expectRevert(IGCA.BucketSubmissionNotOpen.selector);
-        gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
+        gca.submitWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
 
         vm.warp(submissionEndTimestamp + 1);
         vm.expectRevert(IGCA.BucketSubmissionEnded.selector);
-        gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
+        gca.submitWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
 
         vm.stopPrank();
     }
@@ -153,11 +157,11 @@ contract GCATest is Test {
         vm.warp(submissionStartTimestamp - 1);
 
         vm.expectRevert(IGCA.BucketSubmissionNotOpen.selector);
-        gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
+        gca.submitWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
 
         vm.warp(submissionEndTimestamp + 1);
         vm.expectRevert(IGCA.BucketSubmissionEnded.selector);
-        gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
+        gca.submitWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
 
         vm.stopPrank();
     }
@@ -172,7 +176,7 @@ contract GCATest is Test {
 
         vm.warp(submissionStartTimestamp);
         //Create it
-        gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
+        gca.submitWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
 
         //Bucket is init and it's slash nonce != slashNonce in storage
         gca.incrementSlashNonce();
@@ -183,7 +187,7 @@ contract GCATest is Test {
 
         vm.warp(submissionEndTimestamp + 1);
         vm.expectRevert(IGCA.BucketSubmissionEnded.selector);
-        gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("ran2dom"));
+        gca.submitWeeklyReport(bucketId, 1, 1, 1, bytes32("ran2dom"));
 
         vm.stopPrank();
     }
@@ -199,7 +203,7 @@ contract GCATest is Test {
         //Create it
         uint256 bucketSubmissionEndTimestamp = gca.calculateBucketSubmissionEndTimestamp(bucketId);
 
-        gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
+        gca.submitWeeklyReport(bucketId, 1, 1, 1, bytes32("random"));
 
         //Bucket is init and it's slash nonce != slashNonce in storage
         gca.incrementSlashNonce();
@@ -209,7 +213,7 @@ contract GCATest is Test {
         assertEq(submissionEndTimestamp, gca.WCEIL(0));
         vm.warp(submissionEndTimestamp + 1);
         vm.expectRevert(IGCA.BucketSubmissionEnded.selector);
-        gca.issueWeeklyReport(bucketId, 1, 1, 1, bytes32("ran2dom"));
+        gca.submitWeeklyReport(bucketId, 1, 1, 1, bytes32("ran2dom"));
 
         vm.stopPrank();
     }
@@ -245,7 +249,7 @@ contract GCATest is Test {
         //------ START PRANK ------
         vm.startPrank(gcaToSubmitAs);
 
-        gca.issueWeeklyReport(
+        gca.submitWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
 
@@ -478,12 +482,12 @@ contract GCATest is Test {
         bytes32 root = keccak256("random but different");
 
         vm.expectRevert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
-        gca.issueWeeklyReport(currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+        gca.submitWeeklyReport(currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
 
         totalGlwRewardsWeight = 1;
         totalGRCRewardsWeight = _UINT64_MAX_DIV5 + 1;
         vm.expectRevert(IGCA.ReportWeightMustBeLTUint64MaxDiv5.selector);
-        gca.issueWeeklyReport(currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+        gca.submitWeeklyReport(currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
 
         vm.stopPrank();
     }
@@ -499,7 +503,7 @@ contract GCATest is Test {
         bytes32 root = keccak256("random but different");
 
         vm.expectRevert(IGCA.ReportGCCMustBeLT200Billion.selector);
-        gca.issueWeeklyReport(currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+        gca.submitWeeklyReport(currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
 
         vm.stopPrank();
     }
@@ -521,7 +525,7 @@ contract GCATest is Test {
         bytes32 randomMerkleRoot = keccak256("random but different");
 
         vm.expectRevert(IGCA.BucketSubmissionEnded.selector);
-        gca.issueWeeklyReport(
+        gca.submitWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
 
@@ -539,7 +543,7 @@ contract GCATest is Test {
         bytes32 randomMerkleRoot = keccak256("random but different");
 
         vm.expectRevert(IGCA.BucketSubmissionNotOpen.selector);
-        gca.issueWeeklyReport(
+        gca.submitWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
 
@@ -558,7 +562,7 @@ contract GCATest is Test {
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
 
-        gca.issueWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot);
+        gca.submitWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot);
 
         vm.stopPrank();
 
@@ -601,7 +605,7 @@ contract GCATest is Test {
 
         gca.incrementSlashNonce();
 
-        gca.issueWeeklyReport(
+        gca.submitWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
 
@@ -641,7 +645,7 @@ contract GCATest is Test {
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different");
 
-        gca.issueWeeklyReport(
+        gca.submitWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
 
@@ -686,7 +690,7 @@ contract GCATest is Test {
         //Use a random root for now
         bytes32 randomMerkleRoot = keccak256("random but different again again");
 
-        gca.issueWeeklyReport(
+        gca.submitWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
 
@@ -733,7 +737,7 @@ contract GCATest is Test {
         //Can't submit after the endSubmissionTimestamp
         vm.warp(endSubmissionTimestamp + 1);
         vm.expectRevert(IGCA.BucketSubmissionEnded.selector);
-        gca.issueWeeklyReport(
+        gca.submitWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
     }
@@ -763,7 +767,7 @@ contract GCATest is Test {
         gca.pushRequirementsHashMock(proposalHash);
 
         vm.expectRevert(IGCA.ProposalHashesNotUpdated.selector);
-        gca.issueWeeklyReport(
+        gca.submitWeeklyReport(
             currentBucket, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, randomMerkleRoot
         );
     }
@@ -778,6 +782,36 @@ contract GCATest is Test {
             IGCA.GCAPayout memory payout = gca.gcaPayoutData(gcaAddresses[i]);
             assertEq(payout.lastClaimedTimestamp, gcaGenesisTimestamp);
         }
+    }
+
+    function test_isGCA_shouldReturnTrue_ifGCA() public {
+        addGCA(SIMON);
+        assertTrue(gca.isGCA(SIMON));
+        //simon should be the second gca
+        assertTrue(gca.isGCA(SIMON, 1));
+        assert(!gca.isGCA(SIMON, 0));
+    }
+
+    function test_isGCA_whenProposalHashesNotUpdated_shouldReturnFalse() public {
+        addGCA(SIMON);
+        vm.startPrank(SIMON);
+        bytes32 proposalHash = keccak256("proposal hash");
+        gca.pushRequirementsHashMock(proposalHash);
+        assert(!gca.isGCA(SIMON));
+        assert(!gca.isGCA(SIMON, 1));
+    }
+
+    function test_isGCA_whenProposalHashesUpdated_shouldReturnTrue() public {
+        addGCA(SIMON);
+        address[] memory gcasToSlash = new address[](0);
+        address[] memory newGCAs = new address[](1);
+        newGCAs[0] = SIMON;
+        uint256 ts = block.timestamp;
+        bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, ts));
+        gca.pushRequirementsHashMock(hash);
+        gca.executeAgainstHash(gcasToSlash, newGCAs, ts);
+        assert(gca.isGCA(SIMON));
+        assert(gca.isGCA(SIMON, 0));
     }
 
     /**
@@ -920,7 +954,6 @@ contract GCATest is Test {
         assertEq(proposalHashes[1], randomHash2);
     }
 
-    //TODO: Fix the function to include payouts
     function test_executeAgainstHash() public {
         //Warp to random timestamp
         vm.warp(501);
