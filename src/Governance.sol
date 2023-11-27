@@ -40,18 +40,15 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 contract Governance is IGovernance, EIP712 {
     using ABDKMath64x64 for int128;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice  Spend nominations EIP712 Typehash
      */
     bytes32 public constant SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH = keccak256(
         "SpendNominationsOnProposal(uint8 proposalType,uint256 nominationsToSpend,uint256 nonce,uint256 deadline,bytes data)"
     );
-
-    /**
-     * @notice The next nonce of a user to use in a spend nominations on proposal transaction
-     * @dev This is used to prevent replay attacks
-     */
-    mapping(address => uint256) public spendNominationsOnProposalNonce;
 
     /**
      * @dev one in 64x64 fixed point
@@ -113,6 +110,9 @@ contract Governance is IGovernance, EIP712 {
      */
     uint256 private constant ENDORSEMENT_WEIGHT = 5;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @dev The total number of proposals created
      * @dev we start at one to ensure that a proposal with id 0 is invalid
@@ -165,32 +165,14 @@ contract Governance is IGovernance, EIP712 {
      */
     uint256 internal lastExecutedWeek = type(uint256).max;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   mappings                                  */
+    /* -------------------------------------------------------------------------- */
     /**
-     * @notice Allows the GCC contract to grant nominations to {to} when they retire GCC
-     * @param to the address to grant nominations to
-     * @param amount the amount of nominations to grant
+     * @notice The next nonce of a user to use in a spend nominations on proposal transaction
+     * @dev This is used to prevent replay attacks
      */
-
-    /**
-     * @param amount the amount of nominations that an account has
-     * @param lastUpdate the last time that the account's balance was updated
-     *         -   {lastUpdate} is used to calculate the user's balance according to the half-life formula
-     *         -   Check {HalfLife.calculateHalfLifeValue} for more details
-     */
-    struct Nominations {
-        uint192 amount;
-        uint64 lastUpdate;
-    }
-
-    /**
-     * @param ratifyVotes - the amount of ratify votes on the proposal
-     * @param rejectionVotes - the amount of rejection votes on the proposal
-     * @dev only most popular proposals can be voted on
-     */
-    struct ProposalLongStakerVotes {
-        uint128 ratifyVotes;
-        uint128 rejectionVotes;
-    }
+    mapping(address => uint256) public spendNominationsOnProposalNonce;
 
     /**
      * @dev proposalId -> _proposalLongStakerVotes
@@ -265,6 +247,30 @@ contract Governance is IGovernance, EIP712 {
      *             - if the bit is set, then the veto council agent has vetoed the most popular proposal for that week
      */
     mapping(address => mapping(uint256 => uint256)) private _hasEndorsedProposalBitmap;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   structs                                  */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @param amount the amount of nominations that an account has
+     * @param lastUpdate the last time that the account's balance was updated
+     *         -   {lastUpdate} is used to calculate the user's balance according to the half-life formula
+     *         -   Check {HalfLife.calculateHalfLifeValue} for more details
+     */
+    struct Nominations {
+        uint192 amount;
+        uint64 lastUpdate;
+    }
+
+    /**
+     * @param ratifyVotes - the amount of ratify votes on the proposal
+     * @param rejectionVotes - the amount of rejection votes on the proposal
+     * @dev only most popular proposals can be voted on
+     */
+    struct ProposalLongStakerVotes {
+        uint128 ratifyVotes;
+        uint128 rejectionVotes;
+    }
 
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */

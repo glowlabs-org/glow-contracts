@@ -33,6 +33,19 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
  */
 
 contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
+    /* -------------------------------------------------------------------------- */
+    /*                                  constants                                 */
+    /* -------------------------------------------------------------------------- */
+    /// @notice The EIP712 typehash for the CommitPermit struct used by the permit
+    bytes32 public constant COMMIT_PERMIT_TYPEHASH = keccak256(
+        "CommitPermit(address owner,address spender,address rewardAddress,address referralAddress,uint256 amount,uint256 nonce,uint256 deadline)"
+    );
+    /// @notice The maximum shift for a bucketId
+    uint256 private constant _BITS_IN_UINT = 256;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                  immutables                                */
+    /* -------------------------------------------------------------------------- */
     /// @notice The address of the CarbonCreditAuction contract
     ICarbonCreditAuction public immutable CARBON_CREDIT_AUCTION;
 
@@ -48,8 +61,6 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /// @notice the address of the ImpactCatalyst contract
     /// @dev the impact catalyst is responsible for handling the commitments of GCC and USDC
     ImpactCatalyst public immutable IMPACT_CATALYST;
-    /// @notice The maximum shift for a bucketId
-    uint256 private constant _BITS_IN_UINT = 256;
 
     /// @notice The Uniswap router
     /// @dev used to swap USDC for GCC and vice versa
@@ -58,10 +69,9 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /// @notice The address of the USDC token
     address public immutable USDC;
 
-    /// @notice The EIP712 typehash for the CommitPermit struct used by the permit
-    bytes32 public constant COMMIT_PERMIT_TYPEHASH = keccak256(
-        "CommitPermit(address owner,address spender,address rewardAddress,address referralAddress,uint256 amount,uint256 nonce,uint256 deadline)"
-    );
+    /* -------------------------------------------------------------------------- */
+    /*                                   mappings                                  */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice The bitmap of minted buckets
@@ -85,10 +95,9 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
      */
     mapping(address => uint256) public nextCommitNonce;
 
-    //************************************************************* */
-    //*********************  CONSTRUCTOR    ********************** */
-    //************************************************************* */
-
+    /* -------------------------------------------------------------------------- */
+    /*                                 constructor                                */
+    /* -------------------------------------------------------------------------- */
     /**
      * @notice GCC constructor
      * @param _gcaAndMinerPoolContract The address of the GCAAndMinerPool contract
