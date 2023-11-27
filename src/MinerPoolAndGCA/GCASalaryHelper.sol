@@ -336,7 +336,6 @@ abstract contract GCASalaryHelper {
      *                 - (i.e. each gca agent gets 100_000 shares)
      */
     function callbackInElectionEvent(address[] memory gcaAgents) internal {
-        //TODO: come back to this comment and decipher - Make sure to check proposalHashes.length mistmatchs
         uint256 _paymentNonce = paymentNonce();
         uint256 currentShiftStartTimestamp = _paymentNonceToShiftStartTimestamp[_paymentNonce];
 
