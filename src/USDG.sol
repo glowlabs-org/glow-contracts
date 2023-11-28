@@ -73,6 +73,7 @@ contract USDG is ERC20Permit, Ownable {
      * @param _univ2Factory the uniswap v2 factory
      */
     constructor(address _usdc, address _usdcReceiver, address _owner, address _univ2Factory)
+        payable
         Ownable(_owner)
         ERC20("USDC", "USDC")
         ERC20Permit("USDC")
@@ -80,6 +81,7 @@ contract USDG is ERC20Permit, Ownable {
         USDC = ERC20Permit(_usdc);
         USDC_RECEIVER = _usdcReceiver;
         UNISWAP_V2_FACTORY = _univ2Factory;
+        allowlistedContracts[_usdcReceiver] = true;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -107,6 +109,8 @@ contract USDG is ERC20Permit, Ownable {
      * @param _glow the glow token
      * @param _gcc the gcc token
      * @param _holdingContract the holding contract
+     * @param _vetoCouncilContract the veto council contract
+     * @param _impactCatalyst the impact catalyst contract
      * @dev only the owner can add contracts to the allowlist
      * @dev contracts must be added to the allowlist before they can receive or send USDG
      *             - EOA's can always receive and send USDG
@@ -116,7 +120,8 @@ contract USDG is ERC20Permit, Ownable {
         address _glow,
         address _gcc,
         address _holdingContract,
-        address _vetoCouncilContract
+        address _vetoCouncilContract,
+        address _impactCatalyst
     ) external onlyOwner {
         allowlistedContracts[_glow] = true;
         allowlistedContracts[_gcc] = true;
@@ -127,6 +132,7 @@ contract USDG is ERC20Permit, Ownable {
         address gccUSDGPair = getPair(UNISWAP_V2_FACTORY, address(this), _gcc);
         allowlistedContracts[gccUSDGPair] = true;
         vetoCouncilContract = IVetoCouncil(_vetoCouncilContract);
+        allowlistedContracts[_impactCatalyst] = true;
         renounceOwnership();
     }
 
@@ -199,11 +205,11 @@ contract USDG is ERC20Permit, Ownable {
     /**
      * @notice Returns the univ2 pair for a given factory and token
      * @param factory the univ2 factory
-     * @param _tokenA the first token
+     * @param _tokenA the first tokenx
      * @param _tokenB the second token
      * @return pair - the univ2 pair
      */
-    function getPair(address factory, address _tokenA, address _tokenB) internal view virtual returns (address) {
-        return UniswapV2Library.pairFor(factory, _tokenA, _tokenB);
+    function getPair(address factory, address _tokenA, address _tokenB) internal view virtual returns (address pair) {
+        pair = UniswapV2Library.pairFor(factory, _tokenA, _tokenB);
     }
 }
