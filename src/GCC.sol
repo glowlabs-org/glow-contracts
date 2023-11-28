@@ -564,6 +564,12 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         return SignatureChecker.isValidSignatureNow(signer, message, signature);
     }
 
+    /**
+     * @notice Returns the univ2 pair for a given factory and token
+     * @param factory The address of the univ2 factory
+     * @param _usdc The address of the USDC token
+     * @return pair The address of the univ2 pair of the factory and token with this contract
+     */
     function getPair(address factory, address _usdc) internal view virtual returns (address) {
         return UniswapV2Library.pairFor(factory, _usdc, address(this));
     }
@@ -572,7 +578,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
      * @param selector The selector to revert with
      */
 
-    function _revert(bytes4 selector) private pure {
+    function _revert(bytes4 selector) internal pure {
         // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
             mstore(0x0, selector)

@@ -25,6 +25,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 import {TestUSDG} from "@/testing/TestUSDG.sol";
 import {USDG} from "@/USDG.sol";
+import {TestGCCGuardedLaunch} from "@/testing/GuardedLaunch/TestGCC.GuardedLaunch.sol";
 
 // @dev, to test the results for enough precision if you are saving the csv
 // run python3 repo-utils/commit-analysis/main.py to get the results
@@ -40,7 +41,7 @@ contract GCCGuardedLaunchTest is Test {
     WETH9 public weth;
     UnifapV2Router public uniswapRouter;
     MockUSDC usdc;
-    TestGCC public gcc;
+    TestGCCGuardedLaunch public gcc;
     TestUSDG public usdg;
     Governance public gov;
     CarbonCreditDutchAuction public auction;
@@ -78,7 +79,18 @@ contract GCCGuardedLaunchTest is Test {
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdg),address(uniswapRouter));
+        // gcc = new TestGCCGuardedLaunch(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdg),address(uniswapRouter));
+        gcc = new TestGCCGuardedLaunch({
+            _gcaAndMinerPoolContract: GCA_AND_MINER_POOL_CONTRACT,
+            _governance: address(gov),
+            _glowToken: glw,
+            _usdg: address(usdg),
+            _vetoCouncilAddress: vetoCouncil,
+            _uniswapRouter: address(uniswapRouter),
+            _uniswapFactory: address(uniswapFactory)
+        
+        });
+        gcc.allowlistPostConstructionContracts();
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
         gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
@@ -194,7 +206,17 @@ contract GCCGuardedLaunchTest is Test {
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdg),address(uniswapRouter));
+        gcc = new TestGCCGuardedLaunch({
+            _gcaAndMinerPoolContract: GCA_AND_MINER_POOL_CONTRACT,
+            _governance: address(gov),
+            _glowToken: glw,
+            _usdg: address(usdg),
+            _vetoCouncilAddress: vetoCouncil,
+            _uniswapRouter: address(uniswapRouter),
+            _uniswapFactory: address(uniswapFactory)
+        
+        });
+        gcc.allowlistPostConstructionContracts();
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         vm.startPrank(usdgOwner);
         usdg.setAllowlistedContracts({
@@ -386,8 +408,17 @@ contract GCCGuardedLaunchTest is Test {
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdg),address(uniswapRouter));
-
+        gcc = new TestGCCGuardedLaunch({
+            _gcaAndMinerPoolContract: GCA_AND_MINER_POOL_CONTRACT,
+            _governance: address(gov),
+            _glowToken: glw,
+            _usdg: address(usdg),
+            _vetoCouncilAddress: vetoCouncil,
+            _uniswapRouter: address(uniswapRouter),
+            _uniswapFactory: address(uniswapFactory)
+        
+        });
+        gcc.allowlistPostConstructionContracts();
         vm.startPrank(usdgOwner);
         usdg.setAllowlistedContracts({
             _glow: address(vetoCouncil),
