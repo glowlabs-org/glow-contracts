@@ -17,8 +17,8 @@ import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 
 contract USDG is ERC20Permit, Ownable {
     error ErrIsContract();
-    error ErrPermanentlyFrozen();
     error ErrNotVetoCouncilMember();
+    error ErrPermanentlyFrozen();
 
     /* -------------------------------------------------------------------------- */
     /*                                  immutables                                */

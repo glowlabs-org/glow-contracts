@@ -7,20 +7,6 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /**
- * @dev helper for managing tail and head in a mapping
- * @param tail the tail of the mapping
- * @param head the head of the mapping
- * @dev the head is the last index with data. If we need to push, we push at head + 1
- * @dev there are edge cases where head == tail and there is data,
- *         -   and conversely, head == tail and there is no data
- *         - These special cases are handled in the code
- */
-struct Pointers {
-    uint128 tail;
-    uint128 head;
-}
-
-/**
  * @title Glow
  * @author DavidVorick
  * @author 0xSimon(twitter) - OxSimbo(github)
@@ -32,6 +18,7 @@ struct Pointers {
  *         - Holders can anchor (stake) glow to earn voting power in governance
  *             - anchoring lasts 5 years from the point of unstaking
  */
+
 contract Glow is ERC20, ERC20Permit, IGlow {
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */
@@ -124,7 +111,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     {
         GENESIS_TIMESTAMP = block.timestamp;
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
-        _mint(EARLY_LIQUIDITY_ADDRESS, 12_000_000 ether);
+        _mint(_earlyLiquidityAddress, 12_000_000 ether);
         _mint(_vestingContract, 96_000_000 ether);
     }
 
@@ -141,7 +128,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         if (stakeAmount == 0) _revert(IGlow.CannotStakeZeroTokens.selector);
 
         //Find head tail in the mapping
-        Pointers memory pointers = _unstakedPositionPointers[msg.sender];
+        IGlow.Pointers memory pointers = _unstakedPositionPointers[msg.sender];
         uint256 head = pointers.head;
 
         //Init the unstakedTotal
@@ -241,7 +228,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
 
         //Find the length of the unstaked positions starting at the tail
         //This gives us the # of unstaked positions that the user has
-        Pointers memory pointers = _unstakedPositionPointers[msg.sender];
+        IGlow.Pointers memory pointers = _unstakedPositionPointers[msg.sender];
         uint256 adjustedLenBefore = pointers.head - pointers.tail + 1;
 
         uint256 indexInMappingToPushTo = pointers.head + 1;
@@ -292,7 +279,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         uint256 claimableTotal;
 
         //Cache len]0
-        Pointers memory pointers = _unstakedPositionPointers[msg.sender];
+        IGlow.Pointers memory pointers = _unstakedPositionPointers[msg.sender];
 
         uint256 head = pointers.head;
         uint256 tail = pointers.tail;
@@ -459,7 +446,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
      * @inheritdoc IGlow
      */
     function unstakedPositionsOf(address account) external view returns (UnstakedPosition[] memory) {
-        Pointers memory pointers = _unstakedPositionPointers[account];
+        IGlow.Pointers memory pointers = _unstakedPositionPointers[account];
         uint256 start = pointers.tail;
         uint256 end = pointers.head + 1;
         UnstakedPosition[] memory positions = new UnstakedPosition[](end - start);
@@ -510,7 +497,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
      * @param account the account to get the tail for
      * @return the tail of the unstaked positions for the user
      */
-    function accountUnstakedPositionPointers(address account) external view returns (Pointers memory) {
+    function accountUnstakedPositionPointers(address account) external view returns (IGlow.Pointers memory) {
         return _unstakedPositionPointers[account];
     }
 
@@ -523,7 +510,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         view
         returns (UnstakedPosition[] memory)
     {
-        Pointers memory pointers = _unstakedPositionPointers[account];
+        IGlow.Pointers memory pointers = _unstakedPositionPointers[account];
         start = start + pointers.tail;
         end = end + pointers.tail;
         if (end > pointers.head + 1) {
@@ -637,7 +624,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         address _gcaAndMinerPoolAddress,
         address _vetoCouncilAddress,
         address _grantsTreasuryAddress
-    ) external {
+    ) external virtual {
         // Zero address checks
         //Only need one check since all three addresses are set at the same time atomically
         if (!_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressAlreadySet.selector);
@@ -673,7 +660,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
      */
-    function _revert(bytes4 selector) private pure {
+    function _revert(bytes4 selector) internal pure {
         // solhint-disable-next-line no-inline-assembly
         assembly {
             mstore(0x0, selector)
@@ -684,7 +671,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /**
      * @notice More efficient address(0) check
      */
-    function _isZeroAddress(address _address) private pure returns (bool isZero) {
+    function _isZeroAddress(address _address) internal pure returns (bool isZero) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
             isZero := iszero(_address)

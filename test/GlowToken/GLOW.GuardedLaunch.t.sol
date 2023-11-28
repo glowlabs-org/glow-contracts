@@ -2,31 +2,61 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "../../src/testing/TestGLOW.sol";
+import "../../src/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
 import {Handler} from "./Handler.sol";
-// import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {VetoCouncil} from "@/VetoCouncil.sol";
+import {MockUSDC} from "@/testing/MockUSDC.sol";
+import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
+import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
+import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
+import {TestUSDG} from "@/testing/TestUSDG.sol";
 
-contract NewGlowTest is Test {
+contract GlowGuardedLaunchTest is Test {
     //-------------------- Mock Addresses --------------------
     address public constant SIMON = address(0x11241998);
+    address public otherAccount = address(0xaafdafadfafda);
     uint256 public constant FIVE_YEARS = 365 days * 5;
     address public constant GCA = address(0x1);
-    address public constant VETO_COUNCIL = address(0x2);
+    address public VETO_COUNCIL = address(0x2);
     address public constant GRANTS_TREASURY = address(0x3);
     address public constant EARLY_LIQUIDITY = address(0x4);
     address public constant VESTING_CONTRACT = address(0x5);
-
+    address[] startingAgents = [SIMON];
+    address mockGovernance = address(0x1233918293819389128);
+    address usdgOwner = address(0xaaa112);
+    address usdcReceiver = address(0xaaa113);
+    address mockImpactCatalyst = address(0x1233918293823119389128);
+    address mockHoldingContract = address(0xffffaafaeeef);
     //-------------------- Contracts --------------------
     TestGLOW public glw;
     Handler public handler;
-
+    VetoCouncil public vetoCouncil;
+    MockUSDC public usdc;
+    TestUSDG public usdg;
+    UnifapV2Factory public uniswapFactory;
+    WETH9 public weth;
+    UnifapV2Router public uniswapRouter;
     //-------------------- Setup --------------------
+
     function setUp() public {
         //Create contracts
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        uniswapFactory = new UnifapV2Factory();
+        weth = new WETH9();
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+
+        usdc = new MockUSDC();
+        usdg = new TestUSDG({
+            _usdc: address(usdc),
+            _usdcReceiver: usdcReceiver,
+            _owner: usdgOwner,
+            _univ2Factory: address(uniswapFactory)
+        });
+
+        vm.startPrank(SIMON);
+        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
         handler = new Handler(address(glw));
 
         //Make sure early liquidity receives 12 million tokens
@@ -41,14 +71,27 @@ contract NewGlowTest is Test {
 
         //Ensure total supply when constructed is 72_000_000 ether
         // assertEq(glw.totalSupply(), 72_000_000 ether);
-
+        vetoCouncil = new VetoCouncil(address(mockGovernance), address(glw),startingAgents);
+        VETO_COUNCIL = address(vetoCouncil);
         //Mint some to ourselves for testing
+        glw.allowlistAddress(address(handler));
         glw.mint(address(handler), 1e20 ether);
 
         //Set fuzzing targets
         targetSender(address(SIMON));
         targetSelector(fs);
         targetContract(address(handler));
+        vm.stopPrank();
+
+        vm.startPrank(usdgOwner);
+        usdg.setAllowlistedContracts({
+            _glow: address(glw),
+            _gcc: address(glw), //no need for gcc here
+            _holdingContract: address(mockHoldingContract),
+            _vetoCouncilContract: VETO_COUNCIL,
+            _impactCatalyst: mockImpactCatalyst
+        });
+        vm.stopPrank();
     }
 
     ///--------------------- MODIFIERS ---------------------
@@ -144,16 +187,45 @@ contract NewGlowTest is Test {
         _;
     }
 
+    function test_guarded_sendTokensToNotAllowlistedContract_shouldRevert() public {
+        handler = new Handler(address(glw));
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 1 ether);
+        vm.expectRevert(GlowGuardedLaunch.ErrIsContract.selector);
+        glw.transfer(address(handler), 1 ether);
+        vm.stopPrank();
+    }
+
+    function test_freezeNetwork_notVetoCouncilMember_shouldRevert() public setInflationContracts {
+        vm.expectRevert(GlowGuardedLaunch.ErrNotVetoCouncilMember.selector);
+        glw.freezeContract();
+    }
+
+    function test_freezeNetwork_VetoCouncilMember_shouldWork() public setInflationContracts {
+        vm.startPrank(SIMON);
+        glw.freezeContract();
+        vm.stopPrank();
+    }
+
+    function test_networkFrozen_tradesCannotHappen() public setInflationContracts {
+        vm.startPrank(SIMON);
+        glw.mint(SIMON, 1 ether);
+        glw.freezeContract();
+        vm.expectRevert(GlowGuardedLaunch.ErrPermanentlyFrozen.selector);
+        glw.transfer(otherAccount, 1 ether);
+        vm.stopPrank();
+    }
+
     /// @dev starts prank as SIMON
     ///     -   and mints tokens to simon
-    function test_Mint() public {
+    function test_guarded_Mint() public {
         uint256 amountToMint = 1e9 ether;
         vm.startPrank(SIMON);
         glw.mint(SIMON, amountToMint);
         assertEq(glw.balanceOf(SIMON), amountToMint);
     }
 
-    function test_DoubleStake2() public {
+    function test_guarded_DoubleStake2() public {
         vm.startPrank(SIMON);
         glw.mint(SIMON, 15 ether);
         assert(glw.balanceOf(SIMON) == 15 ether);
@@ -254,7 +326,7 @@ contract NewGlowTest is Test {
      *     -   7. Stake the entire balance again
      *     -   8. Make sure that simon now has 1e9 * 2 tokens
      */
-    function test_NewStake()
+    function test_guarded_NewStake()
         public
         mintTokens(SIMON, 1e9 ether)
         stakeBalance(SIMON)
@@ -266,7 +338,7 @@ contract NewGlowTest is Test {
         checkNumStaked(SIMON, 1e9 ether * 2)
     {}
 
-    function test_stakeAndUnstake()
+    function test_guarded_stakeAndUnstake()
         public
         mintTokens(SIMON, 1e9 ether)
         stakeTokens(SIMON, 1 ether)
@@ -287,7 +359,7 @@ contract NewGlowTest is Test {
      *     -   6a. Ensure the unstaked position's cooldown end is the unstake timestamp + 5 years
      *     -   6b. Ensure the amount inside the unstaked position is 1 token
      */
-    function test_StakeAndUnstake_SinglePosition()
+    function test_guarded_StakeAndUnstake_SinglePosition()
         public
         mintTokens(SIMON, 1e9 ether)
         stakeTokens(SIMON, 1 ether)
@@ -310,7 +382,7 @@ contract NewGlowTest is Test {
         vm.stopPrank();
     }
 
-    function test_stake_withEnoughInAnUnstakedPosition_notAtPosiiton0_shouldTrigger_newHead()
+    function test_guarded_stake_withEnoughInAnUnstakedPosition_notAtPosiiton0_shouldTrigger_newHead()
         public
         mintTokens(SIMON, 1e9 ether)
         stakeTokens(SIMON, 1 ether)
@@ -332,12 +404,14 @@ contract NewGlowTest is Test {
         vm.stopPrank();
     }
 
-    function test_unstakedPositionsOfPagination_headEqualsTail_emptyPosition_shouldReturnLengthZeroArray() public {
+    function test_guarded_unstakedPositionsOfPagination_headEqualsTail_emptyPosition_shouldReturnLengthZeroArray()
+        public
+    {
         IGlow.UnstakedPosition[] memory unstakedPosition = glw.unstakedPositionsOf(SIMON, 0, 10);
         assert(unstakedPosition.length == 0);
     }
 
-    function test_unstakedPositionsOfPaginations_headEqualTails_notEmptyPosition_shouldReturnLengthOneArray()
+    function test_guarded_unstakedPositionsOfPaginations_headEqualTails_notEmptyPosition_shouldReturnLengthOneArray()
         public
         mintTokens(SIMON, 1e9 ether)
         stakeTokens(SIMON, 1 ether)
@@ -353,7 +427,7 @@ contract NewGlowTest is Test {
      *         -   This means that if a user has 10 tokens that are ready to be claimed and wants to stake 1 token, the user will actually receive 9 tokens, (and also not have to send any tokens)
      *         -   when they go to stake that 1 token. This tests focusese on that logic.
      *
-     *         -   1. Repeats all steps inside ```test_StakeAndUnstake_SinglePosition_stakingShouldClaimGLOW``` above.
+     *         -   1. Repeats all steps inside ```test_guarded_StakeAndUnstake_SinglePosition_stakingShouldClaimGLOW``` above.
      *         -   2. Fast forwards to the cooldown end of the unstaked position
      *         -       -   This means that the 1 token inside the unstaked position is ready to be claimed
      *         -   3. Perform some sanity checks
@@ -366,8 +440,8 @@ contract NewGlowTest is Test {
      *         -   6. Ensure that unstaked positons is correctly updated and that there are now no unstaked positions left.
      */
 
-    function test_NewStakeAndUnstake_SinglePosition_stakingShouldClaimGLOW() public {
-        test_StakeAndUnstake_SinglePosition();
+    function test_guarded_NewStakeAndUnstake_SinglePosition_stakingShouldClaimGLOW() public {
+        test_guarded_StakeAndUnstake_SinglePosition();
         vm.startPrank(SIMON);
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
 
@@ -441,7 +515,10 @@ contract NewGlowTest is Test {
      *             -   We had a total of 55 tokens across unstaked positions and now we want to stake 3 tokens. The contract should refund us 52 tokens and keep 3 tokens to stake with
      *         6. Make sure all unstaked positions are cleared.
      */
-    function test_NewStakeAndUnstakeMultiplePositions_allExpired() public stageStakeAndUnstakeMultiplePositions {
+    function test_guarded_NewStakeAndUnstakeMultiplePositions_allExpired()
+        public
+        stageStakeAndUnstakeMultiplePositions
+    {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
         vm.warp(unstakedPositions[9].cooldownEnd + 1);
 
@@ -487,7 +564,7 @@ contract NewGlowTest is Test {
      *             -   If first position, ensure that the new amount inside that unstaked position is .5 tokens. This is because we needed to pull 1.5 tokens from the 2 tokens that existed in that unstaked position previously.
      *             - For the rest of the positions, ensure that the amounts stayed the same.
      */
-    function test_StakeAndUnstakeMultiplePositions_noneExpired() public stageStakeAndUnstakeMultiplePositions {
+    function test_guarded_StakeAndUnstakeMultiplePositions_noneExpired() public stageStakeAndUnstakeMultiplePositions {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
         //unstakedPositions should be length 10 before starting a new stake
         assertEq(unstakedPositions.length, 10);
@@ -517,7 +594,7 @@ contract NewGlowTest is Test {
         }
     }
 
-    function test_StakeAndUnstakeMultiplePositions_useAllStakePositions()
+    function test_guarded_StakeAndUnstakeMultiplePositions_useAllStakePositions()
         public
         stageStakeAndUnstakeMultiplePositions
     {
@@ -581,7 +658,7 @@ contract NewGlowTest is Test {
         assertEq(unstakedPositions.length, 0);
     }
 
-    function test_UnstakeOver100ShouldForceCooldown() public {
+    function test_guarded_UnstakeOver100ShouldForceCooldown() public {
         //make sure we don't start at timestamp 0
         vm.warp(glw.EMERGENCY_COOLDOWN_PERIOD() * 12345);
         vm.startPrank(SIMON);
@@ -642,7 +719,7 @@ contract NewGlowTest is Test {
         glw.unstake(0.2 ether);
     }
 
-    function test_ClaimZeroTokensShouldFail() public {
+    function test_guarded_ClaimZeroTokensShouldFail() public {
         vm.startPrank(SIMON);
         glw.mint(SIMON, 1e9 ether);
         glw.stake(1 ether);
@@ -652,7 +729,7 @@ contract NewGlowTest is Test {
         glw.claimUnstakedTokens(0);
     }
 
-    function test_ClaimTokens() public {
+    function test_guarded_ClaimTokens() public {
         vm.startPrank(SIMON);
         glw.mint(SIMON, 1e9 ether);
         glw.stake(1 ether);
@@ -683,7 +760,7 @@ contract NewGlowTest is Test {
         assertEq(glw.numStaked(SIMON), 0);
     }
 
-    function test_ClaimTokens_ClaimableTotalGT_Amount_NoNewTail() public {
+    function test_guarded_ClaimTokens_ClaimableTotalGT_Amount_NoNewTail() public {
         vm.startPrank(SIMON);
         glw.mint(SIMON, 1e9 ether);
         glw.stake(1 ether);
@@ -716,7 +793,7 @@ contract NewGlowTest is Test {
         assertEq(glw.numStaked(SIMON), 0);
     }
 
-    function test_ClaimTokens_ClaimableTotalGT_Amount_NewTail() public {
+    function test_guarded_ClaimTokens_ClaimableTotalGT_Amount_NewTail() public {
         vm.startPrank(SIMON);
         glw.mint(SIMON, 1e9 ether);
         glw.stake(1 ether);
@@ -752,7 +829,7 @@ contract NewGlowTest is Test {
 
     // //-------------------- Inflation Tests --------------------
 
-    function test_InflationShouldRevertIfContractsNotSet() public {
+    function test_guarded_InflationShouldRevertIfContractsNotSet() public {
         vm.expectRevert(IGlow.AddressNotSet.selector);
         glw.claimGLWFromGCAAndMinerPool();
         vm.expectRevert(IGlow.AddressNotSet.selector);
@@ -768,7 +845,24 @@ contract NewGlowTest is Test {
         _;
     }
 
-    function test_ClaimInflationFromGCA() public setInflationContracts {
+    function test_setLP_liquidityPool_shouldBeAbleToBeCreated() public {
+        seedLP(1 ether, 10 * 1e6);
+    }
+
+    function test_guarded_executeSwap_glwUSDG() public {
+        seedLP(1 ether, 10 * 1e6);
+        uint256 amountGlow = 0.5 ether;
+        vm.startPrank(usdgOwner);
+        glw.mint(usdgOwner, amountGlow);
+        glw.approve(address(uniswapRouter), amountGlow);
+        address[] memory path = new address[](2);
+        path[0] = address(glw);
+        path[1] = address(usdg);
+        uniswapRouter.swapExactTokensForTokens(amountGlow, 0, path, usdgOwner, block.timestamp);
+        vm.stopPrank();
+    }
+
+    function test_guarded_ClaimInflationFromGCA() public setInflationContracts {
         vm.startPrank(SIMON);
 
         vm.expectRevert(IGlow.CallerNotGCA.selector);
@@ -795,7 +889,7 @@ contract NewGlowTest is Test {
         assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
     }
 
-    function test_ClaimFromVetoCouncil() public setInflationContracts {
+    function test_guarded_ClaimFromVetoCouncil() public setInflationContracts {
         vm.startPrank(SIMON);
         vm.expectRevert(IGlow.CallerNotVetoCouncil.selector);
         glw.claimGLWFromVetoCouncil();
@@ -820,7 +914,7 @@ contract NewGlowTest is Test {
         assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
     }
 
-    function test_ClaimFromGrantsTreasury() public setInflationContracts {
+    function test_guarded_ClaimFromGrantsTreasury() public setInflationContracts {
         vm.startPrank(SIMON);
         vm.expectRevert(IGlow.CallerNotGrantsTreasury.selector);
         glw.claimGLWFromGrantsTreasury();
@@ -852,7 +946,8 @@ contract NewGlowTest is Test {
         assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
     }
 
-    function test_InflationGettersShouldRevertIfContractsNotSet() public {
+    function test_guarded_InflationGettersShouldRevertIfContractsNotSet() public {
+        vm.startPrank(SIMON);
         vm.expectRevert(IGlow.AddressNotSet.selector);
         (uint256 a, uint256 b, uint256 c) = glw.gcaInflationData();
 
@@ -868,10 +963,12 @@ contract NewGlowTest is Test {
         (a, b, c) = glw.gcaInflationData();
         (a, b, c) = glw.vetoCouncilInflationData();
         (a, b, c) = glw.grantsTreasuryInflationData();
+        vm.stopPrank();
     }
 
-    function test_SetContractAddressesCannotBeZero() public {
+    function test_guarded_SetContractAddressesCannotBeZero() public {
         //All combinations of 0 addresses should revert
+        vm.startPrank(SIMON);
         vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
         glw.setContractAddresses(a(0), a(0), a(0));
         vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
@@ -887,9 +984,11 @@ contract NewGlowTest is Test {
         glw.setContractAddresses(a(1), a(0), a(2));
         vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
         glw.setContractAddresses(a(1), a(2), a(0));
+        vm.stopPrank();
     }
 
-    function test_SetContractAddressesCannotBeDuplicates() public {
+    function test_guarded_SetContractAddressesCannotBeDuplicates() public {
+        vm.startPrank(SIMON);
         vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
         glw.setContractAddresses(VETO_COUNCIL, VETO_COUNCIL, VETO_COUNCIL);
         vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
@@ -906,15 +1005,18 @@ contract NewGlowTest is Test {
         glw.setContractAddresses(GRANTS_TREASURY, GRANTS_TREASURY, VETO_COUNCIL);
         vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
         glw.setContractAddresses(GRANTS_TREASURY, GRANTS_TREASURY, GRANTS_TREASURY);
+        vm.stopPrank();
     }
 
-    function test_ShouldOnlyBeAbleToSetContractAddressesOnce() public {
+    function test_guarded_ShouldOnlyBeAbleToSetContractAddressesOnce() public {
+        vm.startPrank(SIMON);
         glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
         vm.expectRevert(IGlow.AddressAlreadySet.selector);
         glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
+        vm.stopPrank();
     }
 
-    function test_UnstakedPositionsOf() public {
+    function test_guarded_UnstakedPositionsOf() public {
         vm.startPrank(SIMON);
         uint256 amountToMint = 1e9 ether;
         glw.mint(SIMON, amountToMint);
@@ -963,7 +1065,7 @@ contract NewGlowTest is Test {
         }
     }
 
-    function test_UnstakedPositionsOfPagination() public {
+    function test_guarded_UnstakedPositionsOfPagination() public {
         vm.startPrank(SIMON);
         uint256 amountToMint = 1e9 ether;
         glw.mint(SIMON, amountToMint);
@@ -1034,7 +1136,7 @@ contract NewGlowTest is Test {
         assertEq(unstakedPositions.length, 7);
     }
 
-    function test_PaginationTailGreaterThanLengthShouldReturnEmptyArray() public {
+    function test_guarded_PaginationTailGreaterThanLengthShouldReturnEmptyArray() public {
         vm.startPrank(SIMON);
         uint256 amountToMint = 1e9 ether;
         glw.mint(SIMON, amountToMint);
@@ -1072,5 +1174,19 @@ contract NewGlowTest is Test {
         console.log("timestamp expiration", pos.cooldownEnd);
         console.log("amount in unstake pool", pos.amount);
         console.logString("-------------------------------");
+    }
+
+    function seedLP(uint256 amountGlow, uint256 amountUSDG) public {
+        vm.startPrank(usdgOwner);
+        glw.mint(usdgOwner, amountGlow);
+        glw.approve(address(uniswapRouter), amountGlow);
+        usdc.mint(usdgOwner, amountUSDG);
+        usdc.approve(address(usdg), amountUSDG);
+        usdg.swap(usdgOwner, amountUSDG);
+        usdg.approve(address(uniswapRouter), amountUSDG);
+        uniswapRouter.addLiquidity(
+            address(glw), address(usdg), amountGlow, amountUSDG, amountGlow, amountUSDG, usdgOwner, block.timestamp
+        );
+        vm.stopPrank();
     }
 }
