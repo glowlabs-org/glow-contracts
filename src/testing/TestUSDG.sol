@@ -31,4 +31,8 @@ contract TestUSDG is USDG {
         pair = UnifapV2Library.pairFor(factory, token0, token1);
         return pair;
     }
+
+    function addAllowlistedContract(address _address) external {
+        allowlistedContracts[_address] = true;
+    }
 }

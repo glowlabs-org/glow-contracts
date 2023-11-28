@@ -111,7 +111,7 @@ contract GCCGuardedLaunchTest is Test {
 
         vm.startPrank(usdgOwner);
         usdg.setAllowlistedContracts({
-            _glow: address(vetoCouncil),
+            _glow: address(glwContract),
             _gcc: address(gcc),
             _holdingContract: address(vetoCouncil),
             _vetoCouncilContract: vetoCouncil,
@@ -233,7 +233,7 @@ contract GCCGuardedLaunchTest is Test {
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         vm.startPrank(usdgOwner);
         usdg.setAllowlistedContracts({
-            _glow: address(vetoCouncil),
+            _glow: address(glwContract),
             _gcc: address(gcc),
             _holdingContract: address(vetoCouncil),
             _vetoCouncilContract: vetoCouncil,
@@ -439,7 +439,7 @@ contract GCCGuardedLaunchTest is Test {
         gcc.allowlistPostConstructionContracts();
         vm.startPrank(usdgOwner);
         usdg.setAllowlistedContracts({
-            _glow: address(vetoCouncil),
+            _glow: address(glwContract),
             _gcc: address(gcc),
             _holdingContract: address(vetoCouncil),
             _vetoCouncilContract: vetoCouncil,

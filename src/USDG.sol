@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
+import {Glow} from "@/GLOW.sol";
 /**
  * @title USDG
  * @notice A contract for swapping USDC for USDG
@@ -136,6 +137,7 @@ contract USDG is ERC20Permit, Ownable {
         allowlistedContracts[gccUSDGPair] = true;
         vetoCouncilContract = IVetoCouncil(_vetoCouncilContract);
         allowlistedContracts[_impactCatalyst] = true;
+        allowlistedContracts[address(Glow(_glow).EARLY_LIQUIDITY_ADDRESS())] = true;
         renounceOwnership();
     }
 
