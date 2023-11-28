@@ -96,7 +96,10 @@ contract USDG is ERC20Permit, Ownable {
      * @dev USDG is minted 1:1 with USDC
      */
     function swap(address to, uint256 amount) public {
+        uint256 balBefore = USDC.balanceOf(USDC_RECEIVER);
         USDC.transferFrom(msg.sender, USDC_RECEIVER, amount);
+        uint256 balAfter = USDC.balanceOf(USDC_RECEIVER);
+        amount = balAfter - balBefore;
         _mint(to, amount);
     }
 

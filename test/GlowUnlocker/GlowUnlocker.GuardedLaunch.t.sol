@@ -93,7 +93,7 @@ contract GlowUnlockerGuardedLaunchTest is Test {
         vm.stopPrank();
     }
 
-    function test_disperser_getNextReward() public {
+    function test_guarded_disperser_getNextReward() public {
         vm.warp(block.timestamp + uint256(365 days));
         address rewardAddress1 = addresses[0];
         address rewardAddress11 = addresses[10];
@@ -171,7 +171,7 @@ contract GlowUnlockerGuardedLaunchTest is Test {
         assert(balance == 10_000_000 ether);
     }
 
-    function testFuzz_claimingBeforeReleaseStartTimestamp_shouldRevert(uint256 timeToWarp) public {
+    function testFuzz_guarded_claimingBeforeReleaseStartTimestamp_shouldRevert(uint256 timeToWarp) public {
         //release period is frozen between contract creation time and 1 year after
         timeToWarp = block.timestamp + timeToWarp % 365 days;
         vm.warp(timeToWarp);
@@ -180,7 +180,7 @@ contract GlowUnlockerGuardedLaunchTest is Test {
         disperser.claim(rewardAddress1);
     }
 
-    function testFuzz_warpRandomTime_rewardsShouldNeverOverflow(uint128 secondsToWarpForward) public {
+    function testFuzz_guarded_warpRandomTime_rewardsShouldNeverOverflow(uint128 secondsToWarpForward) public {
         vm.assume(secondsToWarpForward > uint256(365 days));
         vm.warp(block.timestamp + secondsToWarpForward);
         address rewardAddress1 = addresses[0];
