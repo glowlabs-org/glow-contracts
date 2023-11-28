@@ -12,7 +12,7 @@ import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import {Handler} from "./Handler.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {TestGLOW} from "@/testing/TestGLOW.sol";
+import {TestGLOW} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -75,7 +75,14 @@ contract GCCGuardedLaunchTest is Test {
             _univ2Factory: address(uniswapFactory)
         });
         // mainnetFork = vm.createFork(forkUrl);
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glwContract = new TestGLOW({
+            _earlyLiquidityAddress: earlyLiquidity,
+            _vestingContract: vestingContract,
+            _owner: SIMON,
+            _usdg: address(usdg),
+            _uniswapV2Factory: address(uniswapFactory)
+        });
+
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
@@ -202,7 +209,13 @@ contract GCCGuardedLaunchTest is Test {
             _univ2Factory: address(uniswapFactory)
         });
 
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glwContract = new TestGLOW({
+            _earlyLiquidityAddress: earlyLiquidity,
+            _vestingContract: vestingContract,
+            _owner: SIMON,
+            _usdg: address(usdg),
+            _uniswapV2Factory: address(uniswapFactory)
+        });
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
@@ -404,7 +417,13 @@ contract GCCGuardedLaunchTest is Test {
             _univ2Factory: address(uniswapFactory)
         });
 
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glwContract = new TestGLOW({
+            _earlyLiquidityAddress: earlyLiquidity,
+            _vestingContract: vestingContract,
+            _owner: SIMON,
+            _usdg: address(usdg),
+            _uniswapV2Factory: address(uniswapFactory)
+        });
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
@@ -416,7 +435,6 @@ contract GCCGuardedLaunchTest is Test {
             _vetoCouncilAddress: vetoCouncil,
             _uniswapRouter: address(uniswapRouter),
             _uniswapFactory: address(uniswapFactory)
-        
         });
         gcc.allowlistPostConstructionContracts();
         vm.startPrank(usdgOwner);

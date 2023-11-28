@@ -62,6 +62,12 @@ contract GlowGuardedLaunch is Glow, Ownable {
     bool public permanentlyFreezeTransfers;
 
     /**
+     * @notice The address of the GlowUnlocker contract
+     * @dev this contract unlocks 90 million pre-minted glow tokens over 6 years
+     */
+    address public glowUnlocker;
+
+    /**
      * @notice address -> isAllowListedContract
      */
     mapping(address => bool) public allowlistedContracts;
@@ -143,6 +149,13 @@ contract GlowGuardedLaunch is Glow, Ownable {
         // address carbonCreditAuction = address(GCC(gccContract).CARBON_CREDIT_AUCTION());
         // require(carbonCreditAuction != address(0), "Glow: carbonCreditAuction is zero");
         // allowlistedContracts[carbonCreditAuction] = true;
+    }
+
+    function setGlowUnlocker(address _glowUnlocker) external onlyOwner {
+        if (!_isZeroAddress(glowUnlocker)) _revert(IGlow.AddressAlreadySet.selector);
+        if (_isZeroAddress(_glowUnlocker)) _revert(IGlow.ZeroAddressNotAllowed.selector);
+        glowUnlocker = _glowUnlocker;
+        allowlistedContracts[_glowUnlocker] = true;
     }
 
     /* -------------------------------------------------------------------------- */
