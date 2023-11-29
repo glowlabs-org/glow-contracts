@@ -119,6 +119,9 @@ contract GlowGuardedLaunch is Glow, Ownable {
     /**
      * @notice Sets the addresses of the GCA and Miner Pool, Veto Council, and Grants Treasury
      * @dev this function can only be called once
+     * @param _gcaAndMinerPoolAddress the address of the GCA and Miner Pool contract
+     * @param _vetoCouncilAddress the address of the Veto Council contract
+     * @param _grantsTreasuryAddress the address of the Grants Treasury contract
      */
     function setContractAddresses(
         address _gcaAndMinerPoolAddress,
@@ -152,8 +155,11 @@ contract GlowGuardedLaunch is Glow, Ownable {
         allowlistedContracts[carbonCreditAuction] = true;
     }
 
-    function setCarbonCreditAuction() public {}
-
+    /**
+     * @notice Sets the address of the GlowUnlocker contract
+     * @dev this function can only be called once
+     * @param _glowUnlocker the address of the GlowUnlocker contract
+     */
     function setGlowUnlocker(address _glowUnlocker) external onlyOwner {
         if (!_isZeroAddress(glowUnlocker)) _revert(IGlow.AddressAlreadySet.selector);
         if (_isZeroAddress(_glowUnlocker)) _revert(IGlow.ZeroAddressNotAllowed.selector);

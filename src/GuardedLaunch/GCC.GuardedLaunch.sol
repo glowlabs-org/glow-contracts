@@ -58,12 +58,8 @@ contract GCCGuardedLaunch is GCC {
     ) payable GCC(_gcaAndMinerPoolContract, _governance, _glowToken, _usdg, _uniswapRouter) {
         VETO_COUNCIL_ADDRESS = _vetoCouncilAddress;
         allowlistedContracts[address(this)] = true;
-        // allowlistedContracts[_gcaAndMinerPoolContract] = true;
         allowlistedContracts[_governance] = true;
-        // allowlistedContracts[_vetoCouncilAddress] = true;
-        //TODO: Only the pair and auction need to be allowlisted
         allowlistedContracts[getPair(_uniswapFactory, _usdg)] = true;
-        //Need to get carbon credit auction in here.
     }
 
     /* -------------------------------------------------------------------------- */

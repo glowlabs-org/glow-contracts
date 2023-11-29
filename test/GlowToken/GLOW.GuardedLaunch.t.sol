@@ -24,7 +24,7 @@ contract GlowGuardedLaunchTest is Test {
     address public constant EARLY_LIQUIDITY = address(0x4);
     address public constant VESTING_CONTRACT = address(0x5);
     address[] startingAgents = [SIMON];
-    address  GCA;
+    address GCA;
     address mockGovernance = address(0x1233918293819389128);
     address usdgOwner = address(0xaaa112);
     address usdcReceiver = address(0xaaa113);
