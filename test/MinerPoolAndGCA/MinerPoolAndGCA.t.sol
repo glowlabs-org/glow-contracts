@@ -62,11 +62,11 @@ contract MinerPoolAndGCATest is Test {
     address OTHER_GCA_2 = address(0x8);
     address OTHER_GCA_3 = address(0x9);
     address OTHER_GCA_4 = address(0x10);
-    address carbonCreditAuction = address(0x11);
     address defaultAddressInWithdraw;
     uint256 defaultAddressPrivateKey;
     address bidder1 = address(0x12);
     address bidder2 = address(0x13);
+    address carbonCreditAuction = address(0x11);
 
     //--------  CONSTANTS ---------//
     uint256 constant ONE_WEEK = 7 * uint256(1 days);

@@ -19,12 +19,12 @@ contract GlowGuardedLaunchTest is Test {
     address public constant SIMON = address(0x11241998);
     address public otherAccount = address(0xaafdafadfafda);
     uint256 public constant FIVE_YEARS = 365 days * 5;
-    address public constant GCA = address(0x1);
     address public VETO_COUNCIL = address(0x2);
     address public constant GRANTS_TREASURY = address(0x3);
     address public constant EARLY_LIQUIDITY = address(0x4);
     address public constant VESTING_CONTRACT = address(0x5);
     address[] startingAgents = [SIMON];
+    address  GCA;
     address mockGovernance = address(0x1233918293819389128);
     address usdgOwner = address(0xaaa112);
     address usdcReceiver = address(0xaaa113);
@@ -46,7 +46,7 @@ contract GlowGuardedLaunchTest is Test {
         uniswapFactory = new UnifapV2Factory();
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
-
+        GCA = address(new FakeMinerPool());
         usdc = new MockUSDC();
         usdg = new TestUSDG({
             _usdc: address(usdc),
@@ -1188,5 +1188,19 @@ contract GlowGuardedLaunchTest is Test {
             address(glw), address(usdg), amountGlow, amountUSDG, amountGlow, amountUSDG, usdgOwner, block.timestamp
         );
         vm.stopPrank();
+    }
+}
+
+contract FakeMinerPool {
+    address public gccContract;
+
+    constructor() {
+        gccContract = address(new FakeGCC());
+    }
+}
+
+contract FakeGCC {
+    function CARBON_CREDIT_AUCTION() external pure returns (address) {
+        return address(0x1);
     }
 }

@@ -123,9 +123,7 @@ contract GovernanceGuardedLaunchTest is Test {
 
         minerPoolAndGCA =
         new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
-        vm.startPrank(SIMON);
-        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
-        vm.stopPrank();
+
         grc2 = new MockUSDC();
         gcc = new TestGCCGuardedLaunch({
             _gcaAndMinerPoolContract: address(minerPoolAndGCA),
@@ -137,6 +135,11 @@ contract GovernanceGuardedLaunchTest is Test {
             _uniswapFactory: address(uniswapFactory)
         
         });
+        minerPoolAndGCA.setGCC(address(gcc));
+
+        vm.startPrank(SIMON);
+        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
+        vm.stopPrank();
         gcc.allowlistPostConstructionContracts();
         governance.setContractAddresses(
             address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)

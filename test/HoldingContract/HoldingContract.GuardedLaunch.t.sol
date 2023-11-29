@@ -105,7 +105,8 @@ contract HoldingContractGuardedLaunchTest is Test {
         holdingContract = new HoldingContract(vetoCouncilAddress);
         minerPoolAndGCA =
         new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
-
+        FakeGCC fakeGCC = new FakeGCC();
+        minerPoolAndGCA.setGCC(address(fakeGCC));
         vm.startPrank(SIMON);
         glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         vm.stopPrank();
@@ -412,5 +413,11 @@ contract HoldingContractGuardedLaunchTest is Test {
         vm.deal(addr, amount);
         signerPrivateKey = privateKey;
         return (addr, signerPrivateKey);
+    }
+}
+
+contract FakeGCC {
+    function CARBON_CREDIT_AUCTION() external pure returns (address) {
+        return address(0x1);
     }
 }

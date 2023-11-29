@@ -144,12 +144,15 @@ contract GlowGuardedLaunch is Glow, Ownable {
         allowlistedContracts[_gcaAndMinerPoolAddress] = true;
         allowlistedContracts[_vetoCouncilAddress] = true;
         allowlistedContracts[_grantsTreasuryAddress] = true;
-        // address gccContract = address(MinerPoolAndGCA(gcaAndMinerPoolAddress).gccContract());
-        // require(gccContract != address(0), "Glow: gccContract is zero");
-        // address carbonCreditAuction = address(GCC(gccContract).CARBON_CREDIT_AUCTION());
-        // require(carbonCreditAuction != address(0), "Glow: carbonCreditAuction is zero");
-        // allowlistedContracts[carbonCreditAuction] = true;
+
+        address gccContract = address(MinerPoolAndGCA(_gcaAndMinerPoolAddress).gccContract());
+        require(gccContract != address(0), "Glow: gccContract is zero");
+        address carbonCreditAuction = address(GCC(gccContract).CARBON_CREDIT_AUCTION());
+        require(carbonCreditAuction != address(0), "Glow: carbonCreditAuction is zero");
+        allowlistedContracts[carbonCreditAuction] = true;
     }
+
+    function setCarbonCreditAuction() public {}
 
     function setGlowUnlocker(address _glowUnlocker) external onlyOwner {
         if (!_isZeroAddress(glowUnlocker)) _revert(IGlow.AddressAlreadySet.selector);
