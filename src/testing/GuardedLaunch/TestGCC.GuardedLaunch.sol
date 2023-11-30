@@ -54,7 +54,7 @@ contract TestGCCGuardedLaunch is GCCGuardedLaunch {
         require(token0 != address(0), "UniswapV2Library: ZERO_ADDRESS");
     }
 
-    function getPair(address factory, address _tokenB) internal view override returns (address pair) {
+    function getPair(address factory, address _tokenB) internal view virtual override returns (address pair) {
         (address token0, address token1) = sortTokens(address(this), _tokenB);
         pair = UnifapV2Library.pairFor(factory, token0, token1);
         return pair;

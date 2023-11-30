@@ -1,18 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {GlowGuardedLaunch} from "@/GuardedLaunch/Glow.GuardedLaunch.sol";
-import {UnifapV2Library} from "@unifapv2/libraries/UnifapV2Library.sol";
+import "../../GuardedLaunch/GLOW.GuardedLaunch.sol";
+import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 
-contract TestGLOW is GlowGuardedLaunch {
-    /**
-     * @notice constructs a new GLOW token
-     * @param _earlyLiquidityAddress the address to send the early liquidity to
-     * @param _vestingContract the address of the vesting contract
-     * @param _owner the owner of the contract
-     * @param _usdg the address of the USDG contract
-     * @param _uniswapV2Factory the address of the uniswap v2 factory
-     */
+contract GoerliGlowGuardedLaunch is GlowGuardedLaunch {
     constructor(
         address _earlyLiquidityAddress,
         address _vestingContract,
@@ -23,10 +15,6 @@ contract TestGLOW is GlowGuardedLaunch {
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
-    }
-
-    function allowlistAddress(address _address) external {
-        allowlistedContracts[_address] = true;
     }
 
     // returns sorted token addresses, used to handle return values from pairs sorted in this order
@@ -44,7 +32,7 @@ contract TestGLOW is GlowGuardedLaunch {
         returns (address pair)
     {
         (address token0, address token1) = sortTokens(_tokenA, _tokenB);
-        pair = UnifapV2Library.pairFor(factory, token0, token1);
+        pair = UniswapV2Library.pairFor(factory, token0, token1);
         return pair;
     }
 }
