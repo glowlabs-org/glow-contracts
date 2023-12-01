@@ -6,6 +6,15 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 
+/**
+ * @title GCCGuardedLaunch
+ * @notice This contract is used to guard the launch of the GCC token
+ *               - GLOW Protocol's guraded launch is meant to protect the protocol from
+ *                 malicious actors and to give the community time to audit the code
+ *               - During the guarded launch, transfers are restricted to EOA's and allowlisted contracts
+ *               - The veto council also has the ability to permanently freeze transfers in case of an emergency
+ *                   - Post guarded-launch, Guarded Launch tokens will be airdropped 1:1 to GCC holders
+ */
 contract GCCGuardedLaunch is GCC {
     error ErrIsContract();
     error ErrNotVetoCouncilMember();

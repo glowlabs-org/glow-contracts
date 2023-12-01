@@ -27,16 +27,13 @@ struct Pointers {
 }
 
 /**
- * @title Glow
- * @author DavidVorick
- * @author 0xSimon(twitter) - OxSimbo(github)
- * @notice The Glow token is the backbone of the protocol
- *         - Solar farms are rewarded with glow tokens as they produce solar
- *         - GCA's (Glow Certification Agents) and Veto Council Members are rewarded in GLOW
- *             - for their contributions
- *         - The Grants Treasury is rewarded in GLOW for their contributions
- *         - Holders can anchor (stake) glow to earn voting power in governance
- *             - anchoring lasts 5 years from the point of unstaking
+ * @title GlowGuardedLaunch
+ * @notice This contract is used to guard the launch of the GLOW token
+ *               - GLOW Protocol's guraded launch is meant to protect the protocol from
+ *                 malicious actors and to give the community time to audit the code
+ *               - During the guarded launch, transfers are restricted to EOA's and allowlisted contracts
+ *               - The veto council also has the ability to permanently freeze transfers in case of an emergency
+ *                  - Post guarded-launch, Guarded Launch tokens will be airdropped 1:1 to GLOW holders
  */
 contract GlowGuardedLaunch is Glow, Ownable {
     error ErrIsContract();
