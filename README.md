@@ -127,29 +127,32 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
 | IGCC.sol | 89 | 204 |
 | GCA.sol | 450 | 389 |
 | MinerPoolAndGCA.sol | 258 | 233 |
+| GCC.GuardedLaunch.sol | 64 | 77 |
 | BucketSubmission.sol | 101 | 164 |
 | IMinerPool.sol | 46 | 67 |
-| GCASalaryHelper.sol | 192 | 196 |
+| GCASalaryHelper.sol | 192 | 195 |
 | CarbonCreditDutchAuction.sol | 124 | 113 |
 | IEarlyLiquidity.sol | 14 | 33 |
-| IGlow.sol | 49 | 104 |
+| IGlow.sol | 53 | 113 |
 | HalfLifeCarbonCreditAuction.sol | 17 | 17 |
 | IGovernance.sol | 101 | 125 |
 | ICarbonCreditAuction.sol | 9 | 30 |
-| GLOW.sol | 336 | 277 |
-| EarlyLiquidity.sol | 105 | 197 |
+| GLOW.sol | 332 | 268 |
+| EarlyLiquidity.sol | 105 | 195 |
 | VetoCouncilSalaryHelper.sol | 209 | 195 |
-| Governance.sol | 821 | 597 |
+| Governance.sol | 821 | 604 |
+| USDG.sol | 88 | 112 |
 | HoldingContract.sol | 107 | 181 |
 | GlowUnlocker.sol | 61 | 49 |
+| Glow.GuardedLaunch.sol | 97 | 102 |
 | VetoCouncil.sol | 79 | 76 |
 | ImpactCatalyst.sol | 161 | 169 |
 | IERC20Permit.sol | 6 | 0 |
-| GCC.sol | 293 | 232 |
+| GCC.sol | 293 | 247 |
 | IGCA.sol | 77 | 142 |
 | IVetoCouncil.sol | 14 | 47 |
 | HalfLife.sol | 14 | 16 |
-| Total | 3856 | 4069 |
+| Total | 4105 | 4379 |
 
 
 
