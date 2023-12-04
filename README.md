@@ -4,6 +4,40 @@
 The Guarded Launch is a beta of sorts for the Glow Protocol.
 During the guarded launch phase, contracts are deployed as normal with the exception of premine and early liquidity contracts. Furthermore, USDC is replaced with a wrapper called USDG which only allows transfers to allow-listed contracts (specific uniV2 pools). This is in effort to be able to recover from a disaster scenario. GLOW and GCC also follow the same pattern. All three contracts mentioned above also have circuit breakers that can be called by any veto council member in order to halt the transfer of any tokens. After the Guarded Launch, the contracts will be redeployed and airdrops will take place to compensate those that were earning guarded launch rewards.
 
+
+## External Dependencies
+1. OpenZeppelin ERC20 
+    -   Used as the base tokens for USDG, GCC, and GLOW
+2. Openzeppelin ERC20Permit
+    -   Used as the base tokens for USDG, GCC, and GLOW
+3. OpenZeppelin SafeCast
+    -   Used to SafeCast downcasts across contracts.
+4. OpenZeppelin Ownable
+    -   Used across certain contracts to check for access roles on setters
+5. OpenZeppelin SafeERC20
+    -   Used across contracts to handle ERC20 transfers. 
+    - Specifically in :
+        -   EarlyLiquidity
+        -   HoldingContract
+        -   MinerPoolAndGCA
+6. OpenZeppelin SignatureChecker
+    -   Used across contracts to check for ECDSA and EIP1271 signatures
+7. OpenZeppelin EIP712
+5. Solady Math (SQRT Function)
+    -   Used in ImpactCatalyst
+6. Solady MerkleProofLib   
+    -   Used in MinerPoolAndGCA to check for leaves in the report merkle roots
+7. Uniswap V2 Library
+    -   Used in ImpactCatalyst 
+    -   Used in GlowGuardedLaunch,GCCGuardedLaunch, and USDG to determine pair addresses
+8. ABDK Math 64x64
+    -   Used across contracts
+    -   Specifically in:
+        -   EarlyLiquidity to calculate a precise price for the sale of GLOW
+        -   CarbonCreditDutchAuction to calculate the price with time decay
+        -   Governance to determine a user's nominations with decay
+
+
 # Glow Overview
 
 The Glow protocol is a protocol with a goal to reduce carbon emissions. It proposes an on-chain incentive system to achieve this goal.
