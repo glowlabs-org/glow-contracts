@@ -25,6 +25,10 @@ contract GoerliGCCGuardedLaunch is TestGCCGuardedLaunch {
         )
     {}
 
+    function mint(address to, uint256 amount) external override {
+        _mint(to, amount);
+    }
+
     function getPair(address factory, address _tokenB) internal view override returns (address) {
         return UniswapV2Library.pairFor(factory, address(this), _tokenB);
     }

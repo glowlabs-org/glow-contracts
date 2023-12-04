@@ -39,7 +39,7 @@ contract TestGCCGuardedLaunch is GCCGuardedLaunch {
         )
     {}
 
-    function mint(address to, uint256 amount) external {
+    function mint(address to, uint256 amount) external virtual {
         _mint(to, amount);
     }
 
