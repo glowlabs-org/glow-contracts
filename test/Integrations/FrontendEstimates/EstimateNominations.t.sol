@@ -88,15 +88,45 @@ contract EstimateNominationsTest is Test {
 
     function test_commitEstimateUSDC() public {
         uint256 amountToCommit = 0.5 ether;
+        ImpactCatalyst c = gcc.IMPACT_CATALYST();
+        uint256 estimate = c.estimateUSDCCommitImpactPower(amountToCommit);
         commitUSDC(SIMON, amountToCommit);
         uint256 amount = gcc.totalImpactPowerEarned(SIMON);
         console.log("amount = ", amount);
         deployNew();
-        ImpactCatalyst c = gcc.IMPACT_CATALYST();
-        uint256 estimate = c.estimateUSDCCommitImpactPower(amountToCommit);
         console.log("estimate = ", estimate);
         // console.log("estimate = ")
-        assertEq(estimate, amount, "estimate should be equal to amount");
+        assertFalse(isDivergenceGreaterThanThreshold(estimate, amount), "estimate should be equal to amount");
+    }
+
+    function test_divergenceFunctionWorks() public {
+        uint256 expectedAmount = 1000000;
+        uint256 actualAmount = 1000000 - 1;
+        assertTrue(
+            isDivergenceGreaterThanThreshold(expectedAmount, actualAmount),
+            "divergence should be greater than threshold"
+        );
+    }
+    // Function to check if the divergence is greater than 0.00001%
+    // Both expectedAmount and actualAmount should be passed in their smallest units (like wei for ETH)
+
+    function isDivergenceGreaterThanThreshold(uint256 expectedAmount, uint256 actualAmount)
+        public
+        pure
+        returns (bool)
+    {
+        uint256 divergenceThreshold = 1; // This represents 0.00000001% when scaled by 10^10
+        uint256 scale = 10 ** 10; // Scaling factor to represent percentages accurately
+
+        // Calculating the absolute difference
+        uint256 difference =
+            (expectedAmount > actualAmount) ? (expectedAmount - actualAmount) : (actualAmount - expectedAmount);
+
+        // Scaling the expected amount and calculating the threshold value
+        uint256 thresholdValue = expectedAmount * divergenceThreshold / scale;
+
+        // Checking if the difference is greater than the calculated threshold value
+        return difference > thresholdValue;
     }
 
     function deployNew() public {

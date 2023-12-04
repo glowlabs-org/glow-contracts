@@ -997,6 +997,7 @@ contract GCCTest is Test {
         usdc.approve(address(gcc), 1000 * 1e6);
         //Should give us 261693317327390 impact power
         //so we add 1 and it should revert
+        // vm.expectRevert();
         vm.expectRevert(ImpactCatalyst.NotEnoughImpactPowerFromCommitment.selector);
         uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, 261693317327390 + 1);
         vm.stopPrank();
