@@ -5,7 +5,6 @@ import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
-import "forge-std/console.sol";
 /**
  * @title ImpactCatalyst
  * @notice A contract for managing the GCC and USDC commitment
@@ -215,9 +214,6 @@ contract ImpactCatalyst {
         uint256 amountToAddInLiquidity = amount - amounts[0];
 
         //Add liquidity to the GCC-USDC pool
-        console.log("[in flight]", "totalSupplyPair = ", IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply());
-        console.log("[in flight pair usdc balance]", IERC20(USDC).balanceOf(UNISWAP_V2_PAIR));
-        console.log("[in flight pair gcc balance]", IERC20(GCC).balanceOf(UNISWAP_V2_PAIR));
         (,, uint256 actualImpactPowerEarned) = UNISWAP_ROUTER.addLiquidity({
             tokenA: USDC,
             tokenB: GCC,
@@ -308,9 +304,6 @@ contract ImpactCatalyst {
         uint256 reserveUSDC_afterSwap = reserveUSDC + optimalSwapAmount;
         uint256 reserveGCC_afterSwap = reserveGCC - gccEstimate;
         uint256 totalSupply = IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply();
-        console.log("[estimate] totalSupply = ", totalSupply);
-        console.log("[main reserveUSDC_afterSwap]", reserveUSDC_afterSwap);
-        console.log("[main reserveGCC_afterSwap]", reserveGCC_afterSwap);
         uint256 liquidity = min(
             (amountToAddInLiquidity * totalSupply) / reserveUSDC_afterSwap,
             (gccEstimate * totalSupply) / reserveGCC_afterSwap
