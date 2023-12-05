@@ -5,7 +5,7 @@ import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
-
+import "forge-std/console.sol";
 /**
  * @title ImpactCatalyst
  * @notice A contract for managing the GCC and USDC commitment
@@ -16,6 +16,7 @@ import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
  *         is exactly enough to add liquidity to the GCC-USDC pool without any left over of either token
  *         (precision errors may have small dust)
  *         - Nominations are granted as (sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition))
+ *                 - or as the amount of liquidity tokens created from adding liquidity to the GCC-USDC pool
  *         - This is done to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
  * @dev only the GCC contract can call this contract since GCC is the only contract that is allowed to grant nominations
  * - having the catalyst calls be open would lead to commitment that would not earn any impact points / rewards / nominations
@@ -135,7 +136,7 @@ contract ImpactCatalyst {
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amountUSDCReceived);
         uint256 amountToAddInLiquidity = amount - amounts[0];
         uint256 pairUSDCBalanceBefore = IERC20(USDC).balanceOf(UNISWAP_V2_PAIR);
-        UNISWAP_ROUTER.addLiquidity({
+        (,, uint256 actualImpactPowerEarned) = UNISWAP_ROUTER.addLiquidity({
             tokenA: GCC,
             tokenB: USDC,
             amountADesired: amountToAddInLiquidity,
@@ -149,15 +150,14 @@ contract ImpactCatalyst {
             deadline: block.timestamp
         });
         uint256 pairUSDCBalanceAfter = IERC20(USDC).balanceOf(UNISWAP_V2_PAIR);
-        uint256 usdcDiff = pairUSDCBalanceAfter - pairUSDCBalanceBefore;
-        uint256 actualImpactPower = sqrt(amountToAddInLiquidity * usdcDiff);
-        if (actualImpactPower < minImpactPower) {
+        usdcEffect = pairUSDCBalanceAfter - pairUSDCBalanceBefore;
+        if (actualImpactPowerEarned < minImpactPower) {
             _revert(NotEnoughImpactPowerFromCommitment.selector);
         }
+
         //Set usdcEffect to the amount of USDC used in the liquidity position
-        usdcEffect = usdcDiff;
         //set the nominations to sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
-        nominations = actualImpactPower;
+        nominations = actualImpactPowerEarned;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -212,14 +212,7 @@ contract ImpactCatalyst {
         uint256 amountToAddInLiquidity = amount - amounts[0];
 
         //Add liquidity to the GCC-USDC pool
-        // UNISWAP_ROUTER.addLiquidity(USDC, GCC, amountToAddInLiquidity, amounts[1], 0, 0, address(this), block.timestamp);
-
-        uint256 pairBalanceUSDCBefore = IERC20(USDC).balanceOf(UNISWAP_V2_PAIR);
-
-        //ALWAYS provision minUSDC since it's possible for there to be a tax on USDC in the future
-        // uint256 minAmountUSDC = (minImpactPower * minImpactPower) / amounts[1];
-
-        UNISWAP_ROUTER.addLiquidity({
+        (,, uint256 actualImpactPowerEarned) = UNISWAP_ROUTER.addLiquidity({
             tokenA: USDC,
             tokenB: GCC,
             amountADesired: amountToAddInLiquidity,
@@ -232,9 +225,7 @@ contract ImpactCatalyst {
             to: address(this),
             deadline: block.timestamp
         });
-        uint256 pairBalanceUSDCAfter = IERC20(USDC).balanceOf(UNISWAP_V2_PAIR);
 
-        uint256 actualImpactPowerEarned = sqrt((pairBalanceUSDCAfter - pairBalanceUSDCBefore) * amounts[1]);
         if (actualImpactPowerEarned < minImpactPower) {
             _revert(NotEnoughImpactPowerFromCommitment.selector);
         }
@@ -302,8 +293,14 @@ contract ImpactCatalyst {
             findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION) / USDC_MAGNIFICATION;
         uint256 gccEstimate = UniswapV2Library.getAmountOut(optimalSwapAmount, reserveUSDC, reserveGCC);
         uint256 amountToAddInLiquidity = amount - optimalSwapAmount;
-        uint256 impactPowerExpected = sqrt(amountToAddInLiquidity * gccEstimate);
-
+        uint256 reserveUSDC_afterSwap = reserveUSDC + optimalSwapAmount * 997 / 1000;
+        uint256 reserveGCC_afterSwap = reserveGCC - gccEstimate;
+        uint256 totalSupply = IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply();
+        uint256 liquidity = min(
+            (amountToAddInLiquidity * totalSupply) / reserveUSDC_afterSwap,
+            (gccEstimate * totalSupply) / reserveGCC_afterSwap
+        );
+        impactPowerExpected = liquidity;
         return impactPowerExpected;
     }
 
@@ -319,8 +316,15 @@ contract ImpactCatalyst {
         uint256 optimalSwapAmount =
             findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
         uint256 usdcEstimate = UniswapV2Library.getAmountOut(optimalSwapAmount, reserveGCC, reserveUSDC);
-        uint256 amountToAddInLiquidity = amount - optimalSwapAmount;
-        impactPowerExpected = sqrt(amountToAddInLiquidity * usdcEstimate);
+        uint256 amountGCCToAddInLiquidity = amount - optimalSwapAmount;
+        uint256 reserveGCC_afterSwap = reserveGCC + optimalSwapAmount * 997 / 1000;
+        uint256 reserveUSDC_afterSwap = reserveUSDC - usdcEstimate;
+        uint256 totalSupply = IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply();
+        uint256 liquidity = min(
+            (amountGCCToAddInLiquidity * totalSupply) / reserveGCC_afterSwap,
+            (usdcEstimate * totalSupply) / reserveUSDC_afterSwap
+        );
+        impactPowerExpected = liquidity;
         return impactPowerExpected;
     }
 
@@ -394,6 +398,10 @@ contract ImpactCatalyst {
             // If you don't care whether the floor or ceil square root is returned, you can remove this statement.
             z := sub(z, lt(div(x, z), z))
         }
+    }
+
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
     }
 
     /**
