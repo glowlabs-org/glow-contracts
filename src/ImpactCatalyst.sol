@@ -5,7 +5,7 @@ import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
-import "forge-std/console.sol";
+
 /**
  * @title ImpactCatalyst
  * @notice A contract for managing the GCC and USDC commitment
