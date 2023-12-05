@@ -117,16 +117,31 @@ contract EstimateNominationsTest is Test {
     function testFuzz_commitEstimateUSDC(uint64 amountToCommit) public {
         //lp has 10*1e6  usdc, so we must bound carefully
         amountToCommit = uint64(bound(amountToCommit, 1 * 1e3, 10 * 1e6)); //
-        amountToCommit = 1e3;
         // vm.assume(amountToCommit < 10 * 1e6);
 
         ImpactCatalyst c = gcc.IMPACT_CATALYST();
         uint256 estimate = c.estimateUSDCCommitImpactPower(amountToCommit);
         commitUSDC(SIMON, amountToCommit);
         uint256 amount = gcc.totalImpactPowerEarned(SIMON);
-        console.log("amount = ", amount);
-        deployNew();
-        console.log("estimate = ", estimate);
+        // console.log("amount = ", amount);
+        // deployNew();
+        // console.log("estimate = ", estimate);
+        // console.log("estimate = ")
+        assertFalse(isDivergenceGreaterThanThreshold(estimate, amount), "estimate should be equal to amount");
+    }
+
+    function testFuzz_commitEstimateGCC(uint64 amountToCommit) public {
+            //lp has 1 ether of gcc
+        amountToCommit = uint64(bound(amountToCommit, 1 *1e13, 1 ether)); //
+        // vm.assume(amountToCommit < 10 * 1e6);
+
+        ImpactCatalyst c = gcc.IMPACT_CATALYST();
+        uint256 estimate = c.estimateGCCCommitImpactPower(amountToCommit);
+        commitGCC(SIMON, amountToCommit);
+        uint256 amount = gcc.totalImpactPowerEarned(SIMON);
+        // console.log("amount = ", amount);
+        // deployNew();
+        // console.log("estimate = ", estimate);
         // console.log("estimate = ")
         assertFalse(isDivergenceGreaterThanThreshold(estimate, amount), "estimate should be equal to amount");
     }
