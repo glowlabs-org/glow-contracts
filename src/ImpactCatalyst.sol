@@ -119,9 +119,11 @@ contract ImpactCatalyst {
         path[0] = GCC;
         path[1] = USDC;
         //Swap the GCC for USDC
+        uint256 minGCCExpected = sqrt(minImpactPower * minImpactPower) / (amount - amountToSwap);
         uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens({
             amountIn: amountToSwap,
-            amountOutMin: 0,
+            // we allow for a 1% slippage due to potential rounding errors
+            amountOutMin: minGCCExpected * 99 / 100,
             path: path,
             to: address(this),
             deadline: block.timestamp
@@ -195,9 +197,15 @@ contract ImpactCatalyst {
         path[1] = GCC;
         //Swap the USDC for GCC
         uint256 minimumGCCExpected = sqrt(minImpactPower * minImpactPower) / (amount - optimalSwapAmount);
-        uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens(
-            optimalSwapAmount, minimumGCCExpected * 99 / 100, path, address(this), block.timestamp
-        );
+
+        uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens({
+            amountIn: optimalSwapAmount,
+            // we allow for a 1% slippage due to potential rounding errors
+            amountOutMin: minimumGCCExpected * 99 / 100,
+            path: path,
+            to: address(this),
+            deadline: block.timestamp
+        });
         //Approve the GCC token to be spent by the router
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amounts[1]);
 
