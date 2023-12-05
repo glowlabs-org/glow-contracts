@@ -24,10 +24,7 @@ contract TestGCC is GCC {
         require(token0 != address(0), "UniswapV2Library: ZERO_ADDRESS");
     }
 
-    // calculates the CREATE2 address for a pair without making any external calls
-    function pairFor(address factory, address tokenA, address tokenB) internal pure returns (address pair) {}
-
-    function getPair(address factory, address _usdc) internal view override returns (address pair) {
+    function getPair(address factory, address _usdc) internal view virtual override returns (address pair) {
         (address token0, address token1) = sortTokens(address(this), _usdc);
         pair = UnifapV2Library.pairFor(factory, token0, token1);
         return pair;

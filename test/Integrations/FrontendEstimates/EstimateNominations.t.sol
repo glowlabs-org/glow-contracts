@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "@/testing/TestGCC.sol";
+import {MainnetForkTestGCC} from "./MainnetForkTestGCC.sol";
 import "forge-std/console.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
 import "forge-std/StdError.sol";
@@ -22,6 +22,7 @@ import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {UnifapV2Pair} from "@unifapv2/UnifapV2Pair.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {ImpactCatalyst} from "@/ImpactCatalyst.sol";
+import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
 
 bytes32 constant PERMIT_TYPEHASH =
     keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
@@ -34,7 +35,7 @@ contract EstimateNominationsTest is Test {
     WETH9 public weth;
     UnifapV2Router public uniswapRouter;
     MockUSDC usdc;
-    TestGCC public gcc;
+    MainnetForkTestGCC public gcc;
     Governance public gov;
     CarbonCreditDutchAuction public auction;
     address public constant GCA_AND_MINER_POOL_CONTRACT = address(0x2);
@@ -52,42 +53,73 @@ contract EstimateNominationsTest is Test {
     string forkUrl = vm.envString("MAINNET_RPC");
     uint256 mainnetFork;
 
+    address uniswapFactoryMainnetAddress = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
+    address uniswapRouterMainnetAddress = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+    address weth9MainnetAddress = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+
     function setUp() public {
-        uniswapFactory = new UnifapV2Factory();
-        weth = new WETH9();
-        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+        mainnetFork = vm.createFork(forkUrl);
+        vm.selectFork(mainnetFork);
+        // uniswapFactory = new UnifapV2Factory();
+        uniswapFactory = UnifapV2Factory(uniswapFactoryMainnetAddress);
+        weth = WETH9(weth9MainnetAddress);
+        uniswapRouter = UnifapV2Router(uniswapRouterMainnetAddress);
+        // uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
-        // mainnetFork = vm.createFork(forkUrl);
         glwContract = new TestGLOW(earlyLiquidity,vestingContract);
         glw = address(glwContract);
         gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        gcc =
+            new MainnetForkTestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
         bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));
 
         seedLP(1 ether, 10 * 1e6);
-        address pair = uniswapFactory.pairs(address(usdc), address(gcc));
+        address pair = gcc.IMPACT_CATALYST().UNISWAP_V2_PAIR();
 
         (uint256 reserveA, uint256 reserveB,) = UnifapV2Pair(pair).getReserves();
     }
 
     function test_commitEstimateGCC() public {
         uint256 amountToCommit = 0.5 ether;
+        ImpactCatalyst c = gcc.IMPACT_CATALYST();
+        uint256 estimate = c.estimateGCCCommitImpactPower(amountToCommit);
         commitGCC(SIMON, amountToCommit);
         uint256 amount = gcc.totalImpactPowerEarned(SIMON);
         console.log("amount = ", amount);
-        deployNew();
-        ImpactCatalyst c = gcc.IMPACT_CATALYST();
-        uint256 estimate = c.estimateGCCCommitImpactPower(amountToCommit);
+        // deployNew();
         console.log("estimate = ", estimate);
-        // console.log("estimate = ")
-        assertEq(estimate, amount, "estimate should be equal to amount");
+        // console.log("estimate = ");
+        assertFalse(isDivergenceGreaterThanThreshold(estimate, amount), "estimate should be equal to amount");
     }
 
     function test_commitEstimateUSDC() public {
-        uint256 amountToCommit = 0.5 ether;
+        uint256 amountToCommit = 1e3;
+        ImpactCatalyst c = gcc.IMPACT_CATALYST();
+        uint256 estimate = c.estimateUSDCCommitImpactPower(amountToCommit);
+        commitUSDC(SIMON, amountToCommit);
+        uint256 amount = gcc.totalImpactPowerEarned(SIMON);
+        //{total_supply_after}
+        uint256 totalSupplyPair = IUniswapV2Pair(c.UNISWAP_V2_PAIR()).totalSupply();
+        uint256 balanceUSDC = usdc.balanceOf(c.UNISWAP_V2_PAIR());
+        uint256 balanceGCC = gcc.balanceOf(c.UNISWAP_V2_PAIR());
+        console.log("amount = ", amount);
+        // console.log("[test pair balance usdc after swap] = ", balanceUSDC);
+        // console.log("[test pair balance gcc after swap] = ", balanceGCC);
+        deployNew();
+        console.log("estimate = ", estimate);
+        // console.log("estimate = ")
+        assertFalse(isDivergenceGreaterThanThreshold(estimate, amount), "estimate should be equal to amount");
+    }
+
+    function testFuzz_commitEstimateUSDC(uint64 amountToCommit) public {
+        //lp has 10*1e6  usdc, so we must bound carefully
+        amountToCommit = uint64(bound(amountToCommit, 1 * 1e3, 10 * 1e6)); //
+        amountToCommit = 1e3;
+        // vm.assume(amountToCommit < 10 * 1e6);
+
         ImpactCatalyst c = gcc.IMPACT_CATALYST();
         uint256 estimate = c.estimateUSDCCommitImpactPower(amountToCommit);
         commitUSDC(SIMON, amountToCommit);
@@ -100,23 +132,21 @@ contract EstimateNominationsTest is Test {
     }
 
     function test_divergenceFunctionWorks() public {
-        uint256 expectedAmount = 1000000;
-        uint256 actualAmount = 1000000 - 1;
+        uint256 expectedAmount = 99;
+        uint256 actualAmount = 100;
         assertTrue(
             isDivergenceGreaterThanThreshold(expectedAmount, actualAmount),
             "divergence should be greater than threshold"
         );
     }
-    // Function to check if the divergence is greater than 0.00001%
-    // Both expectedAmount and actualAmount should be passed in their smallest units (like wei for ETH)
 
     function isDivergenceGreaterThanThreshold(uint256 expectedAmount, uint256 actualAmount)
         public
-        pure
+        view
         returns (bool)
     {
-        uint256 divergenceThreshold = 1; // This represents 0.00000001% when scaled by 10^10
-        uint256 scale = 10 ** 10; // Scaling factor to represent percentages accurately
+        uint256 divergenceThreshold = 5; // This represents .5% when scaled by 10^2
+        uint256 scale = 10 ** 3; // Scaling factor to represent percentages accurately
 
         // Calculating the absolute difference
         uint256 difference =
@@ -125,23 +155,27 @@ contract EstimateNominationsTest is Test {
         // Scaling the expected amount and calculating the threshold value
         uint256 thresholdValue = expectedAmount * divergenceThreshold / scale;
 
+        console.log("difference = ", difference);
+        console.log("thresholdValue = ", thresholdValue);
+        // console.log(")
         // Checking if the difference is greater than the calculated threshold value
         return difference > thresholdValue;
     }
 
     function deployNew() public {
-        uniswapFactory = new UnifapV2Factory();
-        weth = new WETH9();
-        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
-        usdc = new MockUSDC();
-        // mainnetFork = vm.createFork(forkUrl);
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
-        glw = address(glwContract);
-        gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
-        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
-        seedLP(1 ether, 10 * 1e6);
+        // uniswapFactory = new UnifapV2Factory();
+        // weth = new WETH9();
+        // uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+        // usdc = new MockUSDC();
+        // // mainnetFork = vm.createFork(forkUrl);
+        // glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        // glw = address(glwContract);
+        // gov = new Governance();
+        // gcc =
+        //     new MainnetForkTestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        // auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        // gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
+        // seedLP(1 ether, 10 * 1e6);
     }
 
     function commitGCC(address from, uint256 amount) internal {

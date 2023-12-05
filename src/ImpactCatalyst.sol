@@ -41,6 +41,9 @@ contract ImpactCatalyst {
     /// @dev USDC is in 6 decimals, so we can make it 1e24 to reduce precision loss
     uint256 private constant USDC_MAGNIFICATION = 1e24;
 
+    // /// @dev the minimum liquidity in univ2
+    // uint private constant UNISWAP_V2_MINIMUM_LIQUIDITY = 10**3;
+
     /* -------------------------------------------------------------------------- */
     /*                                 immutables                                 */
     /* -------------------------------------------------------------------------- */
@@ -201,7 +204,7 @@ contract ImpactCatalyst {
         uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens({
             amountIn: optimalSwapAmount,
             // we allow for a 1% slippage due to potential rounding errors
-            amountOutMin: minimumGCCExpected * 99 / 100,
+            amountOutMin: 0,
             path: path,
             to: address(this),
             deadline: block.timestamp
@@ -212,6 +215,9 @@ contract ImpactCatalyst {
         uint256 amountToAddInLiquidity = amount - amounts[0];
 
         //Add liquidity to the GCC-USDC pool
+        console.log("[in flight]", "totalSupplyPair = ", IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply());
+        console.log("[in flight pair usdc balance]", IERC20(USDC).balanceOf(UNISWAP_V2_PAIR));
+        console.log("[in flight pair gcc balance]", IERC20(GCC).balanceOf(UNISWAP_V2_PAIR));
         (,, uint256 actualImpactPowerEarned) = UNISWAP_ROUTER.addLiquidity({
             tokenA: USDC,
             tokenB: GCC,
@@ -239,6 +245,8 @@ contract ImpactCatalyst {
 
     /**
      * @notice a helper function to estimate the impact power expected from a GCC commit
+     * @dev there may be a slight difference between the actual impact power earned and the estimated impact power
+     *     - A max .5% divergence should be accounted for when using this function
      * @param amount the amount of GCC to commit
      * @return expectedImpactPower - the amount of impact power expected to be earned from the commitment
      */
@@ -249,6 +257,8 @@ contract ImpactCatalyst {
 
     /**
      * @notice a helper function to estimate the impact power expected from a USDC commit
+     * @dev there may be a slight difference between the actual impact power earned and the estimated impact power
+     *     - A max .5% divergence should be accounted for when using this function
      * @param amount the amount of USDC to commit
      * @return expectedImpactPower - the amount of impact power expected to be earned from the commitment
      */
@@ -283,6 +293,8 @@ contract ImpactCatalyst {
     /**
      * @notice returns {optimalSwapAmount, amountToAddInLiquidity, impactPowerExpected} for an USDC commit
      * @param amount the amount of USDC to commit
+     * @dev there may be a slight difference between the actual impact power earned and the estimated impact power
+     *     - A max .5% divergence should be accounted for when using this function
      * @return impactPowerExpected - the amount of impact power expected to be earned from the commitment
      */
     function _estimateUSDCCommitImpactPower(uint256 amount) internal view returns (uint256 impactPowerExpected) {
@@ -293,9 +305,12 @@ contract ImpactCatalyst {
             findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION) / USDC_MAGNIFICATION;
         uint256 gccEstimate = UniswapV2Library.getAmountOut(optimalSwapAmount, reserveUSDC, reserveGCC);
         uint256 amountToAddInLiquidity = amount - optimalSwapAmount;
-        uint256 reserveUSDC_afterSwap = reserveUSDC + optimalSwapAmount * 997 / 1000;
+        uint256 reserveUSDC_afterSwap = reserveUSDC + optimalSwapAmount;
         uint256 reserveGCC_afterSwap = reserveGCC - gccEstimate;
         uint256 totalSupply = IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply();
+        console.log("[estimate] totalSupply = ", totalSupply);
+        console.log("[main reserveUSDC_afterSwap]", reserveUSDC_afterSwap);
+        console.log("[main reserveGCC_afterSwap]", reserveGCC_afterSwap);
         uint256 liquidity = min(
             (amountToAddInLiquidity * totalSupply) / reserveUSDC_afterSwap,
             (gccEstimate * totalSupply) / reserveGCC_afterSwap
@@ -307,6 +322,8 @@ contract ImpactCatalyst {
     /**
      * @notice returns {optimalSwapAmount, amountToAddInLiquidity, impactPowerExpected} for a GCC commit
      * @param amount the amount of GCC to commit
+     * @dev there may be a slight difference between the actual impact power earned and the estimated impact power
+     *     - A max .5% divergence should be accounted for when using this function
      * @return impactPowerExpected - the amount of impact power expected to be earned from the commitment
      */
     function _estimateGCCCommitImpactPower(uint256 amount) internal view returns (uint256 impactPowerExpected) {
@@ -317,7 +334,7 @@ contract ImpactCatalyst {
             findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
         uint256 usdcEstimate = UniswapV2Library.getAmountOut(optimalSwapAmount, reserveGCC, reserveUSDC);
         uint256 amountGCCToAddInLiquidity = amount - optimalSwapAmount;
-        uint256 reserveGCC_afterSwap = reserveGCC + optimalSwapAmount * 997 / 1000;
+        uint256 reserveGCC_afterSwap = reserveGCC + optimalSwapAmount;
         uint256 reserveUSDC_afterSwap = reserveUSDC - usdcEstimate;
         uint256 totalSupply = IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply();
         uint256 liquidity = min(
