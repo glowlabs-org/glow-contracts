@@ -400,6 +400,12 @@ contract ImpactCatalyst {
         }
     }
 
+    /**
+     * @notice returns the minimum of two numbers
+     * @param a - the first number
+     * @param b - the second number
+     * @return the minimum of a and b
+     */
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
     }
