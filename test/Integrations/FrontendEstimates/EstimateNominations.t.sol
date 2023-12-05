@@ -50,16 +50,16 @@ contract EstimateNominationsTest is Test {
     address earlyLiquidity = address(0x412412);
     address other = address(0xdead);
     address accountWithLotsOfUSDC = 0xcEe284F754E854890e311e3280b767F80797180d; //arbitrum bridge
-    string forkUrl = vm.envString("MAINNET_RPC");
-    uint256 mainnetFork;
+    string forkUrl = vm.envString("GOERLI_RPC_URL");
+    uint256 goerliFork;
 
     address uniswapFactoryMainnetAddress = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
     address uniswapRouterMainnetAddress = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     address weth9MainnetAddress = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     function setUp() public {
-        mainnetFork = vm.createFork(forkUrl);
-        vm.selectFork(mainnetFork);
+        goerliFork = vm.createFork(forkUrl);
+        vm.selectFork(goerliFork);
         // uniswapFactory = new UnifapV2Factory();
         uniswapFactory = UnifapV2Factory(uniswapFactoryMainnetAddress);
         weth = WETH9(weth9MainnetAddress);

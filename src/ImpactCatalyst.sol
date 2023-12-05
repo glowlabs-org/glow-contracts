@@ -204,7 +204,7 @@ contract ImpactCatalyst {
         uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens({
             amountIn: optimalSwapAmount,
             // we allow for a 1% slippage due to potential rounding errors
-            amountOutMin: 0,
+            amountOutMin: minimumGCCExpected * 99 / 100,
             path: path,
             to: address(this),
             deadline: block.timestamp
