@@ -131,8 +131,8 @@ contract EstimateNominationsTest is Test {
     }
 
     function testFuzz_commitEstimateGCC(uint64 amountToCommit) public {
-            //lp has 1 ether of gcc
-        amountToCommit = uint64(bound(amountToCommit, 1 *1e13, 1 ether)); //
+        //lp has 1 ether of gcc
+        amountToCommit = uint64(bound(amountToCommit, 1 * 1e13, 1 ether)); //
         // vm.assume(amountToCommit < 10 * 1e6);
 
         ImpactCatalyst c = gcc.IMPACT_CATALYST();

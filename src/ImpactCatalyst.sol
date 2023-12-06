@@ -122,11 +122,17 @@ contract ImpactCatalyst {
         path[0] = GCC;
         path[1] = USDC;
         //Swap the GCC for USDC
-        uint256 minGCCExpected = sqrt(minImpactPower * minImpactPower) / (amount - amountToSwap);
+
+        //If impact power = sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
+        // square both sides, and we get impact power ^ 2 = amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition
+        // so we can find the minimum amount of USDC expected from the swap by doing
+        // minimumUSDCExpected = (minImpactPower * minImpactPower) / (amount - amountToSwap)
+        //since amount - amountToSwap is the expected amount of GCC used in the liquidity position
+        uint256 minimumUSDCExpected = (minImpactPower * minImpactPower) / (amount - amountToSwap);
         uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens({
             amountIn: amountToSwap,
             // we allow for a 1% slippage due to potential rounding errors
-            amountOutMin: minGCCExpected * 99 / 100,
+            amountOutMin: minimumUSDCExpected * 99 / 100,
             path: path,
             to: address(this),
             deadline: block.timestamp
@@ -197,9 +203,15 @@ contract ImpactCatalyst {
         address[] memory path = new address[](2);
         path[0] = USDC;
         path[1] = GCC;
-        //Swap the USDC for GCC
-        uint256 minimumGCCExpected = sqrt(minImpactPower * minImpactPower) / (amount - optimalSwapAmount);
 
+        //If impact power = sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
+        // square both sides, and we get impact power ^ 2 = amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition
+        // so we can find the minimum amount of GCC expected from the swap by doing
+        // minimumGCCExpected = (minImpactPower * minImpactPower) / (amount - optimalSwapAmount)
+        //since amount - optimalSwapAmount is the expected amount of USDC used in the liquidity position
+        uint256 minimumGCCExpected = (minImpactPower * minImpactPower) / (amount - optimalSwapAmount);
+
+        //Swap the USDC for GCC
         uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens({
             amountIn: optimalSwapAmount,
             // we allow for a 1% slippage due to potential rounding errors
