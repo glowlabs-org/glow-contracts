@@ -337,7 +337,7 @@ contract ImpactCatalyst {
         //Calculate the amount of LP tokens that would be generated from adding liquidity
         //This mirrors how uniswapV2 calculates the amount of LP tokens to mint
         //Check out UniswapV2Pair contract for more info
-        //Link at time of deployment: https://github.com/Uniswap/v2-core/blob/master/contracts/UniswapV2Pair.sol
+        //Link at time of deployment: https://github.com/Uniswap/v2-core/blob/ee547b17853e71ed4e0101ccfd52e70d5acded58/contracts/UniswapV2Pair.sol
         //  -   lines 110-131 in the `mint` function in link above
         uint256 liquidity = min(
             (amountToAddInLiquidity * totalSupply) / reserveUSDC_afterSwap,
@@ -387,7 +387,7 @@ contract ImpactCatalyst {
         //Calculate the amount of LP tokens that would be generated from adding liquidity
         //This mirrors how uniswapV2 calculates the amount of LP tokens to mint
         //Check out UniswapV2Pair contract for more info
-        //Link at time of deployment: https://github.com/Uniswap/v2-core/blob/master/contracts/UniswapV2Pair.sol
+        //Link at time of deployment: https://github.com/Uniswap/v2-core/blob/ee547b17853e71ed4e0101ccfd52e70d5acded58/contracts/UniswapV2Pair.sol
         //  -   lines 110-131 in the `mint` function in link above
         uint256 liquidity = min(
             (amountGCCToAddInLiquidity * totalSupply) / reserveGCC_afterSwap,
