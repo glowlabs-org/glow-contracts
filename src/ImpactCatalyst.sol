@@ -5,7 +5,6 @@ import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
-
 /**
  * @title ImpactCatalyst
  * @notice A contract for managing the GCC and USDC commitment
@@ -16,6 +15,7 @@ import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
  *         is exactly enough to add liquidity to the GCC-USDC pool without any left over of either token
  *         (precision errors may have small dust)
  *         - Nominations are granted as (sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition))
+ *                 - or as the amount of liquidity tokens created from adding liquidity to the GCC-USDC pool
  *         - This is done to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
  * @dev only the GCC contract can call this contract since GCC is the only contract that is allowed to grant nominations
  * - having the catalyst calls be open would lead to commitment that would not earn any impact points / rewards / nominations
@@ -39,6 +39,9 @@ contract ImpactCatalyst {
     /// @dev the magnification of USDC to use in {findOptimalAmountToSwap} to reduce precision loss
     /// @dev USDC is in 6 decimals, so we can make it 1e24 to reduce precision loss
     uint256 private constant USDC_MAGNIFICATION = 1e24;
+
+    // /// @dev the minimum liquidity in univ2
+    // uint private constant UNISWAP_V2_MINIMUM_LIQUIDITY = 10**3;
 
     /* -------------------------------------------------------------------------- */
     /*                                 immutables                                 */
@@ -109,11 +112,8 @@ contract ImpactCatalyst {
         //Find the optimal amount of GCC to swap for USDC
         //This ensures that the the return amount of USDC after the swap
         //Should be exactly enough to add liquidity to the GCC-USDC pool with the remainder of `amount` of GCC left over
-        (uint256 amountToSwap, uint256 amountToAddInLiquidity, uint256 expectedImpactPower) =
-            _calculateGCCCommitVars(amount);
-        if (expectedImpactPower < minImpactPower) {
-            _revert(NotEnoughImpactPowerFromCommitment.selector);
-        }
+        uint256 amountToSwap =
+            findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
 
         //Approve the GCC token to be spent by the router
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amount);
@@ -122,20 +122,50 @@ contract ImpactCatalyst {
         path[0] = GCC;
         path[1] = USDC;
         //Swap the GCC for USDC
-        uint256[] memory amounts =
-            UNISWAP_ROUTER.swapExactTokensForTokens(amountToSwap, 0, path, address(this), block.timestamp);
+
+        //If impact power = sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
+        // square both sides, and we get impact power ^ 2 = amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition
+        // so we can find the minimum amount of USDC expected from the swap by doing
+        // minimumUSDCExpected = (minImpactPower * minImpactPower) / (amount - amountToSwap)
+        //since amount - amountToSwap is the expected amount of GCC used in the liquidity position
+        uint256 minimumUSDCExpected = (minImpactPower * minImpactPower) / (amount - amountToSwap);
+        uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens({
+            amountIn: amountToSwap,
+            // we allow for a 1% slippage due to potential rounding errors
+            amountOutMin: minimumUSDCExpected * 99 / 100,
+            path: path,
+            to: address(this),
+            deadline: block.timestamp
+        });
+
         //Find how much USDC was received from the swap
         uint256 amountUSDCReceived = amounts[1];
         //Approve the USDC token to be spent by the router
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amountUSDCReceived);
-        //Add liquidity to the GCC-USDC pool
-        UNISWAP_ROUTER.addLiquidity(
-            GCC, USDC, amountToAddInLiquidity, amountUSDCReceived, 0, 0, address(this), block.timestamp
-        );
+        uint256 amountToAddInLiquidity = amount - amounts[0];
+        uint256 pairUSDCBalanceBefore = IERC20(USDC).balanceOf(UNISWAP_V2_PAIR);
+        (,, uint256 actualImpactPowerEarned) = UNISWAP_ROUTER.addLiquidity({
+            tokenA: GCC,
+            tokenB: USDC,
+            amountADesired: amountToAddInLiquidity,
+            amountBDesired: amountUSDCReceived,
+            // we allow for a 1% slippage due to potential rounding errors
+            //This seems high, but it's simply a precaution to prevent the transaction from reverting
+            // The bulk of the calculation happens in the logic above
+            amountAMin: amountToAddInLiquidity * 99 / 100,
+            amountBMin: amountUSDCReceived * 99 / 100,
+            to: address(this),
+            deadline: block.timestamp
+        });
+        uint256 pairUSDCBalanceAfter = IERC20(USDC).balanceOf(UNISWAP_V2_PAIR);
+        usdcEffect = pairUSDCBalanceAfter - pairUSDCBalanceBefore;
+        if (actualImpactPowerEarned < minImpactPower) {
+            _revert(NotEnoughImpactPowerFromCommitment.selector);
+        }
+
         //Set usdcEffect to the amount of USDC used in the liquidity position
-        usdcEffect = amountUSDCReceived;
         //set the nominations to sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
-        nominations = sqrt(amountToAddInLiquidity * amountUSDCReceived);
+        nominations = actualImpactPowerEarned;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -163,12 +193,9 @@ contract ImpactCatalyst {
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
         //Find the optimal amount of USDC to swap for GCC
         //This ensures that the the return amount of GCC after the swap
-        //Should be exactly enough to add liquidity to the GCC-USDC pool with the remainder of `amount` of USDC left over
-        (uint256 optimalSwapAmount, uint256 amountToAddInLiquidity, uint256 expectedImpactPower) =
-            _calculateUSDCCommitVars(amount);
-        if (expectedImpactPower < minImpactPower) {
-            _revert(NotEnoughImpactPowerFromCommitment.selector);
-        }
+        //Should be exactly enough to add liquidity to the GCC-USDC pool with the remainder of `amount`  USDC left over
+        uint256 optimalSwapAmount =
+            findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION) / USDC_MAGNIFICATION;
 
         //Approve the USDC token to be spent by the router
         IERC20(USDC).approve(address(UNISWAP_ROUTER), amount);
@@ -176,15 +203,48 @@ contract ImpactCatalyst {
         address[] memory path = new address[](2);
         path[0] = USDC;
         path[1] = GCC;
+
+        //If impact power = sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
+        // square both sides, and we get impact power ^ 2 = amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition
+        // so we can find the minimum amount of GCC expected from the swap by doing
+        // minimumGCCExpected = (minImpactPower * minImpactPower) / (amount - optimalSwapAmount)
+        //since amount - optimalSwapAmount is the expected amount of USDC used in the liquidity position
+        uint256 minimumGCCExpected = (minImpactPower * minImpactPower) / (amount - optimalSwapAmount);
+
         //Swap the USDC for GCC
-        uint256[] memory amounts =
-            UNISWAP_ROUTER.swapExactTokensForTokens(optimalSwapAmount, 0, path, address(this), block.timestamp);
+        uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens({
+            amountIn: optimalSwapAmount,
+            // we allow for a 1% slippage due to potential rounding errors
+            amountOutMin: minimumGCCExpected * 99 / 100,
+            path: path,
+            to: address(this),
+            deadline: block.timestamp
+        });
         //Approve the GCC token to be spent by the router
         IERC20(GCC).approve(address(UNISWAP_ROUTER), amounts[1]);
+
+        uint256 amountToAddInLiquidity = amount - amounts[0];
+
         //Add liquidity to the GCC-USDC pool
-        UNISWAP_ROUTER.addLiquidity(USDC, GCC, amountToAddInLiquidity, amounts[1], 0, 0, address(this), block.timestamp);
-        //set the nominations to sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
-        nominations = sqrt(amountToAddInLiquidity * amounts[1]);
+        (,, uint256 actualImpactPowerEarned) = UNISWAP_ROUTER.addLiquidity({
+            tokenA: USDC,
+            tokenB: GCC,
+            amountADesired: amountToAddInLiquidity,
+            amountBDesired: amounts[1],
+            // we allow for a 1% slippage due to potential rounding errors
+            //This seems high, but it's simply a precaution to prevent the transaction from reverting
+            // The bulk of the calculation happens in the logic above
+            amountAMin: amountToAddInLiquidity * 99 / 100,
+            amountBMin: amounts[1] * 99 / 100,
+            to: address(this),
+            deadline: block.timestamp
+        });
+
+        if (actualImpactPowerEarned < minImpactPower) {
+            _revert(NotEnoughImpactPowerFromCommitment.selector);
+        }
+
+        nominations = actualImpactPowerEarned;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -193,21 +253,25 @@ contract ImpactCatalyst {
 
     /**
      * @notice a helper function to estimate the impact power expected from a GCC commit
+     * @dev there may be a slight difference between the actual impact power earned and the estimated impact power
+     *     - A max .5% divergence should be accounted for when using this function
      * @param amount the amount of GCC to commit
      * @return expectedImpactPower - the amount of impact power expected to be earned from the commitment
      */
     function estimateUSDCCommitImpactPower(uint256 amount) external view returns (uint256 expectedImpactPower) {
-        (,, expectedImpactPower) = _calculateUSDCCommitVars(amount);
+        uint256 expectedImpactPower = _estimateUSDCCommitImpactPower(amount);
         return expectedImpactPower;
     }
 
     /**
      * @notice a helper function to estimate the impact power expected from a USDC commit
+     * @dev there may be a slight difference between the actual impact power earned and the estimated impact power
+     *     - A max .5% divergence should be accounted for when using this function
      * @param amount the amount of USDC to commit
      * @return expectedImpactPower - the amount of impact power expected to be earned from the commitment
      */
     function estimateGCCCommitImpactPower(uint256 amount) external view returns (uint256 expectedImpactPower) {
-        (,, expectedImpactPower) = _calculateGCCCommitVars(amount);
+        uint256 expectedImpactPower = _estimateGCCCommitImpactPower(amount);
         return expectedImpactPower;
     }
 
@@ -237,47 +301,53 @@ contract ImpactCatalyst {
     /**
      * @notice returns {optimalSwapAmount, amountToAddInLiquidity, impactPowerExpected} for an USDC commit
      * @param amount the amount of USDC to commit
-     * @return optimalSwapAmount - the optimal amount of USDC to swap for GCC
-     * @return amountToAddInLiquidity - the amount of USDC to add to the liquidity position
+     * @dev there may be a slight difference between the actual impact power earned and the estimated impact power
+     *     - A max .5% divergence should be accounted for when using this function
      * @return impactPowerExpected - the amount of impact power expected to be earned from the commitment
      */
-    function _calculateUSDCCommitVars(uint256 amount)
-        internal
-        view
-        returns (uint256 optimalSwapAmount, uint256 amountToAddInLiquidity, uint256 impactPowerExpected)
-    {
+    function _estimateUSDCCommitImpactPower(uint256 amount) internal view returns (uint256 impactPowerExpected) {
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
-        optimalSwapAmount =
+        uint256 optimalSwapAmount =
             findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION) / USDC_MAGNIFICATION;
         uint256 gccEstimate = UniswapV2Library.getAmountOut(optimalSwapAmount, reserveUSDC, reserveGCC);
         uint256 amountToAddInLiquidity = amount - optimalSwapAmount;
-        impactPowerExpected = sqrt(amountToAddInLiquidity * gccEstimate);
-        return (optimalSwapAmount, amountToAddInLiquidity, impactPowerExpected);
+        uint256 reserveUSDC_afterSwap = reserveUSDC + optimalSwapAmount;
+        uint256 reserveGCC_afterSwap = reserveGCC - gccEstimate;
+        uint256 totalSupply = IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply();
+        uint256 liquidity = min(
+            (amountToAddInLiquidity * totalSupply) / reserveUSDC_afterSwap,
+            (gccEstimate * totalSupply) / reserveGCC_afterSwap
+        );
+        impactPowerExpected = liquidity;
+        return impactPowerExpected;
     }
 
     /**
      * @notice returns {optimalSwapAmount, amountToAddInLiquidity, impactPowerExpected} for a GCC commit
      * @param amount the amount of GCC to commit
-     * @return optimalSwapAmount - the optimal amount of GCC to swap
-     * @return amountToAddInLiquidity - the amount of GCC to add to the liquidity position
+     * @dev there may be a slight difference between the actual impact power earned and the estimated impact power
+     *     - A max .5% divergence should be accounted for when using this function
      * @return impactPowerExpected - the amount of impact power expected to be earned from the commitment
      */
-    function _calculateGCCCommitVars(uint256 amount)
-        internal
-        view
-        returns (uint256 optimalSwapAmount, uint256 amountToAddInLiquidity, uint256 impactPowerExpected)
-    {
+    function _estimateGCCCommitImpactPower(uint256 amount) internal view returns (uint256 impactPowerExpected) {
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
-        optimalSwapAmount =
+        uint256 optimalSwapAmount =
             findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
         uint256 usdcEstimate = UniswapV2Library.getAmountOut(optimalSwapAmount, reserveGCC, reserveUSDC);
-        amountToAddInLiquidity = amount - optimalSwapAmount;
-        impactPowerExpected = sqrt(amountToAddInLiquidity * usdcEstimate);
-        return (optimalSwapAmount, amountToAddInLiquidity, impactPowerExpected);
+        uint256 amountGCCToAddInLiquidity = amount - optimalSwapAmount;
+        uint256 reserveGCC_afterSwap = reserveGCC + optimalSwapAmount;
+        uint256 reserveUSDC_afterSwap = reserveUSDC - usdcEstimate;
+        uint256 totalSupply = IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply();
+        uint256 liquidity = min(
+            (amountGCCToAddInLiquidity * totalSupply) / reserveGCC_afterSwap,
+            (usdcEstimate * totalSupply) / reserveUSDC_afterSwap
+        );
+        impactPowerExpected = liquidity;
+        return impactPowerExpected;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -350,6 +420,16 @@ contract ImpactCatalyst {
             // If you don't care whether the floor or ceil square root is returned, you can remove this statement.
             z := sub(z, lt(div(x, z), z))
         }
+    }
+
+    /**
+     * @notice returns the minimum of two numbers
+     * @param a - the first number
+     * @param b - the second number
+     * @return the minimum of a and b
+     */
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
     }
 
     /**
