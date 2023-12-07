@@ -180,14 +180,13 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
 | GlowUnlocker.sol | 61 | 49 |
 | Glow.GuardedLaunch.sol | 97 | 102 |
 | VetoCouncil.sol | 79 | 76 |
-| ImpactCatalyst.sol | 161 | 169 |
+| ImpactCatalyst.sol | 202 | 198 |
 | IERC20Permit.sol | 6 | 0 |
 | GCC.sol | 293 | 247 |
 | IGCA.sol | 77 | 142 |
 | IVetoCouncil.sol | 14 | 47 |
 | HalfLife.sol | 14 | 16 |
-| Total | 4105 | 4379 |
-
+| Total | 4146 | 4408 |
 
 
 
