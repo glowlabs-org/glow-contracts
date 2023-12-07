@@ -306,20 +306,45 @@ contract ImpactCatalyst {
      * @return impactPowerExpected - the amount of impact power expected to be earned from the commitment
      */
     function _estimateUSDCCommitImpactPower(uint256 amount) internal view returns (uint256 impactPowerExpected) {
+        //Get the reserves of GCC and USDC in the GCC-USDC pool
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
+        //Get GCC Reserve
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
+        //Get USDC Reserve
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
+
+        //Calculate the optimal amount of USDC to swap for GCC
         uint256 optimalSwapAmount =
             findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, reserveUSDC * USDC_MAGNIFICATION) / USDC_MAGNIFICATION;
+
+        //Since we commit USDC, we want to simulate how much GCC we would get from the swap
+        //This is also the same amount of GCC that will be used to add liquidity to the GCC-USDC pool
         uint256 gccEstimate = UniswapV2Library.getAmountOut(optimalSwapAmount, reserveUSDC, reserveGCC);
+
+        //This is the amount of USDC to add in the LP, which is the amount-optimalSwapAmount
+        //This number represents the balance of USDC after the swap
         uint256 amountToAddInLiquidity = amount - optimalSwapAmount;
+
+        //The new reserves of GCC and USDC after the swap
+        //We add the optimalSwapAmount to USDC, since we used it to swap for GCC
+        //and, we subtract the gccEstimate from GCC, since it was used when we swapped our USDC
         uint256 reserveUSDC_afterSwap = reserveUSDC + optimalSwapAmount;
         uint256 reserveGCC_afterSwap = reserveGCC - gccEstimate;
+
+        //Get the total supply of LP tokens
         uint256 totalSupply = IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply();
+
+        //Calculate the amount of LP tokens that would be generated from adding liquidity
+        //This mirrors how uniswapV2 calculates the amount of LP tokens to mint
+        //Check out UniswapV2Pair contract for more info
+        //Link at time of deployment: https://github.com/Uniswap/v2-core/blob/master/contracts/UniswapV2Pair.sol
+        //  -   lines 89-107 in the `mint` function in link above
         uint256 liquidity = min(
             (amountToAddInLiquidity * totalSupply) / reserveUSDC_afterSwap,
             (gccEstimate * totalSupply) / reserveGCC_afterSwap
         );
+
+        //Set impactPowerExpected to the amount of LP tokens generated
         impactPowerExpected = liquidity;
         return impactPowerExpected;
     }
@@ -332,20 +357,45 @@ contract ImpactCatalyst {
      * @return impactPowerExpected - the amount of impact power expected to be earned from the commitment
      */
     function _estimateGCCCommitImpactPower(uint256 amount) internal view returns (uint256 impactPowerExpected) {
+        //Get the reserves of GCC and USDC in the GCC-USDC pool
         (uint256 reserveA, uint256 reserveB,) = IUniswapV2Pair(UNISWAP_V2_PAIR).getReserves();
+
+        //Get GCC Reserve
         uint256 reserveGCC = GCC < USDC ? reserveA : reserveB;
+        //Get USDC Reserve
         uint256 reserveUSDC = USDC < GCC ? reserveA : reserveB;
+
+        //Calculate the optimal amount of GCC to swap for USDC
         uint256 optimalSwapAmount =
             findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, reserveGCC * GCC_MAGNIFICATION) / GCC_MAGNIFICATION;
+
+        //Since we commit GCC, we want to simulate how much USDC we would get from the swap
         uint256 usdcEstimate = UniswapV2Library.getAmountOut(optimalSwapAmount, reserveGCC, reserveUSDC);
+
+        //This is the amount of GCC to add in the LP, which is the amount-optimalSwapAmount
         uint256 amountGCCToAddInLiquidity = amount - optimalSwapAmount;
+
+        //The new reserves of GCC and USDC after the swap
+        //We add the optimalSwapAmount to GCC reserves, since we used it to swap for USDC
+        //and, we subtract the usdcEstimate from USDC reserves, since it was used when we swapped our GCC
         uint256 reserveGCC_afterSwap = reserveGCC + optimalSwapAmount;
         uint256 reserveUSDC_afterSwap = reserveUSDC - usdcEstimate;
+
+        //Get the total supply of LP tokens
         uint256 totalSupply = IUniswapV2Pair(UNISWAP_V2_PAIR).totalSupply();
+
+        //Calculate the amount of LP tokens that would be generated from adding liquidity
+        //This mirrors how uniswapV2 calculates the amount of LP tokens to mint
+        //Check out UniswapV2Pair contract for more info
+        //Link at time of deployment: https://github.com/Uniswap/v2-core/blob/master/contracts/UniswapV2Pair.sol
+        //  -   lines 89-107 in the `mint` function in link above
+
         uint256 liquidity = min(
             (amountGCCToAddInLiquidity * totalSupply) / reserveGCC_afterSwap,
             (usdcEstimate * totalSupply) / reserveUSDC_afterSwap
         );
+
+        //Set impactPowerExpected to the amount of LP tokens generated
         impactPowerExpected = liquidity;
         return impactPowerExpected;
     }
