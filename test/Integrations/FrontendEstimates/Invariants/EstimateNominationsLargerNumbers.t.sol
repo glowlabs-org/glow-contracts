@@ -127,8 +127,6 @@ contract EstimateNominationsLargerNumbersTest is Test {
         }
     }
 
-    
-
     function writeCSV(string memory filename, string memory contents) public {
         vm.writeLine(filename, contents);
     }

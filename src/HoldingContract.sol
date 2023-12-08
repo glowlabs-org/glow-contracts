@@ -18,7 +18,7 @@ struct Holding {
 /**
  * @dev a helper type to organize claim holdings arguments
  * @param user the address of the user
- * @param token the address of the grc token to withdraw
+ * @param token the address of the USDC token to withdraw
  */
 struct ClaimHoldingArgs {
     address user;
@@ -35,7 +35,7 @@ interface IHoldingContract {
 /**
  * @title HoldingContract
  * @notice This contract is used to hold tokens for users
- *         - This contract holds all GRC tokens that are part of the protocol
+ *         - This contract holds all USDC tokens that are part of the protocol
  *         - Once farms withdraw, there is a 1 week delay before they can claim their tokens
  *         - The Miner Pool Contract assigns these holdings as part of the withdraw process
  *         - Veto Agents can delay all withdrawals by 13 weeks
@@ -137,7 +137,7 @@ contract HoldingContract {
     /**
      * @dev emitted whenever a holding is added to a user
      * @param user the address of the user
-     * @param token the address of the grc token
+     * @param token the address of the USDC token
      * @param amount the amount of tokens added to the holding
      * @dev we dont emit a {HoldingClaimed} event since there may be a tax
      *     - on the token that will mess up the data.
@@ -214,7 +214,7 @@ contract HoldingContract {
     /**
      * @notice entrypoint to claim a single holding
      * @param user the address of the user
-     * @param token the address of the grc token to withdraw
+     * @param token the address of the USDC token to withdraw
      * @dev should be used if the user only wants to claim their holding
      */
     function claimHoldingSingleton(address user, address token) external {
@@ -236,7 +236,7 @@ contract HoldingContract {
     /**
      * @notice an internal method to increment the amount in a holding
      * @param user the address of the user
-     * @param token the address of the grc token to withdraw
+     * @param token the address of the USDC token to withdraw
      * @param amount the amount of tokens to add to the holding
      */
     function addHolding(address user, address token, uint192 amount) external {
@@ -271,7 +271,7 @@ contract HoldingContract {
     /**
      * @notice returns the Holding struct for a user and token pair
      * @param user the address of the user
-     * @param token the address of the grc token to withdraw
+     * @param token the address of the USDC token to withdraw
      * @return holding - the Holding struct
      */
     function holdings(address user, address token) external view returns (Holding memory) {
