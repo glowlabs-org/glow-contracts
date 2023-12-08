@@ -25,14 +25,14 @@ contract EarlyLiquidityMockMinerPool is MinerPoolAndGCA {
      * @inheritdoc MinerPoolAndGCA
      */
 
-    function donateToGRCMinerRewardsPool(uint256 amount) external virtual override {
+    function donateToUSDCMinerRewardsPool(uint256 amount) external virtual override {
         return;
     }
 
     /**
      * @inheritdoc MinerPoolAndGCA
      */
-    function donateToGRCMinerRewardsPoolEarlyLiquidity(uint256 amount) external virtual override {
+    function donateToUSDCMinerRewardsPoolEarlyLiquidity(uint256 amount) external virtual override {
         if (msg.sender != this.earlyLiquidity()) {
             _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
         }
