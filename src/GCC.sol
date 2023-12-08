@@ -146,7 +146,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
      * @inheritdoc IGCC
      */
     function mintToCarbonCreditAuction(uint256 bucketId, uint256 amount) external {
-        if (_msgSender() != GCA_AND_MINER_POOL_CONTRACT) _revert(IGCC.CallerNotGCAContract.selector);
+        if (msg.sender != GCA_AND_MINER_POOL_CONTRACT) _revert(IGCC.CallerNotGCAContract.selector);
         _setBucketMinted(bucketId);
         CARBON_CREDIT_AUCTION.receiveGCC(amount);
         _mint(address(CARBON_CREDIT_AUCTION), amount);
@@ -164,11 +164,11 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         returns (uint256 usdcEffect, uint256 impactPower)
     {
         //Transfer GCC from the msg.sender to the impact catalyst
-        _transfer(_msgSender(), address(IMPACT_CATALYST), amount);
+        _transfer(msg.sender, address(IMPACT_CATALYST), amount);
         //get back the amount of USDC that was used in the LP and the impact power earned
         (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount, minImpactPower);
         //handle the commitment
-        _handleCommitment(_msgSender(), rewardAddress, amount, usdcEffect, impactPower, referralAddress);
+        _handleCommitment(msg.sender, rewardAddress, amount, usdcEffect, impactPower, referralAddress);
     }
 
     /**
@@ -195,8 +195,8 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         //Transfer GCC `from` to the impact catalyst
         transferFrom(from, address(IMPACT_CATALYST), amount);
         //If the msg.sender is not `from`, then check and decrease the allowance
-        if (_msgSender() != from) {
-            _decreaseCommitAllowance(from, _msgSender(), amount, false);
+        if (msg.sender != from) {
+            _decreaseCommitAllowance(from, msg.sender, amount, false);
         }
         //get back the amount of USDC that was used in the LP and the impact power earned
         (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount, minImpactPower);
@@ -236,17 +236,17 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         uint256 _nextCommitNonce = nextCommitNonce[from]++;
         //Construct the message to be signed
         bytes32 message = _constructCommitPermitDigest(
-            from, _msgSender(), rewardAddress, referralAddress, amount, _nextCommitNonce, deadline
+            from, msg.sender, rewardAddress, referralAddress, amount, _nextCommitNonce, deadline
         );
         //Check the signature
         if (!_checkCommitPermitSignature(from, message, signature)) {
             _revert(IGCC.CommitSignatureInvalid.selector);
         }
         //Increase the allowance for the msg.sender on the `from` account
-        _increaseCommitAllowance(from, _msgSender(), amount, false);
-        uint256 transferAllowance = allowance(from, _msgSender());
+        _increaseCommitAllowance(from, msg.sender, amount, false);
+        uint256 transferAllowance = allowance(from, msg.sender);
         if (transferAllowance < amount) {
-            _approve(from, _msgSender(), amount, false);
+            _approve(from, msg.sender, amount, false);
         }
         //Commit the GCC
         return (commitGCCFor(from, rewardAddress, amount, referralAddress, minImpactPower));
@@ -285,7 +285,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         //get back the impaoct power earned
         impactPower = IMPACT_CATALYST.commitUSDC(usdcUsing, minImpactPower);
         //handle the commitment
-        _handleUSDCcommitment(_msgSender(), rewardAddress, amount, impactPower, referralAddress);
+        _handleUSDCcommitment(msg.sender, rewardAddress, amount, impactPower, referralAddress);
     }
 
     /**
@@ -324,41 +324,41 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /* -------------------------------------------------------------------------- */
     /// @inheritdoc IGCC
     function setAllowances(address spender, uint256 transferAllowance, uint256 committingAllowance) external {
-        _approve(_msgSender(), spender, transferAllowance);
-        _commitGCCAllowances[_msgSender()][spender] = committingAllowance;
-        emit IGCC.CommitGCCAllowance(_msgSender(), spender, committingAllowance);
+        _approve(msg.sender, spender, transferAllowance);
+        _commitGCCAllowances[msg.sender][spender] = committingAllowance;
+        emit IGCC.CommitGCCAllowance(msg.sender, spender, committingAllowance);
     }
 
     /// @inheritdoc IGCC
     function increaseAllowances(address spender, uint256 addedValue) public {
-        _approve(_msgSender(), spender, allowance(_msgSender(), spender) + addedValue);
-        _increaseCommitAllowance(_msgSender(), spender, addedValue, true);
+        _approve(msg.sender, spender, allowance(msg.sender, spender) + addedValue);
+        _increaseCommitAllowance(msg.sender, spender, addedValue, true);
     }
 
     /// @inheritdoc IGCC
     function decreaseAllowances(address spender, uint256 requestedDecrease) public {
-        uint256 currentAllowance = allowance(_msgSender(), spender);
+        uint256 currentAllowance = allowance(msg.sender, spender);
         if (currentAllowance < requestedDecrease) {
             revert ERC20.ERC20FailedDecreaseAllowance(spender, currentAllowance, requestedDecrease);
         }
         unchecked {
-            _approve(_msgSender(), spender, currentAllowance - requestedDecrease);
+            _approve(msg.sender, spender, currentAllowance - requestedDecrease);
         }
-        _decreaseCommitAllowance(_msgSender(), spender, requestedDecrease, true);
+        _decreaseCommitAllowance(msg.sender, spender, requestedDecrease, true);
     }
 
     /**
      * @inheritdoc IGCC
      */
     function increaseCommitAllowance(address spender, uint256 amount) external override {
-        _increaseCommitAllowance(_msgSender(), spender, amount, true);
+        _increaseCommitAllowance(msg.sender, spender, amount, true);
     }
 
     /**
      * @inheritdoc IGCC
      */
     function decreaseCommitAllowance(address spender, uint256 amount) external override {
-        _decreaseCommitAllowance(_msgSender(), spender, amount, true);
+        _decreaseCommitAllowance(msg.sender, spender, amount, true);
     }
 
     /* -------------------------------------------------------------------------- */
