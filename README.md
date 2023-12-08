@@ -65,7 +65,10 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
     - There are at most 5 GCA agents at one point in time.
     - GCA Elections must be ratified by glow stakers.
     - GCA Elections cannot be vetoed
-    - If a GCA Election slashes GCA's that triggers a slash event which 
+    - If a GCA Election slashes any GCA's, that triggers a slash event 
+        -    A slash event increments the slash nonce and stores the timestamp of the proposal creation timestamp
+        -    By incrementing the slash nonce, this invalidates all active report buckets that have not been finalized as of the proposal creation timestamp
+        -    The hope is that, if a bucket is faulty, the veto council members will delay the bucket by 90 days which should give governance enough time to act to slash the malicious or compromised GCA.
 3. Grants Proposals
     - Grants proposals define a receiver and an amount of GLOW.
     - Grants proposals do not have to be ratified by stakers
