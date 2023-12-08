@@ -165,7 +165,7 @@ contract GCCTest is Test {
                 )
             );
             if (saveLogs) {
-                vm.writeLine("gcc.csv", stringToWrite);
+                vm.writeLine("logs/gcc.csv", stringToWrite);
             }
         }
         assert(amount > optimalAmount);
@@ -256,7 +256,7 @@ contract GCCTest is Test {
             );
 
             if (saveLogs) {
-                vm.writeLine("swap-succeses.csv", stringToWrite);
+                vm.writeLine("logs/swap-succeses.csv", stringToWrite);
             }
         } catch Error(string memory reason) {
             // This will catch failing revert() or require() with an error message.
@@ -285,7 +285,7 @@ contract GCCTest is Test {
             );
 
             if (saveLogs) {
-                vm.writeLine("swap-errors.csv", stringToWrite);
+                vm.writeLine("logs/swap-errors.csv", stringToWrite);
             }
         }
     }
@@ -332,7 +332,7 @@ contract GCCTest is Test {
                 )
             );
             if (saveLogs) {
-                vm.writeLine("usdc-data.csv", stringToWrite);
+                vm.writeLine("logs/usdc-data.csv", stringToWrite);
             }
         }
         assert(amount > optimalAmount);
@@ -430,7 +430,7 @@ contract GCCTest is Test {
             );
 
             if (saveLogs) {
-                vm.writeLine("swap-succeses-usdc.csv", stringToWrite);
+                vm.writeLine("logs/swap-succeses-usdc.csv", stringToWrite);
             }
         } catch Error(string memory reason) {
             // This will catch failing revert() or require() with an error message.
@@ -459,7 +459,7 @@ contract GCCTest is Test {
             );
 
             if (saveLogs) {
-                vm.writeLine("swap-errors-usdc.csv", stringToWrite);
+                vm.writeLine("logs/swap-errors-usdc.csv", stringToWrite);
             }
         }
     }
@@ -594,7 +594,7 @@ contract GCCTest is Test {
             );
 
             if (saveLogs) {
-                vm.writeLine("swap-errors.csv", stringToWrite);
+                vm.writeLine("logs/swap-errors.csv", stringToWrite);
             }
         }
     }
@@ -625,7 +625,7 @@ contract GCCTest is Test {
             )
         );
         if (saveLogs) {
-            vm.writeLine("gcc.csv", stringToWrite);
+            vm.writeLine("logs/gcc.csv", stringToWrite);
         }
         /*
         args=[1000000000000000000000000000000001 [1e33], 
