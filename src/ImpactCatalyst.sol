@@ -40,9 +40,6 @@ contract ImpactCatalyst {
     /// @dev USDC is in 6 decimals, so we can make it 1e24 to reduce precision loss
     uint256 private constant USDC_MAGNIFICATION = 1e24;
 
-    /// @dev the minimum liquidity in univ2
-    // uint private constant UNISWAP_V2_MINIMUM_LIQUIDITY = 10**3;
-
     /* -------------------------------------------------------------------------- */
     /*                                 immutables                                 */
     /* -------------------------------------------------------------------------- */
