@@ -126,7 +126,7 @@ contract GlowGuardedLaunch is Glow, Ownable {
         address _grantsTreasuryAddress
     ) external override onlyOwner {
         // Zero address checks
-        //Only need one check since all three addresses are set at the same time atomically
+        // Only need one check since all three addresses are set at the same time atomically
         if (!_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressAlreadySet.selector);
         if (_isZeroAddress(_gcaAndMinerPoolAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
         if (_isZeroAddress(_vetoCouncilAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
