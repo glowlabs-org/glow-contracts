@@ -29,7 +29,7 @@ struct Pointers {
 /**
  * @title GlowGuardedLaunch
  * @notice This contract is used to guard the launch of the GLOW token
- *               - GLOW Protocol's guraded launch is meant to protect the protocol from
+ *               - GLOW Protocol's guarded launch is meant to protect the protocol from
  *                 malicious actors and to give the community time to audit the code
  *               - During the guarded launch, transfers are restricted to EOA's and allowlisted contracts
  *               - The veto council also has the ability to permanently freeze transfers in case of an emergency
