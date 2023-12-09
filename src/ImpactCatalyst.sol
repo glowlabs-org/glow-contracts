@@ -125,10 +125,13 @@ contract ImpactCatalyst {
         // so we can find the minimum amount of USDC expected from the swap by doing
         // minimumUSDCExpected = (minImpactPower * minImpactPower) / (amount - amountToSwap)
         // since amount - amountToSwap is the expected amount of GCC used in the liquidity position
+        // Note: While Uniswap calculates the amount of tokens to add in the liquidity position a bit differently, as
+        //       seen in the `mint` function in the UniswapV2Pair contract, we can use the simplified version above
         uint256 minimumUSDCExpected = (minImpactPower * minImpactPower) / (amount - amountToSwap);
         uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens({
             amountIn: amountToSwap,
-            // we allow for a 1% slippage due to potential rounding errors
+            // we allow for a 1% slippage based on the minimum impact power,
+            // due to potential rounding errors in the findOptimalAmountToSwap function
             amountOutMin: minimumUSDCExpected * 99 / 100,
             path: path,
             to: address(this),
@@ -206,12 +209,15 @@ contract ImpactCatalyst {
         // so we can find the minimum amount of GCC expected from the swap by doing
         // minimumGCCExpected = (minImpactPower * minImpactPower) / (amount - optimalSwapAmount)
         // since amount - optimalSwapAmount is the expected amount of USDC used in the liquidity position
+        // Note: While Uniswap calculates the amount of tokens to add in the liquidity position a bit differently, as
+        //       seen in the `mint` function in the UniswapV2Pair contract, we can use the simplified version above
         uint256 minimumGCCExpected = (minImpactPower * minImpactPower) / (amount - optimalSwapAmount);
 
         // Swap the USDC for GCC
         uint256[] memory amounts = UNISWAP_ROUTER.swapExactTokensForTokens({
             amountIn: optimalSwapAmount,
-            // we allow for a 1% slippage due to potential rounding errors
+            // we allow for a 1% slippage based on the minimum impact power,
+            // due to potential rounding errors in the findOptimalAmountToSwap function
             amountOutMin: minimumGCCExpected * 99 / 100,
             path: path,
             to: address(this),
