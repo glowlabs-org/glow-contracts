@@ -78,7 +78,7 @@ contract HoldingContract {
 
     /**
      * @dev a cached version of five weeks in seconds
-     * @dev used in delayNetwork to ensure that the network can only be delayed every 8 weeks
+     * @dev used in delayNetwork to ensure that the network can only be delayed every 5 weeks
      * @dev This helps prevent bad veto agents from spamming the delay network function
      *         - by giving governance enough time to kick out the veto agent
      */
