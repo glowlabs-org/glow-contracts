@@ -101,7 +101,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /* -------------------------------------------------------------------------- */
 
     /// @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
-    /// @notice sends 12 million GLW to the Early Liquidity Contract and 90 million GLW to the unlocker contract
+    /// @notice sends 12 million GLW to the Early Liquidity Contract and 96 million GLW to the unlocker contract
     /// @param _earlyLiquidityAddress The address of the Early Liquidity Contract
     /// @param _vestingContract The address of the vesting contract
     constructor(address _earlyLiquidityAddress, address _vestingContract)
