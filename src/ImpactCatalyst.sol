@@ -85,13 +85,15 @@ contract ImpactCatalyst {
      * @dev the commit process is as follows:
      *         1. GCC is swapped for USDC
      *         2. GCC and USDC are added to the GCC-USDC pool
-     *         3. The caller receives 2x the amount of USDC received from the swap in nominations
-     *     - The point is to commit the GCC while adding liquidity to increase incentives for farms
+     *         3. The caller receives `liquidity` amount of nominations and impact power.
+     *                 - based on the amount of LP tokens generated from adding liquidity to the GCC-USDC pool
+     *                 - where, liquidity = min((amountUSDCUsedInLiquidityPosition * totalSupplyOfLPTokens) / reserveUSDC_afterSwap,
+     *                 - (amountGCCUsedInLiquidityPosition * totalSupplyOfLPTokens) / reserveGCC_afterSwap)
+     *                 - As seen in the `mint` function in the UniswapV2Pair contract
      * @param amount the amount of GCC to commit
      * @param minImpactPower the minimum amount of impact power expected to be earned from the commitment
      * @return usdcEffect - the amount of USDC used in the LP Position
-     * @return nominations - the amount of nominations to earn sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
-     *                        - we do this to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
+     * @return nominations - the amount of nominations and impact power earned
      */
     function commitGCC(uint256 amount, uint256 minImpactPower)
         external
@@ -176,11 +178,14 @@ contract ImpactCatalyst {
      * @dev the commit process is as follows:
      *         1. USDC is swapped for GCC
      *         2. GCC and USDC are added to the GCC-USDC pool
-     *         3. The caller `amount` of USDC used / committed
+     *         3. The caller receives `liquidity` amount of nominations and impact power,
+     *                    - based on the amount of LP tokens generated from adding liquidity to the GCC-USDC pool
+     *                 - where, liquidity = min((amountUSDCUsedInLiquidityPosition * totalSupplyOfLPTokens) / reserveUSDC_afterSwap,
+     *                 - (amountGCCUsedInLiquidityPosition * totalSupplyOfLPTokens) / reserveGCC_afterSwap)
+     *                 - As seen in the `mint` function in the UniswapV2Pair contract
      * @param amount the amount of USDC to commit
      * @param minImpactPower the minimum amount of impact power expected to be earned from the commitment
-     * @return nominations - the amount of nominations to earn sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition)
-     *                        - we do this to battle the quadratic nature of K in the UniswapV2Pair contract and standardize nominations
+     * @return nominations - the amount of nominations and impact power earned
      */
     function commitUSDC(uint256 amount, uint256 minImpactPower) external returns (uint256 nominations) {
         // Commitments can only be made through the GCC contract
