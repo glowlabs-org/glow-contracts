@@ -21,6 +21,7 @@ contract USDG is ERC20Permit, Ownable {
     error ErrNotVetoCouncilMember();
     error ErrPermanentlyFrozen();
     error ToCannotBeUSDCReceiver();
+    error ErrCannotSwapZero();
 
     /* -------------------------------------------------------------------------- */
     /*                                  immutables                                */
@@ -99,6 +100,7 @@ contract USDG is ERC20Permit, Ownable {
      */
     function swap(address to, uint256 amount) public {
         if (to == USDC_RECEIVER) revert ToCannotBeUSDCReceiver();
+        if (amount == 0) revert ErrCannotSwapZero();
         uint256 balBefore = USDC.balanceOf(USDC_RECEIVER);
         USDC.transferFrom(msg.sender, USDC_RECEIVER, amount);
         uint256 balAfter = USDC.balanceOf(USDC_RECEIVER);

@@ -195,6 +195,16 @@ contract USDGTest is Test {
         vm.stopPrank();
     }
 
+    function test_swapZeroAmountShouldRevert() public {
+        address me = address(usdgOwner); // a non-allowlisted contract
+        address other = address(0x123);
+        vm.startPrank(me);
+        usdc.mint(me, 100000000 * 1e6);
+        usdc.approve(address(usdg), 100000000 * 1e6);
+        vm.expectRevert(USDG.ErrCannotSwapZero.selector);
+        usdg.swap(me, 0);
+    }
+
     function test_freezeContract_shouldWork() public {
         vm.startPrank(OTHER_VETO_1);
         usdg.freezeContract();
