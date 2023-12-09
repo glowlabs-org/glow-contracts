@@ -618,11 +618,9 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     /**
-     * @dev sets the gca agents and their compensation plans
+     * @dev sets the gca agents
      *         -  removes all previous gca agents
-     *         -  remove all previous compensation plans
      *         -  sets the new gca agents
-     *         -  sets the new compensation plans
      */
     function _setGCAs(address[] memory gcaAddresses) internal {
         gcaAgents = gcaAddresses;
