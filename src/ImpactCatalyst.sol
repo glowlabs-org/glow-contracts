@@ -12,7 +12,7 @@ import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
  *         to increase the liquidity of the pool and earn nominations
  *         For each commit, `amount` of GCC or USDC is swapped for the other token
  *         for the optimal amount such that the return amount of the other token
- *         is exactly enough to add liquidity to the GCC-USDC pool without any left over of either token
+ *         is exactly enough to add liquidity to the GCC-USDC pool without any leftover of either token
  *         (precision errors may have small dust)
  *         - Nominations are granted as (sqrt(amountGCCUsedInLiquidityPosition * amountUSDCUsedInLiquidityPosition))
  *                 - or as the amount of liquidity tokens created from adding liquidity to the GCC-USDC pool
