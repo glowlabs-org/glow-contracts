@@ -8,7 +8,7 @@ import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 /**
  * @title ImpactCatalyst
  * @notice A contract for managing the GCC and USDC commitment
- *         A committment is when a user `donates` their GCC or USDC to the GCC-USDC pool
+ *         A commitment is when a user `donates` their GCC or USDC to the GCC-USDC pool
  *         to increase the liquidity of the pool and earn nominations
  *         For each commit, `amount` of GCC or USDC is swapped for the other token
  *         for the optimal amount such that the return amount of the other token
