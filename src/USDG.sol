@@ -77,8 +77,8 @@ contract USDG is ERC20Permit, Ownable {
     constructor(address _usdc, address _usdcReceiver, address _owner, address _univ2Factory)
         payable
         Ownable(_owner)
-        ERC20("USDC", "USDC")
-        ERC20Permit("USDC")
+        ERC20("USDG", "USDG")
+        ERC20Permit("USDG")
     {
         USDC = ERC20Permit(_usdc);
         USDC_RECEIVER = _usdcReceiver;
