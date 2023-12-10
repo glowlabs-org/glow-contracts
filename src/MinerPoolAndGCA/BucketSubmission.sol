@@ -107,9 +107,10 @@ contract BucketSubmission {
     /* -------------------------------------------------------------------------- */
 
     /**
-     * @notice adds the grc to the current bucket
-     * @dev this function is called when a user donates grc to the contract
-     * @param amount - the amount of grc to add to the current bucket
+     * @notice adds the usdc to the current bucket
+     * @dev this function is called when a user donates usdc to the contract
+     * @param amount - the amount of usdc to add
+     *                  - the `amount` gets distributed over 192 buckets with the first bucket being the current bucket + OFFSET_LEFT
      */
     function _addToCurrentBucket(uint256 amount) internal {
         //Calculate the current bucket
