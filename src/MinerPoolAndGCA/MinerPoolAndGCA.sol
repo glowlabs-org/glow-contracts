@@ -117,7 +117,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param pushedUSDCWeight - the aggregate amount of USDC weight pushed
      * @dev meant to be used in conjunction with the _weightsPushed mapping
      *       - when a user claims from a bucket, the pushed weights are added to the total weights
-     *       - these are tracked to ensure that the pushed weights dont overflow the total weights
+     *       - these are tracked to ensure that the pushed weights don't overflow the total weights
      *       - that were put in place for that specific bucket
      */
     struct PushedWeights {
@@ -463,7 +463,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     /**
      * @dev checks to make sure the weights in the report
-     *         - dont overflow the total weights that have been set for the bucket
+     *         - don't overflow the total weights that have been set for the bucket
      *         - Without this check, a malicious weight could be used to overflow the total weights
      *         - and grab rewards from other buckets
      * @param bucketId - the id of the bucket
