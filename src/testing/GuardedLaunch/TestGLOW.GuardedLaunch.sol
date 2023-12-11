@@ -5,6 +5,8 @@ import {GlowGuardedLaunch} from "@/GuardedLaunch/Glow.GuardedLaunch.sol";
 import {UnifapV2Library} from "@unifapv2/libraries/UnifapV2Library.sol";
 
 contract TestGLOWGuardedLaunch is GlowGuardedLaunch {
+    uint256 private _launchTimestamp;
+
     /**
      * @notice constructs a new GLOW token
      * @param _earlyLiquidityAddress the address to send the early liquidity to
@@ -13,13 +15,16 @@ contract TestGLOWGuardedLaunch is GlowGuardedLaunch {
      * @param _usdg the address of the USDG contract
      * @param _uniswapV2Factory the address of the uniswap v2 factory
      */
+
     constructor(
         address _earlyLiquidityAddress,
         address _vestingContract,
         address _owner,
         address _usdg,
         address _uniswapV2Factory
-    ) GlowGuardedLaunch(_earlyLiquidityAddress, _vestingContract, _owner, _usdg, _uniswapV2Factory) {}
+    ) GlowGuardedLaunch(_earlyLiquidityAddress, _vestingContract, _owner, _usdg, _uniswapV2Factory) {
+        _launchTimestamp = block.timestamp;
+    }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
@@ -27,6 +32,10 @@ contract TestGLOWGuardedLaunch is GlowGuardedLaunch {
 
     function allowlistAddress(address _address) external {
         allowlistedContracts[_address] = true;
+    }
+
+    function GENESIS_TIMESTAMP() public view override returns (uint256) {
+        return _launchTimestamp;
     }
 
     // returns sorted token addresses, used to handle return values from pairs sorted in this order

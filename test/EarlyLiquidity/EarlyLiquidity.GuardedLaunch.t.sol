@@ -27,7 +27,7 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
     uint256 public constant FIVE_YEARS = 365 days * 5;
     address public constant VESTING_CONTRACT = address(0x5);
     uint256 public constant USDC_DECIMALS = 6;
-    uint256 constant STARTING_USDC_PRICE = 1 * (10 ** (USDC_DECIMALS - 1)); //.1
+    uint256 constant STARTING_USDC_PRICE = 3 * (10 ** (USDC_DECIMALS - 1)); //.1
     uint256 public constant MAX_PRICE_EVER = STARTING_USDC_PRICE * 4096;
     address mockImpactCatalyst = address(0x12339182938aa19389128);
     address mockGCC = address(0x12339182938aaffffff19389128);
@@ -60,11 +60,13 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
 
         holdingContract = new HoldingContract(vetoCouncilAddress);
         earlyLiquidity = new EarlyLiquidity(address(usdg),address(holdingContract));
-        glow = new TestGLOWGuardedLaunch(address(earlyLiquidity),VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
+        glow =
+        new TestGLOWGuardedLaunch(address(earlyLiquidity),VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
         minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(usdc),
         address(holdingContract));
         earlyLiquidity.setMinerPool(address(minerPool));
-        glw = new TestGLOWGuardedLaunch(address(earlyLiquidity),VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
+        glw =
+        new TestGLOWGuardedLaunch(address(earlyLiquidity),VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
         handler = new Handler(address(earlyLiquidity),address(usdc), address(usdg));
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = IEarlyLiquidity.buy.selector;
@@ -186,7 +188,9 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
             uint256 totalCost = earlyLiquidity.getPrice(incrementsToPurchase);
             usdc.mint(SIMON, totalCost);
             usdc.approve(address(usdg), totalCost);
-            usdg.swap(SIMON, totalCost);
+            if (totalCost > 0) {
+                usdg.swap(SIMON, totalCost);
+            }
             usdg.approve(address(earlyLiquidity), totalCost);
             earlyLiquidity.buy(incrementsToPurchase, totalCost);
         }
@@ -198,7 +202,9 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         uint256 price = earlyLiquidity.getPrice(1);
         usdc.mint(SIMON, price);
         usdc.approve(address(usdg), price);
-        usdg.swap(SIMON, price);
+        if (price > 0) {
+            usdg.swap(SIMON, price);
+        }
         usdg.approve(address(earlyLiquidity), price);
         vm.expectRevert(IEarlyLiquidity.AllSold.selector);
         earlyLiquidity.buy(1, price);

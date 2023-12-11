@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
+import {_GENESIS_TIMESTAMP} from "@/Constants/Constants.sol";
 /**
  * @title Glow
  * @author DavidVorick
@@ -50,9 +50,6 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /* -------------------------------------------------------------------------- */
     /*                                  immutables                                */
     /* -------------------------------------------------------------------------- */
-    /// @notice The timestamp of the genesis block
-    // solhint-disable-next-line var-name-mixedcase
-    uint256 public immutable GENESIS_TIMESTAMP;
 
     /// @notice The address of the Early Liquidity Contract
     //  solhint-disable-next-line var-name-mixedcase
@@ -109,7 +106,6 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         ERC20("Glow", "GLOW")
         ERC20Permit("Glow")
     {
-        GENESIS_TIMESTAMP = block.timestamp;
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
         _mint(_earlyLiquidityAddress, 12_000_000 ether);
         _mint(_vestingContract, 96_000_000 ether);
@@ -369,7 +365,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         uint256 timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
         //If the timestamp is zero, we set it to the genesis timestamp
         // else we set it to the timestamp in storage
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         //Calculate the seconds since the last claim
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         //Calculate the amount to claim
@@ -396,7 +392,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         uint256 timestampInStorage = vetoCouncilLastClaimedTimestamp;
         //If the timestamp is zero, we set it to the genesis timestamp
         // else we set it to the timestamp in storage
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         //Calculate the seconds since the last claim
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         //Calculate the amount to claim
@@ -423,7 +419,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         uint256 timestampInStorage = grantsTreasuryLastClaimedTimestamp;
         //If the timestamp is zero, we set it to the genesis timestamp
         // else we set it to the timestamp in storage
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         //Calculate the seconds since the last claim
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         //Calculate the amount to claim
@@ -571,10 +567,10 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     function gcaInflationData() external view returns (uint256, uint256 totalAlreadyClaimed, uint256 totalToClaim) {
         if (_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressNotSet.selector);
         uint256 timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         totalToClaim = secondsSinceLastClaim * GCA_AND_MINER_POOL_INFLATION_PER_SECOND;
-        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP;
+        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP();
         return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
@@ -588,10 +584,10 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     {
         if (_isZeroAddress(vetoCouncilAddress)) _revert(IGlow.AddressNotSet.selector);
         uint256 timestampInStorage = vetoCouncilLastClaimedTimestamp;
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         totalToClaim = secondsSinceLastClaim * VETO_COUNCIL_INFLATION_PER_SECOND;
-        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP;
+        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP();
         return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
@@ -605,10 +601,10 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     {
         if (_isZeroAddress(grantsTreasuryAddress)) _revert(IGlow.AddressNotSet.selector);
         uint256 timestampInStorage = grantsTreasuryLastClaimedTimestamp;
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         totalToClaim = secondsSinceLastClaim * GRANTS_TREASURY_INFLATION_PER_SECOND;
-        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP;
+        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP();
         return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
@@ -643,6 +639,13 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         grantsTreasuryAddress = _grantsTreasuryAddress;
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  getters                                   */
+    /* -------------------------------------------------------------------------- */
+    /// @notice The timestamp of the genesis block
+    function GENESIS_TIMESTAMP() public view virtual returns (uint256) {
+        return _GENESIS_TIMESTAMP;
+    }
     /* -------------------------------------------------------------------------- */
     /*                                 privte utils                              */
     /* -------------------------------------------------------------------------- */
