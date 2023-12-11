@@ -12,7 +12,7 @@ import {Governance} from "@/Governance.sol";
 import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {TestGLOW} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
+import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Handler} from "./Handlers/Handler.GCA.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
@@ -43,7 +43,7 @@ contract MinerPoolAndGCAGuardedLaunchTest is Test {
     WETH9 public weth;
     UnifapV2Router public uniswapRouter;
     MockMinerPoolAndGCA minerPoolAndGCA;
-    TestGLOW glow;
+    TestGLOWGuardedLaunch glow;
     MockUSDC usdc;
     MockUSDC grc2;
     TestUSDG public usdg;
@@ -95,7 +95,7 @@ contract MinerPoolAndGCAGuardedLaunchTest is Test {
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
         vm.warp(10);
         (defaultAddressInWithdraw, defaultAddressPrivateKey) = _createAccount(2313141231, type(uint256).max);
-        glow = new TestGLOW({
+        glow = new TestGLOWGuardedLaunch({
             _earlyLiquidityAddress: earlyLiquidity,
             _vestingContract: vestingContract,
             _owner: SIMON,
@@ -258,7 +258,7 @@ contract MinerPoolAndGCAGuardedLaunchTest is Test {
         vm.warp(10);
         usdc = new MockUSDC();
         (defaultAddressInWithdraw, defaultAddressPrivateKey) = _createAccount(2313141231, type(uint256).max);
-        glow = new TestGLOW({
+        glow = new TestGLOWGuardedLaunch({
             _earlyLiquidityAddress: earlyLiquidity,
             _vestingContract: vestingContract,
             _owner: SIMON,

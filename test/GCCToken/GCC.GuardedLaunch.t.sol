@@ -12,7 +12,7 @@ import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import {Handler} from "./Handler.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {TestGLOW} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
+import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -53,7 +53,7 @@ contract GCCGuardedLaunchTest is Test {
     address vetoCouncil = address(0x156);
     address grantsTreasury = address(0x157);
     address glw;
-    TestGLOW glwContract;
+    TestGLOWGuardedLaunch glwContract;
     address vestingContract = address(0x412412);
     address earlyLiquidity = address(0x412412);
     address other = address(0xdead);
@@ -75,7 +75,7 @@ contract GCCGuardedLaunchTest is Test {
             _univ2Factory: address(uniswapFactory)
         });
         // mainnetFork = vm.createFork(forkUrl);
-        glwContract = new TestGLOW({
+        glwContract = new TestGLOWGuardedLaunch({
             _earlyLiquidityAddress: earlyLiquidity,
             _vestingContract: vestingContract,
             _owner: SIMON,
@@ -209,7 +209,7 @@ contract GCCGuardedLaunchTest is Test {
             _univ2Factory: address(uniswapFactory)
         });
 
-        glwContract = new TestGLOW({
+        glwContract = new TestGLOWGuardedLaunch({
             _earlyLiquidityAddress: earlyLiquidity,
             _vestingContract: vestingContract,
             _owner: SIMON,
@@ -417,7 +417,7 @@ contract GCCGuardedLaunchTest is Test {
             _univ2Factory: address(uniswapFactory)
         });
 
-        glwContract = new TestGLOW({
+        glwContract = new TestGLOWGuardedLaunch({
             _earlyLiquidityAddress: earlyLiquidity,
             _vestingContract: vestingContract,
             _owner: SIMON,

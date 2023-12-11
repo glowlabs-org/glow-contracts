@@ -27,7 +27,7 @@ test.all :; forge test --ffi -vv && make hardhat-test
 # --- [ Specific Tests ] -----------------------------------------------------------------------------------
 test.minerpool.math :; forge test --match-path test/temp/MinerDistributionMath.t.sol -vvv --ffi
 hardhat.test.earlyLiquidity :; npx hardhat test test/EarlyLiquidity/EarlyLiquidity.test.ts
-test.earlyLiquidity :; forge test --match-contract EarlyLiquidityTest -vvv && npx hardhat test
+test.earlyLiquidity :; forge test --match-contract EarlyLiquidityTest -vvv && make hardhat.test.earlyLiquidity
 test.minerPoolAndGCA :; forge test --match-contract MinerPoolAndGCATest --ffi -vv
 
 # --- [ Gas Snapshot] -----------------------------------------------------------------------------------

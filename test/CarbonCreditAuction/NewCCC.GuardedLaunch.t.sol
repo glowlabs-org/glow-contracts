@@ -23,7 +23,7 @@ contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
     UnifapV2Router public uniswapRouter;
     MockUSDC usdc;
     TestGCCGuardedLaunch public gcc;
-    TestGLOW public glow;
+    TestGLOWGuardedLaunch public glow;
     TestUSDG usdg;
     CarbonCreditDutchAuction public auction;
     VetoCouncil public vetoCouncil;
@@ -62,7 +62,7 @@ contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
         startingAgents[0] = address(SIMON);
         startingAgents[1] = address(OTHER_VETO_COUNCIL_MEMBER);
         vm.warp(100000);
-        glow = new TestGLOW(earlyLiquidityAddress,vestingContract,SIMON,address(usdg),address(uniswapFactory));
+        glow = new TestGLOWGuardedLaunch(earlyLiquidityAddress,vestingContract,SIMON,address(usdg),address(uniswapFactory));
         vetoCouncil = new VetoCouncil(governance, address(glow),startingAgents);
         holdingContract = new HoldingContract(address(vetoCouncil));
 

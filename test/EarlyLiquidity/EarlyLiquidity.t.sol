@@ -24,7 +24,7 @@ contract EarlyLiquidityTest is Test {
     uint256 public constant FIVE_YEARS = 365 days * 5;
     address public constant VESTING_CONTRACT = address(0x5);
     uint256 public constant USDC_DECIMALS = 6;
-    uint256 constant STARTING_USDC_PRICE = 1 * (10 ** (USDC_DECIMALS - 1)); //.1
+    uint256 constant STARTING_USDC_PRICE = 3 * (10 ** (USDC_DECIMALS - 1)); //.1
     uint256 public constant MAX_PRICE_EVER = STARTING_USDC_PRICE * 4096;
 
     //-----------------CONTRACTS-----------------

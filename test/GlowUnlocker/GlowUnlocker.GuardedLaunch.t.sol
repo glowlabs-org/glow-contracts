@@ -33,7 +33,7 @@ contract GlowUnlockerGuardedLaunchTest is Test {
     //and 4 addresses that each get 10 million
 
     //-------------------- Contracts --------------------
-    TestGLOW public glw;
+    TestGLOWGuardedLaunch public glw;
     TestUSDG public usdg;
     MockUSDC public usdc;
     UnifapV2Factory public uniswapFactory;
@@ -72,7 +72,7 @@ contract GlowUnlockerGuardedLaunchTest is Test {
         assert(sum == 90_000_000 ether);
         disperser = new GlowUnlocker(addresses, amounts);
         //Create contracts
-        glw = new TestGLOW({
+        glw = new TestGLOWGuardedLaunch({
             _earlyLiquidityAddress: EARLY_LIQUIDITY,
             _vestingContract: address(mockVestingAddress),
             _owner: SIMON,

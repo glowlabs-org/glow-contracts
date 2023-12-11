@@ -11,7 +11,7 @@ import {Governance} from "@/Governance.sol";
 import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {TestGLOW} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
+import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
@@ -34,7 +34,7 @@ struct ClaimLeaf {
 contract HoldingContractGuardedLaunchTest is Test {
     //--------  CONTRACTS ---------//
     MockMinerPoolAndGCA minerPoolAndGCA;
-    TestGLOW glow;
+    TestGLOWGuardedLaunch glow;
     MockUSDC usdc;
 
     MockUSDC grc2;
@@ -88,7 +88,7 @@ contract HoldingContractGuardedLaunchTest is Test {
             _univ2Factory: address(uniswapFactory)
         });
         (defaultAddressInWithdraw, defaultAddressPrivateKey) = _createAccount(2313141231, type(uint256).max);
-        glow = new TestGLOW({
+        glow = new TestGLOWGuardedLaunch({
             _earlyLiquidityAddress: earlyLiquidity,
             _vestingContract: vestingContract,
             _owner: SIMON,

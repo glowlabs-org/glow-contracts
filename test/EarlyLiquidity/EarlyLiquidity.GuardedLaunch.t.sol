@@ -11,7 +11,7 @@ import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {Handler} from "./handlers/Handler.GuardedLaunch.t.sol";
 import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
 import {EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
-import {TestGLOW} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
+import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
@@ -32,12 +32,12 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
     address mockImpactCatalyst = address(0x12339182938aa19389128);
     address mockGCC = address(0x12339182938aaffffff19389128);
     //-----------------CONTRACTS-----------------
-    TestGLOW public glw;
+    TestGLOWGuardedLaunch public glw;
     EarlyLiquidity public earlyLiquidity;
     MockUSDC usdc;
     Handler handler;
     EarlyLiquidityMockMinerPool minerPool;
-    TestGLOW glow;
+    TestGLOWGuardedLaunch glow;
     HoldingContract holdingContract;
     TestUSDG public usdg;
     UnifapV2Factory public uniswapFactory;
@@ -60,11 +60,11 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
 
         holdingContract = new HoldingContract(vetoCouncilAddress);
         earlyLiquidity = new EarlyLiquidity(address(usdg),address(holdingContract));
-        glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
+        glow = new TestGLOWGuardedLaunch(address(earlyLiquidity),VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
         minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(usdc),
         address(holdingContract));
         earlyLiquidity.setMinerPool(address(minerPool));
-        glw = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
+        glw = new TestGLOWGuardedLaunch(address(earlyLiquidity),VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
         handler = new Handler(address(earlyLiquidity),address(usdc), address(usdg));
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = IEarlyLiquidity.buy.selector;

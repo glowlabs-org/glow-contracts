@@ -11,7 +11,7 @@ import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.so
 import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {TestGLOW} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
+import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
@@ -42,7 +42,7 @@ contract GovernanceGuardedLaunchTest is Test {
     WETH9 public weth;
     UnifapV2Router public uniswapRouter;
     MockMinerPoolAndGCA minerPoolAndGCA;
-    TestGLOW glow;
+    TestGLOWGuardedLaunch glow;
     MockUSDC usdc;
     MockUSDC grc2;
     TestUSDG usdg;
@@ -106,7 +106,7 @@ contract GovernanceGuardedLaunchTest is Test {
             _univ2Factory: address(uniswapFactory)
         });
 
-        glow = new TestGLOW(earlyLiquidity,vestingContract,SIMON,address(usdg),address(uniswapFactory));
+        glow = new TestGLOWGuardedLaunch(earlyLiquidity,vestingContract,SIMON,address(usdg),address(uniswapFactory));
 
         address[] memory temp = new address[](0);
         startingAgents.push(address(SIMON));

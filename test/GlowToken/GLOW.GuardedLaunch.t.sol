@@ -31,7 +31,7 @@ contract GlowGuardedLaunchTest is Test {
     address mockImpactCatalyst = address(0x1233918293823119389128);
     address mockHoldingContract = address(0xffffaafaeeef);
     //-------------------- Contracts --------------------
-    TestGLOW public glw;
+    TestGLOWGuardedLaunch public glw;
     Handler public handler;
     VetoCouncil public vetoCouncil;
     MockUSDC public usdc;
@@ -56,7 +56,7 @@ contract GlowGuardedLaunchTest is Test {
         });
 
         vm.startPrank(SIMON);
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
+        glw = new TestGLOWGuardedLaunch(EARLY_LIQUIDITY,VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
         handler = new Handler(address(glw));
 
         //Make sure early liquidity receives 12 million tokens

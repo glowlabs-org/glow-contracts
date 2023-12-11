@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {GlowGuardedLaunch} from "@/GuardedLaunch/Glow.GuardedLaunch.sol";
 import {UnifapV2Library} from "@unifapv2/libraries/UnifapV2Library.sol";
 
-contract TestGLOW is GlowGuardedLaunch {
+contract TestGLOWGuardedLaunch is GlowGuardedLaunch {
     /**
      * @notice constructs a new GLOW token
      * @param _earlyLiquidityAddress the address to send the early liquidity to
