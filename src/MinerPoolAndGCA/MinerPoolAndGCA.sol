@@ -11,7 +11,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
-import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IHoldingContract} from "@/HoldingContract.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
