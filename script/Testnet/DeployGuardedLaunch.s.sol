@@ -165,8 +165,11 @@ contract DeployFull is Test, Script {
         jsonStringOutput = string(
             abi.encodePacked(jsonStringOutput, "\"batchCommit\":", "\"", vm.toString(address(batchCommit)), "\"", ",")
         );
+
         jsonStringOutput =
-            string(abi.encodePacked(jsonStringOutput, "\"usdc\":", "\"", vm.toString(address(usdg)), "\"", ","));
+            string(abi.encodePacked(jsonStringOutput, "\"usdc\":", "\"", vm.toString(address(mockUSDC)), "\"", ","));
+        jsonStringOutput =
+            string(abi.encodePacked(jsonStringOutput, "\"usdg\":", "\"", vm.toString(address(usdg)), "\"", ","));
         jsonStringOutput = string(
             abi.encodePacked(
                 jsonStringOutput, "\"impactCatalyst\":", "\"", vm.toString(address(gcc.IMPACT_CATALYST())), "\"", ","

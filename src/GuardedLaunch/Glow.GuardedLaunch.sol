@@ -8,7 +8,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 import {GCC} from "@/GCC.sol";
 import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
-import {Glow} from "@/Glow.sol";
+import {Glow} from "@/GLOW.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 /**
