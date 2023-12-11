@@ -107,8 +107,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         ERC20Permit("Glow")
     {
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
-        _mint(_earlyLiquidityAddress, 12_000_000 ether);
-        _mint(_vestingContract, 96_000_000 ether);
+        _handleConstructorMint(_earlyLiquidityAddress, _vestingContract);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -646,6 +645,21 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     function GENESIS_TIMESTAMP() public view virtual returns (uint256) {
         return _GENESIS_TIMESTAMP;
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                       constructor mint virtual                             */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Mints the initial supply of GLOW
+     * @param _earlyLiquidityAddress The address of the early liquidity contract
+     * @param _vestingContract The address of the vesting contract
+     */
+    function _handleConstructorMint(address _earlyLiquidityAddress, address _vestingContract) internal virtual {
+        _mint(_earlyLiquidityAddress, 12_000_000 ether);
+        _mint(_vestingContract, 96_000_000 ether);
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                 privte utils                              */
     /* -------------------------------------------------------------------------- */
