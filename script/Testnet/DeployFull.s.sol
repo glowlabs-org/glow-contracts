@@ -24,6 +24,7 @@ contract DeployFull is Test, Script {
     bytes32 gcaRequirementsHash = keccak256("my hash good ser");
     address vestingContract = address(0xE414D49268837291fde21c33AD7e30233b7041C2);
 
+    address testingOther = 0x1c42C3DC7502aE55Ec4a888a940b2ADB0901a604;
     MockUSDC mockUSDC;
     EarlyLiquidity earlyLiquidity;
     MinerPoolAndGCA gcaAndMinerPoolContract;
@@ -33,10 +34,12 @@ contract DeployFull is Test, Script {
     address uniswapV2Router = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
     function run() external {
-        address[] memory startingAgents = new address[](1);
+        address[] memory startingAgents = new address[](2);
         startingAgents[0] = tx.origin;
-        address[] memory startingVetoCouncilAgents = new address[](1);
+        startingAgents[1] = testingOther;
+        address[] memory startingVetoCouncilAgents = new address[](2);
         startingVetoCouncilAgents[0] = tx.origin;
+        startingVetoCouncilAgents[1] = testingOther;
         if (vm.exists(fileToWriteTo)) {
             vm.removeFile(fileToWriteTo);
         }

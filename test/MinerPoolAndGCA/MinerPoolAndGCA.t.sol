@@ -409,8 +409,8 @@ contract MinerPoolAndGCATest is Test {
 
         //Should have gotten all the glow rewards
         assertEq(glow.balanceOf((defaultAddressInWithdraw)), 175_000 ether * glwWeightForAddress / totalGlwWeight);
-        uint expectedUSDC = amountUSDCDonated  / 192 * usdcWeightForAddress / totalusdcWeight;
-        uint holdings = holdingContract.holdings(defaultAddressInWithdraw,address(usdc)).amount;
+        uint256 expectedUSDC = amountUSDCDonated / 192 * usdcWeightForAddress / totalusdcWeight;
+        uint256 holdings = holdingContract.holdings(defaultAddressInWithdraw, address(usdc)).amount;
         assertEq(holdings, expectedUSDC);
         vm.stopPrank();
     }
