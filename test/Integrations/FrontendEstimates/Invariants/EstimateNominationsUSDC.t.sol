@@ -110,6 +110,8 @@ contract EstimateNominationsLargerNumbersUSDCTest is Test {
      */
     function invariant_testDivergenceNominations_usdcCommit() public {
         string memory csvFilename = "logs/nomination_divergence_usdc.csv";
+        string memory dustFileName = "logs/nomination_dust_usdc.csv";
+
         if (saveLogs) {
             // string memory headers = "round,expected,actual";
             // if (vm.exists(csvFilename)) {
@@ -121,10 +123,24 @@ contract EstimateNominationsLargerNumbersUSDCTest is Test {
         for (uint256 i; i < rounds; ++i) {
             uint256 expected = usdcHandler.estimatedmpactPowerForRound(i);
             uint256 actual = usdcHandler.actualImpactPowerForRound(i);
+            EstimateNominationsUSDCHandler.DustUSDC memory dust = usdcHandler.dustForRound(i);
             if (saveLogs) {
                 string memory line =
                     string(abi.encodePacked(vm.toString(i), ",", vm.toString(expected), ",", vm.toString(actual)));
                 vm.writeLine(csvFilename, line);
+
+                string memory dustLine = string(
+                    abi.encodePacked(
+                        vm.toString(i),
+                        ",",
+                        vm.toString(dust.amountUSDCToSwap),
+                        ",",
+                        vm.toString(dust.gccDust),
+                        ",",
+                        vm.toString(dust.usdcDust)
+                    )
+                );
+                vm.writeLine(dustFileName, dustLine);
             }
             assertFalse(isDivergenceGreaterThanThreshold(expected, actual));
         }

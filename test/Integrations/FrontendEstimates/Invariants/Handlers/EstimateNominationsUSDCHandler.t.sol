@@ -26,8 +26,15 @@ contract EstimateNominationsUSDCHandler is Test {
     MainnetForkTestGCC public immutable gcc;
     UnifapV2Router public immutable uniswapRouter;
 
+    struct DustUSDC {
+        uint256 amountUSDCToSwap;
+        uint256 gccDust;
+        uint256 usdcDust;
+    }
+
     mapping(uint256 => uint256) public estimatedmpactPowerForRound;
     mapping(uint256 => uint256) public actualImpactPowerForRound;
+    mapping(uint256 => DustUSDC) private _dustForRound;
     uint256 public round;
 
     constructor(address _gcc, address _uniswapRouter) {
@@ -52,6 +59,7 @@ contract EstimateNominationsUSDCHandler is Test {
         public
         returns (bool)
     {
+        DustUSDC memory dust = _dustForRound[round];
         if (!hasSeededLP) {
             amountGCCToSeedLP = bound(amountGCCToSeedLP, 10 ether, 1_000_000_000 ether);
             amountUSDCToSeedLP = bound(amountUSDCToSeedLP, 10 * 1e6, 1_000_000_000 * 1e6);
@@ -82,6 +90,10 @@ contract EstimateNominationsUSDCHandler is Test {
             //Uniswap error for insufficient amount in case we need it
             //0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000025556e697377617056323a20494e53554646494349454e545f4f55545055545f414d4f554e54000000000000000000000000000000000000000000000000000000
         } else {
+            dust.amountUSDCToSwap = amount;
+            dust.gccDust = gcc.balanceOf(address(impactCatalyst)); //accumulated dust
+            dust.usdcDust = usdc.balanceOf(address(impactCatalyst)); //accumulated dust
+            _dustForRound[round] = dust;
             estimatedmpactPowerForRound[round] = estimate;
             uint256 impactPowerEarned = gcc.totalImpactPowerEarned(from) - impactPowerBefore;
             actualImpactPowerForRound[round++] = impactPowerEarned;
@@ -103,5 +115,9 @@ contract EstimateNominationsUSDCHandler is Test {
             address(gcc), address(usdc), amountGCC, amountUSDC, amountGCC, amountUSDC, from, block.timestamp
         );
         vm.stopPrank();
+    }
+
+    function dustForRound(uint256 round) public view returns (DustUSDC memory) {
+        return _dustForRound[round];
     }
 }
