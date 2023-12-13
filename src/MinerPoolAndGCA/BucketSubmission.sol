@@ -243,7 +243,7 @@ contract BucketSubmission {
         WeeklyReward memory bucket = rewards[id];
         // If the bucket has already been initialized
         // Then we can just return the bucket.
-        if (bucket.inheritedFromLastWeek || id < 16) {
+        if (bucket.inheritedFromLastWeek || id < OFFSET_LEFT) {
             return (bucket, false);
         }
 
