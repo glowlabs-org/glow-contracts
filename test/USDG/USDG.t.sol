@@ -232,7 +232,7 @@ contract USDGTest is Test {
         usdc.mint(usdgOwner, 100000000 * 1e6);
         usdc.approve(address(usdg), 100000000 * 1e6);
         vm.expectRevert(USDG.ErrPermanentlyFrozen.selector);
-        usdg.transfer(address(this), 1 * 1e6);
+        usdg.swap(address(this), 1 * 1e6);
         vm.stopPrank();
     }
 
