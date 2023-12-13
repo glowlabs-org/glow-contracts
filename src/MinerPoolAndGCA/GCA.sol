@@ -845,7 +845,7 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     /**
-     * @notice calculates the bucket submission start timestamp
+     * @notice calculates the bucket submission end timestamp
      * @param bucketId - the id of the bucket
      * @param bucketOriginNonce - the original nonce of the bucket
      * @param bucketLastUpdatedNonce - the last updated nonce of the bucket
