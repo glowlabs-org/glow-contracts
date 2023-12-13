@@ -226,6 +226,16 @@ contract USDGTest is Test {
         vm.stopPrank();
     }
 
+    function test_freezeContract_shouldRevert_swap() public {
+        test_freezeContract_shouldWork();
+        vm.startPrank(usdgOwner);
+        usdc.mint(usdgOwner, 100000000 * 1e6);
+        usdc.approve(address(usdg), 100000000 * 1e6);
+        vm.expectRevert(USDG.ErrPermanentlyFrozen.selector);
+        usdg.transfer(address(this), 1 * 1e6);
+        vm.stopPrank();
+    }
+
     function _createAccount(uint256 privateKey, uint256 amount)
         internal
         returns (address addr, uint256 signerPrivateKey)
