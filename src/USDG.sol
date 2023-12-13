@@ -214,7 +214,7 @@ contract USDG is ERC20Permit, Ownable {
     /**
      * @notice Returns the univ2 pair for a given factory and token
      * @param factory the univ2 factory
-     * @param _tokenA the first tokenx
+     * @param _tokenA the first token
      * @param _tokenB the second token
      * @return pair - the univ2 pair
      */
