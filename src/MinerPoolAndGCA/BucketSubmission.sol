@@ -161,12 +161,12 @@ contract BucketSubmission {
         //This would only be the case if there has been a long period of time where no one has called {claimRewards}
         //Or, no one has donated the grc to the contract
         //Also, if the last bucket is the same as the bucket to add to, then we don't need to look backwards neither
-        bool pastDataIrrelavant = bucketToAddTo > _bucketTracker.maxBucketId || lastUpdatedBucket == bucketToAddTo;
-        //If past data is irrelavant, we can assume that we start fresh from the current bucket
-        uint256 totalToDeductFromBucket = pastDataIrrelavant ? 0 : currentWeeklyReward.amountToDeduct;
+        bool pastDataIrrelevant = bucketToAddTo > _bucketTracker.maxBucketId || lastUpdatedBucket == bucketToAddTo;
+        //If past data is irrelevant, we can assume that we start fresh from the current bucket
+        uint256 totalToDeductFromBucket = pastDataIrrelevant ? 0 : currentWeeklyReward.amountToDeduct;
 
-        //As such, we don't need to look backwards if the past data is irrelavant
-        if (!pastDataIrrelavant) {
+        //As such, we don't need to look backwards if the past data is irrelevant
+        if (!pastDataIrrelevant) {
             //However, if the past data is relavant,
             //We start at the last bucket that was updated,
             //And we look forwards until we reach the bucketToAddTo
@@ -174,7 +174,7 @@ contract BucketSubmission {
                 totalToDeductFromBucket += rewards[i].amountToDeduct;
             }
         } else {
-            //If the past data is irrelavant, then we set the amount in the bucket to 0
+            //If the past data is irrelevant, then we set the amount in the bucket to 0
             //Such that the write below does not incorrectly add to the bucket
             lastBucket.amountInBucket = 0;
         }
