@@ -199,7 +199,8 @@ contract HoldingContract {
         //If the network is frozen, don't allow withdrawals
         bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
         //Loop over all the arguments
-        for (uint256 i; i < args.length; ++i) {
+        uint256 len = args.length;
+        for (uint256 i; i < len;) {
             ClaimHoldingArgs memory arg = args[i];
             Holding memory holding = _holdings[arg.user][arg.token];
             checkHoldingAvailable(holding, networkIsFrozen);
@@ -208,6 +209,9 @@ contract HoldingContract {
             delete _holdings[arg.user][arg.token];
             //Add the amount to the amount to transfer
             SafeERC20.safeTransfer(IERC20(arg.token), arg.user, holding.amount);
+            unchecked {
+                ++i;
+            }
         }
     }
 
