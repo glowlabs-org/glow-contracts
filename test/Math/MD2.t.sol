@@ -232,6 +232,24 @@ contract MD2Test is Test {
         assert(minerMath.genesisTimestampInternal() == 0);
     }
 
+    function test_settingAfterPastDataIrrelavant_shouldWork() public {
+        minerMath.addToCurrentBucket(1 ether);
+        //get bucket 16
+        MD2.WeeklyReward memory reward = minerMath.reward(16);
+
+        uint256 expectedAmount = uint256(1 ether) / uint256(192);
+        assertEq(reward.amountInBucket, expectedAmount);
+
+        //Warp (209-16) weeks
+        vm.warp(block.timestamp + 193 weeks);
+
+        // Add to bucket 209
+        minerMath.addToCurrentBucket(2 ether);
+
+        MD2.WeeklyReward memory reward2 = minerMath.reward(209);
+        expectedAmount = uint256(2 ether) / uint256(192);
+        assertEq(reward2.amountInBucket, expectedAmount);
+    }
     // /**
     //  * @dev function to test the addRewardsToBucket function
     //  *         -   we loop over 300 weeks,
@@ -267,15 +285,15 @@ contract MD2Test is Test {
 
     // //-----------------UTILS-----------------
 
-    // /// @dev - helper function to log a reward for debug purposes
-    // function logWeeklyReward(uint256 id, MD2.WeeklyReward memory reward) public {
-    //     console.logString("---------------------------------");
-    //     console.log("id %s", id);
-    //     console.log("inheritedFromLastWeek %s", reward.inheritedFromLastWeek);
-    //     console.log("amountInBucket %s", reward.amountInBucket);
-    //     console.log("amountToDeduct %s", reward.amountToDeduct);
-    //     console.logString("---------------------------------");
-    // }
+    /// @dev - helper function to log a reward for debug purposes
+    function logWeeklyReward(uint256 id, MD2.WeeklyReward memory reward) public {
+        console.logString("---------------------------------");
+        console.log("id %s", id);
+        console.log("inheritedFromLastWeek %s", reward.inheritedFromLastWeek);
+        console.log("amountInBucket %s", reward.amountInBucket);
+        console.log("amountToDeduct %s", reward.amountToDeduct);
+        console.logString("---------------------------------");
+    }
 
     // /// @dev - helper function to log a group of rewards for debug purposes
     // function logBuckets(uint256 start, uint256 finish) public {

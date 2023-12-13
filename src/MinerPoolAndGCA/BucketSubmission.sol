@@ -172,6 +172,10 @@ contract BucketSubmission {
             for (uint256 i = lastUpdatedBucket; i < bucketToAddTo; ++i) {
                 totalToDeductFromBucket += rewards[i].amountToDeduct;
             }
+        } else {
+            //If the past data is irrelavant, then we set the amount in the bucket to 0
+            //Such that the write below does not incorrectly add to the bucket
+            lastBucket.amountInBucket = 0;
         }
 
         /**
