@@ -47,7 +47,8 @@ contract BucketSubmission {
     /**
      * @dev a helper to keep track of last updated bucket ids for buckets
      * @param lastUpdatedBucket - the last bucket + 16 that grc was deposited to this bucket
-     * @param maxBucketId - the lastUpdatedBucket + 192
+     * @param maxBucketId - the lastUpdatedBucket + 191 since the range of buckets is (lastUpdatedBucket, lastUpdatedBucket + 192]
+     *                                                                                       ^ inclusive,             exclusive ^
      * @param firstAddedBucketId - the first bucket + 16 that grc was deposited to this bucket
      * @dev none of the params should overflow, since they represent weeks
      *         - it's safe to assume by 2^48 weeks climate should should have better solutions
