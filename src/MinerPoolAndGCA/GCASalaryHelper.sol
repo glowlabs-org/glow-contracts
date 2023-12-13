@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 
 abstract contract GCASalaryHelper {
     /* -------------------------------------------------------------------------- */
@@ -19,8 +20,6 @@ abstract contract GCASalaryHelper {
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */
     /* -------------------------------------------------------------------------- */
-    /// @dev one week in seconds
-    uint256 private constant ONE_WEEK = uint256(7 days);
 
     /// @dev 10_000 GLW Per Week available as rewards to all GCAs
     uint256 public constant REWARDS_PER_SECOND_FOR_ALL = 10_000 ether / uint256(7 days);
@@ -285,7 +284,7 @@ abstract contract GCASalaryHelper {
          *         We only increment the nonce when the comp. period has actually begun.
          *
          *         For example, if we're in comp period 1, and we submit a new comp plan for comp period 2,
-         *         we initialize comp period 2 to start at block.timestamp + ONE_WEEK,
+         *         we initialize comp period 2 to start at block.timestamp + `bucketDuration()`,
          *         Therefore, there is a 1 week period where the comp plan is not active and comp plan 1
          *         is still being acted upon, BUT, the nonce has already been incremented.
          *
@@ -304,7 +303,7 @@ abstract contract GCASalaryHelper {
          */
         if (block.timestamp > currentShiftStartTimestamp) {
             //We need to increment the nonce
-            _paymentNonceToShiftStartTimestamp[nextPaymentNonce] = block.timestamp + ONE_WEEK;
+            _paymentNonceToShiftStartTimestamp[nextPaymentNonce] = block.timestamp + bucketDuration();
 
             //Make sure that all the hashes are updated
             bytes32 gcaHash = _paymentNonceToGCAs[_paymentNonce];
@@ -368,6 +367,14 @@ abstract contract GCASalaryHelper {
     function defaultCompPlan(uint256 gcaIndex) internal pure returns (uint32[5] memory shares) {
         shares[gcaIndex] = uint32(SHARES_REQUIRED_PER_COMP_PLAN);
         return shares;
+    }
+
+    /**
+     * @notice returns the bucket duration
+     * @return bucketDuration - the bucket duration
+     */
+    function bucketDuration() internal pure virtual returns (uint256) {
+        return _BUCKET_DURATION;
     }
 
     /* -------------------------------------------------------------------------- */

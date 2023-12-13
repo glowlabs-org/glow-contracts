@@ -14,6 +14,7 @@ import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import {IHoldingContract} from "@/HoldingContract.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 
 /**
  * @title Miner Pool And GCA
@@ -245,6 +246,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             glwWeight: glwWeight,
             usdcWeight: usdcWeight
         });
+
         _handleMintToCarbonCreditAuction(bucketId, globalStatePackedData & _UINT128_MASK);
 
         //no need to use a mask since totalUSDCWeight uses the last 64 bits, so we can just shift
@@ -308,7 +310,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             _revert(IMinerPool.CannotDelayEmptyBucket.selector);
         }
 
-        _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(_BUCKET_DELAY_DURATION);
+        _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(bucketDelayDuration());
     }
 
     /// @notice initializes the gcc token
@@ -375,6 +377,14 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
                 )
             )
         );
+    }
+
+    /**
+     * @notice The amount of time a delay action will delay a bucket by
+     * @return the amount of time a delay action will delay a bucket by
+     */
+    function bucketDelayDuration() public pure virtual returns (uint256) {
+        return _BUCKET_DELAY_DURATION;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -525,6 +535,20 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         return _domainSeparatorV4();
     }
 
+    /**
+     * @notice returns the bucket duration
+     * @return bucketDuration - the bucket duration
+     */
+    function bucketDuration() internal pure virtual override(GCA, BucketSubmission) returns (uint256) {
+        return _BUCKET_DURATION;
+    }
+
+    /**
+     * @notice reverts with {selector} if {a} > {b}
+     * @param a - the first number
+     * @param b - the second number
+     * @param selector - the selector to revert with
+     */
     function _revertIfGreater(uint256 a, uint256 b, bytes4 selector) internal pure {
         if (a > b) _revert(selector);
     }

@@ -5,13 +5,13 @@ import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import {GCC} from "@/GCC.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
-import {Governance} from "@/Governance.sol";
+import {GoerliGovernanceQuickPeriod} from "@/testing/Goerli/GoerliGovernance.QuickPeriod.sol";
 import {GoerliGCC} from "@/testing/Goerli/GoerliGCC.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
-import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
+import {GoerliMinerPoolAndGCAQuickPeriod} from "@/testing/Goerli/GoerliMinerPoolAndGCA.QuickPeriod.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
 import {HoldingContract} from "@/HoldingContract.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
@@ -20,14 +20,14 @@ import "forge-std/Test.sol";
 
 string constant fileToWriteTo = "deployedContractsGoerli.json";
 
-contract DeployFull is Test, Script {
+contract DeployFullQuickBuckets is Test, Script {
     bytes32 gcaRequirementsHash = keccak256("my hash good ser");
     address vestingContract = address(0xE414D49268837291fde21c33AD7e30233b7041C2);
 
     address testingOther = 0x1c42C3DC7502aE55Ec4a888a940b2ADB0901a604;
     MockUSDC mockUSDC;
     EarlyLiquidity earlyLiquidity;
-    MinerPoolAndGCA gcaAndMinerPoolContract;
+    GoerliMinerPoolAndGCAQuickPeriod gcaAndMinerPoolContract;
     VetoCouncil vetoCouncilContract;
     HoldingContract holdingContract;
     GrantsTreasury treasury;
@@ -48,13 +48,13 @@ contract DeployFull is Test, Script {
         mockUSDC = new MockUSDC();
         mockUSDC.mint(tx.origin, 1000000 * 1e6);
         earlyLiquidity = new EarlyLiquidity(address(mockUSDC),address(holdingContract));
-        Governance governance = new Governance();
+        GoerliGovernanceQuickPeriod governance = new GoerliGovernanceQuickPeriod();
 
         TestGLOW glow = new TestGLOW(address(earlyLiquidity), vestingContract);
         vetoCouncilContract = new VetoCouncil(address(glow), address(glow), startingVetoCouncilAgents);
         holdingContract = new HoldingContract(address(vetoCouncilContract));
         treasury = new GrantsTreasury(address(glow),address(governance));
-        gcaAndMinerPoolContract = new MinerPoolAndGCA(
+        gcaAndMinerPoolContract = new GoerliMinerPoolAndGCAQuickPeriod(
             startingAgents, 
             address(glow), 
             address(governance), 
@@ -82,13 +82,14 @@ contract DeployFull is Test, Script {
             address(treasury),
             address(glow)
         );
+        gcaAndMinerPoolContract.setGCC(address(gcc));
+        glow.mint(address(gcaAndMinerPoolContract), 100_000_000_000 ether); //mint so there's enough for rewards without inflation
         gcc.approve(tx.origin, 100 ether);
         gcc.commitGCC(5 ether, tx.origin, 0);
         uint256 nextNominationCost = governance.costForNewProposal();
         governance.createChangeGCARequirementsProposal(keccak256("new requiremenents hash"), nextNominationCost);
         nextNominationCost = governance.costForNewProposal();
         governance.createVetoCouncilElectionOrSlash(address(0x444), address(0x123), true, nextNominationCost);
-        gcaAndMinerPoolContract.setGCC(address(gcc));
         vm.stopBroadcast();
         string memory jsonStringOutput = string("{");
         jsonStringOutput = string(

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
+
 contract BucketSubmission {
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */
@@ -19,9 +21,6 @@ contract BucketSubmission {
      *         - where b(x) is the current bucket
      */
     uint256 public constant OFFSET_RIGHT = 208;
-
-    /// @dev each bucket is 1 week long
-    uint256 public constant BUCKET_DURATION = uint256(7 days);
 
     /// @notice a constant holding the total vesting periods for a grc donation (192)
     uint256 public constant TOTAL_VESTING_PERIODS = OFFSET_RIGHT - OFFSET_LEFT;
@@ -81,7 +80,7 @@ contract BucketSubmission {
      * @return currentBucket - the current bucket
      */
     function currentBucket() public view returns (uint256) {
-        return (block.timestamp - _genesisTimestamp()) / BUCKET_DURATION;
+        return (block.timestamp - _genesisTimestamp()) / bucketDuration();
     }
 
     /**
@@ -287,10 +286,14 @@ contract BucketSubmission {
         return (bucket, true);
     }
 
+    function bucketDuration() internal pure virtual returns (uint256) {
+        return _BUCKET_DURATION;
+    }
     /* -------------------------------------------------------------------------- */
     /*                              functions to override                         */
     /* -------------------------------------------------------------------------- */
     /// @dev this must be overriden inside the parent contract.
+
     function _genesisTimestamp() internal view virtual returns (uint256) {
         return 0;
     }

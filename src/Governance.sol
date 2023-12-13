@@ -12,6 +12,7 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {NULL_ADDRESS} from "@/generic/VetoCouncilSalaryHelper.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 /**
  * @title Governance
  * @author DavidVorick
@@ -60,11 +61,6 @@ contract Governance is IGovernance, EIP712 {
      * @dev used in the nomination cost calculation
      */
     int128 private constant ONE_POINT_ONE_128 = (1 << 64) + 0x1999999999999a00;
-
-    /**
-     * @dev The duration of a bucket: 1 week
-     */
-    uint256 private constant ONE_WEEK = uint256(7 days);
 
     /**
      * @dev The maximum duration of a proposal: 16 weeks
@@ -1153,7 +1149,7 @@ contract Governance is IGovernance, EIP712 {
      * @return currentWeek - the current week (since genesis)
      */
     function currentWeek() public view returns (uint256) {
-        return (block.timestamp - _genesisTimestamp) / ONE_WEEK;
+        return (block.timestamp - _genesisTimestamp) / bucketDuration();
     }
 
     /**
@@ -1438,6 +1434,14 @@ contract Governance is IGovernance, EIP712 {
     }
 
     /**
+     * @notice returns the bucket duration
+     * @return bucketDuration - the bucket duration
+     */
+    function bucketDuration() internal pure virtual returns (uint256) {
+        return _BUCKET_DURATION;
+    }
+
+    /**
      * @notice Gets the number of active proposals and the last expired proposal id
      * @return numActiveProposals the number of active proposals
      * @return _lastExpiredProposalId the last expired proposal id
@@ -1510,7 +1514,7 @@ contract Governance is IGovernance, EIP712 {
      */
 
     function _weekEndTime(uint256 weekNumber) internal view returns (uint256) {
-        return _genesisTimestamp + ((weekNumber + 1) * ONE_WEEK);
+        return _genesisTimestamp + ((weekNumber + 1) * bucketDuration());
     }
 
     /**

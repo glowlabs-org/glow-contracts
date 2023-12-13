@@ -6,7 +6,7 @@ import "forge-std/console.sol";
 import {GCC} from "@/GCC.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
 import {Governance} from "@/Governance.sol";
-import {GoerliGCC} from "@/testing/GoerliGCC.sol";
+import {GoerliGCC} from "@/testing/Goerli/GoerliGCC.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import "forge-std/Test.sol";
