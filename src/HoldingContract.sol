@@ -219,7 +219,7 @@ contract HoldingContract {
      */
     function claimHoldingSingleton(address user, address token) external {
         bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
-        //If the network is frozen, don't allow withdrawals
+        // If the network is frozen and timestamp since expiration is not more than 90 days, don't allow withdrawals
         Holding memory holding = _holdings[user][token];
         checkHoldingAvailable(holding, networkIsFrozen);
         //Delete the holding args.
