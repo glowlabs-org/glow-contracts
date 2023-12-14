@@ -66,11 +66,13 @@ contract EstimateNominationsTest is Test {
         uniswapRouter = UnifapV2Router(uniswapRouterMainnetAddress);
         // uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
         glw = address(glwContract);
         gov = new Governance();
-        gcc =
-            new MainnetForkTestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        gcc = new MainnetForkTestGCC(
+            GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)
+        );
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 

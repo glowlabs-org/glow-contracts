@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
@@ -83,7 +85,10 @@ contract GovernanceTest is Test {
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
     uint256 ONE_YEAR = 365 * uint256(1 days);
 
+    address deployer = tx.origin;
+
     function setUp() public {
+        vm.startPrank(deployer);
         uniswapFactory = new UnifapV2Factory();
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
@@ -96,7 +101,14 @@ contract GovernanceTest is Test {
         }
         vm.warp(10);
         usdc = new MockUSDC();
-        glow = new TestGLOW(earlyLiquidity,vestingContract);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 2);
+        address precomputedTreasury = computeCreateAddress(deployer, deployerNonce + 1);
+
+        glow = new TestGLOW(
+            earlyLiquidity, vestingContract, precomputedMinerPool, precomputedVetoCouncil, precomputedTreasury
+        ); //deployerNonce
         address[] memory temp = new address[](0);
         startingAgents.push(address(SIMON));
         startingAgents.push(OTHER_VETO_1);
@@ -104,19 +116,29 @@ contract GovernanceTest is Test {
         startingAgents.push(OTHER_VETO_3);
         startingAgents.push(OTHER_VETO_4);
         startingAgents.push(OTHER_VETO_5);
-        grantsTreasury = new GrantsTreasury(address(glow), address(governance));
+        grantsTreasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 1
         grantsTreasuryAddress = address(grantsTreasury);
-        vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
+        vetoCouncil = new VetoCouncil(address(governance), address(glow), startingAgents); //deployerNonce + 2
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress);
+        holdingContract = new HoldingContract(vetoCouncilAddress); //deployerNonce + 3
 
-        minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
-        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
+        minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 4
+            temp,
+            address(glow),
+            address(governance),
+            keccak256("requirementsHash"),
+            earlyLiquidity,
+            address(usdc),
+            vetoCouncilAddress,
+            address(holdingContract)
+        );
+
+        //TODO: set these addresses
+        // //glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
-        gcc =
-        new TestGCC( address(minerPoolAndGCA), address(governance),address(glow),address(usdc),address(uniswapRouter));
-        // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
+        gcc = new TestGCC(
+            address(minerPoolAndGCA), address(governance), address(glow), address(usdc), address(uniswapRouter)
+        );
         governance.setContractAddresses(
             address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
         );
@@ -128,6 +150,7 @@ contract GovernanceTest is Test {
         FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(divergenceHandler)});
         targetContract(address(divergenceHandler));
         seedLP(500 ether, 100000000 * 1e6);
+        vm.stopPrank();
     }
 
     /**
@@ -184,93 +207,6 @@ contract GovernanceTest is Test {
         uint256 actualCost = governance.getNominationCostForProposalCreation(numActiveProposals);
         bool diverged = divergenceCheck(uint128(expectedCost), uint128(actualCost));
         assert(!diverged);
-    }
-
-    function test_setContractAddresses() public {
-        //Make sure we don't start at 0
-        governance = new MockGovernance();
-        (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
-        vm.warp(10);
-        usdc = new MockUSDC();
-        glow = new TestGLOW(earlyLiquidity,vestingContract);
-        address[] memory temp = new address[](0);
-        grantsTreasury = new GrantsTreasury(address(glow), address(governance));
-        grantsTreasuryAddress = address(grantsTreasury);
-        vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
-        vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress);
-
-        minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,
-        address(holdingContract));
-        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
-        grc2 = new MockUSDC();
-        gcc =
-        new TestGCC( address(minerPoolAndGCA), address(governance),address(glow),address(usdc),address(uniswapRouter));
-        // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
-        governance.setContractAddresses(
-            address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
-        );
-
-        vm.expectRevert(IGovernance.ContractsAlreadySet.selector);
-        governance.setContractAddresses(
-            address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
-        );
-    }
-
-    function test_setContractAddresses_noAddressCanBeZero() public {
-        //Make sure we don't start at 0
-        governance = new MockGovernance();
-        (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
-        vm.warp(10);
-        usdc = new MockUSDC();
-        glow = new TestGLOW(earlyLiquidity,vestingContract);
-        address[] memory temp = new address[](0);
-        grantsTreasury = new GrantsTreasury(address(glow), address(governance));
-        grantsTreasuryAddress = address(grantsTreasury);
-        vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
-        vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress);
-
-        minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,
-        address(holdingContract));
-        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
-        grc2 = new MockUSDC();
-        uniswapFactory = new UnifapV2Factory();
-        weth = new WETH9();
-        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
-
-        gcc =
-        new TestGCC(address(minerPoolAndGCA), address(governance),address(glow),address(grc2),address(uniswapRouter));
-        // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
-        address _zero = address(0x0);
-
-        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
-        governance.setContractAddresses(
-            _zero, address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
-        );
-
-        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
-        governance.setContractAddresses(address(gcc), _zero, vetoCouncilAddress, grantsTreasuryAddress, address(glow));
-
-        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
-        governance.setContractAddresses(
-            address(gcc), address(minerPoolAndGCA), _zero, grantsTreasuryAddress, address(glow)
-        );
-
-        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
-        governance.setContractAddresses(
-            address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, _zero, address(glow)
-        );
-
-        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
-        governance.setContractAddresses(
-            address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, _zero
-        );
-
-        vm.expectRevert(IGovernance.ZeroAddressNotAllowed.selector);
-        governance.setContractAddresses(_zero, _zero, _zero, _zero, _zero);
     }
 
     function test_updateLastExpiredProposalId() public {

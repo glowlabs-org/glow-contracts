@@ -89,7 +89,10 @@ contract USDGTest is Test {
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
     uint256 ONE_YEAR = 365 * uint256(1 days);
 
+    address deployer = tx.origin;
+
     function setUp() public {
+        vm.startPrank(deployer);
         uniswapFactory = new UnifapV2Factory();
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
@@ -101,15 +104,35 @@ contract USDGTest is Test {
             accounts[i] = AccountWithPK(privateKey, account);
         }
         vm.warp(10);
+
         usdc = new MockUSDC();
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGlow = computeCreateAddress(deployer, deployerNonce);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 7);
+
+        address precomputedGrantsAddress = computeCreateAddress(deployer, deployerNonce + 2);
+        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 3);
+        address precomputedHoldingContractAddress = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedMinerPoolAndGCAAddress = computeCreateAddress(deployer, deployerNonce + 5);
+        address precomputedImpactCatalyst = computeCreateAddress(precomputedGCC, 1); //since gcc deploys impact catalyst after carbon credit auction
+        glow = new TestGLOW(
+            earlyLiquidity,
+            vestingContract,
+            precomputedMinerPoolAndGCAAddress,
+            precomputedVetoCouncilAddress,
+            precomputedGrantsAddress
+        ); //deployerNonce
         usdg = new TestUSDG({
             _usdc: address(usdc),
             _usdcReceiver: usdcReceiver,
+            _glow: precomputedGlow,
+            _gcc: precomputedGCC,
+            _holdingContract: precomputedHoldingContractAddress,
+            _vetoCouncilContract: precomputedVetoCouncilAddress,
+            _impactCatalyst: precomputedImpactCatalyst,
             _owner: usdgOwner,
             _univ2Factory: address(uniswapFactory)
-        });
-
-        glow = new TestGLOW(earlyLiquidity,vestingContract);
+        }); //deployerNonce+1
         address[] memory temp = new address[](0);
         startingAgents.push(address(SIMON));
         startingAgents.push(OTHER_VETO_1);
@@ -117,31 +140,42 @@ contract USDGTest is Test {
         startingAgents.push(OTHER_VETO_3);
         startingAgents.push(OTHER_VETO_4);
         startingAgents.push(OTHER_VETO_5);
-        grantsTreasury = new GrantsTreasury(address(glow), address(governance));
+        grantsTreasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 2
         grantsTreasuryAddress = address(grantsTreasury);
-        vetoCouncil = new VetoCouncil(address(governance), address(glow),startingAgents);
+        vetoCouncil = new VetoCouncil(address(governance), address(glow), startingAgents); //deployerNonce + 3
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress);
+        holdingContract = new HoldingContract(vetoCouncilAddress); //deployerNonce + 4
 
-        minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),address(governance),keccak256("requirementsHash"),earlyLiquidity,address(usdg),vetoCouncilAddress,address(holdingContract));
-        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
-        grc2 = new MockUSDC();
-        gcc =
-        new TestGCC( address(minerPoolAndGCA), address(governance),address(glow),address(usdg),address(uniswapRouter));
+        minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 5
+            temp,
+            address(glow),
+            address(governance),
+            keccak256("requirementsHash"),
+            earlyLiquidity,
+            address(usdg),
+            vetoCouncilAddress,
+            address(holdingContract)
+        );
+
+        grc2 = new MockUSDC(); //deployerNonce + 6
+        gcc = new TestGCC(
+            address(minerPoolAndGCA), address(governance), address(glow), address(usdg), address(uniswapRouter)
+        ); //deployerNonce + 7
         // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
         governance.setContractAddresses(
             address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
         );
 
+        vm.stopPrank();
+
         vm.startPrank(usdgOwner);
-        usdg.setAllowlistedContracts({
-            _glow: address(glow),
-            _gcc: address(gcc),
-            _holdingContract: address(holdingContract),
-            _vetoCouncilContract: vetoCouncilAddress,
-            _impactCatalyst: mockImpactCatalyst
-        });
+        // // usdg.setAllowlistedContracts({
+        // //     _glow: address(glow),
+        // //     _gcc: address(gcc),
+        // //     _holdingContract: address(holdingContract),
+        // //     _vetoCouncilContract: vetoCouncilAddress,
+        // //     _impactCatalyst: mockImpactCatalyst
+        // // });
         usdc.mint(usdgOwner, 100000000 * 1e6);
         usdc.approve(address(usdg), 100000000 * 1e6);
         usdg.swap(usdgOwner, 100000000 * 1e6);

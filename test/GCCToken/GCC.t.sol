@@ -63,13 +63,14 @@ contract GCCTest is Test {
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
         // mainnetFork = vm.createFork(forkUrl);
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
-        handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
+        handler = new Handler(address(gcc), GCA_AND_MINER_POOL_CONTRACT);
         gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
         bytes4[] memory selectors = new bytes4[](1);
@@ -98,13 +99,14 @@ contract GCCTest is Test {
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
         // mainnetFork = vm.createFork(forkUrl);
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
-        handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
+        handler = new Handler(address(gcc), GCA_AND_MINER_POOL_CONTRACT);
         gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
         bytes4[] memory selectors = new bytes4[](1);
@@ -191,11 +193,12 @@ contract GCCTest is Test {
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         uint256 totalReserves = b;
@@ -365,11 +368,12 @@ contract GCCTest is Test {
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         uint256 totalReserves = b;

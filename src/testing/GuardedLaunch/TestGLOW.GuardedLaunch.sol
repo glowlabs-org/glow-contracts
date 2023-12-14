@@ -11,6 +11,9 @@ contract TestGLOWGuardedLaunch is GlowGuardedLaunch {
      * @notice constructs a new GLOW token
      * @param _earlyLiquidityAddress the address to send the early liquidity to
      * @param _vestingContract the address of the vesting contract
+     * @param _gcaAndMinerPoolAddress The address of the GCA and Miner Pool
+     * @param _vetoCouncilAddress The address of the Veto Council
+     * @param _grantsTreasuryAddress The address of the Grants Treasury
      * @param _owner the owner of the contract
      * @param _usdg the address of the USDG contract
      * @param _uniswapV2Factory the address of the uniswap v2 factory
@@ -19,10 +22,24 @@ contract TestGLOWGuardedLaunch is GlowGuardedLaunch {
     constructor(
         address _earlyLiquidityAddress,
         address _vestingContract,
+        address _gcaAndMinerPoolAddress,
+        address _vetoCouncilAddress,
+        address _grantsTreasuryAddress,
         address _owner,
         address _usdg,
         address _uniswapV2Factory
-    ) GlowGuardedLaunch(_earlyLiquidityAddress, _vestingContract, _owner, _usdg, _uniswapV2Factory) {
+    )
+        GlowGuardedLaunch(
+            _earlyLiquidityAddress,
+            _vestingContract,
+            _gcaAndMinerPoolAddress,
+            _vetoCouncilAddress,
+            _grantsTreasuryAddress,
+            _owner,
+            _usdg,
+            _uniswapV2Factory
+        )
+    {
         _launchTimestamp = block.timestamp;
     }
 

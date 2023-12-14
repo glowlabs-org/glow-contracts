@@ -26,6 +26,10 @@ contract CarbonCreditDutchAuctionTest is Test {
     uint256 constant ONE_WEEK = 1 weeks;
     uint256 constant SALE_UNIT = 1e6;
 
+    address GCA = address(0xffaffafafa);
+    address VETO_COUNCIL = address(0xfffffff);
+    address GRANTS = address(0xdddaaff);
+
     address operator = address(0x1);
     address minerPool = address(0x2);
 
@@ -35,8 +39,8 @@ contract CarbonCreditDutchAuctionTest is Test {
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
         vm.warp(100000);
-        glow = new TestGLOW(earlyLiquidityAddress, vestingContract);
-        gcc = new TestGCC(address(this), address(this),address(glow),address(usdc),address(uniswapRouter));
+        glow = new TestGLOW(earlyLiquidityAddress, vestingContract, GCA, VETO_COUNCIL, GRANTS);
+        gcc = new TestGCC(address(this), address(this), address(glow), address(usdc), address(uniswapRouter));
         //Starting price is 1:1
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
     }

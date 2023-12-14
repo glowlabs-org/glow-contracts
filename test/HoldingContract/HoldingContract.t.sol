@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
@@ -61,30 +63,51 @@ contract HoldingContractTest is Test {
     //--------  CONSTANTS ---------//
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
 
+    address deployer = tx.origin;
+
     function setUp() public {
         //Make sure we don't start at 0
+        vm.startPrank(tx.origin);
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
         vm.warp(10);
         usdc = new MockUSDC();
         (defaultAddressInWithdraw, defaultAddressPrivateKey) = _createAccount(2313141231, type(uint256).max);
-        glow = new TestGLOW(earlyLiquidity,vestingContract);
+
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 3);
+        address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 1);
+        address precomputedTreasury = computeCreateAddress(deployer, deployerNonce + 2);
+        glow = new TestGLOW(
+            earlyLiquidity, vestingContract, precomputedMinerPool, precomputedVetoCouncil, precomputedTreasury
+        ); //deployerNonce
         address[] memory temp = new address[](0);
         address[] memory startingAgents = new address[](2);
         startingAgents[0] = address(SIMON);
         startingAgents[1] = address(VETO_COUNCIL_MEMBER);
-        vetoCouncil = new VetoCouncil(governance, address(glow),startingAgents);
+        vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 1
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress);
-        minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
-        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
+        holdingContract = new HoldingContract(vetoCouncilAddress); //deployerNonce + 2
+        minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 3
+            temp,
+            address(glow),
+            governance,
+            keccak256("requirementsHash"),
+            earlyLiquidity,
+            address(usdc),
+            vetoCouncilAddress,
+            address(holdingContract)
+        );
+
+        //TODO: set these addresses
+        // glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
+        vm.stopPrank();
     }
 
     //-------- ISSUING REPORTS ---------//
     function addGCA(address newGCA) public {
         address[] memory allGCAs = minerPoolAndGCA.allGcas();
-        address[] memory temp = new address[](allGCAs.length+1);
+        address[] memory temp = new address[](allGCAs.length + 1);
         for (uint256 i; i < allGCAs.length; ++i) {
             temp[i] = allGCAs[i];
             if (allGCAs[i] == newGCA) {

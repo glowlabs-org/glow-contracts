@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "../../src/testing/TestGLOW.sol";
 import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
@@ -28,9 +30,11 @@ contract GlowUnlockerTest is Test {
     //-------------------- Contracts --------------------
     TestGLOW public glw;
 
+    address deployer = tx.origin;
+
     //-------------------- Setup --------------------
     function setUp() public {
-        vm.startPrank(tx.origin);
+        vm.startPrank(deployer);
         uint256 sum = 0;
         for (uint256 i = 0; i < 10; i++) {
             addresses.push(address(uint160(SIMON) + addressOffset));
@@ -47,7 +51,7 @@ contract GlowUnlockerTest is Test {
         assert(sum == 90_000_000 ether);
         disperser = new GlowUnlocker(addresses, amounts);
         //Create contracts
-        glw = new TestGLOW(EARLY_LIQUIDITY,address(disperser));
+        glw = new TestGLOW(EARLY_LIQUIDITY, address(disperser), GCA, VETO_COUNCIL, GRANTS_TREASURY);
         disperser.initialize(address(glw));
 
         //Make sure early liquidity receives 12 million tokens

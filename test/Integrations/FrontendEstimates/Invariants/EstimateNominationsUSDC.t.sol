@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import {MainnetForkTestGCC} from "../MainnetForkTestGCC.sol";
 import "forge-std/console.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
@@ -68,11 +70,14 @@ contract EstimateNominationsLargerNumbersUSDCTest is Test {
     EstimateNominationsHandler handler;
     EstimateNominationsUSDCHandler usdcHandler;
 
+    address deployer = tx.origin;
+
     function setUp() public {
         deployFixture();
     }
 
     function deployFixture() public {
+        vm.startPrank(deployer);
         goerliFork = vm.createFork(forkUrl);
         vm.selectFork(goerliFork);
         // uniswapFactory = new UnifapV2Factory();
@@ -81,11 +86,14 @@ contract EstimateNominationsLargerNumbersUSDCTest is Test {
         uniswapRouter = UnifapV2Router(uniswapRouterMainnetAddress);
         // uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
         glw = address(glwContract);
         gov = new Governance();
-        gcc =
-            new MainnetForkTestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        gcc = new MainnetForkTestGCC(
+            GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)
+        );
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
@@ -93,7 +101,7 @@ contract EstimateNominationsLargerNumbersUSDCTest is Test {
 
         // address pair = gcc.IMPACT_CATALYST().UNISWAP_V2_PAIR();
 
-        usdcHandler = new EstimateNominationsUSDCHandler(address(gcc),address(uniswapRouter));
+        usdcHandler = new EstimateNominationsUSDCHandler(address(gcc), address(uniswapRouter));
 
         bytes4[] memory selectors2 = new bytes4[](1);
         selectors2[0] = EstimateNominationsUSDCHandler.seedAndCommitUSDCHandler.selector;
@@ -101,6 +109,7 @@ contract EstimateNominationsLargerNumbersUSDCTest is Test {
 
         targetSelector(fs2);
         targetContract(address(usdcHandler));
+        vm.stopPrank();
     }
 
     /**

@@ -32,8 +32,8 @@ contract UpdateLastExpiredProposal is Test {
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
         governance = new MockGovernance();
-        gcc = new TestGCC(address(11),address(governance),address(0x12),address(usdc),address(uniswapRouter));
-        handler = new  Handler(address(governance),address(gcc));
+        gcc = new TestGCC(address(11), address(governance), address(0x12), address(usdc), address(uniswapRouter));
+        handler = new Handler(address(governance), address(gcc));
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = Handler.createProposal.selector;
         FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});

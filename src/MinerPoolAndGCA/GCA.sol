@@ -321,7 +321,7 @@ contract GCA is IGCA, GCASalaryHelper {
     function getProposalHashes(uint256 start, uint256 end) external view returns (bytes32[] memory) {
         if (end > proposalHashes.length) end = proposalHashes.length;
         if (start > end) return new bytes32[](0);
-        bytes32[] memory result = new bytes32[](end-start);
+        bytes32[] memory result = new bytes32[](end - start);
         unchecked {
             for (uint256 i = start; i < end; ++i) {
                 result[i - start] = proposalHashes[i];
