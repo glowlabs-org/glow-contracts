@@ -104,13 +104,7 @@
 //         gcc.mint(tx.origin, 1000 ether);
 //         gcc.approve(uniswapV2Router, 100 ether);
 //         usdg.approve(uniswapV2Router, 20000 * 1e6);
-//         // usdg.setAllowlistedContracts({
-//         //     _glow: address(glow),
-//         //     _gcc: address(gcc),
-//         //     _holdingContract: address(holdingContract),
-//         //     _vetoCouncilContract: address(vetoCouncilContract),
-//         //     _impactCatalyst: address(gcc.IMPACT_CATALYST())
-//         // });
+
 //         IUniswapRouterV2(uniswapV2Router).addLiquidity(
 //             address(gcc), address(usdg), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
 //         );

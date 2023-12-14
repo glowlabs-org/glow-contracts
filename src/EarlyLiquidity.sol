@@ -110,6 +110,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
+
     /**
      * @notice Constructs the EarlyLiquidity contract
      * @param _usdcAddress The address of the USDC token
