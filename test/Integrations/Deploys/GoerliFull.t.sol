@@ -60,7 +60,7 @@ contract GoerliFullDeploy is Test {
         ); //deployerNonce + 2
         vetoCouncilContract = new VetoCouncil(address(glow), address(glow), startingAgents); //deployerNonce + 3
         treasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 4
-        holdingContract = new HoldingContract(address(vetoCouncilContract)); //deployerNonce + 5
+        holdingContract = new HoldingContract(address(vetoCouncilContract),precomputedMinerPool); //deployerNonce + 5
         gcaAndMinerPoolContract = new MinerPoolAndGCA( //deployerNonce + 6
             startingAgents,
             address(glow),
@@ -71,7 +71,6 @@ contract GoerliFullDeploy is Test {
             address(vetoCouncilContract),
             address(holdingContract)
         ); //
-
         glow.mint(tx.origin, 100 ether);
         GoerliGCC gcc = new GoerliGCC(
             address(gcaAndMinerPoolContract), address(governance), address(glow), address(mockUSDC), uniswapV2Router

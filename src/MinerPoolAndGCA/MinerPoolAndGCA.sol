@@ -153,7 +153,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _VETO_COUNCIL = _vetoCouncil;
         HOLDING_CONTRACT = IHoldingContract(_holdingContract);
-        HOLDING_CONTRACT.setMinerPool(address(this));
         USDC = _usdcToken;
     }
 

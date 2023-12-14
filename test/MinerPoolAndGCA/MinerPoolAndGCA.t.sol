@@ -98,7 +98,7 @@ contract MinerPoolAndGCATest is Test {
         startingAgents[1] = address(bucketDelayHandler);
         vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 2
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress); //deployerNonce + 3
+        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPool); //deployerNonce + 3
         minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 4
             temp,
             address(glow),
@@ -242,7 +242,7 @@ contract MinerPoolAndGCATest is Test {
         startingAgents[1] = address(bucketDelayHandler);
         vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 2
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress); //deployerNonce + 3
+        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPool); //deployerNonce + 3
         minerPoolAndGCA = new MockMinerPoolAndGCA(
             temp,
             address(glow),

@@ -29,7 +29,6 @@ interface IHoldingContract {
     function addHolding(address user, address token, uint192 amount) external;
     function holdings(address user, address token) external view returns (Holding memory);
     function claimHoldings(ClaimHoldingArgs[] memory args) external;
-    function setMinerPool(address _minerPool) external;
 }
 
 /**
@@ -93,15 +92,15 @@ contract HoldingContract {
      */
     IVetoCouncil public immutable VETO_COUNCIL;
 
-    /* -------------------------------------------------------------------------- */
-    /*                                 state vars                                */
-    /* -------------------------------------------------------------------------- */
-
     /**
      * @notice the address of the miner pool
      * @dev this is the address that can add holdings to the contract
      */
-    address public minerPool;
+    address public immutable MINER_POOL;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice the minimum timestamp for withdrawals
@@ -151,9 +150,11 @@ contract HoldingContract {
 
     /**
      * @param _vetoCouncil the address of the veto council
+     * @param _minerPool the address of the miner pool
      */
-    constructor(address _vetoCouncil) payable {
+    constructor(address _vetoCouncil, address _minerPool) payable {
         VETO_COUNCIL = IVetoCouncil(_vetoCouncil);
+        MINER_POOL = _minerPool;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -244,29 +245,12 @@ contract HoldingContract {
      * @param amount the amount of tokens to add to the holding
      */
     function addHolding(address user, address token, uint192 amount) external {
-        if (msg.sender != minerPool) {
+        if (msg.sender != MINER_POOL) {
             _revert(OnlyMinerPoolCanAddHoldings.selector);
         }
         _holdings[user][token].amount += amount;
         _holdings[user][token].expirationTimestamp = uint64(block.timestamp + DEFAULT_DELAY);
         emit HoldingAdded(user, token, amount);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                               one time setters                             */
-    /* -------------------------------------------------------------------------- */
-
-    /**
-     * @notice a one time setter to set the miner pool
-     * @dev the miner pool calls this function upon deployment
-     * @param _minerPool the address of the miner pool
-     */
-    function setMinerPool(address _minerPool) external {
-        //Make sure the miner pool is not already set
-        if (minerPool != address(0)) {
-            _revert(MinerPoolAlreadySet.selector);
-        }
-        minerPool = _minerPool;
     }
 
     /* -------------------------------------------------------------------------- */

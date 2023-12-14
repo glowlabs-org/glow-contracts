@@ -120,7 +120,7 @@ contract GovernanceTest is Test {
         grantsTreasuryAddress = address(grantsTreasury);
         vetoCouncil = new VetoCouncil(address(governance), address(glow), startingAgents); //deployerNonce + 2
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress); //deployerNonce + 3
+        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPool); //deployerNonce + 3
 
         minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 4
             temp,

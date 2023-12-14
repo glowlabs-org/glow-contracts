@@ -86,7 +86,7 @@ contract HoldingContractTest is Test {
         startingAgents[1] = address(VETO_COUNCIL_MEMBER);
         vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 1
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress); //deployerNonce + 2
+        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPool); //deployerNonce + 2
         minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 3
             temp,
             address(glow),
@@ -123,10 +123,6 @@ contract HoldingContractTest is Test {
         MockUSDC(token).mint(address(holdingContract), amount);
     }
 
-    function test_resetMinerPool_shouldRevert() public {
-        vm.expectRevert(HoldingContract.MinerPoolAlreadySet.selector);
-        holdingContract.setMinerPool(address(0x1));
-    }
 
     function test_addHolding_callerNotMinerPool_shouldRevert() public {
         mintToHoldingContract(address(usdc), 1_000_000_000 ether);

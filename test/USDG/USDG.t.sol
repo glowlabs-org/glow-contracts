@@ -144,7 +144,7 @@ contract USDGTest is Test {
         grantsTreasuryAddress = address(grantsTreasury);
         vetoCouncil = new VetoCouncil(address(governance), address(glow), startingAgents); //deployerNonce + 3
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress); //deployerNonce + 4
+        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPoolAndGCAAddress); //deployerNonce + 4
 
         minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 5
             temp,

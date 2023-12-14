@@ -46,7 +46,7 @@ contract EarlyLiquidityTest is Test {
         uint256 deployerNonce = vm.getNonce(deployer);
         address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 4);
         usdc = new MockUSDC(); //deployerNonce
-        holdingContract = new HoldingContract(vetoCouncilAddress); //deployerNonce + 1
+        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPool); //deployerNonce + 1
         earlyLiquidity = new EarlyLiquidity(address(usdc), address(holdingContract)); //deployerNonce + 2
         glow =
             new TestGLOW(address(earlyLiquidity), VESTING_CONTRACT, precomputedMinerPool, VETO_COUNCIL, GRANTS_TREASURY); //deployerNonce + 3
