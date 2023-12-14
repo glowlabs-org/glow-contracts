@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
@@ -51,23 +52,37 @@ contract SmallLPTest is Test {
     string forkUrl = vm.envString("MAINNET_RPC");
     uint256 mainnetFork;
 
+    address deployer = tx.origin;
+
     function setUp() public {
-        uniswapFactory = new UnifapV2Factory();
-        weth = new WETH9();
-        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
-        usdc = new MockUSDC();
+        vm.startPrank(deployer);
+
+        uint256 deployerNonce = vm.getNonce(deployer);
+        uniswapFactory = new UnifapV2Factory(); //deployerNonce
+        weth = new WETH9(); //deployerNonce + 1
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory)); //deployerNonce + 2
+        usdc = new MockUSDC(); //deployerNonce + 3
         // mainnetFork = vm.createFork(forkUrl);
         glwContract =
-            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury); //deployerNonce + 4
         glw = address(glwContract);
-        gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
+
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 6);
+        gov = new Governance({
+            gcc: address(precomputedGCC),
+            gca: GCA_AND_MINER_POOL_CONTRACT,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce + 5
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce + 6
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
-        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
+        // gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
         bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));
         console.logBytes32(initCodePair);
 
+        vm.stopPrank();
         seedLP(1 ether, 10 * 1e6);
         address pair = uniswapFactory.pairs(address(usdc), address(gcc));
 

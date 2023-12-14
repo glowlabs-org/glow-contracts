@@ -45,16 +45,17 @@ contract EarlyLiquidityTest is Test {
         vm.startPrank(deployer);
         uint256 deployerNonce = vm.getNonce(deployer);
         address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedGlow = computeCreateAddress(deployer, deployerNonce + 5);
         usdc = new MockUSDC(); //deployerNonce
-        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPool); //deployerNonce + 1
-        earlyLiquidity = new EarlyLiquidity(address(usdc), address(holdingContract)); //deployerNonce + 2
+        holdingContract = new HoldingContract(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 1
+        earlyLiquidity =
+            new EarlyLiquidity(address(usdc), address(holdingContract), precomputedGlow, precomputedMinerPool); //deployerNonce + 2
         glow =
             new TestGLOW(address(earlyLiquidity), VESTING_CONTRACT, precomputedMinerPool, VETO_COUNCIL, GRANTS_TREASURY); //deployerNonce + 3
         minerPool = new EarlyLiquidityMockMinerPool( //deployerNonce + 4
         address(earlyLiquidity), address(glow), address(usdc), address(holdingContract));
         glw =
-            new TestGLOW(address(earlyLiquidity), VESTING_CONTRACT, precomputedMinerPool, VETO_COUNCIL, GRANTS_TREASURY);
-        earlyLiquidity.setMinerPool(address(minerPool));
+            new TestGLOW(address(earlyLiquidity), VESTING_CONTRACT, precomputedMinerPool, VETO_COUNCIL, GRANTS_TREASURY); //deployerNonce + 5
         handler = new Handler(address(earlyLiquidity), address(usdc));
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = IEarlyLiquidity.buy.selector;
@@ -91,14 +92,13 @@ contract EarlyLiquidityTest is Test {
      * @dev we also send 1 billion * 1e12 USDC to SIMON to buy GLOW with
      * @dev this function is used in other tests to stage the contract
      */
-    function test_setGlowAndMint() public {
-        earlyLiquidity.setGlowToken(address(glw));
+    function test_mintGlow() public {
         assertEq(glw.balanceOf(address(earlyLiquidity)), 12_000_000 ether);
         usdc.mint(SIMON, 1_000_000_000 ether);
     }
 
     function test_buyAllInEL() public {
-        test_setGlowAndMint();
+        test_mintGlow();
         vm.startPrank(SIMON);
         uint256 incrementsToPurchase = earlyLiquidity.TOTAL_INCREMENTS_TO_SELL();
         uint256 price = earlyLiquidity.getPrice(incrementsToPurchase);
@@ -117,7 +117,7 @@ contract EarlyLiquidityTest is Test {
      * @dev for more comprehensive tests regarding pricing, see the EarlyLiquidityTest.ts file in this folder
      */
     function test_Buy() public {
-        test_setGlowAndMint();
+        test_mintGlow();
 
         vm.startPrank(SIMON);
         //buy 400,000 tokens (max increments)
@@ -147,7 +147,7 @@ contract EarlyLiquidityTest is Test {
     }
 
     function test_noPriceShouldEverRevert() public {
-        test_setGlowAndMint();
+        test_mintGlow();
 
         vm.startPrank(SIMON);
         //buy 400,000 tokens (max increments)
@@ -185,7 +185,7 @@ contract EarlyLiquidityTest is Test {
      *             - miner pool contract
      */
     function test_Buy_checkUSDCGoesToHoldingContract() public {
-        test_setGlowAndMint();
+        test_mintGlow();
 
         vm.startPrank(SIMON);
         //buy 400,000 tokens (max increments)
@@ -263,7 +263,7 @@ contract EarlyLiquidityTest is Test {
      * @dev we test that if the user input maxCost is too low, the transaction should revert
      */
     function test_Buy_priceTooHigh_shouldFail() public {
-        test_setGlowAndMint();
+        test_mintGlow();
 
         vm.startPrank(SIMON);
         //buy 1_000_000 * .01 = 10_000  tokens
@@ -274,20 +274,10 @@ contract EarlyLiquidityTest is Test {
     }
 
     /**
-     * @dev we test that once Glow is set, it cannot be set again
-     */
-    function test_setGlowTokenTwice_shouldFail() public {
-        test_setGlowAndMint();
-
-        vm.expectRevert("Glow token already set");
-        earlyLiquidity.setGlowToken(address(glw));
-    }
-
-    /**
      * @dev we test that the starting price should be 0.6 (6 * 1e5) USDC
      */
     function test_getCurrentPrice() public {
-        test_setGlowAndMint();
+        test_mintGlow();
         //starting price should be 60 cents
         uint256 currentPrice = earlyLiquidity.getCurrentPrice();
         console.log("current price", currentPrice);

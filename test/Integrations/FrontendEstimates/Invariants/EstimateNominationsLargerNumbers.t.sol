@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
 import {MainnetForkTestGCC} from "../MainnetForkTestGCC.sol";
 import "forge-std/console.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
@@ -66,11 +67,14 @@ contract EstimateNominationsLargerNumbersTest is Test {
 
     EstimateNominationsHandler handler;
 
+    address deployer = tx.origin;
+
     function setUp() public {
         deployFixture();
     }
 
     function deployFixture() public {
+        vm.startPrank(deployer);
         goerliFork = vm.createFork(forkUrl);
         vm.selectFork(goerliFork);
         // uniswapFactory = new UnifapV2Factory();
@@ -78,17 +82,25 @@ contract EstimateNominationsLargerNumbersTest is Test {
         weth = WETH9(weth9MainnetAddress);
         uniswapRouter = UnifapV2Router(uniswapRouterMainnetAddress);
         // uniswapRouter = new UnifapV2Router(address(uniswapFactory));
-        usdc = new MockUSDC();
-        glwContract =
-            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
-        glw = address(glwContract);
-        gov = new Governance();
-        gcc = new MainnetForkTestGCC(
-            GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)
-        );
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
-        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
+        uint256 deployerNonce = vm.getNonce(deployer);
+        usdc = new MockUSDC(); //deployerNonce
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury); //deployerNonce + 1
+        glw = address(glwContract);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 2);
+        gov = new Governance({
+            gcc: precomputedGCC,
+            gca: GCA_AND_MINER_POOL_CONTRACT,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce + 2
+        gcc = new MainnetForkTestGCC( //deployerNonce + 3
+        GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
+        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+
+        vm.stopPrank();
         // bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));
 
         // address pair = gcc.IMPACT_CATALYST().UNISWAP_V2_PAIR();

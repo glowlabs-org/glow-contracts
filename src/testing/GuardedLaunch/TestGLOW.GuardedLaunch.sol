@@ -17,6 +17,7 @@ contract TestGLOWGuardedLaunch is GlowGuardedLaunch {
      * @param _owner the owner of the contract
      * @param _usdg the address of the USDG contract
      * @param _uniswapV2Factory the address of the uniswap v2 factory
+     * @param _gccContract the address of the GCC contract
      */
 
     constructor(
@@ -27,7 +28,8 @@ contract TestGLOWGuardedLaunch is GlowGuardedLaunch {
         address _grantsTreasuryAddress,
         address _owner,
         address _usdg,
-        address _uniswapV2Factory
+        address _uniswapV2Factory,
+        address _gccContract
     )
         GlowGuardedLaunch(
             _earlyLiquidityAddress,
@@ -37,7 +39,8 @@ contract TestGLOWGuardedLaunch is GlowGuardedLaunch {
             _grantsTreasuryAddress,
             _owner,
             _usdg,
-            _uniswapV2Factory
+            _uniswapV2Factory,
+            _gccContract
         )
     {
         _launchTimestamp = block.timestamp;

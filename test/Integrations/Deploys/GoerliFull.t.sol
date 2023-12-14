@@ -48,19 +48,31 @@ contract GoerliFullDeploy is Test {
         vm.startBroadcast();
         address deployer = tx.origin;
         uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGlow = computeCreateAddress(deployer, deployerNonce + 1);
         address precomputedHoldingContract = computeCreateAddress(deployer, deployerNonce + 5);
-        earlyLiquidity = new EarlyLiquidity(address(mockUSDC), address(precomputedHoldingContract)); //deployerNonce
-        Governance governance = new Governance(); //deployerNonce + 1
-
         address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 6);
+
+        earlyLiquidity = new EarlyLiquidity(
+            address(mockUSDC), address(precomputedHoldingContract), precomputedGlow, precomputedMinerPool
+        ); //deployerNonce
+
         address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 3);
         address precomputedTreasury = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 7);
         TestGLOW glow = new TestGLOW(
             address(earlyLiquidity), vestingContract, precomputedMinerPool, precomputedVetoCouncil, precomputedTreasury
-        ); //deployerNonce + 2
+        ); //deployerNonce + 1
+        Governance governance = new Governance({
+            gcc: precomputedGCC,
+            gca: precomputedMinerPool,
+            vetoCouncil: precomputedVetoCouncil,
+            grantsTreasury: precomputedTreasury,
+            glw: address(glow)
+        }); //deployerNonce + 2
+
         vetoCouncilContract = new VetoCouncil(address(glow), address(glow), startingAgents); //deployerNonce + 3
         treasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 4
-        holdingContract = new HoldingContract(address(vetoCouncilContract),precomputedMinerPool); //deployerNonce + 5
+        holdingContract = new HoldingContract(address(vetoCouncilContract), precomputedMinerPool); //deployerNonce + 5
         gcaAndMinerPoolContract = new MinerPoolAndGCA( //deployerNonce + 6
             startingAgents,
             address(glow),
@@ -69,25 +81,26 @@ contract GoerliFullDeploy is Test {
             address(earlyLiquidity),
             address(mockUSDC),
             address(vetoCouncilContract),
-            address(holdingContract)
-        ); //
-        glow.mint(tx.origin, 100 ether);
+            address(holdingContract),
+            precomputedGCC
+        );
         GoerliGCC gcc = new GoerliGCC(
             address(gcaAndMinerPoolContract), address(governance), address(glow), address(mockUSDC), uniswapV2Router
-        );
+        ); //deployerNonce + 7
+        glow.mint(tx.origin, 100 ether);
         gcc.mint(tx.origin, 1000 ether);
         gcc.approve(uniswapV2Router, 100 ether);
         mockUSDC.approve(uniswapV2Router, 20000 * 1e6);
         IUniswapRouterV2(uniswapV2Router).addLiquidity(
             address(gcc), address(mockUSDC), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
         );
-        governance.setContractAddresses(
-            address(gcc),
-            address(gcaAndMinerPoolContract),
-            address(vetoCouncilContract),
-            address(treasury),
-            address(glow)
-        );
+        // governance.setContractAddresses(
+        //     address(gcc),
+        //     address(gcaAndMinerPoolContract),
+        //     address(vetoCouncilContract),
+        //     address(treasury),
+        //     address(glow)
+        // );
         gcc.commitGCC(5 ether, tx.origin, 0);
         uint256 nextNominationCost = governance.costForNewProposal();
         governance.createChangeGCARequirementsProposal(keccak256("new requiremenents hash"), nextNominationCost);

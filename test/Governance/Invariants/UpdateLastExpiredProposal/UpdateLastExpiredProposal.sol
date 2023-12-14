@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import "forge-std/StdUtils.sol";
@@ -22,22 +23,37 @@ contract UpdateLastExpiredProposal is Test {
     MockGovernance governance;
     TestGCC gcc;
     Handler handler;
+    FakeGlow glow;
+    address vetoCouncil = address(0xfff);
+    address grantsTreasury = address(0xdddd);
+    address deployer = tx.origin;
 
     function setUp() public {
         //Make sure we don't start at 0
         //Make sure we don't start at 0
+        vm.startPrank(deployer);
         vm.warp(10);
-        uniswapFactory = new UnifapV2Factory();
-        weth = new WETH9();
-        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
-        usdc = new MockUSDC();
-        governance = new MockGovernance();
-        gcc = new TestGCC(address(11), address(governance), address(0x12), address(usdc), address(uniswapRouter));
-        handler = new Handler(address(governance), address(gcc));
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 6);
+        glow = new FakeGlow(); //deployerNonce
+        uniswapFactory = new UnifapV2Factory(); //deployerNonce + 1
+        weth = new WETH9(); //deployerNonce + 2
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory)); //deployerNonce + 3
+        usdc = new MockUSDC(); //deployerNonce + 4
+        governance = new MockGovernance({
+            gcc: address(precomputedGCC),
+            gca: address(0x11),
+            vetoCouncil: address(vetoCouncil),
+            grantsTreasury: address(grantsTreasury),
+            glw: address(glow)
+        }); //deployerNonce + 5
+        gcc = new TestGCC(address(11), address(governance), address(0x12), address(usdc), address(uniswapRouter)); //deployerNonce + 6
+        handler = new Handler(address(governance), address(gcc)); //deployerNonce + 7
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = Handler.createProposal.selector;
         FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
         targetContract(address(handler));
+        vm.stopPrank();
     }
 
     /**
@@ -65,5 +81,11 @@ contract UpdateLastExpiredProposal is Test {
         governance.updateLastExpiredProposalId();
         assert(governance.getLastExpiredProposalId() != lastId + 1);
         assert(governance.getLastExpiredProposalId() != lastId - 1);
+    }
+}
+
+contract FakeGlow {
+    function GENESIS_TIMESTAMP() public view returns (uint256) {
+        return block.timestamp;
     }
 }

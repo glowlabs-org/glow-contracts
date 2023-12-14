@@ -84,6 +84,7 @@ contract GlowGuardedLaunch is Glow, Ownable {
     * @param _owner The address of the owner
     * @param _usdg The address of the USDG contract
     * @param _uniswapV2Factory The address of the Uniswap V2 Factory
+    * @param _gccContract The address of the GCC contract
     */
     constructor(
         address _earlyLiquidityAddress,
@@ -93,7 +94,8 @@ contract GlowGuardedLaunch is Glow, Ownable {
         address _grantsTreasuryAddress,
         address _owner,
         address _usdg,
-        address _uniswapV2Factory
+        address _uniswapV2Factory,
+        address _gccContract
     )
         payable
         Glow(_earlyLiquidityAddress, _vestingContract, _gcaAndMinerPoolAddress, _vetoCouncilAddress, _grantsTreasuryAddress)
@@ -109,9 +111,7 @@ contract GlowGuardedLaunch is Glow, Ownable {
         allowlistedContracts[_vetoCouncilAddress] = true;
         allowlistedContracts[_grantsTreasuryAddress] = true;
 
-        address gccContract = address(MinerPoolAndGCA(_gcaAndMinerPoolAddress).gccContract());
-        require(gccContract != address(0), "Glow: gccContract is zero");
-        address carbonCreditAuction = address(GCC(gccContract).CARBON_CREDIT_AUCTION());
+        address carbonCreditAuction = address(GCC(_gccContract).CARBON_CREDIT_AUCTION());
         require(carbonCreditAuction != address(0), "Glow: carbonCreditAuction is zero");
         allowlistedContracts[carbonCreditAuction] = true;
     }

@@ -89,13 +89,18 @@ contract EstimateNominationsLargerNumbersUSDCTest is Test {
         uint256 deployerNonce = vm.getNonce(deployer);
         glwContract =
             new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
-        glw = address(glwContract);
-        gov = new Governance();
-        gcc = new MainnetForkTestGCC(
-            GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)
-        );
+        glw = address(glwContract); //deployerNonce
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 2);
+        gov = new Governance({
+            gcc: precomputedGCC,
+            gca: GCA_AND_MINER_POOL_CONTRACT,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce + 1
+        gcc = new MainnetForkTestGCC( //deployerNonce + 2
+        GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
         auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
-        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
         // bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));
 

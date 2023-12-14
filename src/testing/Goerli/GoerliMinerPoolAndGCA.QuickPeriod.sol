@@ -13,7 +13,8 @@ contract GoerliMinerPoolAndGCAQuickPeriod is MinerPoolAndGCA {
         address earlyLiquidity,
         address usdcToken,
         address vetoCouncilContract,
-        address holdingContract
+        address holdingContract,
+        address gcc
     )
         MinerPoolAndGCA(
             startingAgents,
@@ -23,7 +24,8 @@ contract GoerliMinerPoolAndGCAQuickPeriod is MinerPoolAndGCA {
             earlyLiquidity,
             usdcToken,
             vetoCouncilContract,
-            holdingContract
+            holdingContract,
+            gcc
         )
     {}
 

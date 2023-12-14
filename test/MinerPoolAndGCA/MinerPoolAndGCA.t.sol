@@ -88,6 +88,7 @@ contract MinerPoolAndGCATest is Test {
         uint256 deployerNonce = vm.getNonce(deployer);
         address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 2);
         address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 5);
         glow = new TestGLOW(
             earlyLiquidity, vestingContract, precomputedMinerPool, precomputedVetoCouncilAddress, grantsTreasuryAddress
         );
@@ -98,7 +99,7 @@ contract MinerPoolAndGCATest is Test {
         startingAgents[1] = address(bucketDelayHandler);
         vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 2
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPool); //deployerNonce + 3
+        holdingContract = new HoldingContract(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 3
         minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 4
             temp,
             address(glow),
@@ -107,10 +108,10 @@ contract MinerPoolAndGCATest is Test {
             earlyLiquidity,
             address(usdc),
             vetoCouncilAddress,
-            address(holdingContract)
+            address(holdingContract),
+            precomputedGCC
         );
-        gcc = new TestGCC(address(minerPoolAndGCA), governance, address(glow), address(usdc), address(uniswapRouter));
-        minerPoolAndGCA.setGCC(address(gcc));
+        gcc = new TestGCC(address(minerPoolAndGCA), governance, address(glow), address(usdc), address(uniswapRouter)); //deployerNonce + 5
         addGCA(address(bucketDelayHandler));
         //TODO: precompute
         // glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
@@ -220,45 +221,6 @@ contract MinerPoolAndGCATest is Test {
             }
         }
         str = string(abi.encodePacked(str, "]"));
-    }
-
-    function test_setGCC() public {
-        vm.startPrank(deployer);
-        //Make sure we don't start at 0
-        (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
-        vm.warp(10);
-        usdc = new MockUSDC();
-        (defaultAddressInWithdraw, defaultAddressPrivateKey) = _createAccount(2313141231, type(uint256).max);
-        uint256 deployerNonce = vm.getNonce(deployer);
-        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 2);
-        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 4);
-        glow = new TestGLOW(
-            earlyLiquidity, vestingContract, precomputedMinerPool, precomputedVetoCouncilAddress, grantsTreasuryAddress
-        );
-        bucketDelayHandler = new BucketDelayHandler(); //deployerNonce + 1
-        address[] memory temp = new address[](0);
-        address[] memory startingAgents = new address[](2);
-        startingAgents[0] = address(SIMON);
-        startingAgents[1] = address(bucketDelayHandler);
-        vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 2
-        vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPool); //deployerNonce + 3
-        minerPoolAndGCA = new MockMinerPoolAndGCA(
-            temp,
-            address(glow),
-            governance,
-            keccak256("requirementsHash"),
-            earlyLiquidity,
-            address(usdc),
-            vetoCouncilAddress,
-            address(holdingContract)
-        ); //deployerNonce + 4
-        gcc = new TestGCC(address(minerPoolAndGCA), governance, address(glow), address(usdc), address(uniswapRouter));
-
-        minerPoolAndGCA.setGCC(address(gcc));
-        vm.expectRevert(IGCA.GCCAlreadySet.selector);
-        minerPoolAndGCA.setGCC(address(gcc));
-        vm.stopPrank();
     }
 
     function test_checkWeightsForOverflow() public {

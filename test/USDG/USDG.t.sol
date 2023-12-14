@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
@@ -97,7 +98,6 @@ contract USDGTest is Test {
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         //Make sure we don't start at 0
-        governance = new MockGovernance();
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
         for (uint256 i = 0; i < 10; i++) {
             (address account, uint256 privateKey) = _createAccount(0x44444 + i, type(uint256).max);
@@ -108,12 +108,12 @@ contract USDGTest is Test {
         usdc = new MockUSDC();
         uint256 deployerNonce = vm.getNonce(deployer);
         address precomputedGlow = computeCreateAddress(deployer, deployerNonce);
-        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 7);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 8);
 
-        address precomputedGrantsAddress = computeCreateAddress(deployer, deployerNonce + 2);
-        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 3);
-        address precomputedHoldingContractAddress = computeCreateAddress(deployer, deployerNonce + 4);
-        address precomputedMinerPoolAndGCAAddress = computeCreateAddress(deployer, deployerNonce + 5);
+        address precomputedGrantsAddress = computeCreateAddress(deployer, deployerNonce + 3);
+        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedHoldingContractAddress = computeCreateAddress(deployer, deployerNonce + 5);
+        address precomputedMinerPoolAndGCAAddress = computeCreateAddress(deployer, deployerNonce + 6);
         address precomputedImpactCatalyst = computeCreateAddress(precomputedGCC, 1); //since gcc deploys impact catalyst after carbon credit auction
         glow = new TestGLOW(
             earlyLiquidity,
@@ -122,6 +122,13 @@ contract USDGTest is Test {
             precomputedVetoCouncilAddress,
             precomputedGrantsAddress
         ); //deployerNonce
+        governance = new MockGovernance({
+            gcc: precomputedGCC,
+            gca: precomputedMinerPoolAndGCAAddress,
+            vetoCouncil: precomputedVetoCouncilAddress,
+            grantsTreasury: precomputedGrantsAddress,
+            glw: address(glow)
+        }); //deployerNonce + 1
         usdg = new TestUSDG({
             _usdc: address(usdc),
             _usdcReceiver: usdcReceiver,
@@ -132,7 +139,7 @@ contract USDGTest is Test {
             _impactCatalyst: precomputedImpactCatalyst,
             _owner: usdgOwner,
             _univ2Factory: address(uniswapFactory)
-        }); //deployerNonce+1
+        }); //deployerNonce+2
         address[] memory temp = new address[](0);
         startingAgents.push(address(SIMON));
         startingAgents.push(OTHER_VETO_1);
@@ -140,13 +147,13 @@ contract USDGTest is Test {
         startingAgents.push(OTHER_VETO_3);
         startingAgents.push(OTHER_VETO_4);
         startingAgents.push(OTHER_VETO_5);
-        grantsTreasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 2
+        grantsTreasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 3
         grantsTreasuryAddress = address(grantsTreasury);
-        vetoCouncil = new VetoCouncil(address(governance), address(glow), startingAgents); //deployerNonce + 3
+        vetoCouncil = new VetoCouncil(address(governance), address(glow), startingAgents); //deployerNonce + 4
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPoolAndGCAAddress); //deployerNonce + 4
+        holdingContract = new HoldingContract(vetoCouncilAddress, precomputedMinerPoolAndGCAAddress); //deployerNonce + 5
 
-        minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 5
+        minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 6
             temp,
             address(glow),
             address(governance),
@@ -154,17 +161,14 @@ contract USDGTest is Test {
             earlyLiquidity,
             address(usdg),
             vetoCouncilAddress,
-            address(holdingContract)
+            address(holdingContract),
+            precomputedGCC
         );
 
-        grc2 = new MockUSDC(); //deployerNonce + 6
+        grc2 = new MockUSDC(); //deployerNonce + 7
         gcc = new TestGCC(
             address(minerPoolAndGCA), address(governance), address(glow), address(usdg), address(uniswapRouter)
-        ); //deployerNonce + 7
-        // governance.setContractAddresses(gcc, gca, vetoCouncil, grantsTreasury, glw);
-        governance.setContractAddresses(
-            address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
-        );
+        ); //deployerNonce + 8
 
         vm.stopPrank();
 

@@ -93,7 +93,6 @@ contract GovernanceTest is Test {
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         //Make sure we don't start at 0
-        governance = new MockGovernance();
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
         for (uint256 i = 0; i < 10; i++) {
             (address account, uint256 privateKey) = _createAccount(0x44444 + i, type(uint256).max);
@@ -102,13 +101,21 @@ contract GovernanceTest is Test {
         vm.warp(10);
         usdc = new MockUSDC();
         uint256 deployerNonce = vm.getNonce(deployer);
-        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 4);
-        address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 2);
-        address precomputedTreasury = computeCreateAddress(deployer, deployerNonce + 1);
+        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 5);
+        address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 3);
+        address precomputedTreasury = computeCreateAddress(deployer, deployerNonce + 2);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 6);
 
         glow = new TestGLOW(
             earlyLiquidity, vestingContract, precomputedMinerPool, precomputedVetoCouncil, precomputedTreasury
         ); //deployerNonce
+        governance = new MockGovernance({
+            gcc: precomputedGCC,
+            gca: precomputedMinerPool,
+            vetoCouncil: precomputedVetoCouncil,
+            grantsTreasury: precomputedTreasury,
+            glw: address(glow)
+        }); //deployerNonce + 1
         address[] memory temp = new address[](0);
         startingAgents.push(address(SIMON));
         startingAgents.push(OTHER_VETO_1);
@@ -116,13 +123,13 @@ contract GovernanceTest is Test {
         startingAgents.push(OTHER_VETO_3);
         startingAgents.push(OTHER_VETO_4);
         startingAgents.push(OTHER_VETO_5);
-        grantsTreasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 1
+        grantsTreasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 2
         grantsTreasuryAddress = address(grantsTreasury);
-        vetoCouncil = new VetoCouncil(address(governance), address(glow), startingAgents); //deployerNonce + 2
+        vetoCouncil = new VetoCouncil(address(governance), address(glow), startingAgents); //deployerNonce + 3
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress,precomputedMinerPool); //deployerNonce + 3
+        holdingContract = new HoldingContract(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 4
 
-        minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 4
+        minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 5
             temp,
             address(glow),
             address(governance),
@@ -130,18 +137,19 @@ contract GovernanceTest is Test {
             earlyLiquidity,
             address(usdc),
             vetoCouncilAddress,
-            address(holdingContract)
+            address(holdingContract),
+            precomputedGCC
         );
 
         //TODO: set these addresses
         // //glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
-        grc2 = new MockUSDC();
         gcc = new TestGCC(
             address(minerPoolAndGCA), address(governance), address(glow), address(usdc), address(uniswapRouter)
-        );
-        governance.setContractAddresses(
-            address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
-        );
+        ); //deployerNonce + 6
+        grc2 = new MockUSDC();
+        // governance.setContractAddresses(
+        //     address(gcc), address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress, address(glow)
+        // );
 
         divergenceHandler = new DivergenceHandler();
 
@@ -149,8 +157,8 @@ contract GovernanceTest is Test {
         selectors[0] = DivergenceHandler.runSims.selector;
         FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(divergenceHandler)});
         targetContract(address(divergenceHandler));
-        seedLP(500 ether, 100000000 * 1e6);
         vm.stopPrank();
+        seedLP(500 ether, 100000000 * 1e6);
     }
 
     /**
