@@ -855,9 +855,6 @@ contract GlowGuardedLaunchTest is Test {
         assertEq(glw.numStaked(SIMON), 0);
     }
 
-
-
-
     modifier setInflationContracts() {
         vm.startPrank(SIMON);
         //TODO: delete this modifier
@@ -966,7 +963,6 @@ contract GlowGuardedLaunchTest is Test {
         uint256 balanceAfterSecondClaim = glw.balanceOf(GRANTS_TREASURY);
         assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
     }
-
 
     function test_guarded_UnstakedPositionsOf() public {
         vm.startPrank(SIMON);
