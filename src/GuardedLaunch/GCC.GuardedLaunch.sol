@@ -67,7 +67,6 @@ contract GCCGuardedLaunch is GCC {
     ) payable GCC(_gcaAndMinerPoolContract, _governance, _glowToken, _usdg, _uniswapRouter) {
         VETO_COUNCIL_ADDRESS = _vetoCouncilAddress;
         allowlistedContracts[address(this)] = true;
-        allowlistedContracts[_governance] = true;
         allowlistedContracts[getPair(_uniswapFactory, _usdg)] = true;
     }
 
