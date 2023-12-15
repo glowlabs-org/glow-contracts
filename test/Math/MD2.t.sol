@@ -232,6 +232,31 @@ contract MD2Test is Test {
         assert(minerMath.genesisTimestampInternal() == 0);
     }
 
+    function test_issue_52() public {
+        minerMath.addToCurrentBucket(192);
+        //get bucket 16
+        MD2.WeeklyReward memory reward = minerMath.reward(16);
+
+        uint256 expectedAmount = uint256(192) / uint256(192);
+        assertEq(reward.amountInBucket, expectedAmount);
+
+        //Warp (209-16) weeks
+        vm.warp(block.timestamp + 192 weeks);
+
+        // // Add to bucket 209
+        // minerMath.addToCurrentBucket(192);
+
+        // uint currentBucket = minerMath.currentBucket();
+        // assertEq(currentBucket, 208 - 16);
+        MD2.WeeklyReward memory reward2 = minerMath.reward(208);
+        expectedAmount = uint256(192) / uint256(192);
+
+        logWeeklyReward(16, reward);
+        logWeeklyReward(209, reward2);
+
+        // assertEq(reward2.amountInBucket, expectedAmount);
+    }
+
     function test_settingAfterPastDataIrrelavant_shouldWork() public {
         minerMath.addToCurrentBucket(1 ether);
         //get bucket 16

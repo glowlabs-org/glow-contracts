@@ -198,18 +198,12 @@ contract HoldingContract {
      */
     function claimHoldings(ClaimHoldingArgs[] memory args) external {
         //If the network is frozen, don't allow withdrawals
-        bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
+        bool networkIsFrozen = isNetworkFrozen();
         //Loop over all the arguments
         uint256 len = args.length;
         for (uint256 i; i < len;) {
             ClaimHoldingArgs memory arg = args[i];
-            Holding memory holding = _holdings[arg.user][arg.token];
-            checkHoldingAvailable(holding.expirationTimestamp, networkIsFrozen);
-            //Delete the holding args.
-            //Should set all the data to zero.
-            delete _holdings[arg.user][arg.token];
-            //Add the amount to the amount to transfer
-            SafeERC20.safeTransfer(IERC20(arg.token), arg.user, holding.amount);
+            _claimHolding(arg.user, arg.token, networkIsFrozen);
             unchecked {
                 ++i;
             }
@@ -223,15 +217,9 @@ contract HoldingContract {
      * @dev should be used if the user only wants to claim their holding
      */
     function claimHoldingSingleton(address user, address token) external {
-        bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
         // If the network is frozen and timestamp since expiration is not more than 90 days, don't allow withdrawals
-        Holding memory holding = _holdings[user][token];
-        checkHoldingAvailable(holding.expirationTimestamp, networkIsFrozen);
-        //Delete the holding args.
-        //Should set all the data to zero.
-        delete _holdings[user][token];
-        //Add the amount to the amount to transfer
-        SafeERC20.safeTransfer(IERC20(token), user, holding.amount);
+        bool networkIsFrozen = isNetworkFrozen();
+        _claimHolding(user, token, networkIsFrozen);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -267,6 +255,15 @@ contract HoldingContract {
     }
 
     /**
+     * @notice returns true if the network is frozen
+     * @dev the network is frozen if the minimumWithdrawTimestamp is greater than the current block timestamp
+     * @return isNetworkFrozen - true if the network is frozen
+     */
+    function isNetworkFrozen() public view returns (bool) {
+        return block.timestamp < minimumWithdrawTimestamp;
+    }
+
+    /**
      * @dev checks if the holding is available to be withdrawn
      * @param holdingExpirationTimestamp the timestamp at which the holding expires
      * @param isNetworkFrozen whether or not the network is currently frozen
@@ -293,10 +290,28 @@ contract HoldingContract {
     /* -------------------------------------------------------------------------- */
     /*                                   utils                                    */
     /* -------------------------------------------------------------------------- */
+
+    /**
+     * @dev an internal method to claim a holding
+     * @param user the address of the user
+     * @param token the address of the USDC token to withdraw
+     * @param networkIsFrozen whether or not the network is currently frozen
+     */
+    function _claimHolding(address user, address token, bool networkIsFrozen) internal {
+        Holding memory holding = _holdings[user][token];
+        checkHoldingAvailable(holding.expirationTimestamp, networkIsFrozen);
+        //Delete the holding args.
+        //Should set all the data to zero.
+        delete _holdings[user][token];
+        //Add the amount to the amount to transfer
+        SafeERC20.safeTransfer(IERC20(token), user, holding.amount);
+    }
+
     /**
      * @dev more efficient reverts
      * @param selector the selector of the error
      */
+
     function _revert(bytes4 selector) internal pure {
         // solhint-disable-next-line no-inline-assembly
         assembly {
