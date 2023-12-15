@@ -40,7 +40,7 @@ contract MD2Test is Test {
         // grcTokens.push(address(mockUsdc2));
         // grcTokens.push(address(mockUsdcTax1));
 
-        handler = new MD2Handler(address(minerMath),grcTokens);
+        handler = new MD2Handler(address(minerMath), grcTokens);
         bytes4[] memory selectors = new bytes4[](2);
         selectors[0] = MD2Handler.addRewardsToBucket.selector;
         selectors[1] = MD2Handler.addRewardsToBucketNoWarp.selector;

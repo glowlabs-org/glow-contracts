@@ -26,7 +26,7 @@ contract NewGlowTest is Test {
     //-------------------- Setup --------------------
     function setUp() public {
         //Create contracts
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        glw = new TestGLOW(EARLY_LIQUIDITY, VESTING_CONTRACT, GCA, VETO_COUNCIL, GRANTS_TREASURY);
         handler = new Handler(address(glw));
 
         //Make sure early liquidity receives 12 million tokens
@@ -750,20 +750,10 @@ contract NewGlowTest is Test {
         assertEq(glw.numStaked(SIMON), 0);
     }
 
-    // //-------------------- Inflation Tests --------------------
-
-    function test_InflationShouldRevertIfContractsNotSet() public {
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        glw.claimGLWFromGCAAndMinerPool();
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        glw.claimGLWFromVetoCouncil();
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        glw.claimGLWFromGrantsTreasury();
-    }
-
     modifier setInflationContracts() {
         vm.startPrank(SIMON);
-        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
+        //TODO: delete this modifier
+        // glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
         vm.stopPrank();
         _;
     }
@@ -850,68 +840,6 @@ contract NewGlowTest is Test {
         glw.claimGLWFromGrantsTreasury();
         uint256 balanceAfterSecondClaim = glw.balanceOf(GRANTS_TREASURY);
         assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
-    }
-
-    function test_InflationGettersShouldRevertIfContractsNotSet() public {
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        (uint256 a, uint256 b, uint256 c) = glw.gcaInflationData();
-
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        (a, b, c) = glw.vetoCouncilInflationData();
-
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        (a, b, c) = glw.grantsTreasuryInflationData();
-
-        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
-
-        //Should now work
-        (a, b, c) = glw.gcaInflationData();
-        (a, b, c) = glw.vetoCouncilInflationData();
-        (a, b, c) = glw.grantsTreasuryInflationData();
-    }
-
-    function test_SetContractAddressesCannotBeZero() public {
-        //All combinations of 0 addresses should revert
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(0), a(0), a(0));
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(0), a(0), a(1));
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(0), a(1), a(0));
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(1), a(0), a(0));
-
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(0), a(1), a(2));
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(1), a(0), a(2));
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(1), a(2), a(0));
-    }
-
-    function test_SetContractAddressesCannotBeDuplicates() public {
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(VETO_COUNCIL, VETO_COUNCIL, VETO_COUNCIL);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(VETO_COUNCIL, VETO_COUNCIL, GRANTS_TREASURY);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(VETO_COUNCIL, GRANTS_TREASURY, VETO_COUNCIL);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(VETO_COUNCIL, GRANTS_TREASURY, GRANTS_TREASURY);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(GRANTS_TREASURY, VETO_COUNCIL, VETO_COUNCIL);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(GRANTS_TREASURY, VETO_COUNCIL, GRANTS_TREASURY);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(GRANTS_TREASURY, GRANTS_TREASURY, VETO_COUNCIL);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(GRANTS_TREASURY, GRANTS_TREASURY, GRANTS_TREASURY);
-    }
-
-    function test_ShouldOnlyBeAbleToSetContractAddressesOnce() public {
-        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
-        vm.expectRevert(IGlow.AddressAlreadySet.selector);
-        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
     }
 
     function test_UnstakedPositionsOf() public {

@@ -73,12 +73,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     ///     - This should give enough time to rectify the situation
     IHoldingContract public immutable HOLDING_CONTRACT;
 
-    /* -------------------------------------------------------------------------- */
-    /*                                 state vars                                */
-    /* -------------------------------------------------------------------------- */
-
     /// @notice the GCC contract
-    IGCC public gccContract;
+    IGCC public immutable GCC;
 
     /* -------------------------------------------------------------------------- */
     /*                                   mappings                                  */
@@ -139,6 +135,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param _usdcToken - the USDC token address
      * @param _vetoCouncil - the address of the veto council contract.
      * @param _holdingContract - the address of the holding contract
+     * @param _gcc - the address of the gcc contract
      */
     constructor(
         address[] memory _gcaAgents,
@@ -148,13 +145,14 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         address _earlyLiquidity,
         address _usdcToken,
         address _vetoCouncil,
-        address _holdingContract
+        address _holdingContract,
+        address _gcc
     ) payable GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _VETO_COUNCIL = _vetoCouncil;
         HOLDING_CONTRACT = IHoldingContract(_holdingContract);
-        HOLDING_CONTRACT.setMinerPool(address(this));
         USDC = _usdcToken;
+        GCC = IGCC(_gcc);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -313,15 +311,6 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(bucketDelayDuration());
     }
 
-    /// @notice initializes the gcc token
-    /// @param gcc - the gcc token
-    function setGCC(address gcc) external {
-        if (!_isZeroAddress(address(gccContract))) {
-            _revert(IGCA.GCCAlreadySet.selector);
-        }
-        gccContract = IGCC(gcc);
-    }
-
     /* -------------------------------------------------------------------------- */
     /*                                view functions                              */
     /* -------------------------------------------------------------------------- */
@@ -410,7 +399,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         if (mask & existingBitmap == 0) {
             existingBitmap |= mask;
             _mintedToCarbonCreditAuctionBitmap[key] = existingBitmap;
-            gccContract.mintToCarbonCreditAuction(bucketId, amountToMint);
+            GCC.mintToCarbonCreditAuction(bucketId, amountToMint);
         }
     }
 

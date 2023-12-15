@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "forge-std/console.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
@@ -72,8 +74,12 @@ contract HoldingContractGuardedLaunchTest is Test {
     //--------  CONSTANTS ---------//
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
 
+    address deployer = tx.origin;
+
     function setUp() public {
         //Make sure we don't start at 0
+        FakeGCC fakeGCC = new FakeGCC();
+        vm.startPrank(deployer);
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
         vm.warp(10);
         usdc = new MockUSDC();
@@ -81,34 +87,58 @@ contract HoldingContractGuardedLaunchTest is Test {
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
+
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 2);
+        address precomputedHoldingContract = computeCreateAddress(deployer, deployerNonce + 3);
+        address precomputedUSDG = computeCreateAddress(deployer, deployerNonce + 1);
+        glow = new TestGLOWGuardedLaunch({
+            _earlyLiquidityAddress: earlyLiquidity,
+            _vestingContract: vestingContract,
+            _gcaAndMinerPoolAddress: precomputedMinerPool,
+            _vetoCouncilAddress: precomputedVetoCouncil,
+            _grantsTreasuryAddress: grantsTreasuryAddress,
+            _owner: SIMON,
+            _usdg: address(precomputedUSDG),
+            _uniswapV2Factory: address(uniswapFactory),
+            _gccContract: address(fakeGCC)
+        }); //deployerNonce
         usdg = new TestUSDG({
             _usdc: address(usdc),
             _usdcReceiver: usdcReceiver,
             _owner: usdgOwner,
-            _univ2Factory: address(uniswapFactory)
-        });
+            _univ2Factory: address(uniswapFactory),
+            _gcc: address(fakeGCC),
+            _glow: address(glow),
+            _holdingContract: address(precomputedHoldingContract),
+            _vetoCouncilContract: address(precomputedVetoCouncil),
+            _impactCatalyst: address(0x1) //doesent matter for this test
+        }); //deployerNonce + 1
         (defaultAddressInWithdraw, defaultAddressPrivateKey) = _createAccount(2313141231, type(uint256).max);
-        glow = new TestGLOWGuardedLaunch({
-            _earlyLiquidityAddress: earlyLiquidity,
-            _vestingContract: vestingContract,
-            _owner: SIMON,
-            _usdg: address(usdg),
-            _uniswapV2Factory: address(uniswapFactory)
-        });
 
         address[] memory temp = new address[](0);
         address[] memory startingAgents = new address[](2);
         startingAgents[0] = address(SIMON);
         startingAgents[1] = address(VETO_COUNCIL_MEMBER);
-        vetoCouncil = new VetoCouncil(governance, address(glow),startingAgents);
+        vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 2
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress);
-        minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
-        FakeGCC fakeGCC = new FakeGCC();
-        minerPoolAndGCA.setGCC(address(fakeGCC));
+        holdingContract = new HoldingContract(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 3
+        minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 4
+            temp,
+            address(glow),
+            governance,
+            keccak256("requirementsHash"),
+            earlyLiquidity,
+            address(usdc),
+            vetoCouncilAddress,
+            address(holdingContract),
+            address(fakeGCC)
+        );
+        vm.stopPrank();
         vm.startPrank(SIMON);
-        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
+        //TODO: set these addresses
+        // glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         vm.stopPrank();
 
         grc2 = new MockUSDC();
@@ -117,7 +147,7 @@ contract HoldingContractGuardedLaunchTest is Test {
     //-------- ISSUING REPORTS ---------//
     function addGCA(address newGCA) public {
         address[] memory allGCAs = minerPoolAndGCA.allGcas();
-        address[] memory temp = new address[](allGCAs.length+1);
+        address[] memory temp = new address[](allGCAs.length + 1);
         for (uint256 i; i < allGCAs.length; ++i) {
             temp[i] = allGCAs[i];
             if (allGCAs[i] == newGCA) {
@@ -131,11 +161,6 @@ contract HoldingContractGuardedLaunchTest is Test {
 
     function mintToHoldingContract(address token, uint256 amount) public {
         MockUSDC(token).mint(address(holdingContract), amount);
-    }
-
-    function test_resetMinerPool_shouldRevert() public {
-        vm.expectRevert(HoldingContract.MinerPoolAlreadySet.selector);
-        holdingContract.setMinerPool(address(0x1));
     }
 
     function test_addHolding_callerNotMinerPool_shouldRevert() public {

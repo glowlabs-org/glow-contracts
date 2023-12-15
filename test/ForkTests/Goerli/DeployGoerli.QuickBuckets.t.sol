@@ -55,29 +55,49 @@ contract DeployGoerliQuickBuckets is Test {
         }
 
         vm.startBroadcast();
-        mockUSDC = new MockUSDC();
-        mockUSDC.mint(tx.origin, 1000000 * 1e6);
-        earlyLiquidity = new EarlyLiquidity(address(mockUSDC),address(holdingContract));
-        GoerliGovernanceQuickPeriod governance = new GoerliGovernanceQuickPeriod();
+        address deployer = tx.origin;
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 8);
+        address precomputeGlow = computeCreateAddress(deployer, deployerNonce + 3);
+        address precomputeGCC = computeCreateAddress(deployer, deployerNonce + 10);
+        address precomputeVetoCouncil = computeCreateAddress(deployer, deployerNonce + 5);
+        address precomputeGrants = computeCreateAddress(deployer, deployerNonce + 7);
+        mockUSDC = new MockUSDC(); //deployerNonce
+        mockUSDC.mint(tx.origin, 1000000 * 1e6); //deployerNonce + 1
+        earlyLiquidity =
+            new EarlyLiquidity(address(mockUSDC), address(holdingContract), precomputeGlow, precomputedMinerPool); //deployerNonce + 2
+        TestGLOW glow = new TestGLOW(
+            address(earlyLiquidity), vestingContract, precomputedMinerPool, precomputeVetoCouncil, precomputeGrants
+        ); //deployerNonce + 3
+        GoerliGovernanceQuickPeriod governance = new GoerliGovernanceQuickPeriod({
+            gcc: precomputeGCC,
+            gca: precomputedMinerPool,
+            vetoCouncil: precomputeVetoCouncil,
+            grantsTreasury: precomputeGrants,
+            glw: precomputeGlow
+        }); //deployerNonce + 4
 
-        TestGLOW glow = new TestGLOW(address(earlyLiquidity), vestingContract);
-        vetoCouncilContract = new VetoCouncil(address(glow), address(glow), startingVetoCouncilAgents);
-        holdingContract = new HoldingContract(address(vetoCouncilContract));
-        treasury = new GrantsTreasury(address(glow),address(governance));
-        gcaAndMinerPoolContract = new GoerliMinerPoolAndGCAQuickPeriod(
-            startingAgents, 
-            address(glow), 
-            address(governance), 
+        vetoCouncilContract = new VetoCouncil(address(glow), address(glow), startingVetoCouncilAgents); //deployerNonce + 5
+        holdingContract = new HoldingContract(address(vetoCouncilContract), precomputedMinerPool); //deployerNonce + 6
+        treasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 7
+        gcaAndMinerPoolContract = new GoerliMinerPoolAndGCAQuickPeriod( //deployerNonce + 8
+            startingAgents,
+            address(glow),
+            address(governance),
             gcaRequirementsHash,
             address(earlyLiquidity),
             address(mockUSDC),
             address(vetoCouncilContract),
-            address(holdingContract));
+            address(holdingContract),
+            precomputeGCC
+        );
 
-        glow.setContractAddresses(address(gcaAndMinerPoolContract), address(vetoCouncilContract), address(treasury));
-        glow.mint(tx.origin, 100 ether);
-        GoerliGCC gcc = new GoerliGCC(address(gcaAndMinerPoolContract), address(governance), address(glow),
-            address(mockUSDC), uniswapV2Router);
+        //TODO: set these addresses
+        // glow.setContractAddresses(address(gcaAndMinerPoolContract), address(vetoCouncilContract), address(treasury));
+        glow.mint(tx.origin, 100 ether); //deployerNonce + 9
+        GoerliGCC gcc = new GoerliGCC(
+            address(gcaAndMinerPoolContract), address(governance), address(glow), address(mockUSDC), uniswapV2Router
+        ); //deployerNonce + 10
         BatchCommit batchCommit = new BatchCommit(address(gcc), address(mockUSDC));
         gcc.mint(tx.origin, 1000 ether);
         gcc.approve(uniswapV2Router, 100 ether);
@@ -85,20 +105,13 @@ contract DeployGoerliQuickBuckets is Test {
         IUniswapRouterV2(uniswapV2Router).addLiquidity(
             address(gcc), address(mockUSDC), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
         );
-        governance.setContractAddresses(
-            address(gcc),
-            address(gcaAndMinerPoolContract),
-            address(vetoCouncilContract),
-            address(treasury),
-            address(glow)
-        );
+
         gcc.approve(tx.origin, 100 ether);
         gcc.commitGCC(5 ether, tx.origin, 0);
         uint256 nextNominationCost = governance.costForNewProposal();
         governance.createChangeGCARequirementsProposal(keccak256("new requiremenents hash"), nextNominationCost);
         nextNominationCost = governance.costForNewProposal();
         governance.createVetoCouncilElectionOrSlash(address(0x444), address(0x123), true, nextNominationCost);
-        gcaAndMinerPoolContract.setGCC(address(gcc));
 
         //start a prank
         vm.stopBroadcast();

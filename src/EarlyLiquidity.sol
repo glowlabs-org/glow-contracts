@@ -101,27 +101,34 @@ contract EarlyLiquidity is IEarlyLiquidity {
     uint256 private _totalIncrementsSold;
 
     /// @notice The Glow token
-    IERC20 public glowToken;
+    IERC20 public immutable GLOW_TOKEN;
 
     /// @notice The miner pool contract
     /// @dev all USDC is donated to the miner pool
-    IMinerPool public minerPool;
+    IMinerPool public immutable MINER_POOL;
 
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
+
     /**
      * @notice Constructs the EarlyLiquidity contract
      * @param _usdcAddress The address of the USDC token
      * @param _holdingContract The address of the holding contract
+     * @param _glowToken The address of the glow token
+     * @param _minerPoolAddress The address of the miner pool
      */
-    constructor(address _usdcAddress, address _holdingContract) payable {
+    constructor(address _usdcAddress, address _holdingContract, address _glowToken, address _minerPoolAddress)
+        payable
+    {
         USDC_TOKEN = IERC20(_usdcAddress);
         uint256 decimals = uint256(IDecimals(_usdcAddress).decimals());
         if (decimals != USDC_DECIMALS) {
             _revert(IDecimals.IncorrectDecimals.selector);
         }
         HOLDING_CONTRACT = _holdingContract;
+        GLOW_TOKEN = IERC20(_glowToken);
+        MINER_POOL = IMinerPool(_minerPoolAddress);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -132,7 +139,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
      */
     function buy(uint256 increments, uint256 maxCost) external {
         // Cache the minerPool in memory for gas optimization.
-        IMinerPool pool = minerPool;
+        IMinerPool pool = MINER_POOL;
         address _holdingContract = HOLDING_CONTRACT;
 
         // Calculate the total cost of the desired amount of tokens.
@@ -162,7 +169,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
         uint256 diff = balAfter - balBefore;
 
         // Transfer the desired amount of tokens to the user.
-        SafeERC20.safeTransfer(glowToken, msg.sender, glowToSend);
+        SafeERC20.safeTransfer(GLOW_TOKEN, msg.sender, glowToSend);
 
         // Donate the received USDC to the miner rewards pool, possibly accounting for a tax or fee.
         pool.donateToUSDCMinerRewardsPoolEarlyLiquidity(diff);
@@ -175,31 +182,6 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
         // End of function; the explicit 'return' here is unnecessary but it indicates the function's conclusion.
         return;
-    }
-    /* -------------------------------------------------------------------------- */
-    /*                               one time setters                             */
-    /* -------------------------------------------------------------------------- */
-
-    /**
-     * @notice Sets the glow token address
-     * @param _glowToken The address of the glow token
-     * @dev Can only be called once
-     */
-    function setGlowToken(address _glowToken) external {
-        // solhint-disable-next-line reason-string, custom-errors
-        require(address(glowToken) == address(0), "Glow token already set");
-        glowToken = IERC20(_glowToken);
-    }
-
-    /**
-     * @notice - one time use function to set the miner pool address
-     * @param _minerPoolAddress - the address of the miner pool contract
-     * @dev should only be able to be set once
-     */
-    function setMinerPool(address _minerPoolAddress) external {
-        if (_isZeroAddress(_minerPoolAddress)) _revert(IEarlyLiquidity.ZeroAddress.selector);
-        if (!_isZeroAddress(address(minerPool))) _revert(IEarlyLiquidity.MinerPoolAlreadySet.selector);
-        minerPool = IMinerPool(_minerPoolAddress);
     }
 
     /* -------------------------------------------------------------------------- */

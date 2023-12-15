@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
 import "../../src/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
@@ -39,25 +40,51 @@ contract GlowGuardedLaunchTest is Test {
     UnifapV2Factory public uniswapFactory;
     WETH9 public weth;
     UnifapV2Router public uniswapRouter;
+    address deployer = tx.origin;
     //-------------------- Setup --------------------
 
     function setUp() public {
         //Create contracts
+        vm.startPrank(deployer);
+        FakeGCC gcc = new FakeGCC();
         uniswapFactory = new UnifapV2Factory();
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         GCA = address(new FakeMinerPool());
-        usdc = new MockUSDC();
+
+        uint256 deployerNonce = vm.getNonce(deployer);
+        usdc = new MockUSDC(); //deployerNonce
+
+        address precomputeUSDG = computeCreateAddress(deployer, deployerNonce + 2);
+        VETO_COUNCIL = computeCreateAddress(deployer, deployerNonce + 4);
+
+        glw = new TestGLOWGuardedLaunch(
+            EARLY_LIQUIDITY,
+            VESTING_CONTRACT,
+            address(GCA),
+            VETO_COUNCIL,
+            GRANTS_TREASURY,
+            SIMON,
+            address(precomputeUSDG),
+            address(uniswapFactory),
+            address(gcc)
+        ); //deployerNonce + 1
+
         usdg = new TestUSDG({
             _usdc: address(usdc),
             _usdcReceiver: usdcReceiver,
             _owner: usdgOwner,
-            _univ2Factory: address(uniswapFactory)
-        });
+            _univ2Factory: address(uniswapFactory),
+            _glow: address(glw),
+            _gcc: address(gcc),
+            _holdingContract: mockHoldingContract,
+            _vetoCouncilContract: VETO_COUNCIL,
+            _impactCatalyst: mockImpactCatalyst
+        }); //deployerNonce + 2
+        handler = new Handler(address(glw)); //deployerNonce + 3
 
-        vm.startPrank(SIMON);
-        glw = new TestGLOWGuardedLaunch(EARLY_LIQUIDITY,VESTING_CONTRACT,SIMON,address(usdg),address(uniswapFactory));
-        handler = new Handler(address(glw));
+        vetoCouncil = new VetoCouncil(address(mockGovernance), address(glw), startingAgents); //deployerNonce + 4
+        vm.stopPrank();
 
         //Make sure early liquidity receives 12 million tokens
         assertEq(glw.balanceOf(EARLY_LIQUIDITY), 12_000_000 ether);
@@ -71,8 +98,7 @@ contract GlowGuardedLaunchTest is Test {
 
         //Ensure total supply when constructed is 72_000_000 ether
         // assertEq(glw.totalSupply(), 72_000_000 ether);
-        vetoCouncil = new VetoCouncil(address(mockGovernance), address(glw),startingAgents);
-        VETO_COUNCIL = address(vetoCouncil);
+
         //Mint some to ourselves for testing
         glw.allowlistAddress(address(handler));
         glw.mint(address(handler), 1e20 ether);
@@ -81,16 +107,18 @@ contract GlowGuardedLaunchTest is Test {
         targetSender(address(SIMON));
         targetSelector(fs);
         targetContract(address(handler));
+
+        vm.stopPrank();
         vm.stopPrank();
 
         vm.startPrank(usdgOwner);
-        usdg.setAllowlistedContracts({
-            _glow: address(glw),
-            _gcc: address(glw), //no need for gcc here
-            _holdingContract: address(mockHoldingContract),
-            _vetoCouncilContract: VETO_COUNCIL,
-            _impactCatalyst: mockImpactCatalyst
-        });
+        // usdg.setAllowlistedContracts({
+        //     _glow: address(glw),
+        //     _gcc: address(glw), //no need for gcc here
+        //     _holdingContract: address(mockHoldingContract),
+        //     _vetoCouncilContract: VETO_COUNCIL,
+        //     _impactCatalyst: mockImpactCatalyst
+        // });
         vm.stopPrank();
     }
 
@@ -827,20 +855,10 @@ contract GlowGuardedLaunchTest is Test {
         assertEq(glw.numStaked(SIMON), 0);
     }
 
-    // //-------------------- Inflation Tests --------------------
-
-    function test_guarded_InflationShouldRevertIfContractsNotSet() public {
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        glw.claimGLWFromGCAAndMinerPool();
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        glw.claimGLWFromVetoCouncil();
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        glw.claimGLWFromGrantsTreasury();
-    }
-
     modifier setInflationContracts() {
         vm.startPrank(SIMON);
-        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
+        //TODO: delete this modifier
+        // glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
         vm.stopPrank();
         _;
     }
@@ -944,76 +962,6 @@ contract GlowGuardedLaunchTest is Test {
         glw.claimGLWFromGrantsTreasury();
         uint256 balanceAfterSecondClaim = glw.balanceOf(GRANTS_TREASURY);
         assertEq(balanceAfterFirstClaim, balanceAfterSecondClaim);
-    }
-
-    function test_guarded_InflationGettersShouldRevertIfContractsNotSet() public {
-        vm.startPrank(SIMON);
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        (uint256 a, uint256 b, uint256 c) = glw.gcaInflationData();
-
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        (a, b, c) = glw.vetoCouncilInflationData();
-
-        vm.expectRevert(IGlow.AddressNotSet.selector);
-        (a, b, c) = glw.grantsTreasuryInflationData();
-
-        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
-
-        //Should now work
-        (a, b, c) = glw.gcaInflationData();
-        (a, b, c) = glw.vetoCouncilInflationData();
-        (a, b, c) = glw.grantsTreasuryInflationData();
-        vm.stopPrank();
-    }
-
-    function test_guarded_SetContractAddressesCannotBeZero() public {
-        //All combinations of 0 addresses should revert
-        vm.startPrank(SIMON);
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(0), a(0), a(0));
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(0), a(0), a(1));
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(0), a(1), a(0));
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(1), a(0), a(0));
-
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(0), a(1), a(2));
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(1), a(0), a(2));
-        vm.expectRevert(IGlow.ZeroAddressNotAllowed.selector);
-        glw.setContractAddresses(a(1), a(2), a(0));
-        vm.stopPrank();
-    }
-
-    function test_guarded_SetContractAddressesCannotBeDuplicates() public {
-        vm.startPrank(SIMON);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(VETO_COUNCIL, VETO_COUNCIL, VETO_COUNCIL);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(VETO_COUNCIL, VETO_COUNCIL, GRANTS_TREASURY);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(VETO_COUNCIL, GRANTS_TREASURY, VETO_COUNCIL);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(VETO_COUNCIL, GRANTS_TREASURY, GRANTS_TREASURY);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(GRANTS_TREASURY, VETO_COUNCIL, VETO_COUNCIL);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(GRANTS_TREASURY, VETO_COUNCIL, GRANTS_TREASURY);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(GRANTS_TREASURY, GRANTS_TREASURY, VETO_COUNCIL);
-        vm.expectRevert(IGlow.DuplicateAddressNotAllowed.selector);
-        glw.setContractAddresses(GRANTS_TREASURY, GRANTS_TREASURY, GRANTS_TREASURY);
-        vm.stopPrank();
-    }
-
-    function test_guarded_ShouldOnlyBeAbleToSetContractAddressesOnce() public {
-        vm.startPrank(SIMON);
-        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
-        vm.expectRevert(IGlow.AddressAlreadySet.selector);
-        glw.setContractAddresses(GCA, VETO_COUNCIL, GRANTS_TREASURY);
-        vm.stopPrank();
     }
 
     function test_guarded_UnstakedPositionsOf() public {

@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
@@ -45,25 +47,30 @@ contract GCAPayoutTest is Test {
     uint256 constant _200_BILLION = 200_000_000_000 * 1e18;
     address[] startingGCAs;
 
+    address deployer = tx.origin;
+
     function setUp() public {
         //Make sure we don't start at 0
+        vm.startPrank(deployer);
         vm.warp(10);
         (SIMON, SIMON_PK) = _createAccount(6, 100_000_000_000 * 1e18);
-        glow = new TestGLOW(earlyLiquidity,vestingContract);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGCA = computeCreateAddress(deployer, deployerNonce + 1);
+        glow = new TestGLOW(earlyLiquidity, vestingContract, precomputedGCA, vetoCouncilAddress, grantsTreasuryAddress);
         startingGCAs = _getAddressArray(5, 50);
         startingGCAs[0] = SIMON;
-        gca = new MockGCA(startingGCAs,address(glow),governance);
+        gca = new MockGCA(startingGCAs, address(glow), governance);
         address[] memory allGCAs = gca.allGcas();
-        glow.setContractAddresses(address(gca), vetoCouncilAddress, grantsTreasuryAddress);
         handler = new Handler(address(gca));
         //warp forward
         vm.warp(block.timestamp + 1);
+        vm.stopPrank();
     }
 
     function testFuzz_constructorShouldProperlySetUpShares(uint256 numGCAs) public {
         vm.assume(numGCAs <= 5 && numGCAs > 0);
         address[] memory gcaAddresses = _getAddressArray(numGCAs, 25);
-        gca = new MockGCA(gcaAddresses,address(glow),governance);
+        gca = new MockGCA(gcaAddresses, address(glow), governance);
         uint256 genesisTimestampFromGlow = glow.GENESIS_TIMESTAMP();
         uint256 gcaGenesisTimestamp = gca.GENESIS_TIMESTAMP();
         uint256 sharesRequiredPerCompPlan = gca.SHARES_REQUIRED_PER_COMP_PLAN() * gcaAddresses.length;
@@ -397,7 +404,7 @@ contract GCAPayoutTest is Test {
 
     function addGCA(address newGCA) public {
         address[] memory allGCAs = gca.allGcas();
-        address[] memory temp = new address[](allGCAs.length+1);
+        address[] memory temp = new address[](allGCAs.length + 1);
         for (uint256 i; i < allGCAs.length; ++i) {
             temp[i] = allGCAs[i];
             if (allGCAs[i] == newGCA) {

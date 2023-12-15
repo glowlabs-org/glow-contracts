@@ -45,29 +45,77 @@ contract DeployFull is Test, Script {
         }
 
         vm.startBroadcast();
+
         mockUSDC = new MockUSDC();
         mockUSDC.mint(tx.origin, 1000000 * 1e6);
-        earlyLiquidity = new EarlyLiquidity(address(mockUSDC),address(holdingContract));
-        Governance governance = new Governance();
 
-        TestGLOW glow = new TestGLOW(address(earlyLiquidity), vestingContract);
-        vetoCouncilContract = new VetoCouncil(address(glow), address(glow), startingVetoCouncilAgents);
-        holdingContract = new HoldingContract(address(vetoCouncilContract));
-        treasury = new GrantsTreasury(address(glow),address(governance));
+        address deployer = tx.origin;
+
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 7);
+        address precomputedGlow = computeCreateAddress(deployer, deployerNonce + 1);
+        address precomputedEarlyLiquidity = computeCreateAddress(deployer, deployerNonce + 2);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 3);
+        address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedGrants = computeCreateAddress(deployer, deployerNonce + 6);
+        address precomputedHoldingContract = computeCreateAddress(deployer, deployerNonce + 5);
+
+        GoerliGCC gcc = new GoerliGCC({
+            _gcaAndMinerPoolContract: precomputedMinerPool,
+            _governance: precomputedGovernance,
+            _glow: precomputedGlow,
+            _usdc: address(mockUSDC),
+            _uniswapV2Router: uniswapV2Router
+        }); //deployerNonce
+
+        TestGLOW glow = new TestGLOW({
+            _earlyLiquidityAddress: precomputedEarlyLiquidity,
+            _vestingContract: vestingContract,
+            _gcaAndMinerPoolAddress: precomputedMinerPool,
+            _vetoCouncilAddress: precomputedVetoCouncil,
+            _grantsTreasuryAddress: precomputedGrants
+        }); //deployerNonce + 1
+
+        earlyLiquidity = new EarlyLiquidity({
+            _usdcAddress: address(mockUSDC),
+            _holdingContract: precomputedHoldingContract,
+            _glowToken: address(glow),
+            _minerPoolAddress: precomputedMinerPool
+        }); //deployerNonce + 2
+
+        Governance governance = new Governance({
+            gcc: address(gcc),
+            gca: precomputedMinerPool,
+            vetoCouncil: precomputedVetoCouncil,
+            grantsTreasury: precomputedGrants,
+            glw: address(glow)
+        }); //deployerNonce + 3
+
+        vetoCouncilContract = new VetoCouncil(address(glow), address(glow), startingVetoCouncilAgents); //deployerNonce + 4
+        holdingContract = new HoldingContract(address(vetoCouncilContract), precomputedMinerPool); //deployerNonce + 5
+        treasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 6
         gcaAndMinerPoolContract = new MinerPoolAndGCA(
-            startingAgents, 
-            address(glow), 
-            address(governance), 
+            startingAgents,
+            address(glow),
+            address(governance),
             gcaRequirementsHash,
             address(earlyLiquidity),
             address(mockUSDC),
             address(vetoCouncilContract),
-            address(holdingContract));
+            address(holdingContract),
+            address(gcc)
+        );
 
-        glow.setContractAddresses(address(gcaAndMinerPoolContract), address(vetoCouncilContract), address(treasury));
+        assertEq(precomputedMinerPool, address(gcaAndMinerPoolContract), "MinerPool address is incorrect");
+        assertEq(precomputedGlow, address(glow), "GLOW address is incorrect");
+        assertEq(precomputedEarlyLiquidity, address(earlyLiquidity), "EarlyLiquidity address is incorrect");
+        assertEq(precomputedGovernance, address(governance), "Governance address is incorrect");
+        assertEq(precomputedVetoCouncil, address(vetoCouncilContract), "VetoCouncil address is incorrect");
+        assertEq(precomputedGrants, address(treasury), "GrantsTreasury address is incorrect");
+        assertEq(precomputedHoldingContract, address(holdingContract), "HoldingContract address is incorrect");
+
         glow.mint(tx.origin, 100 ether);
-        GoerliGCC gcc = new GoerliGCC(address(gcaAndMinerPoolContract), address(governance), address(glow),
-            address(mockUSDC), uniswapV2Router);
+
         BatchCommit batchCommit = new BatchCommit(address(gcc), address(mockUSDC));
         gcc.mint(tx.origin, 1000 ether);
         gcc.approve(uniswapV2Router, 100 ether);
@@ -75,20 +123,13 @@ contract DeployFull is Test, Script {
         IUniswapRouterV2(uniswapV2Router).addLiquidity(
             address(gcc), address(mockUSDC), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
         );
-        governance.setContractAddresses(
-            address(gcc),
-            address(gcaAndMinerPoolContract),
-            address(vetoCouncilContract),
-            address(treasury),
-            address(glow)
-        );
+
         gcc.approve(tx.origin, 100 ether);
         gcc.commitGCC(5 ether, tx.origin, 0);
         uint256 nextNominationCost = governance.costForNewProposal();
         governance.createChangeGCARequirementsProposal(keccak256("new requiremenents hash"), nextNominationCost);
         nextNominationCost = governance.costForNewProposal();
         governance.createVetoCouncilElectionOrSlash(address(0x444), address(0x123), true, nextNominationCost);
-        gcaAndMinerPoolContract.setGCC(address(gcc));
         vm.stopBroadcast();
         string memory jsonStringOutput = string("{");
         jsonStringOutput = string(

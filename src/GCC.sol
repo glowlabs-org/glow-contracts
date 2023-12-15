@@ -122,11 +122,11 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         GLOW = _glowToken;
         //Create the carbon credit auction directly in the constructor
         CarbonCreditDutchAuction cccAuction = new CarbonCreditDutchAuction({
-                            glow: IERC20(_glowToken),
-                            gcc: IERC20(address(this)),
-                            startingPrice: 1e5 //Carbon Credit Auction sells increments of 1e6 GCC,
-                            //Setting the price to 1e5 per unit means that 1 GCC = .1 GLOW
-                        });
+            glow: IERC20(_glowToken),
+            gcc: IERC20(address(this)),
+            startingPrice: 1e5 //Carbon Credit Auction sells increments of 1e6 GCC,
+                //Setting the price to 1e5 per unit means that 1 GCC = .1 GLOW
+        });
 
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));
         //Create the impact catalyst
@@ -137,7 +137,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
             _mint(tx.origin, 1 ether);
         }
         //The impact catalyst is responsible for handling the commitments of GCC and USDC
-        IMPACT_CATALYST = new ImpactCatalyst(_usdc,_uniswapRouter,factory,pair);
+        IMPACT_CATALYST = new ImpactCatalyst(_usdc, _uniswapRouter, factory, pair);
     }
 
     /* -------------------------------------------------------------------------- */

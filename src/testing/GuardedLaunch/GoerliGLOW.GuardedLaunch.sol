@@ -8,10 +8,26 @@ contract GoerliGlowGuardedLaunch is GlowGuardedLaunch {
     constructor(
         address _earlyLiquidityAddress,
         address _vestingContract,
+        address _gcaAndMinerPoolAddress,
+        address _vetoCouncilAddress,
+        address _grantsTreasuryAddress,
         address _owner,
         address _usdg,
-        address _uniswapV2Factory
-    ) GlowGuardedLaunch(_earlyLiquidityAddress, _vestingContract, _owner, _usdg, _uniswapV2Factory) {}
+        address _uniswapV2Factory,
+        address _gccContract
+    )
+        GlowGuardedLaunch(
+            _earlyLiquidityAddress,
+            _vestingContract,
+            _gcaAndMinerPoolAddress,
+            _vetoCouncilAddress,
+            _grantsTreasuryAddress,
+            _owner,
+            _usdg,
+            _uniswapV2Factory,
+            _gccContract
+        )
+    {}
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
