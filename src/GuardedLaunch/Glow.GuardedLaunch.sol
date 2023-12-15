@@ -78,6 +78,7 @@ contract GlowGuardedLaunch is Glow, Ownable {
     * @notice sends 12 million GLW to the Early Liquidity Contract and 90 million GLW to the unlocker contract
     * @param _earlyLiquidityAddress The address of the Early Liquidity Contract
     * @param _vestingContract The address of the vesting contract
+                              -unused in guarded launch
       * @param _gcaAndMinerPoolAddress The address of the GCA and Miner Pool
     * @param _vetoCouncilAddress The address of the Veto Council
     * @param _grantsTreasuryAddress The address of the Grants Treasury
@@ -103,7 +104,6 @@ contract GlowGuardedLaunch is Glow, Ownable {
     {
         allowlistedContracts[address(this)] = true;
         allowlistedContracts[_earlyLiquidityAddress] = true;
-        allowlistedContracts[_vestingContract] = true;
         allowlistedContracts[getPair(_uniswapV2Factory, address(this), _usdg)] = true;
 
         //The addresses are set as immutables in the child Glow.sol contract
