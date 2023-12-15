@@ -232,26 +232,42 @@ contract MD2Test is Test {
         assert(minerMath.genesisTimestampInternal() == 0);
     }
 
-    function test_issue_52() public {
+    function test_issue_19() public {
         minerMath.addToCurrentBucket(192);
         //get bucket 16
         MD2.WeeklyReward memory reward = minerMath.reward(16);
+        //warp forward 4 weeks to add into bucket 20
 
-        uint256 expectedAmount = uint256(192) / uint256(192);
-        assertEq(reward.amountInBucket, expectedAmount);
+        vm.warp(block.timestamp + 4 weeks);
+        uint256 currentBucket = minerMath.currentBucket();
+        //assert w'ere on 20
+        assertEq(currentBucket, 20 - 16, "currentBucket should be 20");
+        //add 192 again to bucket 20
+
+        minerMath.addToCurrentBucket(192 * 2);
+        MD2.WeeklyReward memory rewardWeek20 = minerMath.reward(20);
+
+        //warp forwad 189 buckets so we're in bucket 209
+        vm.warp(block.timestamp + 189 weeks);
+
+        currentBucket = minerMath.currentBucket();
+        assertEq(currentBucket, 209 - 16, "currentBucket should be 209");
+
+        //Reward from 16 + 20 should be inherited
+        uint256 expectedAmount = uint256(192 * 2 + 192) / uint256(192);
+        assertEq(rewardWeek20.amountInBucket, expectedAmount);
 
         //Warp (209-16) weeks
-        vm.warp(block.timestamp + 192 weeks);
 
-        // // Add to bucket 209
-        // minerMath.addToCurrentBucket(192);
-
-        // uint currentBucket = minerMath.currentBucket();
-        // assertEq(currentBucket, 208 - 16);
-        MD2.WeeklyReward memory reward2 = minerMath.reward(208);
-        expectedAmount = uint256(192) / uint256(192);
+        // Add to bucket 209
+        minerMath.addToCurrentBucket(192 * 3);
+        MD2.WeeklyReward memory reward2 = minerMath.reward(209);
+        //Reward from bucket 20 should be inherited
+        //and of course the new reward should be added
+        expectedAmount = uint256(192 * 3 + 192 * 2) / uint256(192);
 
         logWeeklyReward(16, reward);
+        logWeeklyReward(20, rewardWeek20);
         logWeeklyReward(209, reward2);
 
         // assertEq(reward2.amountInBucket, expectedAmount);
