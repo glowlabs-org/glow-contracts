@@ -96,8 +96,6 @@ contract USDG is ERC20Permit, Ownable {
         USDC_RECEIVER = _usdcReceiver;
         UNISWAP_V2_FACTORY = _univ2Factory;
         allowlistedContracts[_usdcReceiver] = true;
-        allowlistedContracts[_glow] = true;
-        allowlistedContracts[_gcc] = true;
         allowlistedContracts[_holdingContract] = true;
         //Allowlist the glow/usdg and the gcc/usdg pair
         address glowUSDGPair = getPair(UNISWAP_V2_FACTORY, address(this), _glow);
@@ -106,7 +104,6 @@ contract USDG is ERC20Permit, Ownable {
         allowlistedContracts[gccUSDGPair] = true;
         vetoCouncilContract = IVetoCouncil(_vetoCouncilContract);
         allowlistedContracts[_impactCatalyst] = true;
-        allowlistedContracts[address(Glow(_glow).EARLY_LIQUIDITY_ADDRESS())] = true;
     }
 
     /* -------------------------------------------------------------------------- */
