@@ -221,6 +221,7 @@ contract BucketSubmission {
         (WeeklyReward memory weeklyReward, bool needsInitializing) = _rewardWithNeedsInitializing(id);
         if (needsInitializing) {
             weeklyReward.inheritedFromLastWeek = true;
+            weeklyReward.amountToDeduct = 0;
             rewards[id] = weeklyReward;
         }
         return weeklyReward.amountInBucket;
@@ -239,7 +240,7 @@ contract BucketSubmission {
      * @return needsInitializing -- flag to see if the bucket needs to be initialized
      * @dev `needsInitializing` should be used in the withdraw reward function to see if the bucket needs to be initialized
      */
-    function _rewardWithNeedsInitializing(uint256 id) internal view returns (WeeklyReward memory, bool) {
+    function _rewardWithNeedsInitializing(uint256 id) private view returns (WeeklyReward memory, bool) {
         WeeklyReward memory bucket = rewards[id];
         // If the bucket has already been initialized
         // Then we can just return the bucket.

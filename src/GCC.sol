@@ -149,8 +149,10 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     function mintToCarbonCreditAuction(uint256 bucketId, uint256 amount) external {
         if (msg.sender != GCA_AND_MINER_POOL_CONTRACT) _revert(IGCC.CallerNotGCAContract.selector);
         _setBucketMinted(bucketId);
-        CARBON_CREDIT_AUCTION.receiveGCC(amount);
-        _mint(address(CARBON_CREDIT_AUCTION), amount);
+        if (amount > 0) {
+            CARBON_CREDIT_AUCTION.receiveGCC(amount);
+            _mint(address(CARBON_CREDIT_AUCTION), amount);
+        }
     }
 
     /* -------------------------------------------------------------------------- */

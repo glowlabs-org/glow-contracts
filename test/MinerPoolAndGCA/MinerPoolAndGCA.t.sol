@@ -340,6 +340,56 @@ contract MinerPoolAndGCATest is Test {
         vm.stopPrank();
     }
 
+    function test_withdrawFromBucket_zeroGCC() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalusdcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalusdcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                usdcWeight: 200 + i
+            });
+        }
+        bytes32 root = createClaimLeafRoot(claimLeaves);
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 0;
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalusdcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.warp(block.timestamp + (ONE_WEEK * 2));
+
+        vm.startPrank(defaultAddressInWithdraw);
+        uint256 glwWeightForAddress = 100;
+        uint256 usdcWeightForAddress = 200;
+        // minerPoolAndGCA.claimRewardFromBucket(bucketId, glwWeight, usdcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
+        address[] memory grcTokens = new address[](1);
+        minerPoolAndGCA.claimRewardFromBucket({
+            bucketId: bucketId,
+            glwWeight: glwWeightForAddress,
+            usdcWeight: usdcWeightForAddress,
+            proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
+            index: 0,
+            user: (defaultAddressInWithdraw),
+            claimFromInflation: true,
+            signature: bytes("")
+        });
+
+        // //Should have gotten all the glow rewards
+        // assertEq(glow.balanceOf((defaultAddressInWithdraw)), 175_000 ether * glwWeightForAddress / totalGlwWeight);
+
+        vm.stopPrank();
+    }
+
     function test_donateShouldNotRunOutOfGasAfterOneYear() public {
         vm.startPrank(defaultAddressInWithdraw);
         vm.warp(block.timestamp + (ONE_WEEK * 192));
