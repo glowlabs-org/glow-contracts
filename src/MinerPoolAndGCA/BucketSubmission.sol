@@ -73,6 +73,18 @@ contract BucketSubmission {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                                    events                                  */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @notice Emitted when a user donates usdc to the contract
+     * @param bucketId - the bucket id in which the donation happened.
+     *        - the result of this donation vests from bucketId + 16 to bucketId + 208
+     * @param totalAmountDonated - the total amount donated at `bucketId`
+     *         - the total amount donated at `bucketId` is evenly distributed over 192 buckets
+     */
+    event AmountDonatedToBucket(uint256 indexed bucketId, uint256 totalAmountDonated);
+
+    /* -------------------------------------------------------------------------- */
     /*                                 view functions                             */
     /* -------------------------------------------------------------------------- */
 
@@ -137,6 +149,7 @@ contract BucketSubmission {
         if (currentWeeklyReward.inheritedFromLastWeek) {
             rewards[bucketToAddTo].amountInBucket += amountToAddOrSubtract;
             rewards[bucketToDeductFrom].amountToDeduct += amountToAddOrSubtract;
+            emit AmountDonatedToBucket(currentBucketId, amount);
             return;
         }
 
@@ -207,6 +220,8 @@ contract BucketSubmission {
                 _bucketTracker.firstAddedBucketId
             );
         }
+
+        emit AmountDonatedToBucket(currentBucketId, amount);
     }
 
     /* -------------------------------------------------------------------------- */

@@ -29,6 +29,13 @@ interface IHoldingContract {
     function addHolding(address user, address token, uint192 amount) external;
     function holdings(address user, address token) external view returns (Holding memory);
     function claimHoldings(ClaimHoldingArgs[] memory args) external;
+
+    /**
+     * @notice emitted when an agent delays the network
+     * @param vetoAgent the address of the veto agent that delayed the network
+     * @param timestampOfDelay the timestamp at which the network was delayed
+     */
+    event NetworkDelay(address vetoAgent, uint256 timestampOfDelay);
 }
 
 /**
@@ -83,7 +90,7 @@ contract HoldingContract {
      */
     uint256 public constant FIVE_WEEKS = uint256(5 weeks);
 
-    /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------e------------- */
     /*                                 immutables                                 */
     /* -------------------------------------------------------------------------- */
     /**
@@ -144,6 +151,14 @@ contract HoldingContract {
      */
     event HoldingAdded(address indexed user, address indexed token, uint192 amount);
 
+    /*
+        * @notice emitted when a user claims their holding
+        * @param user the address of the user
+        * @param token the address of the USDC token
+        * @param amount the amount of tokens claimed
+    */
+    event HoldingClaimed(address indexed user, address indexed token, uint192 amount);
+
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
@@ -171,6 +186,7 @@ contract HoldingContract {
         uint256 _minimumWithdrawTimestamp = minimumWithdrawTimestamp;
         if (_minimumWithdrawTimestamp == 0) {
             minimumWithdrawTimestamp = block.timestamp + VETO_HOLDING_DELAY;
+            emit NetworkDelay(msg.sender, block.timestamp);
             return;
         }
         if (block.timestamp < _minimumWithdrawTimestamp) {
@@ -183,6 +199,7 @@ contract HoldingContract {
         }
 
         minimumWithdrawTimestamp = block.timestamp + VETO_HOLDING_DELAY;
+        emit NetworkDelay(msg.sender, block.timestamp);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -305,6 +322,7 @@ contract HoldingContract {
         delete _holdings[user][token];
         //Add the amount to the amount to transfer
         SafeERC20.safeTransfer(IERC20(token), user, holding.amount);
+        emit HoldingClaimed(user, token, holding.amount);
     }
 
     /**
