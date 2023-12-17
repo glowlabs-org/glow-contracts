@@ -10,7 +10,7 @@ import {IGCC} from "@/interfaces/IGCC.sol";
 import "forge-std/StdError.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import {Handler} from "./Handler.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -42,7 +42,7 @@ contract GCCTest is Test {
     MockUSDC usdc;
     TestGCC public gcc;
     Governance public gov;
-    CarbonCreditDutchAuction public auction;
+    CarbonCreditDescendingPriceAuction public auction;
     address public constant GCA_AND_MINER_POOL_CONTRACT = address(0x2);
     address public SIMON;
     uint256 public SIMON_PK;
@@ -83,7 +83,7 @@ contract GCCTest is Test {
             glw: glw
         }); //deployerNonce + 1
         gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce+2
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         handler = new Handler(address(gcc), GCA_AND_MINER_POOL_CONTRACT);
 
         //TODO: precompute
@@ -189,7 +189,7 @@ contract GCCTest is Test {
             glw: glw
         }); //deployerNonce
         gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce + 1
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         vm.stopPrank();
         uint256 totalReserves = b;
@@ -376,7 +376,7 @@ contract GCCTest is Test {
         }); //deployerNonce
 
         gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce + 1
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         vm.stopPrank();
         uint256 totalReserves = b;

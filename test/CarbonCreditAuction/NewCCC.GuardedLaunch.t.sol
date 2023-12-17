@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/Script.sol";
 import "../../src/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {TestGCCGuardedLaunch} from "../../src/testing/GuardedLaunch/TestGCC.GuardedLaunch.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/console.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -16,7 +16,7 @@ import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {TestUSDG} from "@/testing/TestUSDG.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
 import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
-import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 
 contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
     UnifapV2Factory public uniswapFactory;
@@ -26,10 +26,10 @@ contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
     TestGCCGuardedLaunch public gcc;
     TestGLOWGuardedLaunch public glow;
     TestUSDG usdg;
-    CarbonCreditDutchAuction public auction;
+    CarbonCreditDescendingPriceAuction public auction;
     VetoCouncil public vetoCouncil;
     MockMinerPoolAndGCA public minerPoolAndGCA;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
 
     address earlyLiquidityAddress = address(0x15);
     address vestingContract = address(0x16);
@@ -107,7 +107,7 @@ contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
         startingAgents[1] = address(OTHER_VETO_COUNCIL_MEMBER);
 
         vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployNonce + 7
-        holdingContract = new HoldingContract(address(vetoCouncil), precomputedMinerPool); //deployNonce + 8
+        holdingContract = new SafetyDelay(address(vetoCouncil), precomputedMinerPool); //deployNonce + 8
 
         minerPoolAndGCA = new MockMinerPoolAndGCA(
             startingAgents,
@@ -128,7 +128,7 @@ contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
 
         vm.stopPrank();
 
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
     }
 
     function testReceiveGCC() public {
@@ -221,7 +221,7 @@ contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
     function test_guarded_receiveGCC_callerNotGCC_shouldRvert() public {
         vm.startPrank(address(0xdead));
         gcc.mint(address(auction), 1 ether);
-        vm.expectRevert(CarbonCreditDutchAuction.CallerNotGCC.selector);
+        vm.expectRevert(CarbonCreditDescendingPriceAuction.CallerNotGCC.selector);
         auction.receiveGCC(1 ether);
         vm.stopPrank();
     }
@@ -234,7 +234,7 @@ contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
         uint256 price = auction.getPricePerUnit();
         glow.mint(operator, 100_000_000_000_000_000 ether);
         glow.approve(address(auction), 100_000_000_000_000_000 ether);
-        vm.expectRevert(CarbonCreditDutchAuction.CannotBuyZeroUnits.selector);
+        vm.expectRevert(CarbonCreditDescendingPriceAuction.CannotBuyZeroUnits.selector);
         auction.buyGCC({unitsToBuy: 0, maxPricePerUnit: price});
         vm.stopPrank();
     }
@@ -248,7 +248,7 @@ contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
         uint256 price = auction.getPricePerUnit();
         glow.mint(operator, 100_000_000_000_000_000 ether);
         glow.approve(address(auction), 100_000_000_000_000_000 ether);
-        vm.expectRevert(CarbonCreditDutchAuction.UserPriceNotHighEnough.selector);
+        vm.expectRevert(CarbonCreditDescendingPriceAuction.UserPriceNotHighEnough.selector);
         auction.buyGCC({unitsToBuy: 10_000 ether / SALE_UNIT, maxPricePerUnit: price - 1});
         vm.stopPrank();
     }
@@ -262,7 +262,7 @@ contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
         uint256 price = auction.getPricePerUnit();
         glow.mint(operator, 100_000_000_000_000_000 ether);
         glow.approve(address(auction), 100_000_000_000_000_000 ether);
-        vm.expectRevert(CarbonCreditDutchAuction.NotEnoughGCCForSale.selector);
+        vm.expectRevert(CarbonCreditDescendingPriceAuction.NotEnoughGCCForSale.selector);
         auction.buyGCC({unitsToBuy: (10_000 ether / SALE_UNIT) + 1, maxPricePerUnit: price});
         vm.stopPrank();
     }

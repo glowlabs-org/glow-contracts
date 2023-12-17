@@ -10,7 +10,7 @@ import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
@@ -21,7 +21,7 @@ import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
-import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
@@ -40,7 +40,7 @@ contract HoldingContractGuardedLaunchTest is Test {
     MockUSDC usdc;
 
     MockUSDC grc2;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
     UnifapV2Factory public uniswapFactory;
     WETH9 public weth;
     UnifapV2Router public uniswapRouter;
@@ -123,7 +123,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         startingAgents[1] = address(VETO_COUNCIL_MEMBER);
         vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 2
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 3
+        holdingContract = new SafetyDelay(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 3
         minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 4
             temp,
             address(glow),
@@ -166,7 +166,7 @@ contract HoldingContractGuardedLaunchTest is Test {
     function test_addHolding_callerNotMinerPool_shouldRevert() public {
         mintToHoldingContract(address(usdc), 1_000_000_000 ether);
         vm.startPrank(address(0xdaaaaaf));
-        vm.expectRevert(HoldingContract.OnlyMinerPoolCanAddHoldings.selector);
+        vm.expectRevert(SafetyDelay.OnlyMinerPoolCanAddHoldings.selector);
         holdingContract.addHolding(SIMON, address(usdc), 10 ether);
         vm.stopPrank();
     }
@@ -178,7 +178,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         vm.stopPrank();
 
         vm.startPrank(SIMON);
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldingSingleton(SIMON, address(usdc));
         vm.stopPrank();
     }
@@ -199,7 +199,7 @@ contract HoldingContractGuardedLaunchTest is Test {
 
     function test_delayNetwork_callerNotVetoCouncilMember_shouldRevert() public {
         vm.startPrank(address(0xaaaaaaaaadfffffff));
-        vm.expectRevert(HoldingContract.CallerMustBeVetoCouncilMember.selector);
+        vm.expectRevert(SafetyDelay.CallerMustBeVetoCouncilMember.selector);
         holdingContract.delayNetwork();
         vm.stopPrank();
     }
@@ -220,13 +220,13 @@ contract HoldingContractGuardedLaunchTest is Test {
         uint256 newTimestamp = holdingContract.minimumWithdrawTimestamp();
         assert(originalTimestamp + holdingContract.VETO_HOLDING_DELAY() == newTimestamp);
 
-        vm.expectRevert(HoldingContract.DelayStillOnCooldown.selector);
+        vm.expectRevert(SafetyDelay.DelayStillOnCooldown.selector);
         holdingContract.delayNetwork();
 
         //warp forward 79 days
         uint256 minimumWaitPeriod = holdingContract.VETO_HOLDING_DELAY() - holdingContract.FIVE_WEEKS() - 1;
         vm.warp(block.timestamp + minimumWaitPeriod);
-        vm.expectRevert(HoldingContract.DelayStillOnCooldown.selector);
+        vm.expectRevert(SafetyDelay.DelayStillOnCooldown.selector);
         holdingContract.delayNetwork();
 
         vm.stopPrank();
@@ -257,7 +257,7 @@ contract HoldingContractGuardedLaunchTest is Test {
 
         //Warp past the expiration on the holding
         vm.warp(block.timestamp + 8 days);
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldingSingleton(SIMON, address(usdc));
         vm.stopPrank();
     }
@@ -294,7 +294,7 @@ contract HoldingContractGuardedLaunchTest is Test {
 
         vm.warp(block.timestamp + ONE_WEEK);
 
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldings(args);
     }
 
@@ -317,14 +317,14 @@ contract HoldingContractGuardedLaunchTest is Test {
     function testFuzz_claimBefore7Days_shouldAlwaysFail(uint256 secondsToWarp) public {
         vm.assume(secondsToWarp < 7 days);
         addHolding(address(0x1), 10 ether);
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
     }
 
     function testFuzz_claimAfter7Days_shouldAlwaysWork(uint256 secondsToWarp) public {
         vm.assume(secondsToWarp >= 7 days);
         addHolding(address(0x1), 10 ether);
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
     }
 
@@ -336,7 +336,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         holdingContract.delayNetwork();
         vm.stopPrank();
         vm.warp(block.timestamp + secondsToWarp);
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
     }
 
@@ -358,7 +358,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         ClaimHoldingArgs[] memory args = new ClaimHoldingArgs[](2);
         args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
         args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldings(args);
     }
 
@@ -387,7 +387,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         holdingContract.delayNetwork();
         vm.stopPrank();
         vm.warp(block.timestamp + secondsToWarp);
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldings(args);
     }
 
@@ -415,7 +415,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
         args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
 
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldings(args);
 
         vm.warp(block.timestamp + ONE_WEEK);

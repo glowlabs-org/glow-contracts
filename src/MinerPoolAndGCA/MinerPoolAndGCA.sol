@@ -11,7 +11,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
-import {IHoldingContract} from "@/HoldingContract.sol";
+import {ISafetyDelay} from "@/SafetyDelay.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
@@ -71,7 +71,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     ///           -   mistakenly or on purpose
     ///     - If such a case happens, the Veto Council can delay the holding contract by 13 weeks
     ///     - This should give enough time to rectify the situation
-    IHoldingContract public immutable HOLDING_CONTRACT;
+    ISafetyDelay public immutable HOLDING_CONTRACT;
 
     /// @notice the GCC contract
     IGCC public immutable GCC;
@@ -150,7 +150,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     ) payable GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _VETO_COUNCIL = _vetoCouncil;
-        HOLDING_CONTRACT = IHoldingContract(_holdingContract);
+        HOLDING_CONTRACT = ISafetyDelay(_holdingContract);
         USDC = _usdcToken;
         GCC = IGCC(_gcc);
     }

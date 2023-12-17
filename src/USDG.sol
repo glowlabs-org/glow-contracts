@@ -100,7 +100,7 @@ contract USDG is ERC20Permit, Ownable {
         address _holdingContract,
         address _vetoCouncilContract,
         address _impactCatalyst
-    ) payable Ownable(_owner) ERC20("USDG", "USDG") ERC20Permit("USDG") {
+    ) payable Ownable(_owner) ERC20("Guarded USDC ", "USDG-GLOW") ERC20Permit("Guarded USDC") {
         USDC = ERC20Permit(_usdc);
         USDC_RECEIVER = _usdcReceiver;
         UNISWAP_V2_FACTORY = _univ2Factory;

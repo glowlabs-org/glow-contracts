@@ -10,7 +10,7 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
@@ -27,7 +27,7 @@ import {TestGCCGuardedLaunch} from "@/testing/GuardedLaunch/TestGCC.GuardedLaunc
 import {HalfLife} from "@/libraries/HalfLife.sol";
 import {DivergenceHandler} from "./Handlers/DivergenceHandler.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
-import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
@@ -52,7 +52,7 @@ contract GovernanceGuardedLaunchTest is Test {
     TestGCCGuardedLaunch gcc;
     DivergenceHandler divergenceHandler;
     GrantsTreasury grantsTreasury;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
     AccountWithPK[10] accounts;
 
     uint256 constant NOMINATION_DECIMALS = 12;
@@ -166,7 +166,7 @@ contract GovernanceGuardedLaunchTest is Test {
         grantsTreasuryAddress = address(grantsTreasury);
         vetoCouncil = new VetoCouncil(address(governance), address(glow), startingAgents); //deployerNonce + 6
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress, precomputeMinerPool); //deployerNonce + 7
+        holdingContract = new SafetyDelay(vetoCouncilAddress, precomputeMinerPool); //deployerNonce + 7
 
         minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 8
             temp,

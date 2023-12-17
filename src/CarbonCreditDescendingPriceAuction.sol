@@ -20,7 +20,7 @@ import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
  * @author 0xSimon(twitter) -  0xSimbo(github)
  */
 
-contract CarbonCreditDutchAuction is ICarbonCreditAuction {
+contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
     /* -------------------------------------------------------------------------- */
     /*                                   errors                                   */
     /* -------------------------------------------------------------------------- */

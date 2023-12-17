@@ -9,7 +9,7 @@ import {IGCC} from "@/interfaces/IGCC.sol";
 import "forge-std/StdError.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import {Handler} from "./Handler.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -45,7 +45,7 @@ contract GCCGuardedLaunchTest is Test {
     TestGCCGuardedLaunch public gcc;
     TestUSDG public usdg;
     Governance public gov;
-    CarbonCreditDutchAuction public auction;
+    CarbonCreditDescendingPriceAuction public auction;
     address public constant GCA_AND_MINER_POOL_CONTRACT = address(0x2);
     address public SIMON;
     uint256 public SIMON_PK;
@@ -128,7 +128,7 @@ contract GCCGuardedLaunchTest is Test {
         // gcc = new TestGCCGuardedLaunch(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdg),address(uniswapRouter));
 
         gcc.allowlistPostConstructionContracts();
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         handler = new Handler(address(gcc), GCA_AND_MINER_POOL_CONTRACT);
 
         bytes4[] memory selectors = new bytes4[](1);
@@ -286,7 +286,7 @@ contract GCCGuardedLaunchTest is Test {
         });
         gcc.allowlistPostConstructionContracts();
         vm.stopPrank();
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         vm.startPrank(usdgOwner);
         // usdg.setAllowlistedContracts({
         //     _glow: address(glwContract),
@@ -532,7 +532,7 @@ contract GCCGuardedLaunchTest is Test {
         usdc.approve(address(usdg), 100000000 * 1e6);
         usdg.swap(usdgOwner, 100000000 * 1e6);
         vm.stopPrank();
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         uint256 totalReserves = b;
         seedLP(100 ether, totalReserves);

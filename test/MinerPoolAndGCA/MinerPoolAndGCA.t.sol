@@ -9,7 +9,6 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
@@ -22,7 +21,7 @@ import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
 import {BucketDelayHandler} from "./Handlers/BucketDelayHandler.sol";
-import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
@@ -45,7 +44,7 @@ contract MinerPoolAndGCATest is Test {
     MockUSDC usdc;
     MockUSDC grc2;
     BucketDelayHandler bucketDelayHandler;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
     TestGCC gcc;
 
     //--------  ADDRESSES ---------//
@@ -99,7 +98,7 @@ contract MinerPoolAndGCATest is Test {
         startingAgents[1] = address(bucketDelayHandler);
         vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 2
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 3
+        holdingContract = new SafetyDelay(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 3
         minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 4
             temp,
             address(glow),
@@ -1035,7 +1034,7 @@ contract MinerPoolAndGCATest is Test {
         );
 
         //Revert if it hasn't been a week
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldingSingleton(defaultAddressInWithdraw, address(usdc));
 
         //Warp one week

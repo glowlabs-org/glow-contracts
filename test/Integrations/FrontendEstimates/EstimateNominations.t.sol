@@ -9,7 +9,7 @@ import {IGCC} from "@/interfaces/IGCC.sol";
 import "forge-std/StdError.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
@@ -38,7 +38,7 @@ contract EstimateNominationsTest is Test {
     MockUSDC usdc;
     MainnetForkTestGCC public gcc;
     Governance public gov;
-    CarbonCreditDutchAuction public auction;
+    CarbonCreditDescendingPriceAuction public auction;
     address public constant GCA_AND_MINER_POOL_CONTRACT = address(0x2);
     address public SIMON = address(0xfffaafdd);
     uint256 public SIMON_PK;
@@ -86,7 +86,7 @@ contract EstimateNominationsTest is Test {
         }); //deployerNonce + 2
         gcc = new MainnetForkTestGCC( //deployerNonce + 3
         GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));
 

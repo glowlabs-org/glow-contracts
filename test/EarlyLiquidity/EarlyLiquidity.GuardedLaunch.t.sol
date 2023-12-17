@@ -15,7 +15,7 @@ import {Handler} from "./handlers/Handler.GuardedLaunch.t.sol";
 import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
 import {EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
 import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
-import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
@@ -41,7 +41,7 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
     Handler handler;
     EarlyLiquidityMockMinerPool minerPool;
     TestGLOWGuardedLaunch glow;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
     TestUSDG public usdg;
     UnifapV2Factory public uniswapFactory;
     WETH9 public weth;
@@ -94,7 +94,7 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
             _impactCatalyst: mockImpactCatalyst
         }); //deployerNonce + 2
 
-        holdingContract = new HoldingContract(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 3
+        holdingContract = new SafetyDelay(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 3
         earlyLiquidity =
             new EarlyLiquidity(address(usdg), address(holdingContract), precomputedGlow, precomputedMinerPool); //deployerNonce + 4
         minerPool = new EarlyLiquidityMockMinerPool(

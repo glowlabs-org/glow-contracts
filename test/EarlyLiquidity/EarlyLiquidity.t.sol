@@ -14,7 +14,7 @@ import {Handler} from "./handlers/Handler.t.sol";
 import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
 import {EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
-import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 
 contract EarlyLiquidityTest is Test {
     //-----------------CONSTANTS-----------------
@@ -35,7 +35,7 @@ contract EarlyLiquidityTest is Test {
     Handler handler;
     EarlyLiquidityMockMinerPool minerPool;
     TestGLOW glow;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
     address vetoCouncilAddress = address(0x49349031419);
 
     address deployer = tx.origin;
@@ -47,7 +47,7 @@ contract EarlyLiquidityTest is Test {
         address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 4);
         address precomputedGlow = computeCreateAddress(deployer, deployerNonce + 5);
         usdc = new MockUSDC(); //deployerNonce
-        holdingContract = new HoldingContract(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 1
+        holdingContract = new SafetyDelay(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 1
         earlyLiquidity =
             new EarlyLiquidity(address(usdc), address(holdingContract), precomputedGlow, precomputedMinerPool); //deployerNonce + 2
         glow =

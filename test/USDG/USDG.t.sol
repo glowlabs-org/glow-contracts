@@ -9,7 +9,6 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
@@ -25,7 +24,7 @@ import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {TestGCC} from "@/testing/TestGCC.sol";
 import {HalfLife} from "@/libraries/HalfLife.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
-import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
@@ -50,7 +49,7 @@ contract USDGTest is Test {
     MockGovernance governance;
     TestGCC gcc;
     GrantsTreasury grantsTreasury;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
     AccountWithPK[10] accounts;
 
     address mockImpactCatalyst = address(0x1233918293819389128);
@@ -151,7 +150,7 @@ contract USDGTest is Test {
         grantsTreasuryAddress = address(grantsTreasury);
         vetoCouncil = new VetoCouncil(address(governance), address(glow), startingAgents); //deployerNonce + 4
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress, precomputedMinerPoolAndGCAAddress); //deployerNonce + 5
+        holdingContract = new SafetyDelay(vetoCouncilAddress, precomputedMinerPoolAndGCAAddress); //deployerNonce + 5
 
         minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 6
             temp,

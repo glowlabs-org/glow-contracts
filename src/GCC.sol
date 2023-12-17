@@ -7,7 +7,7 @@ import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IGovernance} from "@/interfaces/IGovernance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {ImpactCatalyst} from "@/ImpactCatalyst.sol";
@@ -113,7 +113,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         address _glowToken,
         address _usdc,
         address _uniswapRouter
-    ) payable ERC20("Glow Carbon Certificate", "GCC") EIP712("Glow Carbon Certificate", "1") {
+    ) payable ERC20("Glow Carbon Certificate", "GCC-BETA") EIP712("Glow Carbon Certificate", "1") {
         //Set the immutable variables
         USDC = _usdc;
         GCA_AND_MINER_POOL_CONTRACT = _gcaAndMinerPoolContract;
@@ -121,7 +121,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         GOVERNANCE = IGovernance(_governance);
         GLOW = _glowToken;
         //Create the carbon credit auction directly in the constructor
-        CarbonCreditDutchAuction cccAuction = new CarbonCreditDutchAuction({
+        CarbonCreditDescendingPriceAuction cccAuction = new CarbonCreditDescendingPriceAuction({
             glow: IERC20(_glowToken),
             gcc: IERC20(address(this)),
             startingPrice: 1e5 //Carbon Credit Auction sells increments of 1e6 GCC,

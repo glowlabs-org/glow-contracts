@@ -112,7 +112,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         address _gcaAndMinerPoolAddress,
         address _vetoCouncilAddress,
         address _grantsTreasuryAddress
-    ) payable ERC20("Glow", "GLOW") ERC20Permit("Glow") {
+    ) payable ERC20("Glow", "GLW-BETA") ERC20Permit("Glow") {
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
         GCA_AND_MINER_POOL_ADDRESS = _gcaAndMinerPoolAddress;
         VETO_COUNCIL_ADDRESS = _vetoCouncilAddress;

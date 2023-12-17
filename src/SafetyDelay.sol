@@ -25,17 +25,10 @@ struct ClaimHoldingArgs {
     address token;
 }
 
-interface IHoldingContract {
+interface ISafetyDelay {
     function addHolding(address user, address token, uint192 amount) external;
     function holdings(address user, address token) external view returns (Holding memory);
     function claimHoldings(ClaimHoldingArgs[] memory args) external;
-
-    /**
-     * @notice emitted when an agent delays the network
-     * @param vetoAgent the address of the veto agent that delayed the network
-     * @param timestampOfDelay the timestamp at which the network was delayed
-     */
-    event NetworkDelay(address vetoAgent, uint256 timestampOfDelay);
 }
 
 /**
@@ -47,7 +40,7 @@ interface IHoldingContract {
  *         - Veto Agents can delay all withdrawals by 13 weeks
  *         - A holding can be max delayed for 97 days
  */
-contract HoldingContract {
+contract SafetyDelay is ISafetyDelay {
     /* -------------------------------------------------------------------------- */
     /*                                   errors                                   */
     /* -------------------------------------------------------------------------- */

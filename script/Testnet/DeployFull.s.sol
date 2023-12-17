@@ -10,10 +10,9 @@ import {GoerliGCC} from "@/testing/Goerli/GoerliGCC.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
 import {VetoCouncil} from "@/VetoCouncil.sol";
-import {HoldingContract} from "@/HoldingContract.sol";
+import {SafetyDelay} from "@/SafetyDelay.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
 import {BatchCommit} from "@/BatchCommit.sol";
 import "forge-std/Test.sol";
@@ -29,7 +28,7 @@ contract DeployFull is Test, Script {
     EarlyLiquidity earlyLiquidity;
     MinerPoolAndGCA gcaAndMinerPoolContract;
     VetoCouncil vetoCouncilContract;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
     GrantsTreasury treasury;
     address uniswapV2Router = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
@@ -92,7 +91,7 @@ contract DeployFull is Test, Script {
         }); //deployerNonce + 3
 
         vetoCouncilContract = new VetoCouncil(address(glow), address(glow), startingVetoCouncilAgents); //deployerNonce + 4
-        holdingContract = new HoldingContract(address(vetoCouncilContract), precomputedMinerPool); //deployerNonce + 5
+        holdingContract = new SafetyDelay(address(vetoCouncilContract), precomputedMinerPool); //deployerNonce + 5
         treasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 6
         gcaAndMinerPoolContract = new MinerPoolAndGCA(
             startingAgents,
