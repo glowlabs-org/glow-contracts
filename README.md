@@ -157,39 +157,40 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
 
 | Contract | LOC | Comments |
 | --- | --- | --- |
+| Constants.sol | 3 | 1 |
 | IGrantsTreasury.sol | 13 | 51 |
+| SafetyDelay.sol | 112 | 187 |
+| CarbonCreditDescendingPriceAuction.sol | 124 | 113 |
 | VestingMathLib.sol | 32 | 24 |
 | GrantsTreasury.sol | 51 | 82 |
 | BatchCommit.sol | 27 | 59 |
 | IGCC.sol | 89 | 204 |
-| GCA.sol | 450 | 389 |
-| MinerPoolAndGCA.sol | 258 | 233 |
-| GCC.GuardedLaunch.sol | 64 | 77 |
-| BucketSubmission.sol | 101 | 164 |
+| GCA.sol | 456 | 389 |
+| MinerPoolAndGCA.sol | 259 | 243 |
+| GCC.GuardedLaunch.sol | 65 | 83 |
+| BucketSubmission.sol | 110 | 177 |
 | IMinerPool.sol | 46 | 67 |
-| GCASalaryHelper.sol | 192 | 195 |
-| CarbonCreditDutchAuction.sol | 124 | 113 |
+| GCASalaryHelper.sol | 195 | 198 |
 | IEarlyLiquidity.sol | 14 | 33 |
 | IGlow.sol | 53 | 113 |
 | HalfLifeCarbonCreditAuction.sol | 17 | 17 |
 | IGovernance.sol | 101 | 125 |
 | ICarbonCreditAuction.sol | 9 | 30 |
-| GLOW.sol | 332 | 268 |
-| EarlyLiquidity.sol | 105 | 195 |
-| VetoCouncilSalaryHelper.sol | 209 | 195 |
-| Governance.sol | 821 | 604 |
-| USDG.sol | 88 | 112 |
-| HoldingContract.sol | 107 | 181 |
+| GLOW.sol | 330 | 276 |
+| EarlyLiquidity.sol | 100 | 183 |
+| VetoCouncilSalaryHelper.sol | 211 | 201 |
+| Governance.sol | 816 | 603 |
+| USDG.sol | 85 | 108 |
 | GlowUnlocker.sol | 61 | 49 |
-| Glow.GuardedLaunch.sol | 97 | 102 |
+| Glow.GuardedLaunch.sol | 96 | 109 |
 | VetoCouncil.sol | 79 | 76 |
-| ImpactCatalyst.sol | 202 | 198 |
+| ImpactCatalyst.sol | 206 | 223 |
 | IERC20Permit.sol | 6 | 0 |
-| GCC.sol | 293 | 247 |
-| IGCA.sol | 77 | 142 |
+| GCC.sol | 295 | 247 |
+| IGCA.sol | 80 | 155 |
 | IVetoCouncil.sol | 14 | 47 |
 | HalfLife.sol | 14 | 16 |
-| Total | 4146 | 4408 |
+| Total | 4169 | 4489 |
 
 
 
