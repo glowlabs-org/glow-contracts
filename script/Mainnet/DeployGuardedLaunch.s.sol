@@ -31,7 +31,7 @@ contract DeployFull is Test, Script {
     address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address uniswapV2Router = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
-    address usdcReceiver = address(0xfdafafdafafa124412f);
+    address usdcReceiver = address(0xc5174BBf649a92F9941e981af68AaA14Dd814F85); //2/3 Multisig Gnosis Safe on Mainnet
 
     function run() external {
         revert("Simon u havent set the receivers, veto council, and gcas");
@@ -39,8 +39,10 @@ contract DeployFull is Test, Script {
         if (usdcReceiver == tx.origin) {
             revert("set usdcReceiver to not be tx.origin");
         }
-        address[] memory startingAgents = new address[](1);
-        startingAgents[0] = tx.origin;
+        address[] memory startingAgents = new address[](3);
+        startingAgents[0] = 0x6884efd53b2650679996D3Ea206D116356dA08a9; //simon
+        startingAgents[1] = 0xD70823246D53EE41875B353Df2c7915608279de1; //alm
+        startingAgents[2] = address(0); //mick?
         address[] memory startingVetoCouncilAgents = new address[](1);
         startingVetoCouncilAgents[0] = tx.origin;
         if (vm.exists(fileToWriteTo)) {

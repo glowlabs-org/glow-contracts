@@ -17,10 +17,10 @@ import {BatchCommit} from "@/BatchCommit.sol";
 import "forge-std/Test.sol";
 import {USDG} from "@/USDG.sol";
 
-string constant fileToWriteTo = "deployedContractsGoerli.json";
+string constant fileToWriteTo = "deployedContractsGoerliGuardedLaunch.json";
 
 contract DeployFull is Test, Script {
-    bytes32 gcaRequirementsHash = keccak256("my hash good ser");
+    bytes32 gcaRequirementsHash = keccak256("GCA Beta Hash");
     address vestingContract = address(0xE414D49268837291fde21c33AD7e30233b7041C2);
 
     MockUSDC mockUSDC;
@@ -46,11 +46,8 @@ contract DeployFull is Test, Script {
             vm.removeFile(fileToWriteTo);
         }
 
-        vm.startBroadcast();
-        mockUSDC = new MockUSDC();
-
-        address deployer = tx.origin;
-        uint256 deployerNonce = vm.getNonce(deployer);
+        address deployer = 0xD509A9480559337e924C764071009D60aaCA623d;
+        uint256 deployerNonce = vm.getNonce(deployer) + 1; //add 1 for mock usdc
         address precomputedGlow = computeCreateAddress(deployer, deployerNonce + 1);
         address precomputedUSDG = computeCreateAddress(deployer, deployerNonce + 2);
         address precomputedEarlyLiquidity = computeCreateAddress(deployer, deployerNonce + 3);
@@ -59,6 +56,11 @@ contract DeployFull is Test, Script {
         address precomputedHoldingContract = computeCreateAddress(deployer, deployerNonce + 6);
         address precomputedTreasury = computeCreateAddress(deployer, deployerNonce + 7);
         address precomputedGCAAndMinerPoolContract = computeCreateAddress(deployer, deployerNonce + 8);
+        vm.startBroadcast();
+        mockUSDC = new MockUSDC();
+        if (deployer != tx.origin) {
+            revert("deployer is not tx.origin");
+        }
 
         GoerliGCCGuardedLaunch gcc = new GoerliGCCGuardedLaunch({
             _gcaAndMinerPoolContract: address(precomputedGCAAndMinerPoolContract),

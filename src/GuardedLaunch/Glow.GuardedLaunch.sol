@@ -141,18 +141,6 @@ contract GlowGuardedLaunch is Glow, Ownable {
         emit PermanentFreeze();
     }
 
-    /**
-     * @notice Sets the address of the GlowUnlocker contract
-     * @dev this function can only be called once
-     * @param _glowUnlocker the address of the GlowUnlocker contract
-     */
-    function setGlowUnlocker(address _glowUnlocker) external onlyOwner {
-        if (!_isZeroAddress(glowUnlocker)) _revert(IGlow.AddressAlreadySet.selector);
-        if (_isZeroAddress(_glowUnlocker)) _revert(IGlow.ZeroAddressNotAllowed.selector);
-        glowUnlocker = _glowUnlocker;
-        allowlistedContracts[_glowUnlocker] = true;
-    }
-
     /* -------------------------------------------------------------------------- */
     /*                                 erc20 override                              */
     /* -------------------------------------------------------------------------- */

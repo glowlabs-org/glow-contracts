@@ -134,8 +134,9 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         address factory = UNISWAP_ROUTER.factory();
         address pair = getPair(factory, _usdc);
         //Mint 1 to set the LP with USDC
+        //Note: On Guarded Launch the LP is set with USDG
         if (block.chainid == 1) {
-            _mint(tx.origin, 1 ether);
+            _mint(tx.origin, 1.1 ether);
         }
         //The impact catalyst is responsible for handling the commitments of GCC and USDC
         IMPACT_CATALYST = new ImpactCatalyst(_usdc, _uniswapRouter, factory, pair);

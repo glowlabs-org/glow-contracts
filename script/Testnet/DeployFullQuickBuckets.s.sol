@@ -56,6 +56,15 @@ contract DeployFullQuickBuckets is Test, Script {
         address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 4);
         address precomputedGrants = computeCreateAddress(deployer, deployerNonce + 6);
         address precomputedHoldingContract = computeCreateAddress(deployer, deployerNonce + 5);
+
+        // address precomputedMinerPool = 0x1D4810c63e01E647b6B1d11BaC7ff6d739fe0D2c;
+        // address precomputedGlow = 0x55A4D4e12247C804b1925A5Cd6359786Af625C8F;
+        // address precomputedEarlyLiquidity = 0x9DC680EB586d40000bAEe0626bFC57093f37FFE9;
+        // address precomputedGovernance = 0x2cBef5699b5998C517Def581dF0dc78Cd415A2F1;
+        // address precomputedVetoCouncil = 0x4e8E51e4D6725e00CbcB5706440D642F5FAFd6b3;
+        // address precomputedGrants = 0x2b753380b974aa05f301f25D6EDF186E72712F5A;
+        // address precomputedHoldingContract = 0x9ADE8d3D98fD6E813E8fd4B179c3073Ae5788192;
+
         GoerliGCC gcc = new GoerliGCC({
             _gcaAndMinerPoolContract: precomputedMinerPool,
             _governance: precomputedGovernance,

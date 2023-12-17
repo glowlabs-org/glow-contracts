@@ -3,24 +3,22 @@
 
 // import "forge-std/Script.sol";
 // import "forge-std/console.sol";
-// import {GCC} from "@/GCC.sol";
-// import {TestGLOW} from "@/testing/TestGLOW.sol";
-// import {GoerliGovernanceQuickPeriod} from "@/testing/Goerli/GoerliGovernance.QuickPeriod.sol";
-// import {GoerliGCC} from "@/testing/Goerli/GoerliGCC.sol";
-// import {MockUSDC} from "@/testing/MockUSDC.sol";
-// import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
-// import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
-// import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
-// import {GoerliMinerPoolAndGCAQuickPeriod} from "@/testing/Goerli/GoerliMinerPoolAndGCA.QuickPeriod.sol";
-// import {VetoCouncil} from "@/VetoCouncil.sol";
-// import {HoldingContract} from "@/HoldingContract.sol";
-// import {GrantsTreasury} from "@/GrantsTreasury.sol";
-// import {BatchCommit} from "@/BatchCommit.sol";
+// // import {GCC} from "@/GCC.sol";
+// // import {TestGLOW} from "@/testing/TestGLOW.sol";
+// // import {GoerliGovernanceQuickPeriod} from "@/testing/Goerli/GoerliGovernance.QuickPeriod.sol";
+// // import {GoerliGCC} from "@/testing/Goerli/GoerliGCC.sol";
+// // import {MockUSDC} from "@/testing/MockUSDC.sol";
+// // import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
+// // import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
+// // import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+// // import {GoerliMinerPoolAndGCAQuickPeriod} from "@/testing/Goerli/GoerliMinerPoolAndGCA.QuickPeriod.sol";
+// // import {VetoCouncil} from "@/VetoCouncil.sol";
+// // import {HoldingContract} from "@/HoldingContract.sol";
+// // import {GrantsTreasury} from "@/GrantsTreasury.sol";
+// // import {BatchCommit} from "@/BatchCommit.sol";
 // import "forge-std/Test.sol";
 
-// string constant fileToWriteTo = "deployedContractsGoerli.json";
-
-// contract DebugClaim is Test {
+// contract Debug2 is Test {
 //     string goerliForkUrl = vm.envString("GOERLI_RPC_URL");
 //     uint256 goerliFork;
 //     address me = 0xD509A9480559337e924C764071009D60aaCA623d;
@@ -33,19 +31,16 @@
 
 //     function test_goerliClaimBucket_debug() public {
 //         vm.startPrank(me);
-//         GoerliMinerPoolAndGCAQuickPeriod minerPool = GoerliMinerPoolAndGCAQuickPeriod(minerPoolGoerli);
-//         bytes32[] memory proof = new bytes32[](0);
-//         minerPool.claimRewardFromBucket({
-//             bucketId: 0,
-//             glwWeight: 269,
-//             usdcWeight: 269,
-//             proof: proof,
-//             index: 0,
-//             user: me,
-//             claimFromInflation: false,
-//             signature: ""
-//         });
+//         bytes memory data =
+//             hex"d004f0f7000000000000000000000000d509a9480559337e924c764071009d60aaca623d00000000000000000000000000000000000000000000000000000000000f4240";
+//         address to = 0x7734720e7Cea67b29f53800C4aD5C40e61aBb645;
 
+//              (bool success, bytes memory returnData) = address(to).call(data);
+//         if(!success) {
+//            assembly {
+//                 revert(add(returnData, 0x20), mload(returnData))
+//            }
+//         }
 //         vm.stopPrank();
 //     }
 // }

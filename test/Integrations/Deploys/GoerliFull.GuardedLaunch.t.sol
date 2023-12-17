@@ -189,7 +189,6 @@ contract DeployFullGoerliGuarded is Test, Script {
             "treasury should have 6_000_000 glow tokens after deployment"
         );
 
-
         assertEq(
             glow.balanceOf(address(earlyLiquidity)),
             12_000_000 ether,
