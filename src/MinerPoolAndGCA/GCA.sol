@@ -231,6 +231,7 @@ contract GCA is IGCA, GCASalaryHelper {
             ++slashNonce;
         }
         proposalHashes.push(hash);
+        emit IGCA.ProposalHashPushed(hash);
     }
 
     /**
@@ -622,6 +623,7 @@ contract GCA is IGCA, GCASalaryHelper {
      */
     function _setGCAs(address[] memory gcaAddresses) internal {
         gcaAgents = gcaAddresses;
+        emit IGCA.NewGCAsAppointed(gcaAddresses);
     }
 
     /**
@@ -634,6 +636,7 @@ contract GCA is IGCA, GCASalaryHelper {
                 GCASalaryHelper._slash(gcasToSlash[i]);
             }
         }
+        emit IGCA.GCAsSlashed(gcasToSlash);
     }
 
     /* -------------------------------------------------------------------------- */
