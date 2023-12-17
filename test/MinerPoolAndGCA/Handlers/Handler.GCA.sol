@@ -98,7 +98,7 @@ contract Handler is Test {
 
     function addGCA(address newGCA) public {
         address[] memory allGCAs = gca.allGcas();
-        address[] memory temp = new address[](allGCAs.length+1);
+        address[] memory temp = new address[](allGCAs.length + 1);
         for (uint256 i; i < allGCAs.length; i++) {
             temp[i] = allGCAs[i];
             if (allGCAs[i] == newGCA) {

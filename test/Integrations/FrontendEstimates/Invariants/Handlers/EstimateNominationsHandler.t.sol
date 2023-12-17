@@ -28,6 +28,15 @@ contract EstimateNominationsHandler is Test {
 
     mapping(uint256 => uint256) public estimatedmpactPowerForRound;
     mapping(uint256 => uint256) public actualImpactPowerForRound;
+
+    struct Dust {
+        uint256 amountGCCToSwap;
+        uint256 gccDust;
+        uint256 usdcDust;
+    }
+
+    mapping(uint256 => Dust) private _dustForRound;
+
     uint256 public round;
 
     constructor(address _gcc, address _uniswapRouter) {
@@ -52,6 +61,7 @@ contract EstimateNominationsHandler is Test {
         public
         returns (bool)
     {
+        Dust memory dust = _dustForRound[round];
         if (!hasSeededLP) {
             amountGCCToSeedLP = bound(amountGCCToSeedLP, 10 ether, 1_000_000_000 ether);
             amountUSDCToSeedLP = bound(amountUSDCToSeedLP, 10 * 1e6, 1_000_000_000 * 1e6);
@@ -74,6 +84,10 @@ contract EstimateNominationsHandler is Test {
         ImpactCatalyst impactCatalyst = gcc.IMPACT_CATALYST();
         uint256 estimate = impactCatalyst.estimateGCCCommitImpactPower(amount);
         uint256 impactPowerBefore = gcc.totalImpactPowerEarned(from);
+
+        dust.amountGCCToSwap = amount;
+        dust.gccDust = gcc.balanceOf(address(impactCatalyst)); //bal before
+        dust.usdcDust = usdc.balanceOf(address(impactCatalyst)); //bal before
         (bool success, bytes memory data) = address(gcc).call(abi.encodeWithSelector(0x4ca9a234, amount, from, 0));
         if (!success) {
             // vm.writeLine("t.csv", "1");
@@ -81,6 +95,9 @@ contract EstimateNominationsHandler is Test {
             //Uniswap error for insufficient amount in case we need it
             //0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000025556e697377617056323a20494e53554646494349454e545f4f55545055545f414d4f554e54000000000000000000000000000000000000000000000000000000
         } else {
+            dust.gccDust = gcc.balanceOf(address(impactCatalyst)); //bal after (accumulated)
+            dust.usdcDust = usdc.balanceOf(address(impactCatalyst)); //bal after (accumulated)
+            _dustForRound[round] = dust;
             estimatedmpactPowerForRound[round] = estimate;
             uint256 impactPowerEarned = gcc.totalImpactPowerEarned(from) - impactPowerBefore;
             actualImpactPowerForRound[round++] = impactPowerEarned;
@@ -102,5 +119,9 @@ contract EstimateNominationsHandler is Test {
             address(gcc), address(usdc), amountGCC, amountUSDC, amountGCC, amountUSDC, from, block.timestamp
         );
         vm.stopPrank();
+    }
+
+    function dustForRound(uint256 round) external view returns (Dust memory) {
+        return _dustForRound[round];
     }
 }

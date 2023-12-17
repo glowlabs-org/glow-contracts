@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
+import {_GENESIS_TIMESTAMP} from "@/Constants/Constants.sol";
 /**
  * @title Glow
  * @author DavidVorick
@@ -50,13 +50,19 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /* -------------------------------------------------------------------------- */
     /*                                  immutables                                */
     /* -------------------------------------------------------------------------- */
-    /// @notice The timestamp of the genesis block
-    // solhint-disable-next-line var-name-mixedcase
-    uint256 public immutable GENESIS_TIMESTAMP;
 
     /// @notice The address of the Early Liquidity Contract
     //  solhint-disable-next-line var-name-mixedcase
     address public immutable EARLY_LIQUIDITY_ADDRESS;
+
+    /// @notice the GCA And Miner Pool address
+    address public immutable GCA_AND_MINER_POOL_ADDRESS;
+
+    /// @notice the Veto Council address
+    address public immutable VETO_COUNCIL_ADDRESS;
+
+    /// @notice the Grants Treasury address
+    address public immutable GRANTS_TREASURY_ADDRESS;
 
     /* -------------------------------------------------------------------------- */
     /*                                 state vars                                */
@@ -69,15 +75,6 @@ contract Glow is ERC20, ERC20Permit, IGlow {
 
     /// @notice The last time the Grants Treasury claimed GLW
     uint256 public grantsTreasuryLastClaimedTimestamp;
-
-    /// @notice the GCA And Miner Pool address
-    address public gcaAndMinerPoolAddress;
-
-    /// @notice the Veto Council address
-    address public vetoCouncilAddress;
-
-    /// @notice the Grants Treasury address
-    address public grantsTreasuryAddress;
 
     /* -------------------------------------------------------------------------- */
     /*                                   mappings                                  */
@@ -100,19 +97,27 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
 
-    /// @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
-    /// @notice sends 12 million GLW to the Early Liquidity Contract and 96 million GLW to the unlocker contract
-    /// @param _earlyLiquidityAddress The address of the Early Liquidity Contract
-    /// @param _vestingContract The address of the vesting contract
-    constructor(address _earlyLiquidityAddress, address _vestingContract)
-        payable
-        ERC20("Glow", "GLOW")
-        ERC20Permit("Glow")
-    {
-        GENESIS_TIMESTAMP = block.timestamp;
+    /*
+     * @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
+    * @notice sends 12 million GLW to the Early Liquidity Contract and 96 million GLW to the unlocker contract
+    * @param _earlyLiquidityAddress The address of the Early Liquidity Contract
+    * @param _vestingContract The address of the vesting contract
+    * @param _gcaAndMinerPoolAddress The address of the GCA and Miner Pool
+    * @param _vetoCouncilAddress The address of the Veto Council
+    * @param _grantsTreasuryAddress The address of the Grants Treasury
+    */
+    constructor(
+        address _earlyLiquidityAddress,
+        address _vestingContract,
+        address _gcaAndMinerPoolAddress,
+        address _vetoCouncilAddress,
+        address _grantsTreasuryAddress
+    ) payable ERC20("Glow", "GLW-BETA") ERC20Permit("Glow") {
         EARLY_LIQUIDITY_ADDRESS = _earlyLiquidityAddress;
-        _mint(_earlyLiquidityAddress, 12_000_000 ether);
-        _mint(_vestingContract, 96_000_000 ether);
+        GCA_AND_MINER_POOL_ADDRESS = _gcaAndMinerPoolAddress;
+        VETO_COUNCIL_ADDRESS = _vetoCouncilAddress;
+        GRANTS_TREASURY_ADDRESS = _grantsTreasuryAddress;
+        _handleConstructorMint(_earlyLiquidityAddress, _vestingContract, _grantsTreasuryAddress);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -362,14 +367,14 @@ contract Glow is ERC20, ERC20Permit, IGlow {
      */
     function claimGLWFromGCAAndMinerPool() external returns (uint256) {
         //If the address is not set, we revert
-        if (_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(GCA_AND_MINER_POOL_ADDRESS)) _revert(IGlow.AddressNotSet.selector);
         //If the caller is not the GCA and Miner Pool, we revert
-        if (msg.sender != gcaAndMinerPoolAddress) _revert(IGlow.CallerNotGCA.selector);
+        if (msg.sender != GCA_AND_MINER_POOL_ADDRESS) _revert(IGlow.CallerNotGCA.selector);
         //Read the timestamp from storage
         uint256 timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
         //If the timestamp is zero, we set it to the genesis timestamp
         // else we set it to the timestamp in storage
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         //Calculate the seconds since the last claim
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         //Calculate the amount to claim
@@ -379,7 +384,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         //if the amount is not zero, we update the timestamp in storage
         gcaAndMinerPoolLastClaimedTimestamp = block.timestamp;
         //and we mint the amount to the GCA and Miner Pool
-        _mint(gcaAndMinerPoolAddress, amountToClaim);
+        _mint(GCA_AND_MINER_POOL_ADDRESS, amountToClaim);
         //we then return the amount to claim
         return amountToClaim;
     }
@@ -389,14 +394,14 @@ contract Glow is ERC20, ERC20Permit, IGlow {
      */
     function claimGLWFromVetoCouncil() external returns (uint256) {
         //If the address is not set, we revert
-        if (_isZeroAddress(vetoCouncilAddress)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(VETO_COUNCIL_ADDRESS)) _revert(IGlow.AddressNotSet.selector);
         //If the caller is not the Veto Council, we revert
-        if (msg.sender != vetoCouncilAddress) _revert(IGlow.CallerNotVetoCouncil.selector);
+        if (msg.sender != VETO_COUNCIL_ADDRESS) _revert(IGlow.CallerNotVetoCouncil.selector);
         //Read the timestamp from storage
         uint256 timestampInStorage = vetoCouncilLastClaimedTimestamp;
         //If the timestamp is zero, we set it to the genesis timestamp
         // else we set it to the timestamp in storage
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         //Calculate the seconds since the last claim
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         //Calculate the amount to claim
@@ -406,7 +411,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         //if the amount is not zero, we update the timestamp in storage
         vetoCouncilLastClaimedTimestamp = block.timestamp;
         //and we mint the amount to the Veto Council
-        _mint(vetoCouncilAddress, amountToClaim);
+        _mint(VETO_COUNCIL_ADDRESS, amountToClaim);
         //we then return the amount to claim
         return amountToClaim;
     }
@@ -416,14 +421,14 @@ contract Glow is ERC20, ERC20Permit, IGlow {
      */
     function claimGLWFromGrantsTreasury() external returns (uint256) {
         //If the address is not set, we revert
-        if (_isZeroAddress(grantsTreasuryAddress)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(GRANTS_TREASURY_ADDRESS)) _revert(IGlow.AddressNotSet.selector);
         //If the caller is not the Grants Treasury, we revert
-        if (msg.sender != grantsTreasuryAddress) _revert(IGlow.CallerNotGrantsTreasury.selector);
+        if (msg.sender != GRANTS_TREASURY_ADDRESS) _revert(IGlow.CallerNotGrantsTreasury.selector);
         //Read the timestamp from storage
         uint256 timestampInStorage = grantsTreasuryLastClaimedTimestamp;
         //If the timestamp is zero, we set it to the genesis timestamp
         // else we set it to the timestamp in storage
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         //Calculate the seconds since the last claim
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         //Calculate the amount to claim
@@ -433,7 +438,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         //if the amount is not zero, we update the timestamp in storage
         grantsTreasuryLastClaimedTimestamp = block.timestamp;
         //and we mint the amount to the Grants Treasury
-        _mint(grantsTreasuryAddress, amountToClaim);
+        _mint(GRANTS_TREASURY_ADDRESS, amountToClaim);
         //we then return the amount to claim
         return amountToClaim;
     }
@@ -569,12 +574,12 @@ contract Glow is ERC20, ERC20Permit, IGlow {
      * @inheritdoc IGlow
      */
     function gcaInflationData() external view returns (uint256, uint256 totalAlreadyClaimed, uint256 totalToClaim) {
-        if (_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(GCA_AND_MINER_POOL_ADDRESS)) _revert(IGlow.AddressNotSet.selector);
         uint256 timestampInStorage = gcaAndMinerPoolLastClaimedTimestamp;
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         totalToClaim = secondsSinceLastClaim * GCA_AND_MINER_POOL_INFLATION_PER_SECOND;
-        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP;
+        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP();
         return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
@@ -586,12 +591,12 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         view
         returns (uint256, uint256 totalAlreadyClaimed, uint256 totalToClaim)
     {
-        if (_isZeroAddress(vetoCouncilAddress)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(VETO_COUNCIL_ADDRESS)) _revert(IGlow.AddressNotSet.selector);
         uint256 timestampInStorage = vetoCouncilLastClaimedTimestamp;
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         totalToClaim = secondsSinceLastClaim * VETO_COUNCIL_INFLATION_PER_SECOND;
-        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP;
+        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP();
         return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
@@ -603,12 +608,12 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         view
         returns (uint256, uint256 totalAlreadyClaimed, uint256 totalToClaim)
     {
-        if (_isZeroAddress(grantsTreasuryAddress)) _revert(IGlow.AddressNotSet.selector);
+        if (_isZeroAddress(GRANTS_TREASURY_ADDRESS)) _revert(IGlow.AddressNotSet.selector);
         uint256 timestampInStorage = grantsTreasuryLastClaimedTimestamp;
-        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP : timestampInStorage;
+        uint256 timestampToClaimFrom = timestampInStorage == 0 ? GENESIS_TIMESTAMP() : timestampInStorage;
         uint256 secondsSinceLastClaim = block.timestamp - timestampToClaimFrom;
         totalToClaim = secondsSinceLastClaim * GRANTS_TREASURY_INFLATION_PER_SECOND;
-        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP;
+        totalAlreadyClaimed = timestampToClaimFrom - GENESIS_TIMESTAMP();
         return (timestampInStorage, totalAlreadyClaimed, totalToClaim);
     }
 
@@ -616,31 +621,31 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /*                                one time setters                            */
     /* -------------------------------------------------------------------------- */
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  getters                                   */
+    /* -------------------------------------------------------------------------- */
+    /// @notice The timestamp of the genesis block
+    function GENESIS_TIMESTAMP() public view virtual returns (uint256) {
+        return _GENESIS_TIMESTAMP;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                       constructor mint virtual                             */
+    /* -------------------------------------------------------------------------- */
+
     /**
-     * @notice Sets the addresses of the GCA and Miner Pool, Veto Council, and Grants Treasury
-     * @dev this function can only be called once
+     * @notice Mints the initial supply of GLOW
+     * @param _earlyLiquidityAddress The address of the early liquidity contract
+     * @param _vestingContract The address of the vesting contract
+     * @param _grantsTreasryAddress The address of the grants treasury
      */
-    function setContractAddresses(
-        address _gcaAndMinerPoolAddress,
-        address _vetoCouncilAddress,
-        address _grantsTreasuryAddress
-    ) external virtual {
-        // Zero address checks
-        //Only need one check since all three addresses are set at the same time atomically
-        if (!_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressAlreadySet.selector);
-        if (_isZeroAddress(_gcaAndMinerPoolAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
-        if (_isZeroAddress(_vetoCouncilAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
-        if (_isZeroAddress(_grantsTreasuryAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
-
-        // Duplicate checks
-        if (_gcaAndMinerPoolAddress == _vetoCouncilAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
-        if (_gcaAndMinerPoolAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
-        if (_vetoCouncilAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
-
-        //Set the addresses
-        gcaAndMinerPoolAddress = _gcaAndMinerPoolAddress;
-        vetoCouncilAddress = _vetoCouncilAddress;
-        grantsTreasuryAddress = _grantsTreasuryAddress;
+    function _handleConstructorMint(
+        address _earlyLiquidityAddress,
+        address _vestingContract,
+        address _grantsTreasryAddress
+    ) internal virtual {
+        _mint(_earlyLiquidityAddress, 12_000_000 ether);
+        _mint(_vestingContract, 96_000_000 ether);
     }
 
     /* -------------------------------------------------------------------------- */

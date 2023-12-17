@@ -2,13 +2,14 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
 import {MainnetForkTestGCC} from "./MainnetForkTestGCC.sol";
 import "forge-std/console.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
 import "forge-std/StdError.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
@@ -37,7 +38,7 @@ contract EstimateNominationsTest is Test {
     MockUSDC usdc;
     MainnetForkTestGCC public gcc;
     Governance public gov;
-    CarbonCreditDutchAuction public auction;
+    CarbonCreditDescendingPriceAuction public auction;
     address public constant GCA_AND_MINER_POOL_CONTRACT = address(0x2);
     address public SIMON = address(0xfffaafdd);
     uint256 public SIMON_PK;
@@ -57,7 +58,10 @@ contract EstimateNominationsTest is Test {
     address uniswapRouterMainnetAddress = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     address weth9MainnetAddress = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
+    address deployer = tx.origin;
+
     function setUp() public {
+        vm.startPrank(deployer);
         goerliFork = vm.createFork(forkUrl);
         vm.selectFork(goerliFork);
         // uniswapFactory = new UnifapV2Factory();
@@ -65,17 +69,28 @@ contract EstimateNominationsTest is Test {
         weth = WETH9(weth9MainnetAddress);
         uniswapRouter = UnifapV2Router(uniswapRouterMainnetAddress);
         // uniswapRouter = new UnifapV2Router(address(uniswapFactory));
-        usdc = new MockUSDC();
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+
+        uint256 deployerNonce = vm.getNonce(deployer);
+        usdc = new MockUSDC(); //deployerNonce
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury); //deployerNonce + 1
         glw = address(glwContract);
-        gov = new Governance();
-        gcc =
-            new MainnetForkTestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
-        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
+
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 3);
+        gov = new Governance({
+            gcc: precomputedGCC,
+            gca: GCA_AND_MINER_POOL_CONTRACT,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce + 2
+        gcc = new MainnetForkTestGCC( //deployerNonce + 3
+        GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));
 
+        vm.stopPrank();
         seedLP(1 ether, 10 * 1e6);
         address pair = gcc.IMPACT_CATALYST().UNISWAP_V2_PAIR();
 

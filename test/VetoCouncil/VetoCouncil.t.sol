@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "../../src/testing/TestGLOW.sol";
 import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
@@ -9,10 +11,10 @@ import {IGrantsTreasury} from "../../src/interfaces/IGrantsTreasury.sol";
 import {GrantsTreasury} from "../../src/GrantsTreasury.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
-import {VetoCouncilSalaryHelper, Status} from "@/generic/VetoCouncilSalaryHelper.sol";
-import {NULL_ADDRESS} from "@/generic/VetoCouncilSalaryHelper.sol";
+import {VetoCouncilSalaryHelper, Status} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
+import {NULL_ADDRESS} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
 
 contract VetoCouncilTest is Test {
     TestGLOW public glw;
@@ -27,45 +29,66 @@ contract VetoCouncilTest is Test {
     address public constant NOT_GOVERNANCE = address(0x7);
     address public constant OTHER_1 = address(0x8);
     address public constant OTHER_2 = address(0x9);
+    address public constant VETO_COUNCIL_ADDRESS = address(0x11);
     uint256 public constant GRANTS_INFLATION_PER_WEEK = 40_000 ether;
 
+    address deployer = tx.origin;
+
     function setUp() public {
+        vm.startPrank(deployer);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        //current nonce used to deploy glow,
+        //the one after that is used to deploy veto council
+        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 1);
         //make sure block.timestamp does not start at 0
         vm.warp(1);
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        glw = new TestGLOW(EARLY_LIQUIDITY, VESTING_CONTRACT, GCA, precomputedVetoCouncilAddress, GRANTS_TREASURY);
         address[] memory startingAgents = new address[](3);
         startingAgents[0] = address(SIMON);
         startingAgents[1] = address(OTHER_1);
         startingAgents[2] = address(OTHER_2);
-        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw), startingAgents);
 
-        glw.setContractAddresses(GCA, address(vetoCouncil), GRANTS_TREASURY);
         assertTrue(vetoCouncil.isCouncilMember(SIMON));
         assertTrue(vetoCouncil.isCouncilMember(OTHER_1));
         assertTrue(vetoCouncil.isCouncilMember(OTHER_2));
+        vm.stopPrank();
     }
 
     //Testing so we can coverage in iloc
     function test_setUp() public {
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        vm.startPrank(deployer);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        //current nonce used to deploy glow,
+        //the one after that is used to deploy veto council
+        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 1);
+        glw = new TestGLOW(EARLY_LIQUIDITY, VESTING_CONTRACT, GCA, precomputedVetoCouncilAddress, GRANTS_TREASURY);
         address[] memory startingAgents = new address[](3);
         startingAgents[0] = address(SIMON);
         startingAgents[1] = address(OTHER_1);
         startingAgents[2] = address(OTHER_2);
-        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw), startingAgents);
 
-        glw.setContractAddresses(GCA, address(vetoCouncil), GRANTS_TREASURY);
+        //TODO: precompute
+        // glw.setContractAddresses(GCA, address(vetoCouncil), GRANTS_TREASURY);
         assertTrue(vetoCouncil.isCouncilMember(SIMON));
         assertTrue(vetoCouncil.isCouncilMember(OTHER_1));
         assertTrue(vetoCouncil.isCouncilMember(OTHER_2));
+        vm.stopPrank();
     }
 
     function test_newAgentIsAlreadyActive_shouldReturnFalseZellic() public {
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        vm.startPrank(deployer);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        //current nonce used to deploy glow,
+        //the one after that is used to deploy veto council
+        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 1);
+        glw = new TestGLOW(EARLY_LIQUIDITY, VESTING_CONTRACT, GCA, precomputedVetoCouncilAddress, GRANTS_TREASURY);
         address[] memory startingAgents = new address[](2);
         startingAgents[0] = address(SIMON);
         startingAgents[1] = address(0x33333);
-        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw), startingAgents);
+        vm.stopPrank();
         vm.startPrank(GOVERNANCE);
         address oldAgent = address(0x33333);
         bool slashOldAgent = false;
@@ -82,10 +105,16 @@ contract VetoCouncilTest is Test {
 
     //Testing so we can coverage in iloc
     function test_removingAnAgent_whenThereAreZeroAgent_shouldReturnFalse() public {
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        vm.startPrank(deployer);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        //current nonce used to deploy glow,
+        //the one after that is used to deploy veto council
+        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 1);
+        glw = new TestGLOW(EARLY_LIQUIDITY, VESTING_CONTRACT, GCA, precomputedVetoCouncilAddress, GRANTS_TREASURY);
         address[] memory startingAgents = new address[](1);
         startingAgents[0] = address(SIMON);
-        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw), startingAgents);
+        vm.stopPrank();
         vm.startPrank(GOVERNANCE);
         address oldAgent = address(SIMON);
         address newAgent = address(0);
@@ -99,10 +128,16 @@ contract VetoCouncilTest is Test {
     }
 
     function test_newAgentIsAlreadySlashed_shouldReturnFalse() public {
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        vm.startPrank(deployer);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        //current nonce used to deploy glow,
+        //the one after that is used to deploy veto council
+        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 1);
+        glw = new TestGLOW(EARLY_LIQUIDITY, VESTING_CONTRACT, GCA, precomputedVetoCouncilAddress, GRANTS_TREASURY);
         address[] memory startingAgents = new address[](1);
         startingAgents[0] = address(SIMON);
-        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw), startingAgents);
+        vm.stopPrank();
         vm.startPrank(GOVERNANCE);
         address oldAgent = address(SIMON);
         address newAgent = address(0);
@@ -120,11 +155,17 @@ contract VetoCouncilTest is Test {
     }
 
     function test_newAgentIsAlreadyActive_shouldReturnFalse_simple() public {
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        vm.startPrank(deployer);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        //current nonce used to deploy glow,
+        //the one after that is used to deploy veto council
+        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 1);
+        glw = new TestGLOW(EARLY_LIQUIDITY, VESTING_CONTRACT, GCA, precomputedVetoCouncilAddress, GRANTS_TREASURY);
         address[] memory startingAgents = new address[](2);
         startingAgents[0] = address(SIMON);
         startingAgents[1] = address(0x33333);
-        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw), startingAgents);
+        vm.stopPrank();
         vm.startPrank(GOVERNANCE);
         address oldAgent = address(0x33333);
         bool slashOldAgent = false;
@@ -153,7 +194,7 @@ contract VetoCouncilTest is Test {
         startingAgents[1] = address(OTHER_1);
         startingAgents[2] = address(OTHER_2);
         vm.expectRevert(IVetoCouncil.ZeroAddressInConstructor.selector);
-        vetoCouncil = new VetoCouncil(address(0), address(1),startingAgents);
+        vetoCouncil = new VetoCouncil(address(0), address(1), startingAgents);
     }
 
     function test_setUp_8CouncilMembers_shouldRevert() public {
@@ -162,7 +203,7 @@ contract VetoCouncilTest is Test {
             startingAgents[i] = address(uint160(i + 30));
         }
         vm.expectRevert(IVetoCouncil.MaxCouncilMembersExceeded.selector);
-        vetoCouncil = new VetoCouncil(address(1), address(2),startingAgents);
+        vetoCouncil = new VetoCouncil(address(1), address(2), startingAgents);
     }
 
     function test_setUp_zeroAddressShouldFailInConstructor_glw() public {
@@ -171,14 +212,14 @@ contract VetoCouncilTest is Test {
         startingAgents[1] = address(OTHER_1);
         startingAgents[2] = address(OTHER_2);
         vm.expectRevert(IVetoCouncil.ZeroAddressInConstructor.selector);
-        vetoCouncil = new VetoCouncil(address(1), address(0),startingAgents);
+        vetoCouncil = new VetoCouncil(address(1), address(0), startingAgents);
     }
 
     function test_setUp_zeroAddressShouldFailInConstructor_members() public {
         address[] memory startingAgents = new address[](3);
         for (uint256 i; i < startingAgents.length; ++i) {
             vm.expectRevert(IVetoCouncil.ZeroAddressInConstructor.selector);
-            vetoCouncil = new VetoCouncil(address(1), address(2),startingAgents);
+            vetoCouncil = new VetoCouncil(address(1), address(2), startingAgents);
             startingAgents[i] = address(uint160(i + 30));
         }
     }
@@ -215,7 +256,7 @@ contract VetoCouncilTest is Test {
         for (uint256 i; i < startingAgents.length; ++i) {
             startingAgents[i] = address(uint160(i + 30));
         }
-        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw), startingAgents);
         vm.startPrank(GOVERNANCE);
         //should return false since we are adding an 8th member and the max is 7
         assert(vetoCouncil.addAndRemoveCouncilMember(address(0), address(2), false) == false);

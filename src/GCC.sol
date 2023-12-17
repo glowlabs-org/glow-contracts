@@ -7,13 +7,14 @@ import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IGovernance} from "@/interfaces/IGovernance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {ImpactCatalyst} from "@/ImpactCatalyst.sol";
 import {IERC20Permit} from "@/interfaces/IERC20Permit.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+
 /**
  * @title GCC (Glow Carbon Credit)
  * @author DavidVorick
@@ -40,6 +41,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     bytes32 public constant COMMIT_PERMIT_TYPEHASH = keccak256(
         "CommitPermit(address owner,address spender,address rewardAddress,address referralAddress,uint256 amount,uint256 nonce,uint256 deadline)"
     );
+
     /// @notice The maximum shift for a bucketId
     uint256 private constant _BITS_IN_UINT = 256;
 
@@ -112,31 +114,32 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         address _glowToken,
         address _usdc,
         address _uniswapRouter
-    ) payable ERC20("Glow Carbon Certificate", "GCC") EIP712("Glow Carbon Certificate", "1") {
-        //Set the immutable variables
+    ) payable ERC20("Glow Carbon Certificate", "GCC-BETA") EIP712("Glow Carbon Certificate", "1") {
+        // Set the immutable variables
         USDC = _usdc;
         GCA_AND_MINER_POOL_CONTRACT = _gcaAndMinerPoolContract;
         UNISWAP_ROUTER = IUniswapRouterV2(_uniswapRouter);
         GOVERNANCE = IGovernance(_governance);
         GLOW = _glowToken;
         //Create the carbon credit auction directly in the constructor
-        CarbonCreditDutchAuction cccAuction = new CarbonCreditDutchAuction({
-                            glow: IERC20(_glowToken),
-                            gcc: IERC20(address(this)),
-                            startingPrice: 1e5 //Carbon Credit Auction sells increments of 1e6 GCC,
-                            //Setting the price to 1e5 per unit means that 1 GCC = .1 GLOW
-                        });
+        CarbonCreditDescendingPriceAuction cccAuction = new CarbonCreditDescendingPriceAuction({
+            glow: IERC20(_glowToken),
+            gcc: IERC20(address(this)),
+            startingPrice: 1e5 // Carbon Credit Auction sells increments of 1e6 GCC,
+                // Setting the price to 1e5 per unit means that 1 GCC = .1 GLOW
+        });
 
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));
         //Create the impact catalyst
         address factory = UNISWAP_ROUTER.factory();
         address pair = getPair(factory, _usdc);
         //Mint 1 to set the LP with USDC
+        //Note: On Guarded Launch the LP is set with USDG
         if (block.chainid == 1) {
-            _mint(tx.origin, 1 ether);
+            _mint(tx.origin, 1.1 ether);
         }
         //The impact catalyst is responsible for handling the commitments of GCC and USDC
-        IMPACT_CATALYST = new ImpactCatalyst(_usdc,_uniswapRouter,factory,pair);
+        IMPACT_CATALYST = new ImpactCatalyst(_usdc, _uniswapRouter, factory, pair);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -148,8 +151,10 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     function mintToCarbonCreditAuction(uint256 bucketId, uint256 amount) external {
         if (msg.sender != GCA_AND_MINER_POOL_CONTRACT) _revert(IGCC.CallerNotGCAContract.selector);
         _setBucketMinted(bucketId);
-        CARBON_CREDIT_AUCTION.receiveGCC(amount);
-        _mint(address(CARBON_CREDIT_AUCTION), amount);
+        if (amount > 0) {
+            CARBON_CREDIT_AUCTION.receiveGCC(amount);
+            _mint(address(CARBON_CREDIT_AUCTION), amount);
+        }
     }
 
     /* -------------------------------------------------------------------------- */

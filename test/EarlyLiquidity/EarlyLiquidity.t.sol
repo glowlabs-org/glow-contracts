@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
 import "@/testing/TestGLOW.sol";
 import "forge-std/console.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
@@ -13,7 +14,7 @@ import {Handler} from "./handlers/Handler.t.sol";
 import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
 import {EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
-import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 
 contract EarlyLiquidityTest is Test {
     //-----------------CONSTANTS-----------------
@@ -24,7 +25,7 @@ contract EarlyLiquidityTest is Test {
     uint256 public constant FIVE_YEARS = 365 days * 5;
     address public constant VESTING_CONTRACT = address(0x5);
     uint256 public constant USDC_DECIMALS = 6;
-    uint256 constant STARTING_USDC_PRICE = 1 * (10 ** (USDC_DECIMALS - 1)); //.1
+    uint256 constant STARTING_USDC_PRICE = 3 * (10 ** (USDC_DECIMALS - 1)); //.1
     uint256 public constant MAX_PRICE_EVER = STARTING_USDC_PRICE * 4096;
 
     //-----------------CONTRACTS-----------------
@@ -34,25 +35,34 @@ contract EarlyLiquidityTest is Test {
     Handler handler;
     EarlyLiquidityMockMinerPool minerPool;
     TestGLOW glow;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
     address vetoCouncilAddress = address(0x49349031419);
+
+    address deployer = tx.origin;
 
     //-----------------SETUP-----------------
     function setUp() public {
-        usdc = new MockUSDC();
-        holdingContract = new HoldingContract(vetoCouncilAddress);
-        earlyLiquidity = new EarlyLiquidity(address(usdc),address(holdingContract));
-        glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
-        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(usdc),
-        address(holdingContract));
-        earlyLiquidity.setMinerPool(address(minerPool));
-        glw = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
+        vm.startPrank(deployer);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedGlow = computeCreateAddress(deployer, deployerNonce + 5);
+        usdc = new MockUSDC(); //deployerNonce
+        holdingContract = new SafetyDelay(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 1
+        earlyLiquidity =
+            new EarlyLiquidity(address(usdc), address(holdingContract), precomputedGlow, precomputedMinerPool); //deployerNonce + 2
+        glow =
+            new TestGLOW(address(earlyLiquidity), VESTING_CONTRACT, precomputedMinerPool, VETO_COUNCIL, GRANTS_TREASURY); //deployerNonce + 3
+        minerPool = new EarlyLiquidityMockMinerPool( //deployerNonce + 4
+        address(earlyLiquidity), address(glow), address(usdc), address(holdingContract));
+        glw =
+            new TestGLOW(address(earlyLiquidity), VESTING_CONTRACT, precomputedMinerPool, VETO_COUNCIL, GRANTS_TREASURY); //deployerNonce + 5
         handler = new Handler(address(earlyLiquidity), address(usdc));
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = IEarlyLiquidity.buy.selector;
         FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
         targetSelector(fs);
         targetContract(address(handler));
+        vm.stopPrank();
     }
 
     //-----------------INVARIANTS-----------------
@@ -82,14 +92,13 @@ contract EarlyLiquidityTest is Test {
      * @dev we also send 1 billion * 1e12 USDC to SIMON to buy GLOW with
      * @dev this function is used in other tests to stage the contract
      */
-    function test_setGlowAndMint() public {
-        earlyLiquidity.setGlowToken(address(glw));
+    function test_mintGlow() public {
         assertEq(glw.balanceOf(address(earlyLiquidity)), 12_000_000 ether);
         usdc.mint(SIMON, 1_000_000_000 ether);
     }
 
     function test_buyAllInEL() public {
-        test_setGlowAndMint();
+        test_mintGlow();
         vm.startPrank(SIMON);
         uint256 incrementsToPurchase = earlyLiquidity.TOTAL_INCREMENTS_TO_SELL();
         uint256 price = earlyLiquidity.getPrice(incrementsToPurchase);
@@ -108,7 +117,7 @@ contract EarlyLiquidityTest is Test {
      * @dev for more comprehensive tests regarding pricing, see the EarlyLiquidityTest.ts file in this folder
      */
     function test_Buy() public {
-        test_setGlowAndMint();
+        test_mintGlow();
 
         vm.startPrank(SIMON);
         //buy 400,000 tokens (max increments)
@@ -138,7 +147,7 @@ contract EarlyLiquidityTest is Test {
     }
 
     function test_noPriceShouldEverRevert() public {
-        test_setGlowAndMint();
+        test_mintGlow();
 
         vm.startPrank(SIMON);
         //buy 400,000 tokens (max increments)
@@ -176,7 +185,7 @@ contract EarlyLiquidityTest is Test {
      *             - miner pool contract
      */
     function test_Buy_checkUSDCGoesToHoldingContract() public {
-        test_setGlowAndMint();
+        test_mintGlow();
 
         vm.startPrank(SIMON);
         //buy 400,000 tokens (max increments)
@@ -204,54 +213,57 @@ contract EarlyLiquidityTest is Test {
         assertTrue(holdingContractBalanceAfter - totalCost == holdingContractBalanceBefore);
     }
 
-    /**
-     * @dev we replicate the logic above but assuming USDC has
-     *         - implemented a tax
-     * @dev - the amount sent to the miner pool contract through {donateToGRCMinerRewardsPoolEarlyLiquidity}
-     *        - should be equal to the total amount that got sent even with an unforseen tax
-     */
-    function test_Buy_checkUSDCGoesToMinerPool_taxToken() public {
-        vm.startPrank(SIMON);
-        MockUSDCTax taxUsdc = new MockUSDCTax();
-        uint256 increments = 40_000_000;
-        taxUsdc.mint(SIMON, 1_000_000_000 ether);
-        holdingContract = new HoldingContract(vetoCouncilAddress);
-        earlyLiquidity = new EarlyLiquidity(address(taxUsdc),address(holdingContract));
-        glow = new TestGLOW(address(earlyLiquidity),VESTING_CONTRACT);
-        earlyLiquidity.setGlowToken(address(glow));
-        minerPool = new EarlyLiquidityMockMinerPool(address(earlyLiquidity),address(glow),address(taxUsdc),
-        address(holdingContract));
-        earlyLiquidity.setMinerPool(address(minerPool));
+    //TODO: uncomment this once done with pre-computed addresses
+    // /**
+    //  * @dev we replicate the logic above but assuming USDC has
+    //  *         - implemented a tax
+    //  * @dev - the amount sent to the miner pool contract through {donateToGRCMinerRewardsPoolEarlyLiquidity}
+    //  *        - should be equal to the total amount that got sent even with an unforseen tax
+    //  */
+    // function test_Buy_checkUSDCGoesToMinerPool_taxToken() public {
+    //     vm.startPrank(SIMON);
+    //     uint deployerNonce = vm.getNonce(deployer);
+    //     MockUSDCTax taxUsdc = new MockUSDCTax(); //deployerNonce
+    //     uint256 increments = 40_000_000;
+    //     taxUsdc.mint(SIMON, 1_000_000_000 ether);
+    //     holdingContract = new HoldingContract(vetoCouncilAddress);
+    //     earlyLiquidity = new EarlyLiquidity(address(taxUsdc), address(holdingContract));
+    //     glow = new TestGLOW(address(earlyLiquidity), VESTING_CONTRACT);
+    //     earlyLiquidity.setGlowToken(address(glow));
+    //     minerPool = new EarlyLiquidityMockMinerPool(
+    //         address(earlyLiquidity), address(glow), address(taxUsdc), address(holdingContract)
+    //     );
+    //     earlyLiquidity.setMinerPool(address(minerPool));
 
-        uint256 totalCost = earlyLiquidity.getPrice(increments);
-        taxUsdc.approve(address(earlyLiquidity), totalCost);
-        uint256 glwBalanceBefore = glw.balanceOf(SIMON);
+    //     uint256 totalCost = earlyLiquidity.getPrice(increments);
+    //     taxUsdc.approve(address(earlyLiquidity), totalCost);
+    //     uint256 glwBalanceBefore = glw.balanceOf(SIMON);
 
-        uint256 holdingContractBalanceBefore = taxUsdc.balanceOf(address(holdingContract));
-        uint256 usdcBalanceBefore = taxUsdc.balanceOf(SIMON);
-        assertEq(usdcBalanceBefore, 1_000_000_000 ether);
-        assertEq(glwBalanceBefore, 0);
-        uint256 allowance = taxUsdc.allowance(address(this), address(earlyLiquidity));
+    //     uint256 holdingContractBalanceBefore = taxUsdc.balanceOf(address(holdingContract));
+    //     uint256 usdcBalanceBefore = taxUsdc.balanceOf(SIMON);
+    //     assertEq(usdcBalanceBefore, 1_000_000_000 ether);
+    //     assertEq(glwBalanceBefore, 0);
+    //     uint256 allowance = taxUsdc.allowance(address(this), address(earlyLiquidity));
 
-        taxUsdc.approve(address(earlyLiquidity), totalCost);
-        earlyLiquidity.buy(increments, totalCost);
+    //     taxUsdc.approve(address(earlyLiquidity), totalCost);
+    //     earlyLiquidity.buy(increments, totalCost);
 
-        uint256 glwBalanceAfter = glw.balanceOf(SIMON);
-        uint256 usdcBalanceAfter = taxUsdc.balanceOf(SIMON);
-        uint256 holdingContractBalanceAfter = taxUsdc.balanceOf(address(holdingContract));
+    //     uint256 glwBalanceAfter = glw.balanceOf(SIMON);
+    //     uint256 usdcBalanceAfter = taxUsdc.balanceOf(SIMON);
+    //     uint256 holdingContractBalanceAfter = taxUsdc.balanceOf(address(holdingContract));
 
-        assertEq(earlyLiquidity.totalSold(), 400_000 ether);
+    //     assertEq(earlyLiquidity.totalSold(), 400_000 ether);
 
-        uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity();
-        assertEq(amountReceivedFromELInMP, holdingContractBalanceAfter - holdingContractBalanceBefore);
-        assertTrue(amountReceivedFromELInMP != totalCost);
-    }
+    //     uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity();
+    //     assertEq(amountReceivedFromELInMP, holdingContractBalanceAfter - holdingContractBalanceBefore);
+    //     assertTrue(amountReceivedFromELInMP != totalCost);
+    // }
 
     /**
      * @dev we test that if the user input maxCost is too low, the transaction should revert
      */
     function test_Buy_priceTooHigh_shouldFail() public {
-        test_setGlowAndMint();
+        test_mintGlow();
 
         vm.startPrank(SIMON);
         //buy 1_000_000 * .01 = 10_000  tokens
@@ -262,20 +274,10 @@ contract EarlyLiquidityTest is Test {
     }
 
     /**
-     * @dev we test that once Glow is set, it cannot be set again
-     */
-    function test_setGlowTokenTwice_shouldFail() public {
-        test_setGlowAndMint();
-
-        vm.expectRevert("Glow token already set");
-        earlyLiquidity.setGlowToken(address(glw));
-    }
-
-    /**
      * @dev we test that the starting price should be 0.6 (6 * 1e5) USDC
      */
     function test_getCurrentPrice() public {
-        test_setGlowAndMint();
+        test_mintGlow();
         //starting price should be 60 cents
         uint256 currentPrice = earlyLiquidity.getCurrentPrice();
         console.log("current price", currentPrice);

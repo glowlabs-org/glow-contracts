@@ -8,7 +8,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 import {GCC} from "@/GCC.sol";
 import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
-import {Glow} from "@/Glow.sol";
+import {Glow} from "@/GLOW.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 /**
@@ -29,7 +29,7 @@ struct Pointers {
 /**
  * @title GlowGuardedLaunch
  * @notice This contract is used to guard the launch of the GLOW token
- *               - GLOW Protocol's guraded launch is meant to protect the protocol from
+ *               - GLOW Protocol's guarded launch is meant to protect the protocol from
  *                 malicious actors and to give the community time to audit the code
  *               - During the guarded launch, transfers are restricted to EOA's and allowlisted contracts
  *               - The veto council also has the ability to permanently freeze transfers in case of an emergency
@@ -70,27 +70,58 @@ contract GlowGuardedLaunch is Glow, Ownable {
     mapping(address => bool) public allowlistedContracts;
 
     /* -------------------------------------------------------------------------- */
+    /*                                   events                                   */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Emitted when the contract is permanently frozen
+     */
+    event PermanentFreeze();
+    /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
 
-    /// @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
-    /// @notice sends 12 million GLW to the Early Liquidity Contract and 90 million GLW to the unlocker contract
-    /// @param _earlyLiquidityAddress The address of the Early Liquidity Contract
-    /// @param _vestingContract The address of the vesting contract
-    /// @param _owner The address of the owner
-    /// @param _usdg The address of the USDG contract
-    /// @param _uniswapV2Factory The address of the Uniswap V2 Factory
+    /*
+    * @notice Sets the immutable variables (GENESIS_TIMESTAMP, EARLY_LIQUIDITY_ADDRESS)
+    * @notice sends 12 million GLW to the Early Liquidity Contract and 90 million GLW to the unlocker contract
+    * @param _earlyLiquidityAddress The address of the Early Liquidity Contract
+    * @param _vestingContract The address of the vesting contract
+                              -unused in guarded launch
+      * @param _gcaAndMinerPoolAddress The address of the GCA and Miner Pool
+    * @param _vetoCouncilAddress The address of the Veto Council
+    * @param _grantsTreasuryAddress The address of the Grants Treasury
+    * @param _owner The address of the owner
+    * @param _usdg The address of the USDG contract
+    * @param _uniswapV2Factory The address of the Uniswap V2 Factory
+    * @param _gccContract The address of the GCC contract
+    */
     constructor(
         address _earlyLiquidityAddress,
         address _vestingContract,
+        address _gcaAndMinerPoolAddress,
+        address _vetoCouncilAddress,
+        address _grantsTreasuryAddress,
         address _owner,
         address _usdg,
-        address _uniswapV2Factory
-    ) payable Glow(_earlyLiquidityAddress, _vestingContract) Ownable(_owner) {
+        address _uniswapV2Factory,
+        address _gccContract
+    )
+        payable
+        Glow(_earlyLiquidityAddress, _vestingContract, _gcaAndMinerPoolAddress, _vetoCouncilAddress, _grantsTreasuryAddress)
+        Ownable(_owner)
+    {
         allowlistedContracts[address(this)] = true;
         allowlistedContracts[_earlyLiquidityAddress] = true;
-        allowlistedContracts[_vestingContract] = true;
         allowlistedContracts[getPair(_uniswapV2Factory, address(this), _usdg)] = true;
+
+        //The addresses are set as immutables in the child Glow.sol contract
+        allowlistedContracts[_gcaAndMinerPoolAddress] = true;
+        allowlistedContracts[_vetoCouncilAddress] = true;
+        allowlistedContracts[_grantsTreasuryAddress] = true;
+
+        address carbonCreditAuction = address(GCC(_gccContract).CARBON_CREDIT_AUCTION());
+        require(carbonCreditAuction != address(0), "Glow: carbonCreditAuction is zero");
+        allowlistedContracts[carbonCreditAuction] = true;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -103,65 +134,11 @@ contract GlowGuardedLaunch is Glow, Ownable {
      * @dev after this function is called, all transfers are permanently frozen
      */
     function freezeContract() external {
-        if (!IVetoCouncil(vetoCouncilAddress).isCouncilMember(msg.sender)) {
+        if (!IVetoCouncil(VETO_COUNCIL_ADDRESS).isCouncilMember(msg.sender)) {
             revert ErrNotVetoCouncilMember();
         }
         permanentlyFreezeTransfers = true;
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                            one time setters override                       */
-    /* -------------------------------------------------------------------------- */
-
-    /**
-     * @notice Sets the addresses of the GCA and Miner Pool, Veto Council, and Grants Treasury
-     * @dev this function can only be called once
-     * @param _gcaAndMinerPoolAddress the address of the GCA and Miner Pool contract
-     * @param _vetoCouncilAddress the address of the Veto Council contract
-     * @param _grantsTreasuryAddress the address of the Grants Treasury contract
-     */
-    function setContractAddresses(
-        address _gcaAndMinerPoolAddress,
-        address _vetoCouncilAddress,
-        address _grantsTreasuryAddress
-    ) external override onlyOwner {
-        // Zero address checks
-        //Only need one check since all three addresses are set at the same time atomically
-        if (!_isZeroAddress(gcaAndMinerPoolAddress)) _revert(IGlow.AddressAlreadySet.selector);
-        if (_isZeroAddress(_gcaAndMinerPoolAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
-        if (_isZeroAddress(_vetoCouncilAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
-        if (_isZeroAddress(_grantsTreasuryAddress)) _revert(IGlow.ZeroAddressNotAllowed.selector);
-
-        // Duplicate checks
-        if (_gcaAndMinerPoolAddress == _vetoCouncilAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
-        if (_gcaAndMinerPoolAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
-        if (_vetoCouncilAddress == _grantsTreasuryAddress) _revert(IGlow.DuplicateAddressNotAllowed.selector);
-
-        //Set the addresses
-        gcaAndMinerPoolAddress = _gcaAndMinerPoolAddress;
-        vetoCouncilAddress = _vetoCouncilAddress;
-        grantsTreasuryAddress = _grantsTreasuryAddress;
-        allowlistedContracts[_gcaAndMinerPoolAddress] = true;
-        allowlistedContracts[_vetoCouncilAddress] = true;
-        allowlistedContracts[_grantsTreasuryAddress] = true;
-
-        address gccContract = address(MinerPoolAndGCA(_gcaAndMinerPoolAddress).gccContract());
-        require(gccContract != address(0), "Glow: gccContract is zero");
-        address carbonCreditAuction = address(GCC(gccContract).CARBON_CREDIT_AUCTION());
-        require(carbonCreditAuction != address(0), "Glow: carbonCreditAuction is zero");
-        allowlistedContracts[carbonCreditAuction] = true;
-    }
-
-    /**
-     * @notice Sets the address of the GlowUnlocker contract
-     * @dev this function can only be called once
-     * @param _glowUnlocker the address of the GlowUnlocker contract
-     */
-    function setGlowUnlocker(address _glowUnlocker) external onlyOwner {
-        if (!_isZeroAddress(glowUnlocker)) _revert(IGlow.AddressAlreadySet.selector);
-        if (_isZeroAddress(_glowUnlocker)) _revert(IGlow.ZeroAddressNotAllowed.selector);
-        glowUnlocker = _glowUnlocker;
-        allowlistedContracts[_glowUnlocker] = true;
+        emit PermanentFreeze();
     }
 
     /* -------------------------------------------------------------------------- */
@@ -183,6 +160,22 @@ contract GlowGuardedLaunch is Glow, Ownable {
             _revertIfNotAllowlistedContract(to);
         }
         super._update(from, to, value);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                  glow overrides                            */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @inheritdoc Glow
+     * @dev Guarded launch does not mint tokens to the vesting contract
+     */
+    function _handleConstructorMint(
+        address _earlyLiquidityAddress,
+        address _vestingContract,
+        address _grantsTreasryAddress
+    ) internal override {
+        _mint(_earlyLiquidityAddress, 12_000_000 ether);
+        _mint(_grantsTreasryAddress, 6_000_000 ether);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -213,7 +206,7 @@ contract GlowGuardedLaunch is Glow, Ownable {
     /**
      * @notice Returns the univ2 pair for a given factory and token
      * @param factory the univ2 factory
-     * @param _tokenA the first tokenx
+     * @param _tokenA the first token
      * @param _tokenB the second token
      * @return pair - the univ2 pair
      */

@@ -9,26 +9,25 @@ import {GoerliGCCGuardedLaunch} from "@/testing/GuardedLaunch/GoerliGCC.GuardedL
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
-import {HoldingContract} from "@/HoldingContract.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
+import {SafetyDelay} from "@/SafetyDelay.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
 import {BatchCommit} from "@/BatchCommit.sol";
 import "forge-std/Test.sol";
 import {USDG} from "@/USDG.sol";
 
-string constant fileToWriteTo = "deployedContractsGoerli.json";
+string constant fileToWriteTo = "deployedContractsGoerliGuardedLaunch.json";
 
 contract DeployFull is Test, Script {
-    bytes32 gcaRequirementsHash = keccak256("my hash good ser");
+    bytes32 gcaRequirementsHash = keccak256("GCA Beta Hash");
     address vestingContract = address(0xE414D49268837291fde21c33AD7e30233b7041C2);
 
     MockUSDC mockUSDC;
     EarlyLiquidity earlyLiquidity;
     MinerPoolAndGCA gcaAndMinerPoolContract;
     VetoCouncil vetoCouncilContract;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
     GrantsTreasury treasury;
     USDG usdg;
     address uniswapV2Router = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
@@ -47,34 +46,74 @@ contract DeployFull is Test, Script {
             vm.removeFile(fileToWriteTo);
         }
 
+        address deployer = 0xD509A9480559337e924C764071009D60aaCA623d;
+        uint256 deployerNonce = vm.getNonce(deployer) + 1; //add 1 for mock usdc
+        address precomputedGlow = computeCreateAddress(deployer, deployerNonce + 1);
+        address precomputedUSDG = computeCreateAddress(deployer, deployerNonce + 2);
+        address precomputedEarlyLiquidity = computeCreateAddress(deployer, deployerNonce + 3);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 5);
+        address precomputedHoldingContract = computeCreateAddress(deployer, deployerNonce + 6);
+        address precomputedTreasury = computeCreateAddress(deployer, deployerNonce + 7);
+        address precomputedGCAAndMinerPoolContract = computeCreateAddress(deployer, deployerNonce + 8);
         vm.startBroadcast();
-        address usdgOwner = tx.origin;
         mockUSDC = new MockUSDC();
-        usdg = new USDG({
-           _usdc: address(mockUSDC),
-           _usdcReceiver: usdcReceiver,
-           _owner: usdgOwner,
-           _univ2Factory: uniswapV2Factory
-        });
+        if (deployer != tx.origin) {
+            revert("deployer is not tx.origin");
+        }
 
-        mockUSDC.mint(tx.origin, 1000000 * 1e6);
-        mockUSDC.approve(address(usdg), 1000000 * 1e6);
-        usdg.swap(tx.origin, 1000000 * 1e6);
-        earlyLiquidity = new EarlyLiquidity(address(usdg),address(holdingContract));
-        Governance governance = new Governance();
+        GoerliGCCGuardedLaunch gcc = new GoerliGCCGuardedLaunch({
+            _gcaAndMinerPoolContract: address(precomputedGCAAndMinerPoolContract),
+            _governance: address(precomputedGovernance),
+            _glowToken: address(precomputedGlow),
+            _usdg: address(precomputedUSDG),
+            _vetoCouncilAddress: address(precomputedVetoCouncil),
+            _uniswapRouter: uniswapV2Router,
+            _uniswapFactory: uniswapV2Factory
+        }); //deployerNonce
 
         GoerliGlowGuardedLaunch glow = new GoerliGlowGuardedLaunch({
-            _earlyLiquidityAddress: address(earlyLiquidity),
+            _earlyLiquidityAddress: address(precomputedEarlyLiquidity),
             _vestingContract: vestingContract,
+            _gcaAndMinerPoolAddress: address(precomputedGCAAndMinerPoolContract),
+            _vetoCouncilAddress: address(precomputedVetoCouncil),
+            _grantsTreasuryAddress: address(precomputedTreasury),
             _owner: tx.origin,
-            _usdg: address(usdg),
-            _uniswapV2Factory: uniswapV2Factory
-        });
+            _usdg: address(precomputedUSDG),
+            _uniswapV2Factory: uniswapV2Factory,
+            _gccContract: address(gcc)
+        }); //deployerNonce + 1
 
-        vetoCouncilContract = new VetoCouncil(address(glow), address(glow), startingVetoCouncilAgents);
-        holdingContract = new HoldingContract(address(vetoCouncilContract));
-        treasury = new GrantsTreasury(address(glow),address(governance));
-        gcaAndMinerPoolContract = new MinerPoolAndGCA(
+        usdg = new USDG({
+            _usdc: address(mockUSDC),
+            _usdcReceiver: usdcReceiver,
+            _owner: deployer,
+            _univ2Factory: uniswapV2Factory,
+            _glow: address(glow),
+            _gcc: address(gcc),
+            _holdingContract: address(precomputedHoldingContract),
+            _vetoCouncilContract: address(precomputedVetoCouncil),
+            _impactCatalyst: address(gcc.IMPACT_CATALYST())
+        }); //deployerNonce + 2
+
+        earlyLiquidity = new EarlyLiquidity({
+            _usdcAddress: address(usdg),
+            _holdingContract: address(precomputedHoldingContract),
+            _glowToken: address(glow),
+            _minerPoolAddress: address(precomputedGCAAndMinerPoolContract)
+        }); //deployerNonce + 3
+        Governance governance = new Governance({
+            gcc: address(gcc),
+            gca: address(precomputedGCAAndMinerPoolContract),
+            vetoCouncil: address(precomputedVetoCouncil),
+            grantsTreasury: address(precomputedTreasury),
+            glw: address(glow)
+        }); //deployerNonce + 4
+
+        vetoCouncilContract = new VetoCouncil(address(glow), address(glow), startingVetoCouncilAgents); //deployerNonce + 5
+        holdingContract = new SafetyDelay(address(vetoCouncilContract), precomputedGCAAndMinerPoolContract); //deployerNonce + 6
+        treasury = new GrantsTreasury(address(glow), address(governance)); //deployerNonce + 7
+        gcaAndMinerPoolContract = new MinerPoolAndGCA( //deployerNonce + 8
             startingAgents,
             address(glow),
             address(governance),
@@ -82,41 +121,57 @@ contract DeployFull is Test, Script {
             address(earlyLiquidity),
             address(usdg),
             address(vetoCouncilContract),
-            address(holdingContract));
+            address(holdingContract),
+            address(gcc)
+        );
+        gcc.allowlistPostConstructionContracts();
+
+        //make sure precomputes are equal to original
+        assertEq(precomputedGlow, address(glow), "precomputed glow address is not equal to glow address");
+        assertEq(precomputedUSDG, address(usdg), "precomputed usdg address is not equal to usdg address");
+        assertEq(
+            precomputedEarlyLiquidity,
+            address(earlyLiquidity),
+            "precomputed early liquidity address is not equal to early liquidity address"
+        );
+        assertEq(
+            precomputedGovernance,
+            address(governance),
+            "precomputed governance address is not equal to governance address"
+        );
+        assertEq(
+            precomputedVetoCouncil,
+            address(vetoCouncilContract),
+            "precomputed veto council address is not equal to veto council address"
+        );
+        assertEq(
+            precomputedHoldingContract,
+            address(holdingContract),
+            "precomputed holding contract address is not equal to holding contract address"
+        );
+        assertEq(
+            precomputedTreasury, address(treasury), "precomputed treasury address is not equal to treasury address"
+        );
+        assertEq(
+            precomputedGCAAndMinerPoolContract,
+            address(gcaAndMinerPoolContract),
+            "precomputed gca and miner pool contract address is not equal to gca and miner pool contract address"
+        );
 
         glow.mint(tx.origin, 100 ether);
-        GoerliGCCGuardedLaunch gcc = new GoerliGCCGuardedLaunch({
-            _gcaAndMinerPoolContract: address(gcaAndMinerPoolContract),
-            _governance: address(governance),
-            _glowToken: address(glow),
-            _usdg: address(usdg),
-            _vetoCouncilAddress: address(vetoCouncilContract),
-            _uniswapRouter: uniswapV2Router,
-            _uniswapFactory: uniswapV2Factory
-        });
-        gcc.allowlistPostConstructionContracts();
-        gcaAndMinerPoolContract.setGCC(address(gcc));
-        glow.setContractAddresses(address(gcaAndMinerPoolContract), address(vetoCouncilContract), address(treasury));
+        mockUSDC.mint(tx.origin, 1000000 * 1e6);
+        mockUSDC.approve(address(usdg), 1000000 * 1e6);
+        usdg.swap(tx.origin, 1000000 * 1e6);
+
+        //TODO: make sure this is taken care of
+        // glow.setContractAddresses(address(gcaAndMinerPoolContract), address(vetoCouncilContract), address(treasury));
         BatchCommit batchCommit = new BatchCommit(address(gcc), address(usdg));
         gcc.mint(tx.origin, 1000 ether);
         gcc.approve(uniswapV2Router, 100 ether);
         usdg.approve(uniswapV2Router, 20000 * 1e6);
-        usdg.setAllowlistedContracts({
-            _glow: address(glow),
-            _gcc: address(gcc),
-            _holdingContract: address(holdingContract),
-            _vetoCouncilContract: address(vetoCouncilContract),
-            _impactCatalyst: address(gcc.IMPACT_CATALYST())
-        });
+
         IUniswapRouterV2(uniswapV2Router).addLiquidity(
             address(gcc), address(usdg), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
-        );
-        governance.setContractAddresses(
-            address(gcc),
-            address(gcaAndMinerPoolContract),
-            address(vetoCouncilContract),
-            address(treasury),
-            address(glow)
         );
 
         gcc.approve(tx.origin, 100 ether);
@@ -165,8 +220,11 @@ contract DeployFull is Test, Script {
         jsonStringOutput = string(
             abi.encodePacked(jsonStringOutput, "\"batchCommit\":", "\"", vm.toString(address(batchCommit)), "\"", ",")
         );
+
         jsonStringOutput =
-            string(abi.encodePacked(jsonStringOutput, "\"usdc\":", "\"", vm.toString(address(usdg)), "\"", ","));
+            string(abi.encodePacked(jsonStringOutput, "\"usdc\":", "\"", vm.toString(address(mockUSDC)), "\"", ","));
+        jsonStringOutput =
+            string(abi.encodePacked(jsonStringOutput, "\"usdg\":", "\"", vm.toString(address(usdg)), "\"", ","));
         jsonStringOutput = string(
             abi.encodePacked(
                 jsonStringOutput, "\"impactCatalyst\":", "\"", vm.toString(address(gcc.IMPACT_CATALYST())), "\"", ","

@@ -11,10 +11,10 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
-import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import {IHoldingContract} from "@/HoldingContract.sol";
+import {ISafetyDelay} from "@/SafetyDelay.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 
 /**
  * @title Miner Pool And GCA
@@ -71,14 +71,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     ///           -   mistakenly or on purpose
     ///     - If such a case happens, the Veto Council can delay the holding contract by 13 weeks
     ///     - This should give enough time to rectify the situation
-    IHoldingContract public immutable HOLDING_CONTRACT;
-
-    /* -------------------------------------------------------------------------- */
-    /*                                 state vars                                */
-    /* -------------------------------------------------------------------------- */
+    ISafetyDelay public immutable HOLDING_CONTRACT;
 
     /// @notice the GCC contract
-    IGCC public gccContract;
+    IGCC public immutable GCC;
 
     /* -------------------------------------------------------------------------- */
     /*                                   mappings                                  */
@@ -118,7 +114,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param pushedUSDCWeight - the aggregate amount of USDC weight pushed
      * @dev meant to be used in conjunction with the _weightsPushed mapping
      *       - when a user claims from a bucket, the pushed weights are added to the total weights
-     *       - these are tracked to ensure that the pushed weights dont overflow the total weights
+     *       - these are tracked to ensure that the pushed weights don't overflow the total weights
      *       - that were put in place for that specific bucket
      */
     struct PushedWeights {
@@ -139,6 +135,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param _usdcToken - the USDC token address
      * @param _vetoCouncil - the address of the veto council contract.
      * @param _holdingContract - the address of the holding contract
+     * @param _gcc - the address of the gcc contract
      */
     constructor(
         address[] memory _gcaAgents,
@@ -148,13 +145,14 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         address _earlyLiquidity,
         address _usdcToken,
         address _vetoCouncil,
-        address _holdingContract
+        address _holdingContract,
+        address _gcc
     ) payable GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _VETO_COUNCIL = _vetoCouncil;
-        HOLDING_CONTRACT = IHoldingContract(_holdingContract);
-        HOLDING_CONTRACT.setMinerPool(address(this));
+        HOLDING_CONTRACT = ISafetyDelay(_holdingContract);
         USDC = _usdcToken;
+        GCC = IGCC(_gcc);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -246,6 +244,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             glwWeight: glwWeight,
             usdcWeight: usdcWeight
         });
+
         _handleMintToCarbonCreditAuction(bucketId, globalStatePackedData & _UINT128_MASK);
 
         //no need to use a mask since totalUSDCWeight uses the last 64 bits, so we can just shift
@@ -309,16 +308,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             _revert(IMinerPool.CannotDelayEmptyBucket.selector);
         }
 
-        _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(_BUCKET_DELAY_DURATION);
-    }
-
-    /// @notice initializes the gcc token
-    /// @param gcc - the gcc token
-    function setGCC(address gcc) external {
-        if (!_isZeroAddress(address(gccContract))) {
-            _revert(IGCA.GCCAlreadySet.selector);
-        }
-        gccContract = IGCC(gcc);
+        _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(bucketDelayDuration());
     }
 
     /* -------------------------------------------------------------------------- */
@@ -378,6 +368,14 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         );
     }
 
+    /**
+     * @notice The amount of time a delay action will delay a bucket by
+     * @return the amount of time a delay action will delay a bucket by
+     */
+    function bucketDelayDuration() public pure virtual returns (uint256) {
+        return _BUCKET_DELAY_DURATION;
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                          internal state changing funcs                     */
     /* -------------------------------------------------------------------------- */
@@ -401,7 +399,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         if (mask & existingBitmap == 0) {
             existingBitmap |= mask;
             _mintedToCarbonCreditAuctionBitmap[key] = existingBitmap;
-            gccContract.mintToCarbonCreditAuction(bucketId, amountToMint);
+            GCC.mintToCarbonCreditAuction(bucketId, amountToMint);
         }
     }
 
@@ -464,7 +462,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     /**
      * @dev checks to make sure the weights in the report
-     *         - dont overflow the total weights that have been set for the bucket
+     *         - don't overflow the total weights that have been set for the bucket
      *         - Without this check, a malicious weight could be used to overflow the total weights
      *         - and grab rewards from other buckets
      * @param bucketId - the id of the bucket
@@ -526,6 +524,20 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         return _domainSeparatorV4();
     }
 
+    /**
+     * @notice returns the bucket duration
+     * @return bucketDuration - the bucket duration
+     */
+    function bucketDuration() internal pure virtual override(GCA, BucketSubmission) returns (uint256) {
+        return _BUCKET_DURATION;
+    }
+
+    /**
+     * @notice reverts with {selector} if {a} > {b}
+     * @param a - the first number
+     * @param b - the second number
+     * @param selector - the selector to revert with
+     */
     function _revertIfGreater(uint256 a, uint256 b, bytes4 selector) internal pure {
         if (a > b) _revert(selector);
     }

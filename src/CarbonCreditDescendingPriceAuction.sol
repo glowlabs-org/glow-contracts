@@ -5,7 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HalfLifeCarbonCreditAuction} from "@/libraries/HalfLifeCarbonCreditAuction.sol";
 import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
 /**
- * @title CarbonCreditDutchAuction
+ * @title CarbonCreditDescendingPriceAuction
  * @notice This contract is a reverse dutch auction for GCC.
  *         - The price has a half life of 1 week
  *         - The max that the price can grow is 2x per 24 hours
@@ -20,7 +20,7 @@ import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
  * @author 0xSimon(twitter) -  0xSimbo(github)
  */
 
-contract CarbonCreditDutchAuction is ICarbonCreditAuction {
+contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
     /* -------------------------------------------------------------------------- */
     /*                                   errors                                   */
     /* -------------------------------------------------------------------------- */

@@ -82,6 +82,15 @@ contract VetoCouncilSalaryHelper {
      * @dev member -> payment nonce -> amount withdrawn
      */
     mapping(address => mapping(uint256 => uint256)) public amountAlreadyWithdrawnFromPaymentNonce;
+
+    /**
+     * @dev emitted when a member claims a payout
+     * @param member - the address of the member that claimed the payout
+     * @param nonce - the nonce of the payout
+     * @param amount - the amount of tokens that were claimed
+     */
+    event PayoutClaimed(address indexed member, uint256 indexed nonce, uint256 amount);
+
     /**
      * ----------------------------------------------
      */
@@ -264,6 +273,7 @@ contract VetoCouncilSalaryHelper {
         uint256 withdrawableAmount = nextPayoutAmount(member, payoutNonce, members);
         amountAlreadyWithdrawnFromPaymentNonce[member][payoutNonce] += withdrawableAmount;
         SafeERC20.safeTransfer(token, member, withdrawableAmount);
+        emit PayoutClaimed(member, payoutNonce, withdrawableAmount);
     }
 
     /**

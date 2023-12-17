@@ -21,6 +21,7 @@ contract USDG is ERC20Permit, Ownable {
     error ErrNotVetoCouncilMember();
     error ErrPermanentlyFrozen();
     error ToCannotBeUSDCReceiver();
+    error ErrCannotSwapZero();
 
     /* -------------------------------------------------------------------------- */
     /*                                  immutables                                */
@@ -40,13 +41,14 @@ contract USDG is ERC20Permit, Ownable {
      */
     address public immutable UNISWAP_V2_FACTORY;
 
-    /* -------------------------------------------------------------------------- */
-    /*                                 state vars                                */
-    /* -------------------------------------------------------------------------- */
     /**
      * @notice the veto council contract
      */
-    IVetoCouncil public vetoCouncilContract;
+    IVetoCouncil public immutable vetoCouncilContract;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice if true, transfers are permanently frozen
@@ -65,6 +67,15 @@ contract USDG is ERC20Permit, Ownable {
     mapping(address => bool) public allowlistedContracts;
 
     /* -------------------------------------------------------------------------- */
+    /*                                   events                                   */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Emitted when the contract is permanently frozen
+     */
+    event PermanentFreeze();
+
+    /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
 
@@ -73,17 +84,35 @@ contract USDG is ERC20Permit, Ownable {
      * @param _usdcReceiver the address to receive USDC from the `swap` function
      * @param _owner the owner of the contract
      * @param _univ2Factory the uniswap v2 factory
+     * @param _glow the glow token
+     * @param _gcc the gcc token
+     * @param _holdingContract the holding contract
+     * @param _vetoCouncilContract the veto council contract
+     * @param _impactCatalyst the impact catalyst contract
      */
-    constructor(address _usdc, address _usdcReceiver, address _owner, address _univ2Factory)
-        payable
-        Ownable(_owner)
-        ERC20("USDC", "USDC")
-        ERC20Permit("USDC")
-    {
+    constructor(
+        address _usdc,
+        address _usdcReceiver,
+        address _owner,
+        address _univ2Factory,
+        address _glow,
+        address _gcc,
+        address _holdingContract,
+        address _vetoCouncilContract,
+        address _impactCatalyst
+    ) payable Ownable(_owner) ERC20("Guarded USDC ", "USDG-GLOW") ERC20Permit("Guarded USDC") {
         USDC = ERC20Permit(_usdc);
         USDC_RECEIVER = _usdcReceiver;
         UNISWAP_V2_FACTORY = _univ2Factory;
         allowlistedContracts[_usdcReceiver] = true;
+        allowlistedContracts[_holdingContract] = true;
+        //Allowlist the glow/usdg and the gcc/usdg pair
+        address glowUSDGPair = getPair(UNISWAP_V2_FACTORY, address(this), _glow);
+        allowlistedContracts[glowUSDGPair] = true;
+        address gccUSDGPair = getPair(UNISWAP_V2_FACTORY, address(this), _gcc);
+        allowlistedContracts[gccUSDGPair] = true;
+        vetoCouncilContract = IVetoCouncil(_vetoCouncilContract);
+        allowlistedContracts[_impactCatalyst] = true;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -99,48 +128,12 @@ contract USDG is ERC20Permit, Ownable {
      */
     function swap(address to, uint256 amount) public {
         if (to == USDC_RECEIVER) revert ToCannotBeUSDCReceiver();
+        if (amount == 0) revert ErrCannotSwapZero();
         uint256 balBefore = USDC.balanceOf(USDC_RECEIVER);
         USDC.transferFrom(msg.sender, USDC_RECEIVER, amount);
         uint256 balAfter = USDC.balanceOf(USDC_RECEIVER);
         amount = balAfter - balBefore;
         _mint(to, amount);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                                  allowlist                                 */
-    /* -------------------------------------------------------------------------- */
-
-    /**
-     * @notice Adds contracts to the allowlist
-     * @param _glow the glow token
-     * @param _gcc the gcc token
-     * @param _holdingContract the holding contract
-     * @param _vetoCouncilContract the veto council contract
-     * @param _impactCatalyst the impact catalyst contract
-     * @dev only the owner can add contracts to the allowlist
-     * @dev contracts must be added to the allowlist before they can receive or send USDG
-     *             - EOA's can always receive and send USDG
-     * @dev this is a one time setter, after the first call, the owner is renounced
-     */
-    function setAllowlistedContracts(
-        address _glow,
-        address _gcc,
-        address _holdingContract,
-        address _vetoCouncilContract,
-        address _impactCatalyst
-    ) external onlyOwner {
-        allowlistedContracts[_glow] = true;
-        allowlistedContracts[_gcc] = true;
-        allowlistedContracts[_holdingContract] = true;
-        //Allowlist the glow/usdg and the gcc/usdg pair
-        address glowUSDGPair = getPair(UNISWAP_V2_FACTORY, address(this), _glow);
-        allowlistedContracts[glowUSDGPair] = true;
-        address gccUSDGPair = getPair(UNISWAP_V2_FACTORY, address(this), _gcc);
-        allowlistedContracts[gccUSDGPair] = true;
-        vetoCouncilContract = IVetoCouncil(_vetoCouncilContract);
-        allowlistedContracts[_impactCatalyst] = true;
-        allowlistedContracts[address(Glow(_glow).EARLY_LIQUIDITY_ADDRESS())] = true;
-        renounceOwnership();
     }
 
     /* -------------------------------------------------------------------------- */
@@ -157,6 +150,7 @@ contract USDG is ERC20Permit, Ownable {
             revert ErrNotVetoCouncilMember();
         }
         permanentlyFreezeTransfers = true;
+        emit PermanentFreeze();
     }
 
     /* -------------------------------------------------------------------------- */
@@ -212,7 +206,7 @@ contract USDG is ERC20Permit, Ownable {
     /**
      * @notice Returns the univ2 pair for a given factory and token
      * @param factory the univ2 factory
-     * @param _tokenA the first tokenx
+     * @param _tokenA the first token
      * @param _tokenB the second token
      * @return pair - the univ2 pair
      */

@@ -25,15 +25,14 @@ struct ClaimHoldingArgs {
     address token;
 }
 
-interface IHoldingContract {
+interface ISafetyDelay {
     function addHolding(address user, address token, uint192 amount) external;
     function holdings(address user, address token) external view returns (Holding memory);
     function claimHoldings(ClaimHoldingArgs[] memory args) external;
-    function setMinerPool(address _minerPool) external;
 }
 
 /**
- * @title HoldingContract
+ * @title SafetyDelay
  * @notice This contract is used to hold tokens for users
  *         - This contract holds all USDC tokens that are part of the protocol
  *         - Once farms withdraw, there is a 1 week delay before they can claim their tokens
@@ -41,7 +40,7 @@ interface IHoldingContract {
  *         - Veto Agents can delay all withdrawals by 13 weeks
  *         - A holding can be max delayed for 97 days
  */
-contract HoldingContract {
+contract SafetyDelay is ISafetyDelay {
     /* -------------------------------------------------------------------------- */
     /*                                   errors                                   */
     /* -------------------------------------------------------------------------- */
@@ -78,13 +77,13 @@ contract HoldingContract {
 
     /**
      * @dev a cached version of five weeks in seconds
-     * @dev used in delayNetwork to ensure that the network can only be delayed every 8 weeks
+     * @dev used in delayNetwork to ensure that the network can only be delayed every 5 weeks
      * @dev This helps prevent bad veto agents from spamming the delay network function
      *         - by giving governance enough time to kick out the veto agent
      */
     uint256 public constant FIVE_WEEKS = uint256(5 weeks);
 
-    /* -------------------------------------------------------------------------- */
+    /* -------------------------------------------------------------e------------- */
     /*                                 immutables                                 */
     /* -------------------------------------------------------------------------- */
     /**
@@ -93,15 +92,15 @@ contract HoldingContract {
      */
     IVetoCouncil public immutable VETO_COUNCIL;
 
-    /* -------------------------------------------------------------------------- */
-    /*                                 state vars                                */
-    /* -------------------------------------------------------------------------- */
-
     /**
      * @notice the address of the miner pool
      * @dev this is the address that can add holdings to the contract
      */
-    address public minerPool;
+    address public immutable MINER_POOL;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 state vars                                */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice the minimum timestamp for withdrawals
@@ -145,15 +144,25 @@ contract HoldingContract {
      */
     event HoldingAdded(address indexed user, address indexed token, uint192 amount);
 
+    /*
+        * @notice emitted when a user claims their holding
+        * @param user the address of the user
+        * @param token the address of the USDC token
+        * @param amount the amount of tokens claimed
+    */
+    event HoldingClaimed(address indexed user, address indexed token, uint192 amount);
+
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
 
     /**
      * @param _vetoCouncil the address of the veto council
+     * @param _minerPool the address of the miner pool
      */
-    constructor(address _vetoCouncil) payable {
+    constructor(address _vetoCouncil, address _minerPool) payable {
         VETO_COUNCIL = IVetoCouncil(_vetoCouncil);
+        MINER_POOL = _minerPool;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -170,6 +179,7 @@ contract HoldingContract {
         uint256 _minimumWithdrawTimestamp = minimumWithdrawTimestamp;
         if (_minimumWithdrawTimestamp == 0) {
             minimumWithdrawTimestamp = block.timestamp + VETO_HOLDING_DELAY;
+            emit NetworkDelay(msg.sender, block.timestamp);
             return;
         }
         if (block.timestamp < _minimumWithdrawTimestamp) {
@@ -182,6 +192,7 @@ contract HoldingContract {
         }
 
         minimumWithdrawTimestamp = block.timestamp + VETO_HOLDING_DELAY;
+        emit NetworkDelay(msg.sender, block.timestamp);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -197,17 +208,15 @@ contract HoldingContract {
      */
     function claimHoldings(ClaimHoldingArgs[] memory args) external {
         //If the network is frozen, don't allow withdrawals
-        bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
+        bool networkIsFrozen = isNetworkFrozen();
         //Loop over all the arguments
-        for (uint256 i; i < args.length; ++i) {
+        uint256 len = args.length;
+        for (uint256 i; i < len;) {
             ClaimHoldingArgs memory arg = args[i];
-            Holding memory holding = _holdings[arg.user][arg.token];
-            checkHoldingAvailable(holding, networkIsFrozen);
-            //Delete the holding args.
-            //Should set all the data to zero.
-            delete _holdings[arg.user][arg.token];
-            //Add the amount to the amount to transfer
-            SafeERC20.safeTransfer(IERC20(arg.token), arg.user, holding.amount);
+            _claimHolding(arg.user, arg.token, networkIsFrozen);
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -218,15 +227,9 @@ contract HoldingContract {
      * @dev should be used if the user only wants to claim their holding
      */
     function claimHoldingSingleton(address user, address token) external {
-        bool networkIsFrozen = block.timestamp < minimumWithdrawTimestamp;
-        //If the network is frozen, don't allow withdrawals
-        Holding memory holding = _holdings[user][token];
-        checkHoldingAvailable(holding, networkIsFrozen);
-        //Delete the holding args.
-        //Should set all the data to zero.
-        delete _holdings[user][token];
-        //Add the amount to the amount to transfer
-        SafeERC20.safeTransfer(IERC20(token), user, holding.amount);
+        // If the network is frozen and timestamp since expiration is not more than 90 days, don't allow withdrawals
+        bool networkIsFrozen = isNetworkFrozen();
+        _claimHolding(user, token, networkIsFrozen);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -240,29 +243,12 @@ contract HoldingContract {
      * @param amount the amount of tokens to add to the holding
      */
     function addHolding(address user, address token, uint192 amount) external {
-        if (msg.sender != minerPool) {
+        if (msg.sender != MINER_POOL) {
             _revert(OnlyMinerPoolCanAddHoldings.selector);
         }
         _holdings[user][token].amount += amount;
         _holdings[user][token].expirationTimestamp = uint64(block.timestamp + DEFAULT_DELAY);
         emit HoldingAdded(user, token, amount);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                               one time setters                             */
-    /* -------------------------------------------------------------------------- */
-
-    /**
-     * @notice a one time setter to set the miner pool
-     * @dev the miner pool calls this function upon deployment
-     * @param _minerPool the address of the miner pool
-     */
-    function setMinerPool(address _minerPool) external {
-        //Make sure the miner pool is not already set
-        if (minerPool != address(0)) {
-            _revert(MinerPoolAlreadySet.selector);
-        }
-        minerPool = _minerPool;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -279,14 +265,23 @@ contract HoldingContract {
     }
 
     /**
+     * @notice returns true if the network is frozen
+     * @dev the network is frozen if the minimumWithdrawTimestamp is greater than the current block timestamp
+     * @return isNetworkFrozen - true if the network is frozen
+     */
+    function isNetworkFrozen() public view returns (bool) {
+        return block.timestamp < minimumWithdrawTimestamp;
+    }
+
+    /**
      * @dev checks if the holding is available to be withdrawn
-     * @param holding the holding to check
+     * @param holdingExpirationTimestamp the timestamp at which the holding expires
      * @param isNetworkFrozen whether or not the network is currently frozen
      * @dev - if the network is frozen, the holding can be withdrawn only if it's been more than 90 days past the expiration of the holding
      *      - if the network is not frozen, the holding can be withdrawn only if it's past the expiration date of the holding
      */
-    function checkHoldingAvailable(Holding memory holding, bool isNetworkFrozen) internal view {
-        if (block.timestamp < holding.expirationTimestamp) {
+    function checkHoldingAvailable(uint64 holdingExpirationTimestamp, bool isNetworkFrozen) internal view {
+        if (block.timestamp < holdingExpirationTimestamp) {
             _revert(WithdrawalNotReady.selector);
         }
         //Can't underflow because of the check above
@@ -295,7 +290,7 @@ contract HoldingContract {
         //(expiration timestamp is always claim timestamp + 1 week, so )
         //in order for proposal to be held maximum 97 days,
         //We need to check if the diff is 90 days
-        if (block.timestamp - holding.expirationTimestamp < NINETY_DAYS) {
+        if (block.timestamp - holdingExpirationTimestamp < NINETY_DAYS) {
             if (isNetworkFrozen) {
                 _revert(NetworkIsFrozen.selector);
             }
@@ -305,10 +300,29 @@ contract HoldingContract {
     /* -------------------------------------------------------------------------- */
     /*                                   utils                                    */
     /* -------------------------------------------------------------------------- */
+
+    /**
+     * @dev an internal method to claim a holding
+     * @param user the address of the user
+     * @param token the address of the USDC token to withdraw
+     * @param networkIsFrozen whether or not the network is currently frozen
+     */
+    function _claimHolding(address user, address token, bool networkIsFrozen) internal {
+        Holding memory holding = _holdings[user][token];
+        checkHoldingAvailable(holding.expirationTimestamp, networkIsFrozen);
+        //Delete the holding args.
+        //Should set all the data to zero.
+        delete _holdings[user][token];
+        //Add the amount to the amount to transfer
+        SafeERC20.safeTransfer(IERC20(token), user, holding.amount);
+        emit HoldingClaimed(user, token, holding.amount);
+    }
+
     /**
      * @dev more efficient reverts
      * @param selector the selector of the error
      */
+
     function _revert(bytes4 selector) internal pure {
         // solhint-disable-next-line no-inline-assembly
         assembly {

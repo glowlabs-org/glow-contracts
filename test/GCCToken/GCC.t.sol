@@ -2,13 +2,15 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
 import "forge-std/StdError.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import {Handler} from "./Handler.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -40,7 +42,7 @@ contract GCCTest is Test {
     MockUSDC usdc;
     TestGCC public gcc;
     Governance public gov;
-    CarbonCreditDutchAuction public auction;
+    CarbonCreditDescendingPriceAuction public auction;
     address public constant GCA_AND_MINER_POOL_CONTRACT = address(0x2);
     address public SIMON;
     uint256 public SIMON_PK;
@@ -57,20 +59,35 @@ contract GCCTest is Test {
     // string forkUrl = vm.envString("MAINNET_RPC");
     // uint256 mainnetFork;
 
+    address deployer = tx.origin;
+
     function setUp() public {
+        vm.startPrank(deployer);
         uniswapFactory = new UnifapV2Factory();
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
         // mainnetFork = vm.createFork(forkUrl);
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
-        glw = address(glwContract);
+
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 2);
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
+        glw = address(glwContract); //deployerNonce
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
-        gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
-        handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
-        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
+        gov = new Governance({
+            gcc: precomputedGCC,
+            gca: gca,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce + 1
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce+2
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        handler = new Handler(address(gcc), GCA_AND_MINER_POOL_CONTRACT);
+
+        //TODO: precompute
+        // gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = Handler.mintToCarbonCreditAuction.selector;
@@ -86,42 +103,8 @@ contract GCCTest is Test {
         (uint256 reserveA, uint256 reserveB,) = UnifapV2Pair(pair).getReserves();
         console.log("reserveA = %s", reserveA);
         console.log("reserveB = %s", reserveB);
-        //     IUnifapV2Factory unifactory = IUnifapV2Factory(factory);
-        // address pairFromFactory = unifactory.pairs(_usdc, address(this));
-        // console.log("pair from factory = %s", pairFromFactory);
-        // targetSender(GCA_AND_MINER_POOL_CONTRACT);
-    }
 
-    function test_simonaa() public {
-        uniswapFactory = new UnifapV2Factory();
-        weth = new WETH9();
-        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
-        usdc = new MockUSDC();
-        // mainnetFork = vm.createFork(forkUrl);
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
-        glw = address(glwContract);
-        (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
-        gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
-        handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
-        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
-
-        bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = Handler.mintToCarbonCreditAuction.selector;
-        FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
-
-        bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));
-        console.logBytes32(initCodePair);
-
-        targetContract(address(handler));
-        seedLP(400 ether, 1000 * 1e6);
-        address pair = uniswapFactory.pairs(address(usdc), address(gcc));
-
-        (uint256 reserveA, uint256 reserveB,) = UnifapV2Pair(pair).getReserves();
-
-        uint256 amountOut = UniswapV2Library.getAmountOut(200 ether, 400 ether, 1000 * 1e6);
-        console.log("amount out = %s", amountOut);
+        vm.stopPrank();
     }
 
     /**
@@ -187,17 +170,28 @@ contract GCCTest is Test {
         vm.assume(a > 0.01 ether && a < 1_000_000_000_000 ether);
         vm.assume(b > 0.01 ether && b < 1_000_000_000_000 ether);
 
+        vm.startPrank(deployer);
         uniswapFactory = new UnifapV2Factory();
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
-        gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 1);
+        gov = new Governance({
+            gcc: precomputedGCC,
+            gca: gca,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce + 1
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
+        vm.stopPrank();
         uint256 totalReserves = b;
         seedLP(totalReserves, 1000 * 1e6);
 
@@ -352,6 +346,8 @@ contract GCCTest is Test {
          *         the precision loss and dust is sensible and minimal.
          *         Note: USDC has 6 decimals
          */
+
+        vm.startPrank(deployer);
         {
             uint256 A_MIN = 10 * 1e6;
             uint256 A_MAX = 1_000_000_000_000 * 1e6;
@@ -365,13 +361,24 @@ contract GCCTest is Test {
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
-        gov = new Governance();
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 1);
+        gov = new Governance({
+            gcc: precomputedGCC,
+            gca: gca,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce
 
+        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce + 1
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+
+        vm.stopPrank();
         uint256 totalReserves = b;
         seedLP(100 ether, totalReserves);
 

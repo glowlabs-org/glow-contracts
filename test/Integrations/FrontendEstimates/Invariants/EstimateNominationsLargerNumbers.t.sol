@@ -2,13 +2,14 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
 import {MainnetForkTestGCC} from "../MainnetForkTestGCC.sol";
 import "forge-std/console.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
 import "forge-std/StdError.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
@@ -39,7 +40,7 @@ contract EstimateNominationsLargerNumbersTest is Test {
     MockUSDC usdc;
     MainnetForkTestGCC public gcc;
     Governance public gov;
-    CarbonCreditDutchAuction public auction;
+    CarbonCreditDescendingPriceAuction public auction;
     address public constant GCA_AND_MINER_POOL_CONTRACT = address(0x2);
     address public SIMON = address(0xfffaafdd);
     uint256 public SIMON_PK;
@@ -66,11 +67,14 @@ contract EstimateNominationsLargerNumbersTest is Test {
 
     EstimateNominationsHandler handler;
 
+    address deployer = tx.origin;
+
     function setUp() public {
         deployFixture();
     }
 
     function deployFixture() public {
+        vm.startPrank(deployer);
         goerliFork = vm.createFork(forkUrl);
         vm.selectFork(goerliFork);
         // uniswapFactory = new UnifapV2Factory();
@@ -78,20 +82,30 @@ contract EstimateNominationsLargerNumbersTest is Test {
         weth = WETH9(weth9MainnetAddress);
         uniswapRouter = UnifapV2Router(uniswapRouterMainnetAddress);
         // uniswapRouter = new UnifapV2Router(address(uniswapFactory));
-        usdc = new MockUSDC();
-        glwContract = new TestGLOW(earlyLiquidity,vestingContract);
-        glw = address(glwContract);
-        gov = new Governance();
-        gcc =
-            new MainnetForkTestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
-        gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 
+        uint256 deployerNonce = vm.getNonce(deployer);
+        usdc = new MockUSDC(); //deployerNonce
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury); //deployerNonce + 1
+        glw = address(glwContract);
+        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 2);
+        gov = new Governance({
+            gcc: precomputedGCC,
+            gca: GCA_AND_MINER_POOL_CONTRACT,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce + 2
+        gcc = new MainnetForkTestGCC( //deployerNonce + 3
+        GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+
+        vm.stopPrank();
         // bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));
 
         // address pair = gcc.IMPACT_CATALYST().UNISWAP_V2_PAIR();
 
-        handler = new EstimateNominationsHandler(address(gcc),address(uniswapRouter));
+        handler = new EstimateNominationsHandler(address(gcc), address(uniswapRouter));
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = EstimateNominationsHandler.seedAndCommitGCCHandler.selector;
         FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
@@ -106,6 +120,7 @@ contract EstimateNominationsLargerNumbersTest is Test {
      */
     function invariant_testDivergenceNominations_gccCommit() public {
         string memory csvFilename = "logs/nomination_divergence.csv";
+        string memory dustFileName = "logs/nomination_dust.csv";
 
         if (saveLogs) {
             // string memory headers = "round,expected,actual";
@@ -118,10 +133,24 @@ contract EstimateNominationsLargerNumbersTest is Test {
         for (uint256 i; i < rounds; ++i) {
             uint256 expected = handler.estimatedmpactPowerForRound(i);
             uint256 actual = handler.actualImpactPowerForRound(i);
+            EstimateNominationsHandler.Dust memory dust = handler.dustForRound(i);
             if (saveLogs) {
                 string memory line =
                     string(abi.encodePacked(vm.toString(i), ",", vm.toString(expected), ",", vm.toString(actual)));
                 vm.writeLine(csvFilename, line);
+
+                string memory dustLine = string(
+                    abi.encodePacked(
+                        vm.toString(i),
+                        ",",
+                        vm.toString(dust.amountGCCToSwap),
+                        ",",
+                        vm.toString(dust.gccDust),
+                        ",",
+                        vm.toString(dust.usdcDust)
+                    )
+                );
+                vm.writeLine(dustFileName, dustLine);
             }
             assertFalse(isDivergenceGreaterThanThreshold(expected, actual));
         }

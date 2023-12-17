@@ -27,7 +27,7 @@ test.all :; forge test --ffi -vv && make hardhat-test
 # --- [ Specific Tests ] -----------------------------------------------------------------------------------
 test.minerpool.math :; forge test --match-path test/temp/MinerDistributionMath.t.sol -vvv --ffi
 hardhat.test.earlyLiquidity :; npx hardhat test test/EarlyLiquidity/EarlyLiquidity.test.ts
-test.earlyLiquidity :; forge test --match-contract EarlyLiquidityTest -vvv && npx hardhat test
+test.earlyLiquidity :; forge test --match-contract EarlyLiquidityTest -vvv && make hardhat.test.earlyLiquidity
 test.minerPoolAndGCA :; forge test --match-contract MinerPoolAndGCATest --ffi -vv
 
 # --- [ Gas Snapshot] -----------------------------------------------------------------------------------
@@ -43,12 +43,18 @@ deploy.testnet.batch-retire :; forge script script/Testnet/DeployBatchRetire.s.s
 deploy.full.testnet :; forge script script/Testnet/DeployFull.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
+deploy.full.quickperiod.testnet :; forge script script/Testnet/DeployFullQuickBuckets.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+
 deploy.guardedlaunch.full.testnet :; forge script script/Testnet/DeployGuardedLaunch.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
+deploy.guardedlaunch.mainnet :; forge script script/Mainnet/DeployGuardedLaunch.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
 deploy.full.anvil :; forge script script/Testnet/DeployFull.s.sol --rpc-url  http://127.0.0.1:8545 --broadcast -vvvv --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
+setlp.goerli :; forge script script/Testnet/SetLP.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  
 #---- [solhint] -----------------------------------------------------------------------------------
 solhint :; find ./src -type f \( -name "*.sol"  \
  		! -path "./src/temp/*" \

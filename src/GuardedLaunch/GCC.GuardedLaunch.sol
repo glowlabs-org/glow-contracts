@@ -9,7 +9,7 @@ import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 /**
  * @title GCCGuardedLaunch
  * @notice This contract is used to guard the launch of the GCC token
- *               - GLOW Protocol's guraded launch is meant to protect the protocol from
+ *               - GLOW Protocol's guarded launch is meant to protect the protocol from
  *                 malicious actors and to give the community time to audit the code
  *               - During the guarded launch, transfers are restricted to EOA's and allowlisted contracts
  *               - The veto council also has the ability to permanently freeze transfers in case of an emergency
@@ -44,6 +44,15 @@ contract GCCGuardedLaunch is GCC {
     mapping(address => bool) public allowlistedContracts;
 
     /* -------------------------------------------------------------------------- */
+    /*                                   events                                   */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Emitted when the contract is permanently frozen
+     */
+    event PermanentFreeze();
+
+    /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
     /**
@@ -67,7 +76,6 @@ contract GCCGuardedLaunch is GCC {
     ) payable GCC(_gcaAndMinerPoolContract, _governance, _glowToken, _usdg, _uniswapRouter) {
         VETO_COUNCIL_ADDRESS = _vetoCouncilAddress;
         allowlistedContracts[address(this)] = true;
-        allowlistedContracts[_governance] = true;
         allowlistedContracts[getPair(_uniswapFactory, _usdg)] = true;
     }
 
@@ -84,6 +92,7 @@ contract GCCGuardedLaunch is GCC {
             revert ErrNotVetoCouncilMember();
         }
         permanentlyFreezeTransfers = true;
+        emit PermanentFreeze();
     }
 
     /* -------------------------------------------------------------------------- */

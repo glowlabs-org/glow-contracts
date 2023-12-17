@@ -2,24 +2,26 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "forge-std/console.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {TestGLOW} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
+import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
-import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
@@ -34,11 +36,11 @@ struct ClaimLeaf {
 contract HoldingContractGuardedLaunchTest is Test {
     //--------  CONTRACTS ---------//
     MockMinerPoolAndGCA minerPoolAndGCA;
-    TestGLOW glow;
+    TestGLOWGuardedLaunch glow;
     MockUSDC usdc;
 
     MockUSDC grc2;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
     UnifapV2Factory public uniswapFactory;
     WETH9 public weth;
     UnifapV2Router public uniswapRouter;
@@ -72,8 +74,12 @@ contract HoldingContractGuardedLaunchTest is Test {
     //--------  CONSTANTS ---------//
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
 
+    address deployer = tx.origin;
+
     function setUp() public {
         //Make sure we don't start at 0
+        FakeGCC fakeGCC = new FakeGCC();
+        vm.startPrank(deployer);
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
         vm.warp(10);
         usdc = new MockUSDC();
@@ -81,34 +87,58 @@ contract HoldingContractGuardedLaunchTest is Test {
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
+
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 4);
+        address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 2);
+        address precomputedHoldingContract = computeCreateAddress(deployer, deployerNonce + 3);
+        address precomputedUSDG = computeCreateAddress(deployer, deployerNonce + 1);
+        glow = new TestGLOWGuardedLaunch({
+            _earlyLiquidityAddress: earlyLiquidity,
+            _vestingContract: vestingContract,
+            _gcaAndMinerPoolAddress: precomputedMinerPool,
+            _vetoCouncilAddress: precomputedVetoCouncil,
+            _grantsTreasuryAddress: grantsTreasuryAddress,
+            _owner: SIMON,
+            _usdg: address(precomputedUSDG),
+            _uniswapV2Factory: address(uniswapFactory),
+            _gccContract: address(fakeGCC)
+        }); //deployerNonce
         usdg = new TestUSDG({
             _usdc: address(usdc),
             _usdcReceiver: usdcReceiver,
             _owner: usdgOwner,
-            _univ2Factory: address(uniswapFactory)
-        });
+            _univ2Factory: address(uniswapFactory),
+            _gcc: address(fakeGCC),
+            _glow: address(glow),
+            _holdingContract: address(precomputedHoldingContract),
+            _vetoCouncilContract: address(precomputedVetoCouncil),
+            _impactCatalyst: address(0x1) //doesent matter for this test
+        }); //deployerNonce + 1
         (defaultAddressInWithdraw, defaultAddressPrivateKey) = _createAccount(2313141231, type(uint256).max);
-        glow = new TestGLOW({
-            _earlyLiquidityAddress: earlyLiquidity,
-            _vestingContract: vestingContract,
-            _owner: SIMON,
-            _usdg: address(usdg),
-            _uniswapV2Factory: address(uniswapFactory)
-        });
 
         address[] memory temp = new address[](0);
         address[] memory startingAgents = new address[](2);
         startingAgents[0] = address(SIMON);
         startingAgents[1] = address(VETO_COUNCIL_MEMBER);
-        vetoCouncil = new VetoCouncil(governance, address(glow),startingAgents);
+        vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 2
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress);
-        minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
-        FakeGCC fakeGCC = new FakeGCC();
-        minerPoolAndGCA.setGCC(address(fakeGCC));
+        holdingContract = new SafetyDelay(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 3
+        minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 4
+            temp,
+            address(glow),
+            governance,
+            keccak256("requirementsHash"),
+            earlyLiquidity,
+            address(usdc),
+            vetoCouncilAddress,
+            address(holdingContract),
+            address(fakeGCC)
+        );
+        vm.stopPrank();
         vm.startPrank(SIMON);
-        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
+        //TODO: set these addresses
+        // glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         vm.stopPrank();
 
         grc2 = new MockUSDC();
@@ -117,7 +147,7 @@ contract HoldingContractGuardedLaunchTest is Test {
     //-------- ISSUING REPORTS ---------//
     function addGCA(address newGCA) public {
         address[] memory allGCAs = minerPoolAndGCA.allGcas();
-        address[] memory temp = new address[](allGCAs.length+1);
+        address[] memory temp = new address[](allGCAs.length + 1);
         for (uint256 i; i < allGCAs.length; ++i) {
             temp[i] = allGCAs[i];
             if (allGCAs[i] == newGCA) {
@@ -133,15 +163,10 @@ contract HoldingContractGuardedLaunchTest is Test {
         MockUSDC(token).mint(address(holdingContract), amount);
     }
 
-    function test_resetMinerPool_shouldRevert() public {
-        vm.expectRevert(HoldingContract.MinerPoolAlreadySet.selector);
-        holdingContract.setMinerPool(address(0x1));
-    }
-
     function test_addHolding_callerNotMinerPool_shouldRevert() public {
         mintToHoldingContract(address(usdc), 1_000_000_000 ether);
         vm.startPrank(address(0xdaaaaaf));
-        vm.expectRevert(HoldingContract.OnlyMinerPoolCanAddHoldings.selector);
+        vm.expectRevert(SafetyDelay.OnlyMinerPoolCanAddHoldings.selector);
         holdingContract.addHolding(SIMON, address(usdc), 10 ether);
         vm.stopPrank();
     }
@@ -153,7 +178,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         vm.stopPrank();
 
         vm.startPrank(SIMON);
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldingSingleton(SIMON, address(usdc));
         vm.stopPrank();
     }
@@ -174,7 +199,7 @@ contract HoldingContractGuardedLaunchTest is Test {
 
     function test_delayNetwork_callerNotVetoCouncilMember_shouldRevert() public {
         vm.startPrank(address(0xaaaaaaaaadfffffff));
-        vm.expectRevert(HoldingContract.CallerMustBeVetoCouncilMember.selector);
+        vm.expectRevert(SafetyDelay.CallerMustBeVetoCouncilMember.selector);
         holdingContract.delayNetwork();
         vm.stopPrank();
     }
@@ -195,13 +220,13 @@ contract HoldingContractGuardedLaunchTest is Test {
         uint256 newTimestamp = holdingContract.minimumWithdrawTimestamp();
         assert(originalTimestamp + holdingContract.VETO_HOLDING_DELAY() == newTimestamp);
 
-        vm.expectRevert(HoldingContract.DelayStillOnCooldown.selector);
+        vm.expectRevert(SafetyDelay.DelayStillOnCooldown.selector);
         holdingContract.delayNetwork();
 
         //warp forward 79 days
         uint256 minimumWaitPeriod = holdingContract.VETO_HOLDING_DELAY() - holdingContract.FIVE_WEEKS() - 1;
         vm.warp(block.timestamp + minimumWaitPeriod);
-        vm.expectRevert(HoldingContract.DelayStillOnCooldown.selector);
+        vm.expectRevert(SafetyDelay.DelayStillOnCooldown.selector);
         holdingContract.delayNetwork();
 
         vm.stopPrank();
@@ -232,7 +257,7 @@ contract HoldingContractGuardedLaunchTest is Test {
 
         //Warp past the expiration on the holding
         vm.warp(block.timestamp + 8 days);
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldingSingleton(SIMON, address(usdc));
         vm.stopPrank();
     }
@@ -269,7 +294,7 @@ contract HoldingContractGuardedLaunchTest is Test {
 
         vm.warp(block.timestamp + ONE_WEEK);
 
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldings(args);
     }
 
@@ -292,14 +317,14 @@ contract HoldingContractGuardedLaunchTest is Test {
     function testFuzz_claimBefore7Days_shouldAlwaysFail(uint256 secondsToWarp) public {
         vm.assume(secondsToWarp < 7 days);
         addHolding(address(0x1), 10 ether);
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
     }
 
     function testFuzz_claimAfter7Days_shouldAlwaysWork(uint256 secondsToWarp) public {
         vm.assume(secondsToWarp >= 7 days);
         addHolding(address(0x1), 10 ether);
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
     }
 
@@ -311,7 +336,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         holdingContract.delayNetwork();
         vm.stopPrank();
         vm.warp(block.timestamp + secondsToWarp);
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
     }
 
@@ -333,7 +358,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         ClaimHoldingArgs[] memory args = new ClaimHoldingArgs[](2);
         args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
         args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldings(args);
     }
 
@@ -362,7 +387,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         holdingContract.delayNetwork();
         vm.stopPrank();
         vm.warp(block.timestamp + secondsToWarp);
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldings(args);
     }
 
@@ -390,7 +415,7 @@ contract HoldingContractGuardedLaunchTest is Test {
         args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
         args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
 
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldings(args);
 
         vm.warp(block.timestamp + ONE_WEEK);
