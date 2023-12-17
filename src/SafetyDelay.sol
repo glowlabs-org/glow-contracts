@@ -32,7 +32,7 @@ interface ISafetyDelay {
 }
 
 /**
- * @title HoldingContract
+ * @title SafetyDelay
  * @notice This contract is used to hold tokens for users
  *         - This contract holds all USDC tokens that are part of the protocol
  *         - Once farms withdraw, there is a 1 week delay before they can claim their tokens
