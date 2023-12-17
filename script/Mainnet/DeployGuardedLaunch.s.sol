@@ -9,7 +9,7 @@ import {GCCGuardedLaunch} from "@/GuardedLaunch/GCC.GuardedLaunch.sol";
 import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
 import {SafetyDelay} from "@/SafetyDelay.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
 import {BatchCommit} from "@/BatchCommit.sol";

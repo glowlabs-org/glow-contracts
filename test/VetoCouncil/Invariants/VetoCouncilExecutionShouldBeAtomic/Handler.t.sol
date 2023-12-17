@@ -7,8 +7,8 @@ import "forge-std/StdCheats.sol";
 import "forge-std/console.sol";
 import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
-import {NULL_ADDRESS} from "@/generic/VetoCouncilSalaryHelper.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
+import {NULL_ADDRESS} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
 
 contract Handler is Test {
     VetoCouncil public vetoCouncil;

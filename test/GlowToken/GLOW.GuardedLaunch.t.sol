@@ -8,7 +8,7 @@ import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
 import {Handler} from "./Handler.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";

@@ -20,7 +20,7 @@ import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.so
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
 import {MockGovernance} from "@/testing/MockGovernance.sol";
 import {IGovernance} from "@/interfaces/IGovernance.sol";
 import {TestGCCGuardedLaunch} from "@/testing/GuardedLaunch/TestGCC.GuardedLaunch.sol";

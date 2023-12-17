@@ -22,7 +22,7 @@ import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.so
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
 import {BucketDelayHandler} from "./Handlers/BucketDelayHandler.sol";
 import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";

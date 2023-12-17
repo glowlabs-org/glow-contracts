@@ -14,7 +14,7 @@ import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {TestUSDG} from "@/testing/TestUSDG.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
 import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
 import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 

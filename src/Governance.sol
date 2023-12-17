@@ -10,7 +10,7 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import {NULL_ADDRESS} from "@/generic/VetoCouncilSalaryHelper.sol";
+import {NULL_ADDRESS} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 /**

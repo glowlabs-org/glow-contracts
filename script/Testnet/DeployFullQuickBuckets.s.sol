@@ -11,7 +11,7 @@ import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {GoerliMinerPoolAndGCAQuickPeriod} from "@/testing/Goerli/GoerliMinerPoolAndGCA.QuickPeriod.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
 import {SafetyDelay} from "@/SafetyDelay.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
 import {BatchCommit} from "@/BatchCommit.sol";
