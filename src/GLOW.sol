@@ -117,7 +117,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         GCA_AND_MINER_POOL_ADDRESS = _gcaAndMinerPoolAddress;
         VETO_COUNCIL_ADDRESS = _vetoCouncilAddress;
         GRANTS_TREASURY_ADDRESS = _grantsTreasuryAddress;
-        _handleConstructorMint(_earlyLiquidityAddress, _vestingContract);
+        _handleConstructorMint(_earlyLiquidityAddress, _vestingContract, _grantsTreasuryAddress);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -637,8 +637,13 @@ contract Glow is ERC20, ERC20Permit, IGlow {
      * @notice Mints the initial supply of GLOW
      * @param _earlyLiquidityAddress The address of the early liquidity contract
      * @param _vestingContract The address of the vesting contract
+     * @param _grantsTreasryAddress The address of the grants treasury
      */
-    function _handleConstructorMint(address _earlyLiquidityAddress, address _vestingContract) internal virtual {
+    function _handleConstructorMint(
+        address _earlyLiquidityAddress,
+        address _vestingContract,
+        address _grantsTreasryAddress
+    ) internal virtual {
         _mint(_earlyLiquidityAddress, 12_000_000 ether);
         _mint(_vestingContract, 96_000_000 ether);
     }

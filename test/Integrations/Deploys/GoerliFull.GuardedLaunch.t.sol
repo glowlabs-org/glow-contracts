@@ -182,5 +182,18 @@ contract DeployFullGoerliGuarded is Test, Script {
             precomputedGrants,
             "pre computed grants treasury address should be equal to grants treasury address"
         );
+
+        assertEq(
+            glow.balanceOf(address(treasury)),
+            6_000_000 ether,
+            "treasury should have 6_000_000 glow tokens after deployment"
+        );
+
+
+        assertEq(
+            glow.balanceOf(address(earlyLiquidity)),
+            12_000_000 ether,
+            "early liquidity should have 12_000_000 glow tokens after deployment"
+        );
     }
 }

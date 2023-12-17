@@ -41,6 +41,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     bytes32 public constant COMMIT_PERMIT_TYPEHASH = keccak256(
         "CommitPermit(address owner,address spender,address rewardAddress,address referralAddress,uint256 amount,uint256 nonce,uint256 deadline)"
     );
+
     /// @notice The maximum shift for a bucketId
     uint256 private constant _BITS_IN_UINT = 256;
 
@@ -114,7 +115,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         address _usdc,
         address _uniswapRouter
     ) payable ERC20("Glow Carbon Certificate", "GCC-BETA") EIP712("Glow Carbon Certificate", "1") {
-        //Set the immutable variables
+        // Set the immutable variables
         USDC = _usdc;
         GCA_AND_MINER_POOL_CONTRACT = _gcaAndMinerPoolContract;
         UNISWAP_ROUTER = IUniswapRouterV2(_uniswapRouter);
@@ -124,8 +125,8 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         CarbonCreditDescendingPriceAuction cccAuction = new CarbonCreditDescendingPriceAuction({
             glow: IERC20(_glowToken),
             gcc: IERC20(address(this)),
-            startingPrice: 1e5 //Carbon Credit Auction sells increments of 1e6 GCC,
-                //Setting the price to 1e5 per unit means that 1 GCC = .1 GLOW
+            startingPrice: 1e5 // Carbon Credit Auction sells increments of 1e6 GCC,
+                // Setting the price to 1e5 per unit means that 1 GCC = .1 GLOW
         });
 
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));

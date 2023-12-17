@@ -181,8 +181,13 @@ contract GlowGuardedLaunch is Glow, Ownable {
      * @inheritdoc Glow
      * @dev Guarded launch does not mint tokens to the vesting contract
      */
-    function _handleConstructorMint(address _earlyLiquidityAddress, address _vestingContract) internal override {
+    function _handleConstructorMint(
+        address _earlyLiquidityAddress,
+        address _vestingContract,
+        address _grantsTreasryAddress
+    ) internal override {
         _mint(_earlyLiquidityAddress, 12_000_000 ether);
+        _mint(_grantsTreasryAddress, 6_000_000 ether);
     }
 
     /* -------------------------------------------------------------------------- */
