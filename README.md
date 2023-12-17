@@ -2,7 +2,7 @@
 
 ## Guarded Launch
 The Guarded Launch is a beta of sorts for the Glow Protocol.
-During the guarded launch phase, contracts are deployed as normal with the exception of premine and early liquidity contracts. Furthermore, USDC is replaced with a wrapper called USDG which only allows transfers to allow-listed contracts (specific uniV2 pools). This is in effort to be able to recover from a disaster scenario. GLOW and GCC also follow the same pattern. All three contracts mentioned above also have circuit breakers that can be called by any veto council member in order to halt the transfer of any tokens. After the Guarded Launch, the contracts will be redeployed and airdrops will take place to compensate those that were earning guarded launch rewards.
+During the guarded launch phase, contracts are deployed as normal with the exception of premine (Glow Unlocker) contract. Furthermore, USDC is replaced with a wrapper called USDG which only allows transfers to allow-listed contracts (specific uniV2 pools). This is in effort to be able to recover from a disaster scenario. GLOW and GCC also follow the same pattern. All three contracts mentioned above also have circuit breakers that can be called by any veto council member in order to halt the transfer of any tokens. After the Guarded Launch, the contracts will be redeployed and airdrops will take place to compensate those that were earning guarded launch rewards.
 
 
 ## External Dependencies
