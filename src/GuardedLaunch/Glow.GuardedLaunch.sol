@@ -70,6 +70,14 @@ contract GlowGuardedLaunch is Glow, Ownable {
     mapping(address => bool) public allowlistedContracts;
 
     /* -------------------------------------------------------------------------- */
+    /*                                   events                                   */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Emitted when the contract is permanently frozen
+     */
+    event PermanentFreeze();
+    /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
 
@@ -130,6 +138,7 @@ contract GlowGuardedLaunch is Glow, Ownable {
             revert ErrNotVetoCouncilMember();
         }
         permanentlyFreezeTransfers = true;
+        emit PermanentFreeze();
     }
 
     /**

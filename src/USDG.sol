@@ -67,6 +67,15 @@ contract USDG is ERC20Permit, Ownable {
     mapping(address => bool) public allowlistedContracts;
 
     /* -------------------------------------------------------------------------- */
+    /*                                   events                                   */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Emitted when the contract is permanently frozen
+     */
+    event PermanentFreeze();
+
+    /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
 
@@ -141,6 +150,7 @@ contract USDG is ERC20Permit, Ownable {
             revert ErrNotVetoCouncilMember();
         }
         permanentlyFreezeTransfers = true;
+        emit PermanentFreeze();
     }
 
     /* -------------------------------------------------------------------------- */

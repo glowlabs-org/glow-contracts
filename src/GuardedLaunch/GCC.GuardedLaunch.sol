@@ -44,6 +44,15 @@ contract GCCGuardedLaunch is GCC {
     mapping(address => bool) public allowlistedContracts;
 
     /* -------------------------------------------------------------------------- */
+    /*                                   events                                   */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Emitted when the contract is permanently frozen
+     */
+    event PermanentFreeze();
+
+    /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
     /**
@@ -83,6 +92,7 @@ contract GCCGuardedLaunch is GCC {
             revert ErrNotVetoCouncilMember();
         }
         permanentlyFreezeTransfers = true;
+        emit PermanentFreeze();
     }
 
     /* -------------------------------------------------------------------------- */
