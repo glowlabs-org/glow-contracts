@@ -16,11 +16,11 @@ import {BatchCommit} from "@/BatchCommit.sol";
 import "forge-std/Test.sol";
 import {USDG} from "@/USDG.sol";
 
-string constant fileToWriteTo = "deployedContractsMainnet.json";
+string constant fileToWriteTo = "deployedContracts-replica.json";
 
-contract DeployFull is Test, Script {
+contract DeployGoerliFullReplicaGuardedLaunch is Test, Script {
     bytes32 gcaRequirementsHash = keccak256("GCA Beta Hash");
-    address vestingContract = address(0xdead); // Guarded Launch Does Not Have A Vesting Contract
+    address vestingContract = address(0xE414D49268837291fde21c33AD7e30233b7041C2);
 
     EarlyLiquidity earlyLiquidity;
     MinerPoolAndGCA gcaAndMinerPoolContract;
@@ -28,21 +28,19 @@ contract DeployFull is Test, Script {
     SafetyDelay holdingContract;
     GrantsTreasury treasury;
     USDG usdg;
-    address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address usdc = 0xd35CCeEAD182dcee0F148EbaC9447DA2c4D449c4; // different on mainnet
     address uniswapV2Router = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
     address usdcReceiver = address(0xc5174BBf649a92F9941e981af68AaA14Dd814F85); //2/3 Multisig Gnosis Safe on Mainnet
 
     function run() external {
-        if (usdcReceiver == tx.origin) {
-            revert("set usdcReceiver to not be tx.origin");
-        }
         address[] memory startingAgents = new address[](1);
-        startingAgents[0] = address(0xB6D80f51943A9F14e584013F3201436E319ED5F2);
+        startingAgents[0] = tx.origin;
         address[] memory startingVetoCouncilAgents = new address[](3);
         startingVetoCouncilAgents[0] = 0x28009e8a27Aa1836d6B4a2E005D35201Aa5269ea; //veto1
         startingVetoCouncilAgents[1] = 0xD70823246D53EE41875B353Df2c7915608279de1; //veto2
         startingVetoCouncilAgents[2] = 0x93ECA9F2dffc5f7Ab3830D413c43E7dbFF681867; //veto3
+        startingVetoCouncilAgents[0] = tx.origin;
         if (vm.exists(fileToWriteTo)) {
             vm.removeFile(fileToWriteTo);
         }

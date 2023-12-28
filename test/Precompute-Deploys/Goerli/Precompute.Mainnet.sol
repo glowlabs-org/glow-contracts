@@ -16,11 +16,11 @@ import {BatchCommit} from "@/BatchCommit.sol";
 import "forge-std/Test.sol";
 import {USDG} from "@/USDG.sol";
 
-string constant fileToWriteTo = "deployedContractsMainnet.json";
+string constant fileToWriteTo = "precomputed-goerli-contracts.json";
 
-contract DeployFull is Test, Script {
+contract PrecomputeMainnetTest is Test {
     bytes32 gcaRequirementsHash = keccak256("GCA Beta Hash");
-    address vestingContract = address(0xdead); // Guarded Launch Does Not Have A Vesting Contract
+    address vestingContract = address(0xE414D49268837291fde21c33AD7e30233b7041C2);
 
     EarlyLiquidity earlyLiquidity;
     MinerPoolAndGCA gcaAndMinerPoolContract;
@@ -32,24 +32,32 @@ contract DeployFull is Test, Script {
     address uniswapV2Router = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
     address usdcReceiver = address(0xc5174BBf649a92F9941e981af68AaA14Dd814F85); //2/3 Multisig Gnosis Safe on Mainnet
+    string forkUrl = vm.envString("GOERLI_RPC_URL");
 
-    function run() external {
+    address deployer = 0x5a57A85b5162136026874aeF76249af1F5149e5E;
+    uint256 mainnetFork;
+
+    function setUp() public {
+        mainnetFork = vm.createFork(forkUrl);
+        vm.selectFork(mainnetFork);
+    }
+
+    function test_precomputeMainnet() public {
         if (usdcReceiver == tx.origin) {
             revert("set usdcReceiver to not be tx.origin");
         }
-        address[] memory startingAgents = new address[](1);
-        startingAgents[0] = address(0xB6D80f51943A9F14e584013F3201436E319ED5F2);
-        address[] memory startingVetoCouncilAgents = new address[](3);
-        startingVetoCouncilAgents[0] = 0x28009e8a27Aa1836d6B4a2E005D35201Aa5269ea; //veto1
-        startingVetoCouncilAgents[1] = 0xD70823246D53EE41875B353Df2c7915608279de1; //veto2
-        startingVetoCouncilAgents[2] = 0x93ECA9F2dffc5f7Ab3830D413c43E7dbFF681867; //veto3
+        address[] memory startingAgents = new address[](3);
+        startingAgents[0] = 0x6884efd53b2650679996D3Ea206D116356dA08a9; //simon
+        startingAgents[1] = 0xD70823246D53EE41875B353Df2c7915608279de1; //alm
+        startingAgents[2] = address(0); //mick?
+        address[] memory startingVetoCouncilAgents = new address[](1);
+        startingVetoCouncilAgents[0] = tx.origin;
         if (vm.exists(fileToWriteTo)) {
             vm.removeFile(fileToWriteTo);
         }
 
-        vm.startBroadcast();
+        vm.startPrank(deployer);
 
-        address deployer = tx.origin;
         uint256 deployerNonce = vm.getNonce(deployer);
         address precomputedGlow = computeCreateAddress(deployer, deployerNonce + 1);
         address precomputedUSDG = computeCreateAddress(deployer, deployerNonce + 2);
@@ -156,9 +164,10 @@ contract DeployFull is Test, Script {
             "precomputed gca and miner pool contract address is not equal to gca and miner pool contract address"
         );
 
+        //TODO: make sure this is taken care of
+        // glow.setContractAddresses(address(gcaAndMinerPoolContract), address(vetoCouncilContract), address(treasury));
         BatchCommit batchCommit = new BatchCommit(address(gcc), address(usdg));
 
-        vm.stopBroadcast();
         string memory jsonStringOutput = string("{");
         jsonStringOutput = string(
             abi.encodePacked(
