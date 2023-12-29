@@ -5,6 +5,7 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {GCASalaryHelper} from "./GCASalaryHelper.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 
 /**
  * @title GCA (Glow Certification Agent)
@@ -60,9 +61,6 @@ contract GCA is IGCA, GCASalaryHelper {
     /// -  `originalNonce` is a uint64 stored in the first 64 bits of the uint256
     /// -  `lastUpdatedNonce` is a uint64 stored in the second 64 bits of the uint256
     uint256 internal constant _UINT64_MASK = (1 << 64) - 1;
-
-    /// @dev buckets last 1 week
-    uint256 private constant BUCKET_DURATION = 7 * uint256(1 days);
 
     /* -------------------------------------------------------------------------- */
     /*                                 immutables                                 */
@@ -233,6 +231,7 @@ contract GCA is IGCA, GCASalaryHelper {
             ++slashNonce;
         }
         proposalHashes.push(hash);
+        emit IGCA.ProposalHashPushed(hash);
     }
 
     /**
@@ -323,7 +322,7 @@ contract GCA is IGCA, GCASalaryHelper {
     function getProposalHashes(uint256 start, uint256 end) external view returns (bytes32[] memory) {
         if (end > proposalHashes.length) end = proposalHashes.length;
         if (start > end) return new bytes32[](0);
-        bytes32[] memory result = new bytes32[](end-start);
+        bytes32[] memory result = new bytes32[](end - start);
         unchecked {
             for (uint256 i = start; i < end; ++i) {
                 result[i - start] = proposalHashes[i];
@@ -346,7 +345,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
     function bucketStartSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return SafeCast.toUint128(bucketId * BUCKET_DURATION + GENESIS_TIMESTAMP);
+        return SafeCast.toUint128(bucketId * bucketDuration() + GENESIS_TIMESTAMP);
     }
 
     /**
@@ -357,7 +356,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
     function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return SafeCast.toUint128(bucketStartSubmissionTimestampNotReinstated(bucketId) + BUCKET_DURATION);
+        return SafeCast.toUint128(bucketStartSubmissionTimestampNotReinstated(bucketId) + bucketDuration());
     }
 
     /**
@@ -367,7 +366,7 @@ contract GCA is IGCA, GCASalaryHelper {
      * @dev should not be used for reinstated buckets or buckets that need to be reinstated
      */
     function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return SafeCast.toUint128(bucketEndSubmissionTimestampNotReinstated(bucketId) + BUCKET_DURATION);
+        return SafeCast.toUint128(bucketEndSubmissionTimestampNotReinstated(bucketId) + bucketDuration());
     }
 
     /**
@@ -468,9 +467,9 @@ contract GCA is IGCA, GCASalaryHelper {
                         bucket.lastUpdatedNonce = SafeCast.toUint64(_slashNonce);
                         //Need to check before storing the finalization timestamp in case
                         //the bucket was delayed.
-                        if (bucketSubmissionEndTimestamp + BUCKET_DURATION > bucketFinalizationTimestamp) {
+                        if (bucketSubmissionEndTimestamp + bucketDuration() > bucketFinalizationTimestamp) {
                             bucket.finalizationTimestamp =
-                                SafeCast.toUint128(bucketSubmissionEndTimestamp + BUCKET_DURATION);
+                                SafeCast.toUint128(bucketSubmissionEndTimestamp + bucketDuration());
                         }
                         //conditionally delete all reports in storage
                         if (len > 0) {
@@ -618,14 +617,13 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     /**
-     * @dev sets the gca agents and their compensation plans
+     * @dev sets the gca agents
      *         -  removes all previous gca agents
-     *         -  remove all previous compensation plans
      *         -  sets the new gca agents
-     *         -  sets the new compensation plans
      */
     function _setGCAs(address[] memory gcaAddresses) internal {
         gcaAgents = gcaAddresses;
+        emit IGCA.NewGCAsAppointed(gcaAddresses);
     }
 
     /**
@@ -633,12 +631,12 @@ contract GCA is IGCA, GCASalaryHelper {
      * @param gcasToSlash - the gca agents to slash
      */
     function _slashGCAs(address[] memory gcasToSlash) internal {
-        //todo: put logic here
         unchecked {
             for (uint256 i; i < gcasToSlash.length; ++i) {
                 GCASalaryHelper._slash(gcasToSlash[i]);
             }
         }
+        emit IGCA.GCAsSlashed(gcasToSlash);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -708,6 +706,14 @@ contract GCA is IGCA, GCASalaryHelper {
         //Increased readability
         uint256 gcaReportStartSlot = reportArrayStartSlot;
         return (foundIndex, gcaReportStartSlot);
+    }
+
+    /**
+     * @notice returns the length (in seconds) of a bucket duration
+     * @return the length (in seconds) of a bucket duration
+     */
+    function bucketDuration() internal pure virtual override returns (uint256) {
+        return _BUCKET_DURATION;
     }
 
     /**
@@ -826,9 +832,9 @@ contract GCA is IGCA, GCASalaryHelper {
     function _WCEIL(uint256 _slashNonce) internal view returns (uint256) {
         //This will underflow if slashNonceToSlashTimestamp[_slashNonce] has not yet been written to
         uint256 bucketNonceWasSlashedAt =
-            (slashNonceToSlashTimestamp[_slashNonce] - GENESIS_TIMESTAMP) / BUCKET_DURATION;
+            (slashNonceToSlashTimestamp[_slashNonce] - GENESIS_TIMESTAMP) / bucketDuration();
         //the end submission period is the bucket + 2
-        return (bucketNonceWasSlashedAt + 2) * BUCKET_DURATION + GENESIS_TIMESTAMP;
+        return (bucketNonceWasSlashedAt + 2) * bucketDuration() + GENESIS_TIMESTAMP;
     }
 
     function getPackedBucketGlobalState(uint256 bucketId) internal view returns (uint256 packedGlobalState) {
@@ -842,7 +848,7 @@ contract GCA is IGCA, GCASalaryHelper {
     }
 
     /**
-     * @notice calculates the bucket submission start timestamp
+     * @notice calculates the bucket submission end timestamp
      * @param bucketId - the id of the bucket
      * @param bucketOriginNonce - the original nonce of the bucket
      * @param bucketLastUpdatedNonce - the last updated nonce of the bucket

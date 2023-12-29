@@ -12,10 +12,18 @@ import {SetMostPopularProposalHandler} from "./SetMostPopularProposalHandler.sol
 contract SetMostPopularProposalTest is Test {
     MockGovernance governance;
     SetMostPopularProposalHandler handler;
+    FakeGlow glow;
 
     function setUp() public {
         //Make sure we don't start at 0
-        governance = new MockGovernance();
+        glow = new FakeGlow();
+        governance = new MockGovernance({
+            gcc: address(0x11),
+            gca: address(0x12),
+            vetoCouncil: address(0x13),
+            grantsTreasury: address(0x14),
+            glw: address(glow)
+        });
         handler = new SetMostPopularProposalHandler(address(governance));
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = SetMostPopularProposalHandler.setStatus.selector;
@@ -38,5 +46,11 @@ contract SetMostPopularProposalTest is Test {
                 assertEq(uint256(statusFromHandler), uint256(statusFromGovernance));
             }
         }
+    }
+}
+
+contract FakeGlow {
+    function GENESIS_TIMESTAMP() external view returns (uint256) {
+        return block.timestamp;
     }
 }

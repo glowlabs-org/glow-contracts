@@ -11,9 +11,10 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         address _governance,
         bytes32 _requirementsHash,
         address _earlyLiquidity,
-        address _grcToken,
+        address _usdcToken,
         address _vetoCouncil,
-        address _holdingContract
+        address _holdingContract,
+        address _gcc
     )
         MinerPoolAndGCA(
             _gcaAgents,
@@ -21,9 +22,10 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
             _governance,
             _requirementsHash,
             _earlyLiquidity,
-            _grcToken,
+            _usdcToken,
             _vetoCouncil,
-            _holdingContract
+            _holdingContract,
+            _gcc
         )
     {}
 
@@ -53,9 +55,9 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
         return _getUserBitmapForBucket(bucketId, user);
     }
 
-    function getPushedWeights(uint256 bucketId) external view returns (uint256 glw, uint256 grc) {
+    function getPushedWeights(uint256 bucketId) external view returns (uint256 glw, uint256 usdc) {
         PushedWeights memory pushedWeights = _weightsPushed[bucketId];
-        return (pushedWeights.pushedGlwWeight, pushedWeights.pushedGrcWeight);
+        return (pushedWeights.pushedGlwWeight, pushedWeights.pushedUSDCWeight);
     }
 
     /**
@@ -65,22 +67,22 @@ contract MockMinerPoolAndGCA is MinerPoolAndGCA {
      *         - and grab rewards from other buckets
      * @param bucketId - the id of the bucket
      * @param totalGlwWeight - the total amount of glw weight for the bucket
-     * @param totalGrcWeight - the total amount of grc weight for the bucket
+     * @param totalUsdcWeight - the total amount of USDC weight for the bucket
      * @param glwWeight - the glw weight of the leaf in the report being claimed
-     * @param grcWeight - the grc weight of the leaf in the report being claimed
+     * @param usdcWeight - the USDC weight of the leaf in the report being claimed
      */
     function checkWeightsForOverflow(
         uint256 bucketId,
         uint256 totalGlwWeight,
-        uint256 totalGrcWeight,
+        uint256 totalUsdcWeight,
         uint256 glwWeight,
-        uint256 grcWeight
+        uint256 usdcWeight
     ) external {
-        _checkWeightsForOverflow(bucketId, totalGlwWeight, totalGrcWeight, glwWeight, grcWeight);
+        _checkWeightsForOverflow(bucketId, totalGlwWeight, totalUsdcWeight, glwWeight, usdcWeight);
     }
 
     function pushedWeights(uint256 bucketId) external view returns (uint64, uint64) {
-        return (_weightsPushed[bucketId].pushedGlwWeight, _weightsPushed[bucketId].pushedGrcWeight);
+        return (_weightsPushed[bucketId].pushedGlwWeight, _weightsPushed[bucketId].pushedUSDCWeight);
     }
 
     function currentWeekInternal() public view returns (uint256) {

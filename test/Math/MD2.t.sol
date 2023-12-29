@@ -40,7 +40,7 @@ contract MD2Test is Test {
         // grcTokens.push(address(mockUsdc2));
         // grcTokens.push(address(mockUsdcTax1));
 
-        handler = new MD2Handler(address(minerMath),grcTokens);
+        handler = new MD2Handler(address(minerMath), grcTokens);
         bytes4[] memory selectors = new bytes4[](2);
         selectors[0] = MD2Handler.addRewardsToBucket.selector;
         selectors[1] = MD2Handler.addRewardsToBucketNoWarp.selector;
@@ -232,6 +232,86 @@ contract MD2Test is Test {
         assert(minerMath.genesisTimestampInternal() == 0);
     }
 
+    function test_issue_52() public {
+        minerMath.addToCurrentBucket(192);
+        //get bucket 16
+        MD2.WeeklyReward memory reward = minerMath.reward(16);
+
+        uint256 expectedAmount = uint256(192) / uint256(192);
+        assertEq(reward.amountInBucket, expectedAmount);
+
+        //Warp (209-16) weeks
+        vm.warp(block.timestamp + 192 weeks);
+
+        // // Add to bucket 209
+        // minerMath.addToCurrentBucket(192);
+
+        // uint currentBucket = minerMath.currentBucket();
+        // assertEq(currentBucket, 208 - 16);
+        MD2.WeeklyReward memory reward2 = minerMath.reward(208);
+        expectedAmount = uint256(192) / uint256(192);
+
+        logWeeklyReward(16, reward);
+        logWeeklyReward(209, reward2);
+
+        // assertEq(reward2.amountInBucket, expectedAmount);
+    }
+
+    function test_issue55() public {
+        minerMath.addToCurrentBucket(192 * 10);
+        //get bucket 16
+        MD2.WeeklyReward memory reward = minerMath.reward(16);
+
+        uint256 expectedAmount = uint256(192 * 10) / uint256(192);
+        assertEq(reward.amountInBucket, expectedAmount);
+
+        //Warp (207-16) = 191 weeks
+        vm.warp(block.timestamp + 191 weeks);
+
+        //add to bucket 207
+        uint256 currentBucket = minerMath.currentBucket();
+        assertEq(currentBucket, 207 - 16, "bucket to add to is not 207");
+        minerMath.addToCurrentBucket(192 * 2);
+
+        MD2.WeeklyReward memory rewardWeek207 = minerMath.reward(207);
+
+        logWeeklyReward(16, reward);
+        logWeeklyReward(207, rewardWeek207);
+
+        //warp once
+        vm.warp(block.timestamp + 1 weeks);
+        currentBucket = minerMath.currentBucket();
+        assertEq(currentBucket, 208 - 16, "bucket to add to is not 208");
+
+        minerMath.getAmountForTokenAndInitIfNot(208);
+
+        MD2.WeeklyReward memory rewardWeek208 = minerMath.reward(208);
+        logWeeklyReward(208, rewardWeek208);
+
+        //warp once more and do the same for 209
+        vm.warp(block.timestamp + 1 weeks);
+
+        minerMath.getAmountForTokenAndInitIfNot(209);
+    }
+
+    function test_settingAfterPastDataIrrelavant_shouldWork() public {
+        minerMath.addToCurrentBucket(1 ether);
+        //get bucket 16
+        MD2.WeeklyReward memory reward = minerMath.reward(16);
+
+        uint256 expectedAmount = uint256(1 ether) / uint256(192);
+        assertEq(reward.amountInBucket, expectedAmount);
+
+        //Warp (209-16) weeks
+        vm.warp(block.timestamp + 193 weeks);
+
+        // Add to bucket 209
+        minerMath.addToCurrentBucket(2 ether);
+
+        MD2.WeeklyReward memory reward2 = minerMath.reward(209);
+        expectedAmount = uint256(2 ether) / uint256(192);
+        assertEq(reward2.amountInBucket, expectedAmount);
+    }
     // /**
     //  * @dev function to test the addRewardsToBucket function
     //  *         -   we loop over 300 weeks,
@@ -267,15 +347,15 @@ contract MD2Test is Test {
 
     // //-----------------UTILS-----------------
 
-    // /// @dev - helper function to log a reward for debug purposes
-    // function logWeeklyReward(uint256 id, MD2.WeeklyReward memory reward) public {
-    //     console.logString("---------------------------------");
-    //     console.log("id %s", id);
-    //     console.log("inheritedFromLastWeek %s", reward.inheritedFromLastWeek);
-    //     console.log("amountInBucket %s", reward.amountInBucket);
-    //     console.log("amountToDeduct %s", reward.amountToDeduct);
-    //     console.logString("---------------------------------");
-    // }
+    /// @dev - helper function to log a reward for debug purposes
+    function logWeeklyReward(uint256 id, MD2.WeeklyReward memory reward) public {
+        console.logString("---------------------------------");
+        console.log("id %s", id);
+        console.log("inheritedFromLastWeek %s", reward.inheritedFromLastWeek);
+        console.log("amountInBucket %s", reward.amountInBucket);
+        console.log("amountToDeduct %s", reward.amountToDeduct);
+        console.logString("---------------------------------");
+    }
 
     // /// @dev - helper function to log a group of rewards for debug purposes
     // function logBuckets(uint256 start, uint256 finish) public {

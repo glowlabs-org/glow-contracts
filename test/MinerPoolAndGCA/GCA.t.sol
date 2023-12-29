@@ -2,13 +2,14 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
@@ -39,13 +40,19 @@ contract GCATest is Test {
     uint256 constant _UINT64_MAX_DIV5 = type(uint64).max / 5;
     uint256 constant _200_BILLION = 200_000_000_000 * 1e18;
 
+    address deployer = tx.origin;
+
     function setUp() public {
         //Make sure we don't start at 0
+        vm.startPrank(deployer);
         vm.warp(10);
-        glow = new TestGLOW(earlyLiquidity,vestingContract);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGCA = computeCreateAddress(deployer, deployerNonce + 1);
+        glow = new TestGLOW(earlyLiquidity, vestingContract, precomputedGCA, vetoCouncilAddress, grantsTreasuryAddress);
         address[] memory temp = new address[](0);
-        gca = new MockGCA(temp,address(glow),governance);
-        glow.setContractAddresses(address(gca), vetoCouncilAddress, grantsTreasuryAddress);
+        gca = new MockGCA(temp, address(glow), governance);
+        //TODO: precompute
+        // glow.setContractAddresses(address(gca), vetoCouncilAddress, grantsTreasuryAddress);
         handler = new Handler(address(gca));
         addGCA(address(handler));
         bytes4[] memory selectors = new bytes4[](4);
@@ -61,6 +68,7 @@ contract GCATest is Test {
         targetSender(OTHER_GCA_3);
         targetSender(OTHER_GCA_4);
         targetContract(address(handler));
+        vm.stopPrank();
     }
 
     // /**
@@ -221,7 +229,7 @@ contract GCATest is Test {
     //-------- ISSUING REPORTS ---------//
     function addGCA(address newGCA) public {
         address[] memory allGCAs = gca.allGcas();
-        address[] memory temp = new address[](allGCAs.length+1);
+        address[] memory temp = new address[](allGCAs.length + 1);
         for (uint256 i; i < allGCAs.length; i++) {
             temp[i] = allGCAs[i];
             if (allGCAs[i] == newGCA) {
@@ -774,7 +782,7 @@ contract GCATest is Test {
 
     function test_Constructor_shouldSetGenesisTimestampForGCAs() public {
         address[] memory gcaAddresses = _getAddressArray(5, 25);
-        gca = new MockGCA(gcaAddresses,address(glow),governance);
+        gca = new MockGCA(gcaAddresses, address(glow), governance);
         uint256 glwGenesisTimestamp = glow.GENESIS_TIMESTAMP();
         uint256 gcaGenesisTimestamp = gca.GENESIS_TIMESTAMP();
         assertTrue(glwGenesisTimestamp == gcaGenesisTimestamp);

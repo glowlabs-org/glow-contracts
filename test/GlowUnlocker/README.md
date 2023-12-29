@@ -1,0 +1,1 @@
+The glow unlocker contract is not deployed for guarded launch, only for production, so we don't need a specific guarded launch test.

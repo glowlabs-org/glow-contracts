@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "forge-std/Test.sol";
 import "../../src/testing/TestGLOW.sol";
 import {TestGCC} from "../../src/testing/TestGCC.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/console.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -20,11 +20,15 @@ contract CarbonCreditDutchAuctionTest is Test {
     MockUSDC usdc;
     TestGCC public gcc;
     TestGLOW public glow;
-    CarbonCreditDutchAuction public auction;
+    CarbonCreditDescendingPriceAuction public auction;
     address earlyLiquidityAddress = address(0x15);
     address vestingContract = address(0x16);
     uint256 constant ONE_WEEK = 1 weeks;
     uint256 constant SALE_UNIT = 1e6;
+
+    address GCA = address(0xffaffafafa);
+    address VETO_COUNCIL = address(0xfffffff);
+    address GRANTS = address(0xdddaaff);
 
     address operator = address(0x1);
     address minerPool = address(0x2);
@@ -35,10 +39,10 @@ contract CarbonCreditDutchAuctionTest is Test {
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
         vm.warp(100000);
-        glow = new TestGLOW(earlyLiquidityAddress, vestingContract);
-        gcc = new TestGCC(address(this), address(this),address(glow),address(usdc),address(uniswapRouter));
+        glow = new TestGLOW(earlyLiquidityAddress, vestingContract, GCA, VETO_COUNCIL, GRANTS);
+        gcc = new TestGCC(address(this), address(this), address(glow), address(usdc), address(uniswapRouter));
         //Starting price is 1:1
-        auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
     }
 
     function testReceiveGCC() public {
@@ -131,7 +135,7 @@ contract CarbonCreditDutchAuctionTest is Test {
     function test_receiveGCC_callerNotGCC_shouldRvert() public {
         vm.startPrank(address(0xdead));
         gcc.mint(address(auction), 1 ether);
-        vm.expectRevert(CarbonCreditDutchAuction.CallerNotGCC.selector);
+        vm.expectRevert(CarbonCreditDescendingPriceAuction.CallerNotGCC.selector);
         auction.receiveGCC(1 ether);
         vm.stopPrank();
     }
@@ -144,7 +148,7 @@ contract CarbonCreditDutchAuctionTest is Test {
         uint256 price = auction.getPricePerUnit();
         glow.mint(operator, 100_000_000_000_000_000 ether);
         glow.approve(address(auction), 100_000_000_000_000_000 ether);
-        vm.expectRevert(CarbonCreditDutchAuction.CannotBuyZeroUnits.selector);
+        vm.expectRevert(CarbonCreditDescendingPriceAuction.CannotBuyZeroUnits.selector);
         auction.buyGCC({unitsToBuy: 0, maxPricePerUnit: price});
         vm.stopPrank();
     }
@@ -158,7 +162,7 @@ contract CarbonCreditDutchAuctionTest is Test {
         uint256 price = auction.getPricePerUnit();
         glow.mint(operator, 100_000_000_000_000_000 ether);
         glow.approve(address(auction), 100_000_000_000_000_000 ether);
-        vm.expectRevert(CarbonCreditDutchAuction.UserPriceNotHighEnough.selector);
+        vm.expectRevert(CarbonCreditDescendingPriceAuction.UserPriceNotHighEnough.selector);
         auction.buyGCC({unitsToBuy: 10_000 ether / SALE_UNIT, maxPricePerUnit: price - 1});
         vm.stopPrank();
     }
@@ -172,7 +176,7 @@ contract CarbonCreditDutchAuctionTest is Test {
         uint256 price = auction.getPricePerUnit();
         glow.mint(operator, 100_000_000_000_000_000 ether);
         glow.approve(address(auction), 100_000_000_000_000_000 ether);
-        vm.expectRevert(CarbonCreditDutchAuction.NotEnoughGCCForSale.selector);
+        vm.expectRevert(CarbonCreditDescendingPriceAuction.NotEnoughGCCForSale.selector);
         auction.buyGCC({unitsToBuy: (10_000 ether / SALE_UNIT) + 1, maxPricePerUnit: price});
         vm.stopPrank();
     }

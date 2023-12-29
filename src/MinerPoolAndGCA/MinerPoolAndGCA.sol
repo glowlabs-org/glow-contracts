@@ -11,10 +11,10 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
-import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import {IHoldingContract} from "@/HoldingContract.sol";
+import {ISafetyDelay} from "@/SafetyDelay.sol";
 import {IGCC} from "@/interfaces/IGCC.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 
 /**
  * @title Miner Pool And GCA
@@ -39,7 +39,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     /// @dev the typehash for the claim reward from bucket eip712 message
     bytes32 private constant _CLAIM_REWARD_FROM_BUCKET_TYPEHASH = keccak256(
-        "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 grcWeight,uint256 index,bool claimFromInflation)"
+        "ClaimRewardFromBucket(uint256 bucketId,uint256 glwWeight,uint256 usdcWeight,uint256 index,bool claimFromInflation)"
     );
 
     /**
@@ -52,7 +52,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     /* -------------------------------------------------------------------------- */
     /**
      * @notice the address of the early liquidity contract
-     * @dev used for authorization in {donateToGRCMinerRewardsPoolEarlyLiquidity}
+     * @dev used for authorization in {donateToUSDCMinerRewardsPoolEarlyLiquidity}
      */
     address private immutable _EARLY_LIQUIDITY;
 
@@ -71,14 +71,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     ///           -   mistakenly or on purpose
     ///     - If such a case happens, the Veto Council can delay the holding contract by 13 weeks
     ///     - This should give enough time to rectify the situation
-    IHoldingContract public immutable HOLDING_CONTRACT;
-
-    /* -------------------------------------------------------------------------- */
-    /*                                 state vars                                */
-    /* -------------------------------------------------------------------------- */
+    ISafetyDelay public immutable HOLDING_CONTRACT;
 
     /// @notice the GCC contract
-    IGCC public gccContract;
+    IGCC public immutable GCC;
 
     /* -------------------------------------------------------------------------- */
     /*                                   mappings                                  */
@@ -101,8 +97,8 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     /**
      * @dev a mapping of bucketId -> pushed weights
-     * - we could split this up into a packed map of pushedGlwWeight and pushedGrcWeight
-     *         and use one slot to fit 4 (uint32 pushedGlwWeight, uint32 pushedGrcWeight) tuples,
+     * - we could split this up into a packed map of pushedGlwWeight and pushedUSDCWeight
+     *         and use one slot to fit 4 (uint32 pushedGlwWeight, uint32 pushedUSDCWeight) tuples,
      *         but since this slot will only be cold for the first write of each bucket claim,
      *         it's not worth the additional complexity and gas costs on each subsequent write
      *         to handle the packing and unpacking.
@@ -115,15 +111,15 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     /**
      * @param pushedGlwWeight - the aggregate amount of glw weight pushed
-     * @param pushedGrcWeight - the aggregate amount of grc weight pushed
+     * @param pushedUSDCWeight - the aggregate amount of USDC weight pushed
      * @dev meant to be used in conjunction with the _weightsPushed mapping
      *       - when a user claims from a bucket, the pushed weights are added to the total weights
-     *       - these are tracked to ensure that the pushed weights dont overflow the total weights
+     *       - these are tracked to ensure that the pushed weights don't overflow the total weights
      *       - that were put in place for that specific bucket
      */
     struct PushedWeights {
         uint64 pushedGlwWeight;
-        uint64 pushedGrcWeight;
+        uint64 pushedUSDCWeight;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -136,9 +132,10 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @param _glowToken the address of the glow token
      * @param _governance the address of the governance contract
      * @param _requirementsHash the requirements hash of GCA Agents
-     * @param _grcToken - the first grc token (USDC)
+     * @param _usdcToken - the USDC token address
      * @param _vetoCouncil - the address of the veto council contract.
      * @param _holdingContract - the address of the holding contract
+     * @param _gcc - the address of the gcc contract
      */
     constructor(
         address[] memory _gcaAgents,
@@ -146,15 +143,16 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         address _governance,
         bytes32 _requirementsHash,
         address _earlyLiquidity,
-        address _grcToken,
+        address _usdcToken,
         address _vetoCouncil,
-        address _holdingContract
+        address _holdingContract,
+        address _gcc
     ) payable GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "1") {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _VETO_COUNCIL = _vetoCouncil;
-        HOLDING_CONTRACT = IHoldingContract(_holdingContract);
-        HOLDING_CONTRACT.setMinerPool(address(this));
-        USDC = _grcToken;
+        HOLDING_CONTRACT = ISafetyDelay(_holdingContract);
+        USDC = _usdcToken;
+        GCC = IGCC(_gcc);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -164,7 +162,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     /**
      * @inheritdoc IMinerPool
      */
-    function donateToGRCMinerRewardsPool(uint256 amount) external virtual {
+    function donateToUSDCMinerRewardsPool(uint256 amount) external virtual {
         uint256 balBefore = IERC20(USDC).balanceOf(address(HOLDING_CONTRACT));
         SafeERC20.safeTransferFrom(IERC20(USDC), msg.sender, address(HOLDING_CONTRACT), amount);
         uint256 transferredBalance = IERC20(USDC).balanceOf(address(HOLDING_CONTRACT)) - balBefore;
@@ -174,7 +172,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     /**
      * @inheritdoc IMinerPool
      */
-    function donateToGRCMinerRewardsPoolEarlyLiquidity(uint256 amount) external virtual {
+    function donateToUSDCMinerRewardsPoolEarlyLiquidity(uint256 amount) external virtual {
         if (msg.sender != _EARLY_LIQUIDITY) _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
         _addToCurrentBucket(amount);
     }
@@ -205,7 +203,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     function claimRewardFromBucket(
         uint256 bucketId,
         uint256 glwWeight,
-        uint256 grcWeight,
+        uint256 usdcWeight,
         bytes32[] calldata proof,
         uint256 index,
         address user,
@@ -213,7 +211,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         bytes memory signature
     ) external {
         if (msg.sender != user) {
-            bytes32 hash = createClaimRewardFromBucketDigest(bucketId, glwWeight, grcWeight, index, claimFromInflation);
+            bytes32 hash = createClaimRewardFromBucketDigest(bucketId, glwWeight, usdcWeight, index, claimFromInflation);
             if (!SignatureChecker.isValidSignatureNow(user, hash, signature)) {
                 _revert(IMinerPool.SignatureDoesNotMatchUser.selector);
             }
@@ -226,7 +224,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
         {
             bytes32 root = getBucketRootAtIndexEfficient(bucketId, index);
-            _checkProof(user, glwWeight, grcWeight, proof, root);
+            _checkProof(user, glwWeight, usdcWeight, proof, root);
         }
 
         uint256 globalStatePackedData = getPackedBucketGlobalState(bucketId);
@@ -235,20 +233,21 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
          * Bit Layout of packed global state
          *     [0-127] - totalNewGCC
          *     [128-191] - totalGLWRewardsWeight
-         *     [192-255] - totalGRCRewardsWeight
+         *     [192-255] - totalUSDCRewardsWeight
          */
-        uint256 totalGRCWeight = globalStatePackedData >> 192;
+        uint256 totalUSDCWeight = globalStatePackedData >> 192;
         uint256 totalGlwWeight = globalStatePackedData >> 128 & _UINT64_MASK;
         _checkWeightsForOverflow({
             bucketId: bucketId,
             totalGlwWeight: totalGlwWeight,
-            totalGrcWeight: totalGRCWeight,
+            totalUSDCWeight: totalUSDCWeight,
             glwWeight: glwWeight,
-            grcWeight: grcWeight
+            usdcWeight: usdcWeight
         });
+
         _handleMintToCarbonCreditAuction(bucketId, globalStatePackedData & _UINT128_MASK);
 
-        //no need to use a mask since totalGRCWeight uses the last 64 bits, so we can just shift
+        //no need to use a mask since totalUSDCWeight uses the last 64 bits, so we can just shift
         {
             uint256 userBitmap = _getUserBitmapForBucket(bucketId, user);
             userBitmap = _checkClaimAvailableAndReturnNewBitmap(bucketId, userBitmap);
@@ -256,11 +255,11 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         }
 
         //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
-        // so that we don't overflow the available GRC rewards
+        // so that we don't overflow the available USDC rewards
         // and grab rewards from other buckets
         uint256 amountInBucket = _getAmountForTokenAndInitIfNot(bucketId);
-        _revertIfGreater(grcWeight, totalGRCWeight, IMinerPool.GRCWeightGreaterThanTotalWeight.selector);
-        amountInBucket = amountInBucket * grcWeight / totalGRCWeight;
+        _revertIfGreater(usdcWeight, totalUSDCWeight, IMinerPool.USDCWeightGreaterThanTotalWeight.selector);
+        amountInBucket = amountInBucket * usdcWeight / totalUSDCWeight;
         if (amountInBucket > 0) {
             //Cant overflow since the amountInBucket is less than  or equal to the total amount in the bucket
             HOLDING_CONTRACT.addHolding(user, USDC, SafeCast.toUint192(amountInBucket));
@@ -309,16 +308,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
             _revert(IMinerPool.CannotDelayEmptyBucket.selector);
         }
 
-        _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(_BUCKET_DELAY_DURATION);
-    }
-
-    /// @notice initializes the gcc token
-    /// @param gcc - the gcc token
-    function setGCC(address gcc) external {
-        if (!_isZeroAddress(address(gccContract))) {
-            _revert(IGCA.GCCAlreadySet.selector);
-        }
-        gccContract = IGCC(gcc);
+        _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(bucketDelayDuration());
     }
 
     /* -------------------------------------------------------------------------- */
@@ -361,7 +351,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     function createClaimRewardFromBucketDigest(
         uint256 bucketId,
         uint256 glwWeight,
-        uint256 grcWeight,
+        uint256 usdcWeight,
         uint256 index,
         bool claimFromInflation
     ) public view returns (bytes32) {
@@ -371,11 +361,19 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
                 _domainSeparatorV4(),
                 keccak256(
                     abi.encode(
-                        _CLAIM_REWARD_FROM_BUCKET_TYPEHASH, bucketId, glwWeight, grcWeight, index, claimFromInflation
+                        _CLAIM_REWARD_FROM_BUCKET_TYPEHASH, bucketId, glwWeight, usdcWeight, index, claimFromInflation
                     )
                 )
             )
         );
+    }
+
+    /**
+     * @notice The amount of time a delay action will delay a bucket by
+     * @return the amount of time a delay action will delay a bucket by
+     */
+    function bucketDelayDuration() public pure virtual returns (uint256) {
+        return _BUCKET_DELAY_DURATION;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -401,7 +399,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         if (mask & existingBitmap == 0) {
             existingBitmap |= mask;
             _mintedToCarbonCreditAuctionBitmap[key] = existingBitmap;
-            gccContract.mintToCarbonCreditAuction(bucketId, amountToMint);
+            GCC.mintToCarbonCreditAuction(bucketId, amountToMint);
         }
     }
 
@@ -444,18 +442,18 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
      * @dev used internally check if a proof is valid
      * @param payoutWallet - the address of the user
      * @param glwWeight - the weight of the user's glw rewards
-     * @param grcWeight - the weight of the user's grc rewards
+     * @param usdcWeight - the weight of the user's USDC rewards
      * @param proof - the merkle proof of the user's rewards
-     *                     - the leaves are {payoutWallet, glwWeight, grcWeight}
+     *                     - the leaves are {payoutWallet, glwWeight, usdcWeight}
      */
     function _checkProof(
         address payoutWallet,
         uint256 glwWeight,
-        uint256 grcWeight,
+        uint256 usdcWeight,
         bytes32[] calldata proof,
         bytes32 root
     ) internal pure {
-        bytes32 leaf = keccak256(abi.encodePacked(payoutWallet, glwWeight, grcWeight));
+        bytes32 leaf = keccak256(abi.encodePacked(payoutWallet, glwWeight, usdcWeight));
 
         if (!MerkleProofLib.verifyCalldata(proof, root, leaf)) {
             _revert(IMinerPool.InvalidProof.selector);
@@ -464,30 +462,30 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
 
     /**
      * @dev checks to make sure the weights in the report
-     *         - dont overflow the total weights that have been set for the bucket
+     *         - don't overflow the total weights that have been set for the bucket
      *         - Without this check, a malicious weight could be used to overflow the total weights
      *         - and grab rewards from other buckets
      * @param bucketId - the id of the bucket
      * @param totalGlwWeight - the total amount of glw weight for the bucket
-     * @param totalGrcWeight - the total amount of grc weight for the bucket
+     * @param totalUSDCWeight - the total amount of USDC weight for the bucket
      * @param glwWeight - the glw weight of the leaf in the report being claimed
-     * @param grcWeight - the grc weight of the leaf in the report being claimed
+     * @param usdcWeight - the USDC weight of the leaf in the report being claimed
      */
     function _checkWeightsForOverflow(
         uint256 bucketId,
         uint256 totalGlwWeight,
-        uint256 totalGrcWeight,
+        uint256 totalUSDCWeight,
         uint256 glwWeight,
-        uint256 grcWeight
+        uint256 usdcWeight
     ) internal {
         PushedWeights memory pushedWeights = _weightsPushed[bucketId];
         pushedWeights.pushedGlwWeight += SafeCast.toUint64(glwWeight);
-        pushedWeights.pushedGrcWeight += SafeCast.toUint64(grcWeight);
+        pushedWeights.pushedUSDCWeight += SafeCast.toUint64(usdcWeight);
         if (pushedWeights.pushedGlwWeight > totalGlwWeight) {
             _revert(IMinerPool.GlowWeightOverflow.selector);
         }
-        if (pushedWeights.pushedGrcWeight > totalGrcWeight) {
-            _revert(IMinerPool.GRCWeightOverflow.selector);
+        if (pushedWeights.pushedUSDCWeight > totalUSDCWeight) {
+            _revert(IMinerPool.USDCWeightOverflow.selector);
         }
         _weightsPushed[bucketId] = pushedWeights;
     }
@@ -526,6 +524,20 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         return _domainSeparatorV4();
     }
 
+    /**
+     * @notice returns the bucket duration
+     * @return bucketDuration - the bucket duration
+     */
+    function bucketDuration() internal pure virtual override(GCA, BucketSubmission) returns (uint256) {
+        return _BUCKET_DURATION;
+    }
+
+    /**
+     * @notice reverts with {selector} if {a} > {b}
+     * @param a - the first number
+     * @param b - the second number
+     * @param selector - the selector to revert with
+     */
     function _revertIfGreater(uint256 a, uint256 b, bytes4 selector) internal pure {
         if (a > b) _revert(selector);
     }

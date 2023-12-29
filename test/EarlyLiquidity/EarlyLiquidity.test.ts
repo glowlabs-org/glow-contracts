@@ -259,8 +259,8 @@ describe('Test: Early Liquidity', function () {
 
 function getPriceOfToken(totalTokensSold: number): number {
   //Since our increments are .01, the formula reshapes to
-  // .001 * 2^((totalIncrementsSold + 1) / 100 million)
-  return Math.floor(1000 * 2 ** ((totalTokensSold + 1) / 100_000_000));
+  // .003 * 2^((totalIncrementsSold + 1) / 100 million)
+  return Math.floor(3000 * 2 ** ((totalTokensSold + 1) / 100_000_000));
 }
 // /**
 //  * @notice grabs the actual price of all the tokens by looping through each token and adding the price
@@ -338,7 +338,7 @@ const incrementsToBuy = 15971269;
 const ratio = 1.0000000069314718;
 
 const getPriceOfTokens = (totalTokensSold: number, totalToBuy: number) => {
-  const firstTerm = 0.001 * 2 ** (totalTokensSold / 100_000_000);
+  const firstTerm = 0.003 * 2 ** (totalTokensSold / 100_000_000);
   const price = geometricSeriesSum(firstTerm, ratio, totalToBuy);
   //Strong change this may
   //We need to multiply by 1e6 to account for the floating point math adjustment

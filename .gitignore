@@ -34,3 +34,6 @@ utils/
 cloc-table.md
 
 test/EarlyLiquidity/data/
+
+
+logs/

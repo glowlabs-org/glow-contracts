@@ -58,6 +58,20 @@ interface IGlow is IERC20 {
         uint64 cooldownEnd;
     }
 
+    /**
+     * @dev helper for managing tail and head in a mapping
+     * @param tail the tail of the mapping
+     * @param head the head of the mapping
+     * @dev the head is the last index with data. If we need to push, we push at head + 1
+     * @dev there are edge cases where head == tail and there is data,
+     *         -   and conversely, head == tail and there is no data
+     *         - These special cases are handled in the code
+     */
+    struct Pointers {
+        uint128 tail;
+        uint128 head;
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                   staking                                  */
     /* -------------------------------------------------------------------------- */

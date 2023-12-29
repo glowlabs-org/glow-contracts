@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "../../src/testing/TestGLOW.sol";
 import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
@@ -23,11 +25,19 @@ contract GrantsTreasuryTest is Test {
     address public constant NOT_GOVERNANCE = address(0x7);
     uint256 public constant GRANTS_INFLATION_PER_WEEK = 40_000 ether;
     uint256 constant STARTING_GRANTS_BALANCE = 0 ether;
+    address deployer = tx.origin;
 
     function setUp() public {
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        vm.startPrank(deployer);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputeGrants = computeCreateAddress(deployer, deployerNonce + 1);
+        glw = new TestGLOW(EARLY_LIQUIDITY, VESTING_CONTRACT, GCA, VETO_COUNCIL, precomputeGrants);
         grantsTreasury = new GrantsTreasury(address(glw), GOVERNANCE);
-        glw.setContractAddresses(GCA, VETO_COUNCIL, address(grantsTreasury));
+        assertEq(precomputeGrants, address(grantsTreasury));
+
+        vm.stopPrank();
+        //TODO: set the contract addresses
+        // glw.setContractAddresses(GCA, VETO_COUNCIL, address(grantsTreasury));
     }
 
     function test_AllocatingFromNotGovernanceShouldRevert() public {
