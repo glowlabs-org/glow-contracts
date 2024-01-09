@@ -18,7 +18,7 @@ During the guarded launch phase, contracts are deployed as normal with the excep
     -   Used across contracts to handle ERC20 transfers. 
     - Specifically in :
         -   EarlyLiquidity
-        -   HoldingContract
+        -   SafetyDelay
         -   MinerPoolAndGCA
 6. OpenZeppelin SignatureChecker
     -   Used across contracts to check for ECDSA and EIP1271 signatures
@@ -117,9 +117,9 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
     - GCA's are paid a weekly salary and decide amongst themselves how to allocate the GLOW reserved for GCA payouts (10,000 per week)
     - Once buckets are finalized, farms can claim rewards and GCC is minted to the Carbon Credit Auction.
         - USDC rewards are withheld for 1 week before finally being able to be released to the farm.
-        - This occurs in `HoldingContract.sol`
+        - This occurs in `SafetyDelay.sol`
         
--   `HoldingContract.sol`
+-   `SafetyDelay.sol`
     -   This contract holds the USDC rewards for farms.
     -   When a holding is added, farms must wait one week before being able to claim the amount in the holding
     -   Holdings can be delayed by 90 days by the `VetoCouncil`
@@ -131,7 +131,7 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
     -   Executes proposals
 -   `VetoCouncil.sol`
     - The veto council is responsible for delaying fraudulent buckets
-    - The veto council also has the power to delay all Holdings from `HoldingContract.sol` by 90 days.
+    - The veto council also has the power to delay all Holdings from `SafetyDelay.sol` by 90 days.
     - The veto council also has the power to veto non-election proposals.
     - The veto council is managed by governance and are paid a weekly salary in GLOW.
 
