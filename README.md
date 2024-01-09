@@ -152,8 +152,27 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
     - When new GCC is added, all pending vesting amounts and the new amount are vested over the course of a week
     - There is no cap on the amount of GCC that can be purchased in a single transaction
 
+
 ## Simple Flow
 <img src="./assets/glow-flow-diagram.png"></img>
+
+## Live Guarded Launch Addresses
+| Contract | Address |
+| --- | --- |
+| Early Liquidity |   0xD5aBe236d2F2F5D10231c054e078788Ea3447DFc |
+| Governance | 0x8d01a258bC1ADB728322499E5D84173EA971d665 |
+| Glow | 0xf4fbC617A5733EAAF9af08E1Ab816B103388d8B6 |
+| Veto Council | 0xA3A32d3c9a5A593bc35D69BACbe2dF5Ea2C3cF5C |
+| Safety Delay | 0xd5970622b740a2eA5A5574616c193968b10e1297 |
+| Grants Treasury | 0x0116DA066517F010E59b32274BF18083aF34e108 |
+| GCA and Miner Pool | 0x6Fa8C7a89b22bf3212392b778905B12f3dBAF5C4 |
+| GCC | 0x21C46173591f39AfC1d2B634b74c98F0576A272B |
+| USDG | 0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2 |
+| Impact Catalyst | 0x552Fbb4E0269fd5036daf72Ec006AAF6C958F4Fa |
+| Carbon Credit Auction | 0x85fbB04DEBBDEa052a6422E74bFeA57B17e50A80 |
+| Gnosis Safe USDC Holding Contract | 0xc5174BBf649a92F9941e981af68AaA14Dd814F85 |
+
+## Contract Breakdown
 
 | Contract | LOC | Comments |
 | --- | --- | --- |

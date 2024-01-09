@@ -1800,7 +1800,7 @@ contract GovernanceGuardedLaunchTest is Test {
     //----------------  EXECUTING PROPOSALS -----------------//
     //----------------------------------------------------//
 
-    function castLongStakedVotes(address voter, uint256 weekOfMostPopularProposal, bool trueForRatify, uint256 numVotes)
+    function castLongStakedVotes(address voter, uint256 weekOfMostPopularProposal, bool trueForRatify, uint128 numVotes)
         internal
     {
         vm.startPrank(voter);
@@ -2288,8 +2288,8 @@ contract GovernanceGuardedLaunchTest is Test {
             newPercentageRequired = 35;
         }
 
-        castLongStakedVotes(SIMON, 0, true, newPercentageRequired);
-        castLongStakedVotes(OTHER_VETO_1, 0, false, (100 - newPercentageRequired));
+        castLongStakedVotes(SIMON, 0, true, uint128(newPercentageRequired));
+        castLongStakedVotes(OTHER_VETO_1, 0, false, (100 - uint128(newPercentageRequired)));
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.executeProposalAtWeek(0);
 
@@ -2322,9 +2322,9 @@ contract GovernanceGuardedLaunchTest is Test {
             newPercentageRequired = 35;
         }
 
-        castLongStakedVotes(SIMON, 0, true, newPercentageRequired);
+        castLongStakedVotes(SIMON, 0, true, uint128(newPercentageRequired));
         uint256 complement = 100 - newPercentageRequired;
-        castLongStakedVotes(OTHER_VETO_1, 0, false, complement + 1);
+        castLongStakedVotes(OTHER_VETO_1, 0, false, uint128(complement + 1));
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.executeProposalAtWeek(0);
 
