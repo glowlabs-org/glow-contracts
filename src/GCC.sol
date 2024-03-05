@@ -32,7 +32,6 @@ import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
  *              - earned from a swap in the commitGCC or commitUSDC functions in the `impactCatalyst`
  *              - When committing USDC, the amount of nominations earned is equal to the amount of USDC committed
  */
-
 contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */

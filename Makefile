@@ -43,6 +43,9 @@ deploy.testnet.batch-retire :; forge script script/Testnet/DeployBatchRetire.s.s
 deploy.full.testnet :; forge script script/Testnet/DeployFull.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
+deploy.batch_commit.mainnet :; forge script script/Mainnet/DeployBatchCommit.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY}  \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+
 deploy.full.quickperiod.testnet :; forge script script/Testnet/DeployFullQuickBuckets.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 

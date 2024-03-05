@@ -29,7 +29,6 @@ interface IDecimals {
  * @dev to calculate the price for y tokens in real time, we use the sum of a geometric series which allows us
  *         - to efficiently calculate the price of y tokens in real time rather than looping through all the increments
  */
-
 contract EarlyLiquidity is IEarlyLiquidity {
     using ABDKMath64x64 for int128;
 
@@ -224,7 +223,6 @@ contract EarlyLiquidity is IEarlyLiquidity {
      *         - for increment id = totalIncrementsSold  id: to incrementId = incrementsToBuy
      *         - rounding errors do occur due to floating point math, but divergence is sub 1e-7
      */
-
     function _getPrice(uint256 totalIncrementsSold, uint256 incrementsToBuy) private pure returns (uint256) {
         // Check if the combined total of tokens sold and tokens to buy exceed the allowed amount.
         // If it does, revert the transaction.

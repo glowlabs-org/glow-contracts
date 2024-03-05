@@ -19,7 +19,6 @@ contract TestGLOWGuardedLaunch is GlowGuardedLaunch {
      * @param _uniswapV2Factory the address of the uniswap v2 factory
      * @param _gccContract the address of the GCC contract
      */
-
     constructor(
         address _earlyLiquidityAddress,
         address _vestingContract,

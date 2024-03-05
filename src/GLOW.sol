@@ -509,7 +509,6 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /**
      * @inheritdoc IGlow
      */
-
     function unstakedPositionsOf(address account, uint256 start, uint256 end)
         external
         view

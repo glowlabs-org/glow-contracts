@@ -294,7 +294,6 @@ contract VetoCouncilSalaryHelper {
      *         -   This is used to verify that the member was active at the nonce
      *         -   By comparing the hash of the members at the nonce to the hash stored in the contract
      */
-
     function getDataToCalculatePayout(address member, uint256 nonce, address[] memory members)
         internal
         view

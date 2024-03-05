@@ -31,16 +31,18 @@ contract BatchCommit {
     /* -------------------------------------------------------------------------- */
     /**
      * @notice emitted when GCC is committed
+     * @param amount ~ the amount of GCC committed
      * @param data the bytes that capture the breakdown of the commitments
      *         -   as mentioned in the contract description
      */
-    event GCCEmission(bytes data);
+    event GCCEmission(uint256 amount, bytes data);
     /**
      * @notice emitted when GCC is committed
+     * @param amount ~ the amount of USDC committed
      * @param data the bytes that capture the breakdown of the commitments
      *         -   as mentioned in the contract description
      */
-    event USDCEmission(bytes data);
+    event USDCEmission(uint256 amount, bytes data);
 
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
@@ -68,7 +70,7 @@ contract BatchCommit {
     function commitGCC(uint256 amount, address rewardAddress, uint256 minImpactPower, bytes calldata data) external {
         GCC.transferFrom(msg.sender, address(this), amount);
         GCC.commitGCC(amount, rewardAddress, minImpactPower);
-        emit GCCEmission(data);
+        emit GCCEmission(amount, data);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -88,6 +90,6 @@ contract BatchCommit {
         uint256 amountToRetire = balAfter - balBefore;
         USDC.approve(address(GCC), amountToRetire);
         GCC.commitUSDC(amountToRetire, rewardAddress, minImpactPower);
-        emit USDCEmission(data);
+        emit USDCEmission(amount, data);
     }
 }

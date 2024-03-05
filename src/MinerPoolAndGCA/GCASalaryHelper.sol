@@ -98,7 +98,6 @@ abstract contract GCASalaryHelper {
      * @param claimFromInflation whether or not to claim glow from inflation
      * @param sig the relay signature
      */
-
     function claimPayout(
         address user,
         uint256 paymentNonce,
@@ -252,7 +251,6 @@ abstract contract GCASalaryHelper {
      * @notice slashes an agent
      * @param user the user to slash
      */
-
     function _slash(address user) internal {
         isSlashed[user] = true;
     }

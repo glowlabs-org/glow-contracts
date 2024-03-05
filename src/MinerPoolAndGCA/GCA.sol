@@ -414,7 +414,6 @@ contract GCA is IGCA, GCASalaryHelper {
      * @param totalGRCRewardsWeight - the total amount of grc rewards weight in the report
      * @param root - the merkle root containing all the reports (leaves) for the period
      */
-
     function _submitWeeklyReport(
         uint256 bucketId,
         uint256 totalNewGCC,
@@ -722,7 +721,6 @@ contract GCA is IGCA, GCASalaryHelper {
      * @param index - the index of the report in the reports[] array for the bucket
      * @return root - the merkle root for the report for the given bucket at the specific index
      */
-
     function getBucketRootAtIndexEfficient(uint256 bucketId, uint256 index) internal view returns (bytes32 root) {
         // solhint-disable-next-line no-inline-assembly
         assembly {

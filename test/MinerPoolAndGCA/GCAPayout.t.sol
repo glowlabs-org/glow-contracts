@@ -172,7 +172,6 @@ contract GCAPayoutTest is Test {
          *     If an election happens, then we need
          *     all the comp plans to reset
          */
-
         vm.startPrank(governance);
         address[] memory newGCAs = _getAddressArray(3, 4000000);
         address[] memory gcasToSlash = new address[](0);
