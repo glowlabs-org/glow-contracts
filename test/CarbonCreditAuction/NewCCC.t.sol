@@ -132,6 +132,130 @@ contract CarbonCreditDutchAuctionTest is Test {
         vm.warp(block.timestamp + ONE_WEEK);
     }
 
+    function buyEntireSupply() internal {
+        uint256 unitsForSale = auction.unitsForSale();
+        vm.startPrank(operator);
+        glow.approve(address(auction), 100_000_000_000_000_000 ether);
+
+        uint256 price = auction.getPricePerUnit();
+        auction.buyGCC({unitsToBuy: unitsForSale, maxPricePerUnit: price});
+        vm.stopPrank();
+    }
+
+    function test_BuyCCAuction2() public {
+        vm.warp(10000000000);
+        uint256 startingPrice = auction.getPricePerUnit();
+        sendGCCToAuction(0.69 ether);
+        uint256 price = auction.getPricePerUnit();
+        uint256 pseudoPrice = auction.pseudoPrice24HoursAgo();
+        glow.mint(operator, 100_000_000_000_000_000 ether);
+
+        // vm.writeLine("custom-file.csv", "price,pseudoPrice");
+        for (uint256 i = 0; i < 7; i++) {
+            vm.warp(block.timestamp + 86401);
+            price = auction.getPricePerUnit();
+            pseudoPrice = auction.pseudoPrice24HoursAgo();
+            console.log("-------------------");
+            console.log("during iteration = ", i);
+            console.log("price = ", price);
+            console.log("pseudo price = ", pseudoPrice);
+            console.log("-------------------");
+            buyEntireSupply();
+
+            // string memory line = string(abi.encodePacked(Strings.toString(price), ",", Strings.toString(pseudoPrice)));
+            // vm.writeLine("custom-file.csv", line);
+        }
+
+        //         // vm.writeLine("custom-file.csv", "price,pseudoPrice");
+        // for (uint256 i = 0; i < 14; i++) {
+        //     vm.warp(block.timestamp + 43201);
+        //     price = auction.getPricePerUnit();
+        //     pseudoPrice = auction.pseudoPrice24HoursAgo();
+        //     console.log("-------------------");
+        //     console.log("during iteration = ", i);
+        //     console.log("price = ", price);
+        //     console.log("pseudo price = ", pseudoPrice);
+        //     console.log("-------------------");
+        //     buyEntireSupply();
+
+        //     // string memory line = string(abi.encodePacked(Strings.toString(price), ",", Strings.toString(pseudoPrice)));
+        //     // vm.writeLine("custom-file.csv", line);
+        // }
+
+        // //--------------------------------//
+        // buyEntireSupply();
+        // price = auction.getPricePerUnit();
+        // pseudoPrice = auction.pseudoPrice24HoursAgo();
+
+        // console.log("[0]price = ", price);
+        // console.log("[0]24-hour price = ", pseudoPrice);
+
+        // //--------------------------------//
+        // vm.warp(block.timestamp + 86401);
+        // buyEntireSupply();
+        // price = auction.getPricePerUnit();
+        // pseudoPrice = auction.pseudoPrice24HoursAgo();
+
+        // console.log("[1]price = ", price);
+        // console.log("[1]24-hour price = ", pseudoPrice);
+        // vm.warp(block.timestamp + 40000);
+        //  buyEntireSupply();
+        // price = auction.getPricePerUnit();
+        // pseudoPrice = auction.pseudoPrice24HoursAgo();
+
+        // console.log("[1]price = ", price);
+        // console.log("[1]24-hour price = ", pseudoPrice);
+
+        // //--------------------------------//
+        // vm.warp(block.timestamp + 86401);
+        // buyEntireSupply();
+        // price = auction.getPricePerUnit();
+        // pseudoPrice = auction.pseudoPrice24HoursAgo();
+        // console.log("[2]price = ", price);
+        // console.log("[2]24-hour price = ", pseudoPrice);
+
+        // vm.warp(block.timestamp + 86401);
+        // buyEntireSupply();
+        // price = auction.getPricePerUnit();
+        // pseudoPrice = auction.pseudoPrice24HoursAgo();
+        // console.log("[3]price = ", price);
+        // console.log("[3]24-hour price = ", pseudoPrice);
+
+        // vm.warp(block.timestamp + 86401);
+        // buyEntireSupply();
+        // price = auction.getPricePerUnit();
+        // pseudoPrice = auction.pseudoPrice24HoursAgo();
+        // console.log("price = ", price);
+        // console.log("pseudo price = ", pseudoPrice);
+
+        // buy up the entire
+        // //12 hours
+        // assert(gcc.balanceOf(operator) == 10_000 ether);
+        // assert(auction.totalUnitsSold() == 10_000 ether / SALE_UNIT);
+        // console.log("[1] price per unit = ", auction.getPricePerUnit());
+        // vm.warp(block.timestamp + (3600 * 12));
+        // uint256 unitsForSale = auction.unitsForSale();
+        // console.log("total supply = ", auction.totalSupply());
+        // assert(auction.totalSupply() == 10714285714285714285714);
+        // assert(auction.totalSaleUnits() == auction.totalSupply() / SALE_UNIT);
+
+        // console.log("units for sale = ", unitsForSale);
+        // vm.startPrank(operator);
+        // price = auction.getPricePerUnit();
+        // auction.buyGCC({unitsToBuy: unitsForSale, maxPricePerUnit: price});
+        // vm.stopPrank();
+
+        // console.log("[2] gcc balance after purchase = ", gcc.balanceOf(operator));
+        // // auction.logStateVariables();
+        // console.log("[2] new price per unit = ", auction.getPricePerUnit());
+        // //warp one week
+        // vm.warp(block.timestamp + ONE_WEEK);
+        // console.log("[3] new price per unit = ", auction.getPricePerUnit());
+        // vm.warp(block.timestamp + ONE_WEEK);
+        // console.log("[4] new price per unit = ", auction.getPricePerUnit());
+        // vm.warp(block.timestamp + ONE_WEEK);
+    }
+
     function test_receiveGCC_callerNotGCC_shouldRvert() public {
         vm.startPrank(address(0xdead));
         gcc.mint(address(auction), 1 ether);

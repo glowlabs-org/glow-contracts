@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HalfLifeCarbonCreditAuction} from "@/libraries/HalfLifeCarbonCreditAuction.sol";
 import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
+import "forge-std/console.sol";
 /**
  * @title CarbonCreditDescendingPriceAuction
  * @notice This contract is a reverse dutch auction for GCC.
@@ -126,9 +127,12 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
             _revert(CannotBuyZeroUnits.selector);
         }
         Timestamps memory _timestamps = timestamps;
-        uint256 _lastPriceChangeTimestamp = _timestamps.lastPriceChangeTimestamp;
-        uint256 _pseudoPrice24HoursAgo = pseudoPrice24HoursAgo;
         uint256 price = getPricePerUnit();
+        uint256 _lastPriceChangeTimestamp = _timestamps.lastPriceChangeTimestamp;
+        bool greaterThanOneDayHasPased = block.timestamp - _lastPriceChangeTimestamp > ONE_DAY;
+        // console.log("greater than one day has passed",greaterThanOneDayHasPased);
+        uint256 _pseudoPrice24HoursAgo = greaterThanOneDayHasPased ? price : pseudoPrice24HoursAgo;
+
         if (price > maxPricePerUnit) {
             _revert(UserPriceNotHighEnough.selector);
         }
@@ -147,16 +151,24 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
         //The new price can never grow more than 100% in 24 hours
         if (newPrice * PRECISION / _pseudoPrice24HoursAgo > 2 * PRECISION) {
             newPrice = _pseudoPrice24HoursAgo * 2;
+            // if(block.timestamp - _lastPriceChangeTimestamp > ONE_DAY) {}
         }
         //If it's been more than a day since the last sale, then update the price
         //To the price in the current tx
         //Also update the last price change timestamp
-        if (block.timestamp - _lastPriceChangeTimestamp > ONE_DAY) {
+        //TODO: Changes
+        if (greaterThanOneDayHasPased) {
+            // console.log("units", unitsToBuy);
+            // console.log("!~~~price~~~~! = ", price);
             pseudoPrice24HoursAgo = price;
+            // if (_lastPriceChangeTimestamp == 0) {
+            //     pseudoPrice24HoursAgo = newPrice;
+            // } else {
+            //     pseudoPrice24HoursAgo = price;
+            // }
             _lastPriceChangeTimestamp = block.timestamp;
         }
 
-        //
         pricePerSaleUnit = newPrice;
 
         totalUnitsSold += unitsToBuy;

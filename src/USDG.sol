@@ -17,10 +17,15 @@ import {Glow} from "@/GLOW.sol";
  */
 
 contract USDG is ERC20Permit, Ownable {
+    //Message: "USDG: isContract"
     error ErrIsContract();
+    //Message: "USDG: NotVetoCouncilMember"
     error ErrNotVetoCouncilMember();
+    //Message: "USDG: PermanentlyFrozen"
     error ErrPermanentlyFrozen();
+    //Message: "USDG: ToCannotBeUSDCReceiver"
     error ToCannotBeUSDCReceiver();
+    //Message: "USDG: CannotSwapZero"
     error ErrCannotSwapZero();
 
     /* -------------------------------------------------------------------------- */
