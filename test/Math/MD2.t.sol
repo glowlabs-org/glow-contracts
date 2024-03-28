@@ -311,6 +311,12 @@ contract MD2Test is Test {
         expectedAmount = uint256(2 ether) / uint256(192);
         assertEq(reward2.amountInBucket, expectedAmount);
     }
+
+    function test_weeksBeforeOffsetDoNotRevert() public {
+        minerMath.setBucketTracker(34, 34 + 191, 0);
+        uint256 reward = minerMath.reward(16).amountInBucket;
+        assertEq(reward, 0);
+    }
     // /**
     //  * @dev function to test the addRewardsToBucket function
     //  *         -   we loop over 300 weeks,

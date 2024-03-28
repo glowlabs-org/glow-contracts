@@ -217,7 +217,7 @@ contract BucketSubmission {
             bucketTracker = BucketTracker(
                 uint48(bucketToAddTo),
                 uint48(bucketToAddTo + TOTAL_VESTING_PERIODS - 1),
-                _bucketTracker.firstAddedBucketId
+                _bucketTracker.firstAddedBucketId == 0 ? uint48(bucketToAddTo) : _bucketTracker.firstAddedBucketId
             );
         }
 
@@ -301,6 +301,11 @@ contract BucketSubmission {
                 //If it does not have a value -- that means that the bucket has not been initialized
                 // and therefore there are no rewards that need to be accounted for in those buckets
                 bucket.amountInBucket = lastBucket.amountInBucket - amountToSubtract;
+                break;
+            }
+
+            //Prevents underflow since OFFSET_LEFT > 0
+            if (lastBucketId < OFFSET_LEFT) {
                 break;
             }
         }
