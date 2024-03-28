@@ -217,7 +217,7 @@ contract BucketSubmission {
             bucketTracker = BucketTracker(
                 uint48(bucketToAddTo),
                 uint48(bucketToAddTo + TOTAL_VESTING_PERIODS - 1),
-                _bucketTracker.firstAddedBucketId
+                _bucketTracker.firstAddedBucketId == 0 ? uint48(bucketToAddTo) : _bucketTracker.firstAddedBucketId
             );
         }
 
