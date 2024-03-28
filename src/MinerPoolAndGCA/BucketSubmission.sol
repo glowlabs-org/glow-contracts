@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
+import "forge-std/console.sol";
 
 contract BucketSubmission {
     /* -------------------------------------------------------------------------- */
@@ -301,6 +302,11 @@ contract BucketSubmission {
                 //If it does not have a value -- that means that the bucket has not been initialized
                 // and therefore there are no rewards that need to be accounted for in those buckets
                 bucket.amountInBucket = lastBucket.amountInBucket - amountToSubtract;
+                break;
+            }
+
+            //Prevents underflow since OFFSET_LEFT > 0
+            if (lastBucketId < OFFSET_LEFT) {
                 break;
             }
         }
