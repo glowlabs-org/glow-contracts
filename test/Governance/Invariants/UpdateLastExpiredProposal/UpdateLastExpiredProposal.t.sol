@@ -34,20 +34,23 @@ contract UpdateLastExpiredProposal is Test {
         vm.startPrank(deployer);
         vm.warp(10);
         uint256 deployerNonce = vm.getNonce(deployer);
-        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 6);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 6);
         glow = new FakeGlow(); //deployerNonce
         uniswapFactory = new UnifapV2Factory(); //deployerNonce + 1
         weth = new WETH9(); //deployerNonce + 2
         uniswapRouter = new UnifapV2Router(address(uniswapFactory)); //deployerNonce + 3
         usdc = new MockUSDC(); //deployerNonce + 4
+        gcc = new TestGCC(
+            address(11), address(precomputedGovernance), address(0x12), address(usdc), address(uniswapRouter)
+        ); //deployerNonce +5
+
         governance = new MockGovernance({
-            gcc: address(precomputedGCC),
+            gcc: address(gcc),
             gca: address(0x11),
             vetoCouncil: address(vetoCouncil),
             grantsTreasury: address(grantsTreasury),
             glw: address(glow)
-        }); //deployerNonce + 5
-        gcc = new TestGCC(address(11), address(governance), address(0x12), address(usdc), address(uniswapRouter)); //deployerNonce + 6
+        }); //deployerNonce + 6
         handler = new Handler(address(governance), address(gcc)); //deployerNonce + 7
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = Handler.createProposal.selector;

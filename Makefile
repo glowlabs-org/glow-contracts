@@ -6,11 +6,11 @@ install-solc :; pip install solc-select
 install-solc-0.8.21 :; solc-select install 0.8.21
 use-solc-0.8.21 :; solc-select use 0.8.21
 compile-rust :;  rustc test/Governance/ffi/half_life.rs --out-dir  ./test/Governance/ffi/  && \
-				rustc test/Governance/ffi/divergence_check.rs --out-dir  ./test/Governance/ffi/  
+				rustc test/Governance/ffi/divergence_check.rs --out-dir  ./test/Governance/ffi/
 
 
 install :; forge install --no-commit && npm install
-hardhat-test :; make hardhat.test.earlyLiquidity 
+hardhat-test :; make hardhat.test.earlyLiquidity
 
 # --- [Gen HTML] requires linux or wsl
 gen-lcov :; forge coverage --ffi --report lcov
@@ -21,7 +21,7 @@ gen-html :;  make gen-lcov && genhtml -o report --branch-coverage lcov.info --ig
 # --- [ Test ] -----------------------------------------------------------------------------------
 run-coverage :; forge coverage;
 test.no.ffi :;  forge test --no-match-test "test_MinerPoolFFI"
-test.ffi :; forge test --ffi 
+test.ffi :; forge test --ffi
 test.all :; forge test --ffi -vv && make hardhat-test
 
 # --- [ Specific Tests ] -----------------------------------------------------------------------------------
@@ -31,7 +31,7 @@ test.earlyLiquidity :; forge test --match-contract EarlyLiquidityTest -vvv && ma
 test.minerPoolAndGCA :; forge test --match-contract MinerPoolAndGCATest --ffi -vv
 
 # --- [ Gas Snapshot] -----------------------------------------------------------------------------------
-gas.snapshot :; forge snapshot --gas-report --ffi 
+gas.snapshot :; forge snapshot --gas-report --ffi
 
 #---- [Deployments] -----------------------------------------------------------------------------------
 deploy.testnet.gcc :; forge script script/Testnet/DeployGCC.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
@@ -43,7 +43,10 @@ deploy.testnet.batch-retire :; forge script script/Testnet/DeployBatchRetire.s.s
 deploy.full.testnet :; forge script script/Testnet/DeployFull.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
-deploy.batch_commit.mainnet :; forge script script/Mainnet/DeployBatchCommit.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY}  \
+deploy.guarded_commit.sepolia :; forge script script/Mainnet/DeployBatchCommit.s.sol --rpc-url ${SEPOLIA_RPC} --broadcast -vvvv --private-key ${SIMON_REGULAR_PK}  \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+
+deploy.guarded_commit.mainnet :; forge script script/Mainnet/DeployGuardedCommit.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
 deploy.full.quickperiod.testnet :; forge script script/Testnet/DeployFullQuickBuckets.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
@@ -63,7 +66,7 @@ deploy.guardedlaunch.mainnet :; forge script script/Mainnet/DeployGuardedLaunch.
 
 deploy.full.anvil :; forge script script/Testnet/DeployFull.s.sol --rpc-url  http://127.0.0.1:8545 --broadcast -vvvv --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
-setlp.goerli :; forge script script/Testnet/SetLP.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  
+setlp.goerli :; forge script script/Testnet/SetLP.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}
 
 panic.verify :;  forge verify-contract 0x85fbB04DEBBDEa052a6422E74bFeA57B17e50A80 CarbonCreditDescendingPriceAuction --chain-id 1 --libraries src/libraries/HalfLifeCarbonCreditAuction.sol:HalfLifeCarbonCreditAuction:0xd178525026bafc51d045a2e98b0c79a526d446de \
 				--constructor-args 0x000000000000000000000000f4fbc617a5733eaaf9af08e1ab816b103388d8b600000000000000000000000021c46173591f39afc1d2b634b74c98f0576a272b00000000000000000000000000000000000000000000000000000000000186a0 \
@@ -84,7 +87,7 @@ verify.guardedlaunch :;  forge verify-contract \
         src/GuardedLaunch/Glow.GuardedLaunch.sol:GlowGuardedLaunch \
         $${ETHERSCAN_API_KEY} --watch
 
-verify.test  :; forge verify-contract 0x895fAce9c838127abD2150474880A7fb175a621E GlowGuardedLaunch --watch --chain-id 5 
+verify.test  :; forge verify-contract 0x895fAce9c838127abD2150474880A7fb175a621E GlowGuardedLaunch --watch --chain-id 5
 
 # cast abi-encode "constructor(address,address,address,address,address,address,address)" "0x6Fa8C7a89b22bf3212392b778905B12f3dBAF5C4" "0x8d01a258bC1ADB728322499E5D84173EA971d665" "0xf4fbC617A5733EAAF9af08E1Ab816B103388d8B6" "0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2" "0xA3A32d3c9a5A593bc35D69BACbe2dF5Ea2C3cF5C" "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
 #---- [solhint] -----------------------------------------------------------------------------------

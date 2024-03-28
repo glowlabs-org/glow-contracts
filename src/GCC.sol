@@ -14,7 +14,7 @@ import {ImpactCatalyst} from "@/ImpactCatalyst.sol";
 import {IERC20Permit} from "@/interfaces/IERC20Permit.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
 import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-
+import {console} from "forge-std/console.sol";
 /**
  * @title GCC (Glow Carbon Credit)
  * @author DavidVorick
@@ -32,6 +32,7 @@ import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
  *              - earned from a swap in the commitGCC or commitUSDC functions in the `impactCatalyst`
  *              - When committing USDC, the amount of nominations earned is equal to the amount of USDC committed
  */
+
 contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */
@@ -183,7 +184,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         returns (uint256, uint256)
     {
         //Same as above, but with no referrer
-        return (commitGCC(amount, rewardAddress, address(0), minImpactPower));
+        return commitGCC(amount, rewardAddress, address(0), minImpactPower);
     }
 
     /**
@@ -430,6 +431,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         //committing USDC calls syncProposals in governance to ensure that the proposals are up to date
         //This design is meant to ensure that the proposals are as up to date as possible
         GOVERNANCE.syncProposals();
+
         //Increase the total impact power earned by the reward address
         totalImpactPowerEarned[rewardAddress] += impactPower;
         //Grant the nominations to the reward address

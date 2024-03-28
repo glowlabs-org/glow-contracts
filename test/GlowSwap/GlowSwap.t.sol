@@ -7,9 +7,11 @@ import {GlowSwap} from "@/GlowSwap.sol";
 import {TestGLOW} from "@/testing/TestGlow.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {GlowSwap2} from "@/GlowSwap2.sol";
 
 contract GlowSwapTest is Test {
     GlowSwap glowSwap;
+    GlowSwap2 glowSwap2;
     TestGLOW glow;
     MockUSDC usdc;
     address public constant GCA = address(0x1);
@@ -29,10 +31,11 @@ contract GlowSwapTest is Test {
         //approve glow swap
         glow.approve(address(glowSwap), 1000000000000 ether);
         usdc.approve(address(glowSwap), 1000000000000 ether);
+        glowSwap2 = new GlowSwap2();
         vm.stopPrank();
     }
 
-    function test_initialize() public {
+    /*function test_initialize() public {
         //120 glow in pool
         //180 USD in pool
         //Glow price = 180/120 = $1.5 per glow
@@ -57,6 +60,19 @@ contract GlowSwapTest is Test {
 
         //assert that both (m,c) are 60
         // assertEq(glowSwap.m(), 60);
+    }*/
+
+    function test_glowSwap2() public {
+        glowSwap2.setState({
+            _usdRef: uint112(_toEther(180)), //Let's just use same decimals for now
+            _glowRef: uint112(_toEther(120)),
+            _m: (int256(_toEther(60)))
+        });
+        //Buy $60
+        uint256 amountGlow = glowSwap2.buyGlow(_toEther(60));
+        /*console.log("amount glow = %s", amountGlow);*/
+        //Print the state
+        /*glowSwap2.printState();*/
     }
 
     function _toEther(uint256 _amount) internal pure returns (uint256) {

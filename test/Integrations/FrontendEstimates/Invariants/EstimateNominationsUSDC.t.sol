@@ -55,8 +55,8 @@ contract EstimateNominationsLargerNumbersUSDCTest is Test {
     address earlyLiquidity = address(0x412412);
     address other = address(0xdead);
     address accountWithLotsOfUSDC = 0xcEe284F754E854890e311e3280b767F80797180d; //arbitrum bridge
-    string forkUrl = vm.envString("GOERLI_RPC_URL");
-    uint256 goerliFork;
+    string forkUrl = vm.envString("MAINNET_RPC");
+    uint256 mainnetFork;
 
     address uniswapFactoryMainnetAddress = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
     address uniswapRouterMainnetAddress = address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
@@ -78,8 +78,8 @@ contract EstimateNominationsLargerNumbersUSDCTest is Test {
 
     function deployFixture() public {
         vm.startPrank(deployer);
-        goerliFork = vm.createFork(forkUrl);
-        vm.selectFork(goerliFork);
+        mainnetFork = vm.createFork(forkUrl);
+        vm.selectFork(mainnetFork);
         // uniswapFactory = new UnifapV2Factory();
         uniswapFactory = UnifapV2Factory(uniswapFactoryMainnetAddress);
         weth = WETH9(weth9MainnetAddress);
@@ -90,16 +90,17 @@ contract EstimateNominationsLargerNumbersUSDCTest is Test {
         glwContract =
             new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
         glw = address(glwContract); //deployerNonce
-        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 2);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 2);
+        gcc = new MainnetForkTestGCC( //deployerNonce + 1
+        GCA_AND_MINER_POOL_CONTRACT, address(precomputedGovernance), glw, address(usdc), address(uniswapRouter));
         gov = new Governance({
-            gcc: precomputedGCC,
+            gcc: address(gcc),
             gca: GCA_AND_MINER_POOL_CONTRACT,
             vetoCouncil: vetoCouncil,
             grantsTreasury: grantsTreasury,
             glw: glw
-        }); //deployerNonce + 1
-        gcc = new MainnetForkTestGCC( //deployerNonce + 2
-        GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
+        }); //deployerNonce + 2
+
         auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         // bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));

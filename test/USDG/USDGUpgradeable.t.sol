@@ -29,14 +29,17 @@ import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
 import {TestUSDG} from "@/testing/TestUSDG.sol";
-import {USDG} from "@/USDG.sol";
+import {USDGUpgradeable} from "@/USDGUpgradeable.sol";
+import {USDGUpgradeableV2} from "~test/USDG/USDGUpgradeableV2.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
 
 struct AccountWithPK {
     uint256 privateKey;
     address account;
 }
 
-contract USDGTest is Test {
+contract USDGUpgradeableTest is Test {
     //--------  CONTRACTS ---------//
     UnifapV2Factory public uniswapFactory;
     WETH9 public weth;
@@ -44,7 +47,8 @@ contract USDGTest is Test {
     MockMinerPoolAndGCA minerPoolAndGCA;
     TestGLOW glow;
     MockUSDC usdc;
-    TestUSDG usdg;
+    MockUSDCTax usdcTax;
+    USDGUpgradeable usdg;
     MockUSDC grc2;
     MockGovernance governance;
     TestGCC gcc;
@@ -92,6 +96,11 @@ contract USDGTest is Test {
     address deployer = tx.origin;
 
     function setUp() public {
+        usdc = new MockUSDC();
+        _deployFixture(address(usdc));
+    }
+
+    function _deployFixture(address _usdc) public {
         vm.startPrank(deployer);
         uniswapFactory = new UnifapV2Factory();
         weth = new WETH9();
@@ -104,7 +113,7 @@ contract USDGTest is Test {
         }
         vm.warp(10);
 
-        usdc = new MockUSDC();
+        address _usdgImplementation = address(new USDGUpgradeable());
         uint256 deployerNonce = vm.getNonce(deployer);
         address precomputedGlow = computeCreateAddress(deployer, deployerNonce);
 
@@ -139,17 +148,14 @@ contract USDGTest is Test {
             grantsTreasury: precomputedGrantsAddress,
             glw: address(glow)
         }); //deployerNonce + 2
-        usdg = new TestUSDG({
-            _usdc: address(usdc),
-            _usdcReceiver: usdcReceiver,
-            _glow: precomputedGlow,
-            _gcc: address(gcc),
-            _holdingContract: precomputedHoldingContractAddress,
-            _vetoCouncilContract: precomputedVetoCouncilAddress,
-            _impactCatalyst: precomputedImpactCatalyst,
-            _owner: usdgOwner,
-            _univ2Factory: address(uniswapFactory)
-        }); //deployerNonce+3
+        usdg = USDGUpgradeable(
+            address(
+                new ERC1967Proxy(
+                    address(_usdgImplementation),
+                    abi.encodeCall(USDGUpgradeable.initialize, (address(_usdc), address(precomputedGovernance)))
+                )
+            )
+        ); //deplpoyer nonce + 3
         address[] memory temp = new address[](0);
         startingAgents.push(address(SIMON));
         startingAgents.push(OTHER_VETO_1);
@@ -187,57 +193,26 @@ contract USDGTest is Test {
         // //     _vetoCouncilContract: vetoCouncilAddress,
         // //     _impactCatalyst: mockImpactCatalyst
         // // });
-        usdc.mint(usdgOwner, 100000000 * 1e6);
-        usdc.approve(address(usdg), 100000000 * 1e6);
-        usdg.swap(usdgOwner, 100000000 * 1e6);
+        /*MockUSDC(_usdc).mint(usdgOwner, 100000000 * 1e6);
+        MockUSDC(usdc).approve(address(usdg), 100000000 * 1e6);
+        usdg.mint(usdgOwner, 100000000 * 1e6);*/
         vm.stopPrank();
-        seedLP(500 ether, 100000000 * 1e6);
+
+        delete startingAgents;
     }
 
-    function test_contractCannotReceiveUSDG() public {
-        vm.startPrank(usdgOwner);
-        usdc.mint(usdgOwner, 100000000 * 1e6);
-        usdc.approve(address(usdg), 100000000 * 1e6);
-        usdg.swap(usdgOwner, 100000000 * 1e6);
-
-        vm.expectRevert(USDG.ErrIsContract.selector);
-        usdg.transfer(address(this), 1 * 1e6);
-        vm.stopPrank();
-    }
-
-    function test_contractCannotSwapUSDG_andSendToContract() public {
-        address me = address(usdc); // a non-allowlisted contract
+    function test_swapForUSDC_shouldMatchOneToOne() public {
+        address me = address(usdgOwner);
         vm.startPrank(me);
         usdc.mint(me, 100000000 * 1e6);
         usdc.approve(address(usdg), 100000000 * 1e6);
-        vm.expectRevert(USDG.ErrIsContract.selector);
-        usdg.swap(me, 100000000 * 1e6);
-        vm.stopPrank();
+        usdg.mint(me, 100000000 * 1e6);
+        assertEq(usdg.balanceOf(me), 100000000 * 1e6);
     }
 
-    function test_EOA_cannotSwap_andSendToContract() public {
-        address me = address(usdgOwner); // a non-allowlisted contract
-        vm.startPrank(me);
-        usdc.mint(me, 100000000 * 1e6);
-        usdc.approve(address(usdg), 100000000 * 1e6);
-        vm.expectRevert(USDG.ErrIsContract.selector);
-        usdg.swap(address(usdc), 100000000 * 1e6);
-        vm.stopPrank();
-    }
-
-    function test_EOA_canSendAndReceive() public {
-        address me = address(usdgOwner); // a non-allowlisted contract
-        address other = address(0x123);
-        vm.startPrank(me);
-        usdc.mint(me, 100000000 * 1e6);
-        usdc.approve(address(usdg), 100000000 * 1e6);
-        usdg.swap(me, 100000000 * 1e6);
-        usdg.transfer(other, 1 * 1e6);
-        vm.stopPrank();
-
-        vm.startPrank(other);
-        usdg.transfer(me, 1 * 1e6);
-        vm.stopPrank();
+    function test_swapForUSDCTax_shouldMatchOneToOne() public {
+        usdcTax = new MockUSDCTax();
+        _deployFixture(address(usdcTax));
     }
 
     function test_swapZeroAmountShouldRevert() public {
@@ -246,40 +221,31 @@ contract USDGTest is Test {
         vm.startPrank(me);
         usdc.mint(me, 100000000 * 1e6);
         usdc.approve(address(usdg), 100000000 * 1e6);
-        vm.expectRevert(USDG.ErrCannotSwapZero.selector);
-        usdg.swap(me, 0);
+        vm.expectRevert(USDGUpgradeable.ErrMustMintPositiveAmount.selector);
+        usdg.mint(me, 0);
     }
 
-    function test_freezeContract_shouldWork() public {
-        vm.startPrank(OTHER_VETO_1);
-        usdg.freezeContract();
+    function test_upgrade_fromGovernance_shouldWork() public {
+        vm.startPrank(address(governance));
+        USDGUpgradeableV2 newUSDG = new USDGUpgradeableV2();
+        usdg.upgradeToAndCall(address(newUSDG), "");
+        //Calling functions should work
+        USDGUpgradeableV2 _usdgV2 = USDGUpgradeableV2(address(usdg));
+        _usdgV2.newSetter(1212312);
+        assertEq(_usdgV2.newVar(), 1212312);
         vm.stopPrank();
     }
 
-    function test_freezeContract_notVetoCouncilMember_shouldRevert() public {
+    function test_upgrade_notFromGovernance_shouldRevert() public {
         vm.startPrank(usdgOwner);
-        vm.expectRevert(USDG.ErrNotVetoCouncilMember.selector);
-        usdg.freezeContract();
+        vm.expectRevert(USDGUpgradeable.ErrCallerNotGovernance.selector);
+        usdg.upgradeToAndCall(address(0xffff), "");
         vm.stopPrank();
     }
 
-    function test_freezeContract_shouldRevert_allTransfers() public {
-        test_freezeContract_shouldWork();
-        vm.startPrank(usdgOwner);
-        vm.expectRevert(USDG.ErrPermanentlyFrozen.selector);
-        usdg.transfer(address(this), 1 * 1e6);
-        vm.stopPrank();
-    }
-
-    function test_freezeContract_shouldRevert_swap() public {
-        test_freezeContract_shouldWork();
-        vm.startPrank(usdgOwner);
-        usdc.mint(usdgOwner, 100000000 * 1e6);
-        usdc.approve(address(usdg), 100000000 * 1e6);
-        vm.expectRevert(USDG.ErrPermanentlyFrozen.selector);
-        usdg.swap(address(this), 1 * 1e6);
-        vm.stopPrank();
-    }
+    //-------------------------------------------------------------------------
+    // Test Helpers
+    //-------------------------------------------------------------------------
 
     function _createAccount(uint256 privateKey, uint256 amount)
         internal
@@ -291,14 +257,14 @@ contract USDGTest is Test {
         return (addr, signerPrivateKey);
     }
 
-    function seedLP(uint256 amountGCC, uint256 amountUSDG) public {
+    function seedLP() public {
         vm.startPrank(usdgOwner);
+        uint256 amountGCC = gcc.balanceOf(usdgOwner);
+        uint256 amountUSDG = usdg.balanceOf(usdgOwner);
         gcc.mint(usdgOwner, amountGCC);
         gcc.approve(address(uniswapRouter), amountGCC);
         usdg.approve(address(uniswapRouter), amountUSDG);
-        uniswapRouter.addLiquidity(
-            address(gcc), address(usdg), amountGCC, amountUSDG, amountGCC, amountUSDG, usdgOwner, block.timestamp
-        );
+        uniswapRouter.addLiquidity(address(gcc), address(usdg), amountGCC, amountUSDG, 0, 0, usdgOwner, block.timestamp);
         vm.stopPrank();
     }
 }

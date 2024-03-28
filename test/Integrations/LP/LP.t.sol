@@ -67,15 +67,18 @@ contract SmallLPTest is Test {
             new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury); //deployerNonce + 4
         glw = address(glwContract);
 
-        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 6);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 6);
+        gcc = new TestGCC(
+            GCA_AND_MINER_POOL_CONTRACT, address(precomputedGovernance), glw, address(usdc), address(uniswapRouter)
+        ); //deployerNonce + 5
+
         gov = new Governance({
-            gcc: address(precomputedGCC),
+            gcc: address(gcc),
             gca: GCA_AND_MINER_POOL_CONTRACT,
             vetoCouncil: vetoCouncil,
             grantsTreasury: grantsTreasury,
             glw: glw
-        }); //deployerNonce + 5
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce + 6
+        }); //deployerNonce + 6
         auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         // gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
 

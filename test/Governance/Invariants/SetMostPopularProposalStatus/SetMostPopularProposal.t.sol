@@ -13,12 +13,14 @@ contract SetMostPopularProposalTest is Test {
     MockGovernance governance;
     SetMostPopularProposalHandler handler;
     FakeGlow glow;
+    FakeGCC gcc;
 
     function setUp() public {
         //Make sure we don't start at 0
         glow = new FakeGlow();
+        gcc = new FakeGCC();
         governance = new MockGovernance({
-            gcc: address(0x11),
+            gcc: address(gcc),
             gca: address(0x12),
             vetoCouncil: address(0x13),
             grantsTreasury: address(0x14),
@@ -52,5 +54,11 @@ contract SetMostPopularProposalTest is Test {
 contract FakeGlow {
     function GENESIS_TIMESTAMP() external view returns (uint256) {
         return block.timestamp;
+    }
+}
+
+contract FakeGCC {
+    function USDC() external view returns (address) {
+        return address(0x1);
     }
 }

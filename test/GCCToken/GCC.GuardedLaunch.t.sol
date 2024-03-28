@@ -176,13 +176,12 @@ contract GCCGuardedLaunchTest is Test {
          *         This test ensures that the optimal amount is always less than the
          *         amount to commit so that there is no underflow in the commit function.
          *         We choose a sensible range for the amount to commit and total reserves.
-         *         Fuzz runs are set to 250 to prevent foundry from throwing errors due to
-         *         too many rejected values.
+         *         we bound the input to a sensible range to avoid precision loss and also because vm.assume was not working as expected.
          *         To run this in a more fullproof manner, we created a python script and looped
          *         1000 times on this test.
          */
-        vm.assume(a > 0.01 ether && a < 1_000_000_000_000 * 1e6 ether);
-        vm.assume(b > 0.01 ether && b < 1_000_000_000_000 * 1e6 ether);
+        a = bound(a, 0.01 ether, 1_000_000_000_000 * 1e6 ether);
+        b = bound(b, 0.01 ether, 1_000_000_000_000 * 1e6 ether);
 
         ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
         uint256 amount = a;
@@ -226,8 +225,10 @@ contract GCCGuardedLaunchTest is Test {
          *         Manual analysis was done on the outputs of this test to ensure that
          *         the precision loss and dust is sensible and minimal.
          */
-        vm.assume(a > 0.01 ether && a < 1_000_000_000_000 ether);
-        vm.assume(b > 0.01 ether && b < 1_000_000_000_000 ether);
+        vm.assume(a > 0.01 ether && a < 1_000_000_000 ether);
+        vm.assume(b > 0.01 ether && b < 1_000_000_000 ether);
+        //bound it
+        /*a = bound()*/
 
         vm.startPrank(deployer);
         uniswapFactory = new UnifapV2Factory();

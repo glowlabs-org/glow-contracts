@@ -5,13 +5,11 @@ import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import {GuardedCommit} from "@/GuardedCommit.sol";
 
-contract DeployBatchCommit is Script {
-    /*address public constant GCC = address(0x21C46173591f39AfC1d2B634b74c98F0576A272B);
-    address public constant USDG = address(0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2);*/
-
+contract DeployGuardedCommit is Script {
     function run() public {
         vm.startBroadcast();
         GuardedCommit commit = new GuardedCommit();
+        commit.setAuth(address(0x0BD5344f40744F54331d209629eB6800832F7471), true);
         vm.stopBroadcast();
     }
 }

@@ -13,6 +13,8 @@ import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/Signa
 import {NULL_ADDRESS} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {GCC as GCCContract} from "@/GCC.sol";
 /**
  * @title Governance
  * @author DavidVorick
@@ -81,6 +83,11 @@ contract Governance is IGovernance, EIP712 {
     uint256 private constant DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL = 60; //60%
 
     /**
+     * @dev The percentage of ratify to reject votes that is required to execute an USDG
+     */
+    uint256 private constant PERCENTAGE_REQUIRED_TO_EXECUTE_USDG_UPGRADE_PROPOSAL = 66; //66%
+
+    /**
      * @dev there can be a maximum of 5 endorsements on a GCA election proposal
      */
     uint256 private constant MAX_ENDORSEMENTS_ON_GCA_PROPOSALS = 5;
@@ -139,6 +146,11 @@ contract Governance is IGovernance, EIP712 {
      * @dev The GLW contract
      */
     address public immutable GLOW;
+
+    /**
+     * @dev The USDG contrac
+     */
+    address public immutable USDG;
 
     /* -------------------------------------------------------------------------- */
     /*                                 state vars                                */
@@ -293,6 +305,7 @@ contract Governance is IGovernance, EIP712 {
         VETO_COUNCIL = vetoCouncil;
         GRANTS_TREASURY = grantsTreasury;
         GLOW = glw;
+        USDG = GCCContract(gcc).USDC();
     }
 
     /* -------------------------------------------------------------------------- */
@@ -348,6 +361,21 @@ contract Governance is IGovernance, EIP712 {
             uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
             if (percentage < requiredWeight) {
                 lastExecutedWeek = week;
+                return;
+            }
+        } else if (proposalType == IGovernance.ProposalType.UPGRADE_USDG) {
+            //If the proposal is an upgrade proposal, we can check the number of endorsements
+            //to dynamically determine the required percentage to execute the proposal
+            uint256 numEndorsements = numEndorsementsOnWeek[_nextWeekToExecute];
+            uint256 requiredWeight = PERCENTAGE_REQUIRED_TO_EXECUTE_USDG_UPGRADE_PROPOSAL;
+            uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
+            //If no one votes, we don't execute the proposal
+            //This also prevents division by zero error
+            if (totalVotes == 0) {
+                return;
+            }
+            uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
+            if (percentage < requiredWeight) {
                 return;
             }
         } else {
@@ -421,6 +449,21 @@ contract Governance is IGovernance, EIP712 {
             if (proposalType == IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
                 uint256 numEndorsements = numEndorsementsOnWeek[_nextWeekToExecute];
                 uint256 requiredWeight = DEFAULT_PERCENTAGE_TO_EXECUTE_PROPOSAL - (numEndorsements * ENDORSEMENT_WEIGHT);
+                uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
+                //If no one votes, we don't execute the proposal
+                //This also prevents division by zero error
+                if (totalVotes == 0) {
+                    continue;
+                }
+                uint256 percentage = (longStakerVotes.ratifyVotes * 100) / totalVotes;
+                if (percentage < requiredWeight) {
+                    continue;
+                }
+            } else if (proposalType == IGovernance.ProposalType.UPGRADE_USDG) {
+                //If the proposal is an upgrade proposal, we can check the number of endorsements
+                //to dynamically determine the required percentage to execute the proposal
+                uint256 numEndorsements = numEndorsementsOnWeek[_nextWeekToExecute];
+                uint256 requiredWeight = PERCENTAGE_REQUIRED_TO_EXECUTE_USDG_UPGRADE_PROPOSAL;
                 uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
                 //If no one votes, we don't execute the proposal
                 //This also prevents division by zero error
@@ -526,32 +569,19 @@ contract Governance is IGovernance, EIP712 {
             _revert(IGovernance.CallerNotVetoCouncilMember.selector);
         }
 
-        if (mostPopularProposalOfWeek[weekId] != proposalId) {
-            _revert(IGovernance.ProposalIdDoesNotMatchMostPopularProposal.selector);
-        }
+        _vetoProposal(weekId, proposalId);
+    }
 
-        uint256 _currentWeek = currentWeek();
-        if (weekId >= _currentWeek) {
-            _revert(IGovernance.WeekNotStarted.selector);
+    /**
+     * @notice entrypoint for GCA to veto a USDG upgrade proposal
+     * @param weekId - the id of the week to veto the most popular proposal in
+     * @param proposalId - the id of the proposal to veto
+     */
+    function vetoUSDGUpgradeAsGCA(uint256 weekId, uint256 proposalId) external {
+        if (!IGCA(GCA).isGCA(msg.sender)) {
+            _revert(IGovernance.CallerNotGCA.selector);
         }
-        //Also make sure it's not already finalized
-        uint256 _weekEndTime = _weekEndTime(weekId + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL);
-        if (block.timestamp > _weekEndTime) {
-            _revert(IGovernance.RatifyOrRejectPeriodEnded.selector);
-        }
-
-        ProposalType proposalType = _proposals[proposalId].proposalType;
-        //Elections can't be vetoed
-        if (proposalType == ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
-            _revert(IGovernance.VetoCouncilElectionsCannotBeVetoed.selector);
-        }
-
-        if (proposalType == ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
-            _revert(IGovernance.GCACouncilElectionsCannotBeVetoed.selector);
-        }
-
-        _setProposalStatus(proposalId, IGovernance.ProposalStatus.VETOED);
-        emit IGovernance.ProposalVetoed(weekId, msg.sender, proposalId);
+        _vetoProposal(weekId, proposalId);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -948,6 +978,31 @@ contract Governance is IGovernance, EIP712 {
         );
     }
 
+    function createUpgradeUSDGProposal(address newUSDGAddress, bytes memory _data, uint256 maxNominations) external {
+        uint256 proposalId = _proposalCount;
+        uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
+        if (maxNominations < nominationCost) {
+            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
+        }
+        _spendNominations(msg.sender, nominationCost);
+        _proposals[proposalId] = IGovernance.Proposal(
+            IGovernance.ProposalType.UPGRADE_USDG,
+            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
+            SafeCast.toUint184(nominationCost),
+            abi.encode(newUSDGAddress, _data)
+        );
+        uint256 currentWeek = currentWeek();
+        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
+        if (nominationCost > _proposals[_mostPopularProposalOfWeek].votes) {
+            mostPopularProposalOfWeek[currentWeek] = proposalId;
+            emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
+        }
+
+        _proposalCount = proposalId + 1;
+
+        emit IGovernance.UpgradeUSDGProposalCreation(proposalId, msg.sender, newUSDGAddress, nominationCost);
+    }
+
     /**
      * @notice Creates a proposal to send a grant to a recipient
      */
@@ -1084,6 +1139,26 @@ contract Governance is IGovernance, EIP712 {
     }
 
     /**
+     * @notice Creates a proposal to upgrade the USDG contract
+     * @param newUSDGAddress the new USDG address
+     * @param data the data to be used in the upgrade
+     */
+    function createUSDGUpgradeProposalSigs(
+        address newUSDGAddress,
+        bytes memory data,
+        uint256[] memory deadlines,
+        uint256[] memory nominationsToSpend,
+        address[] memory signers,
+        bytes[] memory sigs
+    ) external {
+        bytes memory data = abi.encode(newUSDGAddress, data);
+        (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
+            deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.UPGRADE_USDG
+        );
+        emit IGovernance.UpgradeUSDGProposalCreation(proposalId, msg.sender, newUSDGAddress, nominationsSpent);
+    }
+
+    /**
      * @notice Updates the last expired proposal id
      *         - could be called by a good actor to update the last expired proposal id
      *         - so that _numActiveProposalsAndLastExpiredProposalId() is more efficient
@@ -1186,6 +1261,40 @@ contract Governance is IGovernance, EIP712 {
     /* -------------------------------------------------------------------------- */
 
     /**
+     * @dev vetoes the most popular proposal of a given week
+     * @param weekId - the id of the week to veto the most popular proposal in
+     * @param proposalId - the id of the proposal to veto
+     */
+    function _vetoProposal(uint256 weekId, uint256 proposalId) internal {
+        if (mostPopularProposalOfWeek[weekId] != proposalId) {
+            _revert(IGovernance.ProposalIdDoesNotMatchMostPopularProposal.selector);
+        }
+
+        uint256 _currentWeek = currentWeek();
+        if (weekId >= _currentWeek) {
+            _revert(IGovernance.WeekNotStarted.selector);
+        }
+        //Also make sure it's not already finalized
+        uint256 _weekEndTime = _weekEndTime(weekId + _NUM_WEEKS_TO_VOTE_ON_MOST_POPULAR_PROPOSAL);
+        if (block.timestamp > _weekEndTime) {
+            _revert(IGovernance.RatifyOrRejectPeriodEnded.selector);
+        }
+
+        ProposalType proposalType = _proposals[proposalId].proposalType;
+        //Elections can't be vetoed
+        if (proposalType == ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH) {
+            _revert(IGovernance.VetoCouncilElectionsCannotBeVetoed.selector);
+        }
+
+        if (proposalType == ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH) {
+            _revert(IGovernance.GCACouncilElectionsCannotBeVetoed.selector);
+        }
+
+        _setProposalStatus(proposalId, IGovernance.ProposalStatus.VETOED);
+        emit IGovernance.ProposalVetoed(weekId, msg.sender, proposalId);
+    }
+
+    /**
      * @dev internal function to execute a proposal
      * @param week the week where the proposal was most popular
      * @param proposalId the id of the proposal
@@ -1228,6 +1337,13 @@ contract Governance is IGovernance, EIP712 {
             //Emitting the event should never revert
             emit IGovernance.RFCProposalExecuted(proposalId, rfcHash);
             success = true;
+        }
+
+        if (proposalType == IGovernance.ProposalType.UPGRADE_USDG) {
+            (address newImplementation, bytes memory _calldata) = abi.decode(data, (address, bytes));
+            try UUPSUpgradeable(USDG).upgradeToAndCall(newImplementation, _calldata) {
+                success = true;
+            } catch {}
         }
 
         if (success) {

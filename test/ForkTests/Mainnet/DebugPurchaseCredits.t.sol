@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+/*// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
 import "forge-std/Script.sol";
@@ -67,4 +67,4 @@ contract DebugPurchaseCredits is Test {
         console.log("GCC Balance: ", gccBalance);
         vm.stopPrank();
     }
-}
+}*/

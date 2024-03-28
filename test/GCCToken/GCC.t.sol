@@ -70,19 +70,23 @@ contract GCCTest is Test {
         // mainnetFork = vm.createFork(forkUrl);
 
         uint256 deployerNonce = vm.getNonce(deployer);
-        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 2);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 2);
         glwContract =
             new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
         glw = address(glwContract); //deployerNonce
+
+        gcc = new TestGCC(
+            GCA_AND_MINER_POOL_CONTRACT, address(precomputedGovernance), glw, address(usdc), address(uniswapRouter)
+        ); //deployerNonce+1
+
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance({
-            gcc: precomputedGCC,
+            gcc: address(gcc),
             gca: gca,
             vetoCouncil: vetoCouncil,
             grantsTreasury: grantsTreasury,
             glw: glw
-        }); //deployerNonce + 1
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce+2
+        }); //deployerNonce + 2
         auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
         handler = new Handler(address(gcc), GCA_AND_MINER_POOL_CONTRACT);
 
@@ -117,13 +121,16 @@ contract GCCTest is Test {
          *         This test ensures that the optimal amount is always less than the
          *         amount to commit so that there is no underflow in the commit function.
          *         We choose a sensible range for the amount to commit and total reserves.
-         *         Fuzz runs are set to 250 to prevent foundry from throwing errors due to
-         *         too many rejected values.
+         *         We need to bound the input to a sensible range to avoid unrealistic results.
          *         To run this in a more fullproof manner, we created a python script and looped
          *         1000 times on this test.
          */
-        vm.assume(a > 0.01 ether && a < 1_000_000_000_000 * 1e6 ether);
+        /*vm.assume(a > 0.01 ether && a < 1_000_000_000_000 * 1e6 ether);
         vm.assume(b > 0.01 ether && b < 1_000_000_000_000 * 1e6 ether);
+        a = a % 1_000_000_000_000 * 1e6 ether;
+        b = b % 1_000_000_000_000 * 1e6 ether;*/
+        a = bound(a, 0.01 ether, 1_000_000_000_000 * 1e6 ether);
+        b = bound(b, 0.01 ether, 1_000_000_000_000 * 1e6 ether);
 
         ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
         uint256 amount = a;
@@ -167,8 +174,12 @@ contract GCCTest is Test {
          *         Manual analysis was done on the outputs of this test to ensure that
          *         the precision loss and dust is sensible and minimal.
          */
-        vm.assume(a > 0.01 ether && a < 1_000_000_000_000 ether);
-        vm.assume(b > 0.01 ether && b < 1_000_000_000_000 ether);
+        /*vm.assume(a > 0.01 ether && a < 1_000_000_000_000 ether);
+        vm.assume(b > 0.01 ether && b < 1_000_000_000_000 ether);*/
+        vm.assume(a > 0.01 ether);
+        vm.assume(b > 0.01 ether);
+        a = bound(a, 0.01 ether, 1_000_000_000_000 ether);
+        b = bound(b, 0.01 ether, 1_000_000_000_000 ether);
 
         vm.startPrank(deployer);
         uniswapFactory = new UnifapV2Factory();
@@ -180,15 +191,18 @@ contract GCCTest is Test {
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         uint256 deployerNonce = vm.getNonce(deployer);
-        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 1);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 1);
+        gcc = new TestGCC(
+            GCA_AND_MINER_POOL_CONTRACT, address(precomputedGovernance), glw, address(usdc), address(uniswapRouter)
+        ); //deployerNonce
         gov = new Governance({
-            gcc: precomputedGCC,
+            gcc: address(gcc),
             gca: gca,
             vetoCouncil: vetoCouncil,
             grantsTreasury: grantsTreasury,
             glw: glw
-        }); //deployerNonce
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce + 1
+        }); //deployerNonce + 1
+
         auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         vm.stopPrank();
@@ -365,16 +379,19 @@ contract GCCTest is Test {
         glw = address(glwContract);
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         uint256 deployerNonce = vm.getNonce(deployer);
-        address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 1);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 1);
+        gcc = new TestGCC(
+            GCA_AND_MINER_POOL_CONTRACT, address(precomputedGovernance), glw, address(usdc), address(uniswapRouter)
+        ); //deployerNonce + 1
+
         gov = new Governance({
-            gcc: precomputedGCC,
+            gcc: address(gcc),
             gca: gca,
             vetoCouncil: vetoCouncil,
             grantsTreasury: grantsTreasury,
             glw: glw
         }); //deployerNonce
 
-        gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce + 1
         auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         vm.stopPrank();
@@ -634,8 +651,8 @@ contract GCCTest is Test {
             vm.writeLine("logs/gcc.csv", stringToWrite);
         }
         /*
-        args=[1000000000000000000000000000000001 [1e33], 
-        569316204070399230977136833119242087930906411821164 [5.693e50]]] 
+        args=[1000000000000000000000000000000001 [1e33],
+        569316204070399230977136833119242087930906411821164 [5.693e50]]]
         testFuzz_getStuff(uint256,uint256) (runs: 89, μ: 17220, ~: 17220)
         */
 
