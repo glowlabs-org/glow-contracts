@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {_GENESIS_TIMESTAMP} from "@/Constants/Constants.sol";
 /// @dev should be deployed by glow contract
 
 /**
@@ -37,11 +38,6 @@ contract GlowUnlocker is Ownable {
      * @notice the glow token
      */
     IGlow public glow;
-
-    /**
-     * @notice the genesis timestamp of the glow protocol
-     */
-    uint256 public genesisTimestamp;
 
     /**
      * @param _addresses the addresses to unlock glow tokens for
@@ -84,7 +80,6 @@ contract GlowUnlocker is Ownable {
     function initialize(address _glow) external onlyOwner {
         require(address(glow) == address(0), "Already initialized");
         glow = IGlow(_glow);
-        genesisTimestamp = glow.GENESIS_TIMESTAMP();
         _transferOwnership(address(0));
     }
 
@@ -94,7 +89,7 @@ contract GlowUnlocker is Ownable {
      * @return reward - next reward for a given address
      */
     function nextReward(address from) public view returns (uint256) {
-        uint256 _genesisTimestamp = genesisTimestamp;
+        uint256 _genesisTimestamp = genesisTimestamp();
         uint256 releaseStartTimestamp = _genesisTimestamp + RELEASE_OFFSET;
         uint256 amount = amountUnlockable[from];
         if (block.timestamp < releaseStartTimestamp) {
@@ -114,6 +109,10 @@ contract GlowUnlocker is Ownable {
         uint256 timeSinceLastClaim = timestampToCompare - lastClaimedTimestampUser;
         uint256 amountToClaim = (timeSinceLastClaim * amount) / RELEASE_DURATION;
         return amountToClaim;
+    }
+
+    function genesisTimestamp() public pure virtual returns (uint256) {
+        return _GENESIS_TIMESTAMP;
     }
 
     /// @dev finds the minimum of two numbers

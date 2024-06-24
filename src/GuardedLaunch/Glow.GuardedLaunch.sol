@@ -88,7 +88,7 @@ contract GlowGuardedLaunch is Glow, Ownable {
     * @param _vestingContract The address of the vesting contract
                               -unused in guarded launch
       * @param _gcaAndMinerPoolAddress The address of the GCA and Miner Pool
-    * @param _vetoCouncilAddress The address of the Veto Council
+    * @param _ve toCouncilAddress The address of the Veto Council
     * @param _grantsTreasuryAddress The address of the Grants Treasury
     * @param _owner The address of the owner
     * @param _usdg The address of the USDG contract
@@ -173,7 +173,7 @@ contract GlowGuardedLaunch is Glow, Ownable {
         address _earlyLiquidityAddress,
         address _vestingContract,
         address _grantsTreasryAddress
-    ) internal override {
+    ) internal virtual override {
         _mint(_earlyLiquidityAddress, 12_000_000 ether);
         _mint(_grantsTreasryAddress, 6_000_000 ether);
     }
