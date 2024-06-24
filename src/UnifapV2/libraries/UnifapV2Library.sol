@@ -49,7 +49,7 @@ library UnifapV2Library {
         returns (uint256[] memory amounts)
     {
         require(path.length >= 2, "UniswapV2Library: INVALID_PATH");
-        amounts = new uint[](path.length);
+        amounts = new uint256[](path.length);
         amounts[0] = amountIn;
         for (uint256 i; i < path.length - 1; i++) {
             (uint256 reserveIn, uint256 reserveOut) = getReserves(factory, path[i], path[i + 1]);
@@ -64,7 +64,7 @@ library UnifapV2Library {
         returns (uint256[] memory amounts)
     {
         require(path.length >= 2, "UniswapV2Library: INVALID_PATH");
-        amounts = new uint[](path.length);
+        amounts = new uint256[](path.length);
         amounts[amounts.length - 1] = amountOut;
         for (uint256 i = path.length - 1; i > 0; i--) {
             (uint256 reserveIn, uint256 reserveOut) = getReserves(factory, path[i - 1], path[i]);
@@ -93,7 +93,7 @@ library UnifapV2Library {
                             hex"ff",
                             factory,
                             keccak256(abi.encodePacked(token0, token1)),
-                            hex"f53b18237738db0c12129e859ee0fb162ab02d4490376523b394ce689eae51de" // init code hash
+                            hex"86ffa1affa909ab5771d207bf4c52b98382f32cb94483e5e166c201f2a1167da" // init code hash
                         )
                     )
                 )

@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "@/testing/TestGLOW.sol";
 import "forge-std/console.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
@@ -9,10 +11,10 @@ import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
 import {GrantsTreasury} from "@/GrantsTreasury.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
-import {VetoCouncilSalaryHelper, Status} from "@/generic/VetoCouncilSalaryHelper.sol";
-import {NULL_ADDRESS} from "@/generic/VetoCouncilSalaryHelper.sol";
+import {VetoCouncilSalaryHelper, Status} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
+import {NULL_ADDRESS} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
 import {Handler} from "./Handler.t.sol";
 
 contract VetoCouncilExecutionShouldBeAtomic is Test {
@@ -31,17 +33,25 @@ contract VetoCouncilExecutionShouldBeAtomic is Test {
     uint256 public constant GRANTS_INFLATION_PER_WEEK = 40_000 ether;
     Handler public handler;
 
+    address deployer = tx.origin;
+
     function setUp() public {
         //make sure block.timestamp does not start at 0
+        vm.startPrank(deployer);
         vm.warp(1);
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        //current nonce used to deploy glow,
+        //the one after that is used to deploy veto council
+        address precomputedVetoCouncilAddress = computeCreateAddress(deployer, deployerNonce + 1);
+        glw = new TestGLOW(EARLY_LIQUIDITY, VESTING_CONTRACT, GCA, precomputedVetoCouncilAddress, GRANTS_TREASURY);
         address[] memory startingAgents = new address[](3);
         startingAgents[0] = address(SIMON);
         startingAgents[1] = address(OTHER_1);
         startingAgents[2] = address(OTHER_2);
-        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw),startingAgents);
+        vetoCouncil = new VetoCouncil(GOVERNANCE, address(glw), startingAgents);
 
-        glw.setContractAddresses(GCA, address(vetoCouncil), GRANTS_TREASURY);
+        //TODO: precompute
+        // glw.setContractAddresses(GCA, address(vetoCouncil), GRANTS_TREASURY);
         assertTrue(vetoCouncil.isCouncilMember(SIMON));
         assertTrue(vetoCouncil.isCouncilMember(OTHER_1));
         assertTrue(vetoCouncil.isCouncilMember(OTHER_2));
@@ -54,6 +64,8 @@ contract VetoCouncilExecutionShouldBeAtomic is Test {
         FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
         targetSelector(fs);
         targetContract(address(handler));
+
+        vm.stopPrank();
     }
 
     /**

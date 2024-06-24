@@ -12,7 +12,7 @@ interface IMinerPool {
     error ElectricityFuturesAuctionInvalidSignature();
     error ElectricityFutureAuctionBidMustBeGreaterThanMinimumBid();
     error CallerNotEarlyLiquidity();
-    error NotGRCToken();
+    error NotUSDCToken();
     error InvalidProof();
     error UserAlreadyClaimed();
     error AlreadyMintedToCarbonCreditAuction();
@@ -24,43 +24,43 @@ interface IMinerPool {
     error SignerNotGCA();
     error SignatureDoesNotMatchUser();
     error GlowWeightOverflow();
-    error GRCWeightOverflow();
+    error USDCWeightOverflow();
     error GlowWeightGreaterThanTotalWeight();
-    error GRCWeightGreaterThanTotalWeight();
+    error USDCWeightGreaterThanTotalWeight();
 
     /* -------------------------------------------------------------------------- */
     /*                                     state-changing                        */
     /* -------------------------------------------------------------------------- */
     /**
-     * @notice Allows anyone to donate GRC into the miner grc rewards pool
+     * @notice Allows anyone to donate USDC into the miner USDC rewards pool
      * @notice the amount is split across 192 weeks starting at the current week + 16
      * @param amount -  amount to deposit
      */
-    function donateToGRCMinerRewardsPool(uint256 amount) external;
+    function donateToUSDCMinerRewardsPool(uint256 amount) external;
 
     /**
-     * @notice Allows the early liquidity to donate GRC into the miner grc rewards pool
+     * @notice Allows the early liquidity to donate USDC into the miner USDC rewards pool
      * @notice the amount is split across 192 weeks starting at the current week + 16
-     * @dev the grc token must be a valid grc token
+     * @dev the USDC token must be a valid USDC token
      * @dev early liquidity will safeTransfer from the user to the miner pool
      *     -   and then call this function directly.
      *     -   we do this to prevent extra transfers.
      * @param amount -  amount to deposit
      */
-    function donateToGRCMinerRewardsPoolEarlyLiquidity(uint256 amount) external;
+    function donateToUSDCMinerRewardsPoolEarlyLiquidity(uint256 amount) external;
 
     /**
      * @notice allows a user to claim their rewards for a bucket
      * @dev It's highly recommended to use a CLI or UI to call this function.
      *             - the proof can only be generated off-chain with access to the entire tree
-     *             - furthermore, GRC tokens must be correctly input in order to receive rewards
-     *             - the grc tokens should be kept on record off-chain.
-     *             - failure to input all correct GRC Tokens will result in lost rewards
+     *             - furthermore, USDC tokens must be correctly input in order to receive rewards
+     *             - the USDC tokens should be kept on record off-chain.
+     *             - failure to input all correct USDC Tokens will result in lost rewards
      * @param bucketId - the id of the bucket
      * @param glwWeight - the weight of the user's glw rewards
-     * @param grcWeight - the weight of the user's grc rewards
+     * @param USDCWeight - the weight of the user's USDC rewards
      * @param proof - the merkle proof of the user's rewards
-     *                     - the leaves are {payoutWallet, glwWeight, grcWeight}
+     *                     - the leaves are {payoutWallet, glwWeight, USDCWeight}
      * @param index - the index of the report in the bucket
      *                     - that contains the merkle root where the user's rewards are stored
      * @param user - the address of the user
@@ -73,7 +73,7 @@ interface IMinerPool {
     function claimRewardFromBucket(
         uint256 bucketId,
         uint256 glwWeight,
-        uint256 grcWeight,
+        uint256 USDCWeight,
         bytes32[] calldata proof,
         uint256 index,
         address user,
@@ -104,7 +104,7 @@ interface IMinerPool {
      * @notice returns the bytes32 digest of the claim reward from bucket message
      * @param bucketId - the id of the bucket
      * @param glwWeight - the weight of the user's glw rewards in the leaf of the report root
-     * @param grcWeight - the weight of the user's grc rewards in the leaf of the report root
+     * @param USDCWeight - the weight of the user's USDC rewards in the leaf of the report root
      * @param index - the index of the report in the bucket
      *                     - that contains the merkle root where the user's rewards are stored
      * @param claimFromInflation - whether or not to claim glow from inflation
@@ -113,7 +113,7 @@ interface IMinerPool {
     function createClaimRewardFromBucketDigest(
         uint256 bucketId,
         uint256 glwWeight,
-        uint256 grcWeight,
+        uint256 USDCWeight,
         uint256 index,
         bool claimFromInflation
     ) external view returns (bytes32);

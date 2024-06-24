@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
+
 contract BucketSubmission {
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */
@@ -19,9 +21,6 @@ contract BucketSubmission {
      *         - where b(x) is the current bucket
      */
     uint256 public constant OFFSET_RIGHT = 208;
-
-    /// @dev each bucket is 1 week long
-    uint256 public constant BUCKET_DURATION = uint256(7 days);
 
     /// @notice a constant holding the total vesting periods for a grc donation (192)
     uint256 public constant TOTAL_VESTING_PERIODS = OFFSET_RIGHT - OFFSET_LEFT;
@@ -48,7 +47,8 @@ contract BucketSubmission {
     /**
      * @dev a helper to keep track of last updated bucket ids for buckets
      * @param lastUpdatedBucket - the last bucket + 16 that grc was deposited to this bucket
-     * @param maxBucketId - the lastUpdatedBucket + 192
+     * @param maxBucketId - the lastUpdatedBucket + 191 since the range of buckets is (lastUpdatedBucket, lastUpdatedBucket + 192]
+     *                                                                                       ^ inclusive,             exclusive ^
      * @param firstAddedBucketId - the first bucket + 16 that grc was deposited to this bucket
      * @dev none of the params should overflow, since they represent weeks
      *         - it's safe to assume by 2^48 weeks climate should should have better solutions
@@ -73,6 +73,18 @@ contract BucketSubmission {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                                    events                                  */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @notice Emitted when a user donates usdc to the contract
+     * @param bucketId - the bucket id in which the donation happened.
+     *        - the result of this donation vests from bucketId + 16 to bucketId + 208
+     * @param totalAmountDonated - the total amount donated at `bucketId`
+     *         - the total amount donated at `bucketId` is evenly distributed over 192 buckets
+     */
+    event AmountDonatedToBucket(uint256 indexed bucketId, uint256 totalAmountDonated);
+
+    /* -------------------------------------------------------------------------- */
     /*                                 view functions                             */
     /* -------------------------------------------------------------------------- */
 
@@ -81,7 +93,7 @@ contract BucketSubmission {
      * @return currentBucket - the current bucket
      */
     function currentBucket() public view returns (uint256) {
-        return (block.timestamp - _genesisTimestamp()) / BUCKET_DURATION;
+        return (block.timestamp - _genesisTimestamp()) / bucketDuration();
     }
 
     /**
@@ -107,9 +119,10 @@ contract BucketSubmission {
     /* -------------------------------------------------------------------------- */
 
     /**
-     * @notice adds the grc to the current bucket
-     * @dev this function is called when a user donates grc to the contract
-     * @param amount - the amount of grc to add to the current bucket
+     * @notice adds the usdc to the current bucket
+     * @dev this function is called when a user donates usdc to the contract
+     * @param amount - the amount of usdc to add
+     *                  - the `amount` gets distributed over 192 buckets with the first bucket being the current bucket + OFFSET_LEFT
      */
     function _addToCurrentBucket(uint256 amount) internal {
         //Calculate the current bucket
@@ -136,6 +149,7 @@ contract BucketSubmission {
         if (currentWeeklyReward.inheritedFromLastWeek) {
             rewards[bucketToAddTo].amountInBucket += amountToAddOrSubtract;
             rewards[bucketToDeductFrom].amountToDeduct += amountToAddOrSubtract;
+            emit AmountDonatedToBucket(currentBucketId, amount);
             return;
         }
 
@@ -160,18 +174,22 @@ contract BucketSubmission {
         //This would only be the case if there has been a long period of time where no one has called {claimRewards}
         //Or, no one has donated the grc to the contract
         //Also, if the last bucket is the same as the bucket to add to, then we don't need to look backwards neither
-        bool pastDataIrrelavant = bucketToAddTo > _bucketTracker.maxBucketId || lastUpdatedBucket == bucketToAddTo;
-        //If past data is irrelavant, we can assume that we start fresh from the current bucket
-        uint256 totalToDeductFromBucket = pastDataIrrelavant ? 0 : currentWeeklyReward.amountToDeduct;
+        bool pastDataIrrelevant = bucketToAddTo > _bucketTracker.maxBucketId || lastUpdatedBucket == bucketToAddTo;
+        //If past data is irrelevant, we can assume that we start fresh from the current bucket
+        uint256 totalToDeductFromBucket = pastDataIrrelevant ? 0 : currentWeeklyReward.amountToDeduct;
 
-        //As such, we don't need to look backwards if the past data is irrelavant
-        if (!pastDataIrrelavant) {
+        //As such, we don't need to look backwards if the past data is irrelevant
+        if (!pastDataIrrelevant) {
             //However, if the past data is relavant,
             //We start at the last bucket that was updated,
             //And we look forwards until we reach the bucketToAddTo
             for (uint256 i = lastUpdatedBucket; i < bucketToAddTo; ++i) {
                 totalToDeductFromBucket += rewards[i].amountToDeduct;
             }
+        } else {
+            //If the past data is irrelevant, then we set the amount in the bucket to 0
+            //Such that the write below does not incorrectly add to the bucket
+            lastBucket.amountInBucket = 0;
         }
 
         /**
@@ -199,9 +217,11 @@ contract BucketSubmission {
             bucketTracker = BucketTracker(
                 uint48(bucketToAddTo),
                 uint48(bucketToAddTo + TOTAL_VESTING_PERIODS - 1),
-                _bucketTracker.firstAddedBucketId
+                _bucketTracker.firstAddedBucketId == 0 ? uint48(bucketToAddTo) : _bucketTracker.firstAddedBucketId
             );
         }
+
+        emit AmountDonatedToBucket(currentBucketId, amount);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -216,6 +236,7 @@ contract BucketSubmission {
         (WeeklyReward memory weeklyReward, bool needsInitializing) = _rewardWithNeedsInitializing(id);
         if (needsInitializing) {
             weeklyReward.inheritedFromLastWeek = true;
+            weeklyReward.amountToDeduct = 0;
             rewards[id] = weeklyReward;
         }
         return weeklyReward.amountInBucket;
@@ -234,11 +255,11 @@ contract BucketSubmission {
      * @return needsInitializing -- flag to see if the bucket needs to be initialized
      * @dev `needsInitializing` should be used in the withdraw reward function to see if the bucket needs to be initialized
      */
-    function _rewardWithNeedsInitializing(uint256 id) internal view returns (WeeklyReward memory, bool) {
+    function _rewardWithNeedsInitializing(uint256 id) private view returns (WeeklyReward memory, bool) {
         WeeklyReward memory bucket = rewards[id];
         // If the bucket has already been initialized
         // Then we can just return the bucket.
-        if (bucket.inheritedFromLastWeek || id < 16) {
+        if (bucket.inheritedFromLastWeek || id < OFFSET_LEFT) {
             return (bucket, false);
         }
 
@@ -282,14 +303,23 @@ contract BucketSubmission {
                 bucket.amountInBucket = lastBucket.amountInBucket - amountToSubtract;
                 break;
             }
+
+            //Prevents underflow since OFFSET_LEFT > 0
+            if (lastBucketId < OFFSET_LEFT) {
+                break;
+            }
         }
         return (bucket, true);
     }
 
+    function bucketDuration() internal pure virtual returns (uint256) {
+        return _BUCKET_DURATION;
+    }
     /* -------------------------------------------------------------------------- */
     /*                              functions to override                         */
     /* -------------------------------------------------------------------------- */
     /// @dev this must be overriden inside the parent contract.
+
     function _genesisTimestamp() internal view virtual returns (uint256) {
         return 0;
     }

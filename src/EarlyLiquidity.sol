@@ -19,7 +19,7 @@ interface IDecimals {
  * @author twitter: @0xSimon github: @0xSimbo
  * @notice This contract allows users to buy Glow tokens with USDC
  * @dev the cost of glow rises exponentially with the amount of glow sold
- *         -  The price at increment x = 0.001 * 2^((x)/ 100_000_000)
+ *         -  The price at increment x = 0.003 * 2^((x)/ 100_000_000)
  *            - if the function above to get price of increment x if f(x)
  *            - Then, the price to buy y tokens is Σ f(x) from x = the total increments sold, to x = the total increments sold + y
  *            - For example, to buy the first ten increments, (aka the first .1 tokens), the price is
@@ -29,7 +29,6 @@ interface IDecimals {
  * @dev to calculate the price for y tokens in real time, we use the sum of a geometric series which allows us
  *         - to efficiently calculate the price of y tokens in real time rather than looping through all the increments
  */
-
 contract EarlyLiquidity is IEarlyLiquidity {
     using ABDKMath64x64 for int128;
 
@@ -39,8 +38,8 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /// @dev Represents 1.0000000069314718 in 64x64 format, or `r` in the geometric series
     int128 private constant _RATIO = 18446744201572638720;
 
-    /// @dev Represents 0.001 USDC in 64x64 format
-    int128 private constant _POINT_ZERO_ZERO_ONE = 18446744073709551616000;
+    /// @dev Represents 0.003 USDC in 64x64 format
+    int128 private constant _POINT_ZERO_ZERO_THREE = 55340232221128654848000;
 
     /// @dev Represents 1 in 64x64 format
     int128 private constant _ONE = 18446744073709551616;
@@ -89,7 +88,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
     /**
      * @notice The address of the holding contract
-     * @dev the holding contract holds all GRC tokens
+     * @dev the holding contract holds all USDC tokens
      */
     address public immutable HOLDING_CONTRACT;
 
@@ -101,27 +100,34 @@ contract EarlyLiquidity is IEarlyLiquidity {
     uint256 private _totalIncrementsSold;
 
     /// @notice The Glow token
-    IERC20 public glowToken;
+    IERC20 public immutable GLOW_TOKEN;
 
     /// @notice The miner pool contract
     /// @dev all USDC is donated to the miner pool
-    IMinerPool public minerPool;
+    IMinerPool public immutable MINER_POOL;
 
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
+
     /**
      * @notice Constructs the EarlyLiquidity contract
      * @param _usdcAddress The address of the USDC token
      * @param _holdingContract The address of the holding contract
+     * @param _glowToken The address of the glow token
+     * @param _minerPoolAddress The address of the miner pool
      */
-    constructor(address _usdcAddress, address _holdingContract) payable {
+    constructor(address _usdcAddress, address _holdingContract, address _glowToken, address _minerPoolAddress)
+        payable
+    {
         USDC_TOKEN = IERC20(_usdcAddress);
         uint256 decimals = uint256(IDecimals(_usdcAddress).decimals());
         if (decimals != USDC_DECIMALS) {
             _revert(IDecimals.IncorrectDecimals.selector);
         }
         HOLDING_CONTRACT = _holdingContract;
+        GLOW_TOKEN = IERC20(_glowToken);
+        MINER_POOL = IMinerPool(_minerPoolAddress);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -132,7 +138,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
      */
     function buy(uint256 increments, uint256 maxCost) external {
         // Cache the minerPool in memory for gas optimization.
-        IMinerPool pool = minerPool;
+        IMinerPool pool = MINER_POOL;
         address _holdingContract = HOLDING_CONTRACT;
 
         // Calculate the total cost of the desired amount of tokens.
@@ -162,10 +168,10 @@ contract EarlyLiquidity is IEarlyLiquidity {
         uint256 diff = balAfter - balBefore;
 
         // Transfer the desired amount of tokens to the user.
-        SafeERC20.safeTransfer(glowToken, msg.sender, glowToSend);
+        SafeERC20.safeTransfer(GLOW_TOKEN, msg.sender, glowToSend);
 
         // Donate the received USDC to the miner rewards pool, possibly accounting for a tax or fee.
-        pool.donateToGRCMinerRewardsPoolEarlyLiquidity(diff);
+        pool.donateToUSDCMinerRewardsPoolEarlyLiquidity(diff);
 
         // Update the total amount of tokens sold by adding the normalized amount to the total.
         _totalIncrementsSold += increments;
@@ -175,31 +181,6 @@ contract EarlyLiquidity is IEarlyLiquidity {
 
         // End of function; the explicit 'return' here is unnecessary but it indicates the function's conclusion.
         return;
-    }
-    /* -------------------------------------------------------------------------- */
-    /*                               one time setters                             */
-    /* -------------------------------------------------------------------------- */
-
-    /**
-     * @notice Sets the glow token address
-     * @param _glowToken The address of the glow token
-     * @dev Can only be called once
-     */
-    function setGlowToken(address _glowToken) external {
-        // solhint-disable-next-line reason-string, custom-errors
-        require(address(glowToken) == address(0), "Glow token already set");
-        glowToken = IERC20(_glowToken);
-    }
-
-    /**
-     * @notice - one time use function to set the miner pool address
-     * @param _minerPoolAddress - the address of the miner pool contract
-     * @dev should only be able to be set once
-     */
-    function setMinerPool(address _minerPoolAddress) external {
-        if (_isZeroAddress(_minerPoolAddress)) _revert(IEarlyLiquidity.ZeroAddress.selector);
-        if (!_isZeroAddress(address(minerPool))) _revert(IEarlyLiquidity.MinerPoolAlreadySet.selector);
-        minerPool = IMinerPool(_minerPoolAddress);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -238,11 +219,10 @@ contract EarlyLiquidity is IEarlyLiquidity {
      * @param totalIncrementsSold The total amount of .01 increments sold
      * @param incrementsToBuy The amount of .01 increments to buy
      * @return price price of the increments to purchase in USDC
-     * @dev since our increments are in .01, the function evaluates to Σ .001 * 2^((incrementId)/ 100_000_000)
+     * @dev since our increments are in .01, the function evaluates to Σ .003 * 2^((incrementId)/ 100_000_000)
      *         - for increment id = totalIncrementsSold  id: to incrementId = incrementsToBuy
      *         - rounding errors do occur due to floating point math, but divergence is sub 1e-7
      */
-
     function _getPrice(uint256 totalIncrementsSold, uint256 incrementsToBuy) private pure returns (uint256) {
         // Check if the combined total of tokens sold and tokens to buy exceed the allowed amount.
         // If it does, revert the transaction.
@@ -289,8 +269,8 @@ contract EarlyLiquidity is IEarlyLiquidity {
         //The maximum value of rToTheN is e^(1,200,000,000 * ln(r)) = e^8.317766180304424 = 4096.000055644491
         //The maximum value of numerator is 1 -  4096 = -4095
         //The maximum value of divisionResult is -4095 / -0.0000000069314718  = 590,783,619,721.2834
-        //The maximum value of firstTermInSeries is 1000 * 2^12 = 4096000
-        //The maximum value of geometricSeries is 4096000 * 590,783,619,721.2834  = 2.419849706378377e+18
+        //The maximum value of firstTermInSeries is 3000 * 2^12 = 12288000
+        //The maximum value of geometricSeries is 12288000 * 590,783,619,721.2834  = 7.259549119135131e+18
         //This cant overflow since it's < 2^63-1
     }
 
@@ -314,8 +294,8 @@ contract EarlyLiquidity is IEarlyLiquidity {
         // because of the earlier logarithmic transformation.
         int128 baseResult = ABDKMath64x64.exp(exponent);
 
-        // Multiply the result by 0.001, where '_POINT_ZERO_ZERO_ONE' is the fixed-point representation of 0.001.
-        int128 result = _POINT_ZERO_ZERO_ONE.mul(baseResult);
+        // Multiply the result by 0.003, where '_POINT_ZERO_ZERO_THREE' is the fixed-point representation of 0.003.
+        int128 result = _POINT_ZERO_ZERO_THREE.mul(baseResult);
 
         // The following comments are for the purpose of explaining why the code cannot overflow.
         //ln(2) = 0.693147......

@@ -2,6 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "@/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
@@ -9,7 +11,6 @@ import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOW} from "@/testing/TestGLOW.sol";
@@ -19,8 +20,8 @@ import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.so
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
-import {VetoCouncil} from "@/VetoCouncil.sol";
-import {Holding, ClaimHoldingArgs, IHoldingContract, HoldingContract} from "@/HoldingContract.sol";
+import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 
 struct ClaimLeaf {
     address payoutWallet;
@@ -34,7 +35,7 @@ contract HoldingContractTest is Test {
     TestGLOW glow;
     MockUSDC usdc;
     MockUSDC grc2;
-    HoldingContract holdingContract;
+    SafetyDelay holdingContract;
 
     //--------  ADDRESSES ---------//
     address governance = address(0x1);
@@ -61,30 +62,52 @@ contract HoldingContractTest is Test {
     //--------  CONSTANTS ---------//
     uint256 constant ONE_WEEK = 7 * uint256(1 days);
 
+    address deployer = tx.origin;
+
     function setUp() public {
         //Make sure we don't start at 0
+        vm.startPrank(tx.origin);
         (SIMON, SIMON_PRIVATE_KEY) = _createAccount(9999, type(uint256).max);
         vm.warp(10);
         usdc = new MockUSDC();
         (defaultAddressInWithdraw, defaultAddressPrivateKey) = _createAccount(2313141231, type(uint256).max);
-        glow = new TestGLOW(earlyLiquidity,vestingContract);
+
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedMinerPool = computeCreateAddress(deployer, deployerNonce + 3);
+        address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 1);
+        address precomputedTreasury = computeCreateAddress(deployer, deployerNonce + 2);
+        glow = new TestGLOW(
+            earlyLiquidity, vestingContract, precomputedMinerPool, precomputedVetoCouncil, precomputedTreasury
+        ); //deployerNonce
         address[] memory temp = new address[](0);
         address[] memory startingAgents = new address[](2);
         startingAgents[0] = address(SIMON);
         startingAgents[1] = address(VETO_COUNCIL_MEMBER);
-        vetoCouncil = new VetoCouncil(governance, address(glow),startingAgents);
+        vetoCouncil = new VetoCouncil(governance, address(glow), startingAgents); //deployerNonce + 1
         vetoCouncilAddress = address(vetoCouncil);
-        holdingContract = new HoldingContract(vetoCouncilAddress);
-        minerPoolAndGCA =
-        new MockMinerPoolAndGCA(temp,address(glow),governance,keccak256("requirementsHash"),earlyLiquidity,address(usdc),vetoCouncilAddress,address(holdingContract));
-        glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
+        holdingContract = new SafetyDelay(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 2
+        minerPoolAndGCA = new MockMinerPoolAndGCA( //deployerNonce + 3
+            temp,
+            address(glow),
+            governance,
+            keccak256("requirementsHash"),
+            earlyLiquidity,
+            address(usdc),
+            vetoCouncilAddress,
+            address(holdingContract),
+            address(0xfffaa) //gcc
+        );
+
+        //TODO: set these addresses
+        // glow.setContractAddresses(address(minerPoolAndGCA), vetoCouncilAddress, grantsTreasuryAddress);
         grc2 = new MockUSDC();
+        vm.stopPrank();
     }
 
     //-------- ISSUING REPORTS ---------//
     function addGCA(address newGCA) public {
         address[] memory allGCAs = minerPoolAndGCA.allGcas();
-        address[] memory temp = new address[](allGCAs.length+1);
+        address[] memory temp = new address[](allGCAs.length + 1);
         for (uint256 i; i < allGCAs.length; ++i) {
             temp[i] = allGCAs[i];
             if (allGCAs[i] == newGCA) {
@@ -100,15 +123,10 @@ contract HoldingContractTest is Test {
         MockUSDC(token).mint(address(holdingContract), amount);
     }
 
-    function test_resetMinerPool_shouldRevert() public {
-        vm.expectRevert(HoldingContract.MinerPoolAlreadySet.selector);
-        holdingContract.setMinerPool(address(0x1));
-    }
-
     function test_addHolding_callerNotMinerPool_shouldRevert() public {
         mintToHoldingContract(address(usdc), 1_000_000_000 ether);
         vm.startPrank(address(0xdaaaaaf));
-        vm.expectRevert(HoldingContract.OnlyMinerPoolCanAddHoldings.selector);
+        vm.expectRevert(SafetyDelay.OnlyMinerPoolCanAddHoldings.selector);
         holdingContract.addHolding(SIMON, address(usdc), 10 ether);
         vm.stopPrank();
     }
@@ -120,7 +138,7 @@ contract HoldingContractTest is Test {
         vm.stopPrank();
 
         vm.startPrank(SIMON);
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldingSingleton(SIMON, address(usdc));
         vm.stopPrank();
     }
@@ -141,7 +159,7 @@ contract HoldingContractTest is Test {
 
     function test_delayNetwork_callerNotVetoCouncilMember_shouldRevert() public {
         vm.startPrank(address(0xaaaaaaaaadfffffff));
-        vm.expectRevert(HoldingContract.CallerMustBeVetoCouncilMember.selector);
+        vm.expectRevert(SafetyDelay.CallerMustBeVetoCouncilMember.selector);
         holdingContract.delayNetwork();
         vm.stopPrank();
     }
@@ -162,13 +180,13 @@ contract HoldingContractTest is Test {
         uint256 newTimestamp = holdingContract.minimumWithdrawTimestamp();
         assert(originalTimestamp + holdingContract.VETO_HOLDING_DELAY() == newTimestamp);
 
-        vm.expectRevert(HoldingContract.DelayStillOnCooldown.selector);
+        vm.expectRevert(SafetyDelay.DelayStillOnCooldown.selector);
         holdingContract.delayNetwork();
 
         //warp forward 79 days
         uint256 minimumWaitPeriod = holdingContract.VETO_HOLDING_DELAY() - holdingContract.FIVE_WEEKS() - 1;
         vm.warp(block.timestamp + minimumWaitPeriod);
-        vm.expectRevert(HoldingContract.DelayStillOnCooldown.selector);
+        vm.expectRevert(SafetyDelay.DelayStillOnCooldown.selector);
         holdingContract.delayNetwork();
 
         vm.stopPrank();
@@ -199,7 +217,7 @@ contract HoldingContractTest is Test {
 
         //Warp past the expiration on the holding
         vm.warp(block.timestamp + 8 days);
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldingSingleton(SIMON, address(usdc));
         vm.stopPrank();
     }
@@ -236,7 +254,7 @@ contract HoldingContractTest is Test {
 
         vm.warp(block.timestamp + ONE_WEEK);
 
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldings(args);
     }
 
@@ -259,14 +277,14 @@ contract HoldingContractTest is Test {
     function testFuzz_claimBefore7Days_shouldAlwaysFail(uint256 secondsToWarp) public {
         vm.assume(secondsToWarp < 7 days);
         addHolding(address(0x1), 10 ether);
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
     }
 
     function testFuzz_claimAfter7Days_shouldAlwaysWork(uint256 secondsToWarp) public {
         vm.assume(secondsToWarp >= 7 days);
         addHolding(address(0x1), 10 ether);
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
     }
 
@@ -278,7 +296,7 @@ contract HoldingContractTest is Test {
         holdingContract.delayNetwork();
         vm.stopPrank();
         vm.warp(block.timestamp + secondsToWarp);
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldingSingleton(address(0x1), address(usdc));
     }
 
@@ -300,7 +318,7 @@ contract HoldingContractTest is Test {
         ClaimHoldingArgs[] memory args = new ClaimHoldingArgs[](2);
         args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
         args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldings(args);
     }
 
@@ -329,7 +347,7 @@ contract HoldingContractTest is Test {
         holdingContract.delayNetwork();
         vm.stopPrank();
         vm.warp(block.timestamp + secondsToWarp);
-        vm.expectRevert(HoldingContract.NetworkIsFrozen.selector);
+        vm.expectRevert(SafetyDelay.NetworkIsFrozen.selector);
         holdingContract.claimHoldings(args);
     }
 
@@ -357,7 +375,7 @@ contract HoldingContractTest is Test {
         args[0] = ClaimHoldingArgs({user: address(0x1), token: address(usdc)});
         args[1] = ClaimHoldingArgs({user: address(0x2), token: address(usdc)});
 
-        vm.expectRevert(HoldingContract.WithdrawalNotReady.selector);
+        vm.expectRevert(SafetyDelay.WithdrawalNotReady.selector);
         holdingContract.claimHoldings(args);
 
         vm.warp(block.timestamp + ONE_WEEK);

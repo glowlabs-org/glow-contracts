@@ -1,5 +1,43 @@
 # Glow Contracts
 
+## Guarded Launch
+The Guarded Launch is a beta of sorts for the Glow Protocol.
+During the guarded launch phase, contracts are deployed as normal with the exception of premine (Glow Unlocker) contract. Furthermore, USDC is replaced with a wrapper called USDG which only allows transfers to allow-listed contracts (specific uniV2 pools). This is in effort to be able to recover from a disaster scenario. GLOW and GCC also follow the same pattern. All three contracts mentioned above also have circuit breakers that can be called by any veto council member in order to halt the transfer of any tokens. After the Guarded Launch, the contracts will be redeployed and airdrops will take place to compensate those that were earning guarded launch rewards.
+
+
+## External Dependencies
+1. OpenZeppelin ERC20 
+    -   Used as the base tokens for USDG, GCC, and GLOW
+2. Openzeppelin ERC20Permit
+    -   Used as the base tokens for USDG, GCC, and GLOW
+3. OpenZeppelin SafeCast
+    -   Used to SafeCast downcasts across contracts.
+4. OpenZeppelin Ownable
+    -   Used across certain contracts to check for access roles on setters
+5. OpenZeppelin SafeERC20
+    -   Used across contracts to handle ERC20 transfers. 
+    - Specifically in :
+        -   EarlyLiquidity
+        -   SafetyDelay
+        -   MinerPoolAndGCA
+6. OpenZeppelin SignatureChecker
+    -   Used across contracts to check for ECDSA and EIP1271 signatures
+7. OpenZeppelin EIP712
+5. Solady Math (SQRT Function)
+    -   Used in ImpactCatalyst
+6. Solady MerkleProofLib   
+    -   Used in MinerPoolAndGCA to check for leaves in the report merkle roots
+7. Uniswap V2 Library
+    -   Used in ImpactCatalyst 
+    -   Used in GlowGuardedLaunch,GCCGuardedLaunch, and USDG to determine pair addresses
+8. ABDK Math 64x64
+    -   Used across contracts
+    -   Specifically in:
+        -   EarlyLiquidity to calculate a precise price for the sale of GLOW
+        -   CarbonCreditDutchAuction to calculate the price with time decay
+        -   Governance to determine a user's nominations with decay
+
+
 # Glow Overview
 
 The Glow protocol is a protocol with a goal to reduce carbon emissions. It proposes an on-chain incentive system to achieve this goal.
@@ -27,7 +65,10 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
     - There are at most 5 GCA agents at one point in time.
     - GCA Elections must be ratified by glow stakers.
     - GCA Elections cannot be vetoed
-    - If a GCA Election slashes GCA's that triggers a slash event which 
+    - If a GCA Election slashes any GCA's, that triggers a slash event 
+        -    A slash event increments the slash nonce and stores the timestamp of the proposal creation timestamp
+        -    By incrementing the slash nonce, this invalidates all active report buckets that have not been finalized as of the proposal creation timestamp
+        -    The hope is that, if a bucket is faulty, the veto council members will delay the bucket by 90 days which should give governance enough time to act to slash the malicious or compromised GCA.
 3. Grants Proposals
     - Grants proposals define a receiver and an amount of GLOW.
     - Grants proposals do not have to be ratified by stakers
@@ -76,9 +117,9 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
     - GCA's are paid a weekly salary and decide amongst themselves how to allocate the GLOW reserved for GCA payouts (10,000 per week)
     - Once buckets are finalized, farms can claim rewards and GCC is minted to the Carbon Credit Auction.
         - USDC rewards are withheld for 1 week before finally being able to be released to the farm.
-        - This occurs in `HoldingContract.sol`
+        - This occurs in `SafetyDelay.sol`
         
--   `HoldingContract.sol`
+-   `SafetyDelay.sol`
     -   This contract holds the USDC rewards for farms.
     -   When a holding is added, farms must wait one week before being able to claim the amount in the holding
     -   Holdings can be delayed by 90 days by the `VetoCouncil`
@@ -90,7 +131,7 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
     -   Executes proposals
 -   `VetoCouncil.sol`
     - The veto council is responsible for delaying fraudulent buckets
-    - The veto council also has the power to delay all Holdings from `HoldingContract.sol` by 90 days.
+    - The veto council also has the power to delay all Holdings from `SafetyDelay.sol` by 90 days.
     - The veto council also has the power to veto non-election proposals.
     - The veto council is managed by governance and are paid a weekly salary in GLOW.
 
@@ -111,42 +152,64 @@ Governance has 5 types of proposals. Proposals are created by spending nominatio
     - When new GCC is added, all pending vesting amounts and the new amount are vested over the course of a week
     - There is no cap on the amount of GCC that can be purchased in a single transaction
 
+
 ## Simple Flow
 <img src="./assets/glow-flow-diagram.png"></img>
 
+## Live Guarded Launch Addresses
+| Contract | Address |
+| --- | --- |
+| Early Liquidity |   0xD5aBe236d2F2F5D10231c054e078788Ea3447DFc |
+| Governance | 0x8d01a258bC1ADB728322499E5D84173EA971d665 |
+| Glow | 0xf4fbC617A5733EAAF9af08E1Ab816B103388d8B6 |
+| Veto Council | 0xA3A32d3c9a5A593bc35D69BACbe2dF5Ea2C3cF5C |
+| Safety Delay | 0xd5970622b740a2eA5A5574616c193968b10e1297 |
+| Grants Treasury | 0x0116DA066517F010E59b32274BF18083aF34e108 |
+| GCA and Miner Pool | 0x6Fa8C7a89b22bf3212392b778905B12f3dBAF5C4 |
+| GCC | 0x21C46173591f39AfC1d2B634b74c98F0576A272B |
+| USDG | 0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2 |
+| Impact Catalyst | 0x552Fbb4E0269fd5036daf72Ec006AAF6C958F4Fa |
+| Carbon Credit Auction | 0x85fbB04DEBBDEa052a6422E74bFeA57B17e50A80 |
+| Gnosis Safe USDC Holding Contract | 0xc5174BBf649a92F9941e981af68AaA14Dd814F85 |
+
+## Contract Breakdown
+
 | Contract | LOC | Comments |
 | --- | --- | --- |
+| Constants.sol | 3 | 1 |
 | IGrantsTreasury.sol | 13 | 51 |
+| SafetyDelay.sol | 112 | 187 |
+| CarbonCreditDescendingPriceAuction.sol | 124 | 113 |
 | VestingMathLib.sol | 32 | 24 |
 | GrantsTreasury.sol | 51 | 82 |
 | BatchCommit.sol | 27 | 59 |
 | IGCC.sol | 89 | 204 |
-| GCA.sol | 450 | 389 |
-| MinerPoolAndGCA.sol | 258 | 233 |
-| BucketSubmission.sol | 101 | 164 |
+| GCA.sol | 456 | 389 |
+| MinerPoolAndGCA.sol | 259 | 243 |
+| GCC.GuardedLaunch.sol | 65 | 83 |
+| BucketSubmission.sol | 110 | 177 |
 | IMinerPool.sol | 46 | 67 |
-| GCASalaryHelper.sol | 192 | 196 |
-| CarbonCreditDutchAuction.sol | 124 | 113 |
+| GCASalaryHelper.sol | 195 | 198 |
 | IEarlyLiquidity.sol | 14 | 33 |
-| IGlow.sol | 49 | 104 |
+| IGlow.sol | 53 | 113 |
 | HalfLifeCarbonCreditAuction.sol | 17 | 17 |
 | IGovernance.sol | 101 | 125 |
 | ICarbonCreditAuction.sol | 9 | 30 |
-| GLOW.sol | 336 | 277 |
-| EarlyLiquidity.sol | 105 | 197 |
-| VetoCouncilSalaryHelper.sol | 209 | 195 |
-| Governance.sol | 821 | 597 |
-| HoldingContract.sol | 107 | 181 |
+| GLOW.sol | 330 | 276 |
+| EarlyLiquidity.sol | 100 | 183 |
+| VetoCouncilSalaryHelper.sol | 211 | 201 |
+| Governance.sol | 816 | 603 |
+| USDG.sol | 85 | 108 |
 | GlowUnlocker.sol | 61 | 49 |
+| Glow.GuardedLaunch.sol | 96 | 109 |
 | VetoCouncil.sol | 79 | 76 |
-| ImpactCatalyst.sol | 161 | 169 |
+| ImpactCatalyst.sol | 206 | 223 |
 | IERC20Permit.sol | 6 | 0 |
-| GCC.sol | 293 | 232 |
-| IGCA.sol | 77 | 142 |
+| GCC.sol | 295 | 247 |
+| IGCA.sol | 80 | 155 |
 | IVetoCouncil.sol | 14 | 47 |
 | HalfLife.sol | 14 | 16 |
-| Total | 3856 | 4069 |
-
+| Total | 4169 | 4489 |
 
 
 

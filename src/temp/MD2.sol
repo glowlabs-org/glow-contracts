@@ -18,6 +18,10 @@ contract MD2 is BucketSubmission {
         return (reward.inheritedFromLastWeek, reward.amountInBucket, reward.amountToDeduct);
     }
 
+    function setBucketTracker(uint48 lastUpdatedBucket, uint48 maxBucketId, uint48 firstAddedBucketId) external {
+        bucketTracker = BucketTracker(lastUpdatedBucket, maxBucketId, firstAddedBucketId);
+    }
+
     function genesisTimestampInternal() public view returns (uint256) {
         return _genesisTimestamp();
     }

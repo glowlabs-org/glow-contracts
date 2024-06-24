@@ -53,7 +53,8 @@ interface IGovernance {
         GCA_COUNCIL_ELECTION_OR_SLASH,
         GRANTS_PROPOSAL,
         CHANGE_GCA_REQUIREMENTS,
-        REQUEST_FOR_COMMENT
+        REQUEST_FOR_COMMENT,
+        UPGRADE_USDG
     }
 
     enum ProposalStatus {
@@ -156,6 +157,17 @@ interface IGovernance {
      */
     event RFCProposalCreation(
         uint256 indexed proposalId, address indexed proposer, bytes32 rfcHash, uint256 nominationsUsed
+    );
+
+    /**
+     * @notice emitted when a proposal to upgrade USDG is created
+     * @param proposalId the id of the proposal
+     * @param proposer the address of the proposer
+     * @param newImplementationAddress the address of the new implementation for the USDG Proxy
+     * @param nominationsUsed the amount of nominations used
+     */
+    event UpgradeUSDGProposalCreation(
+        uint256 indexed proposalId, address indexed proposer, address newImplementationAddress, uint256 nominationsUsed
     );
 
     /**

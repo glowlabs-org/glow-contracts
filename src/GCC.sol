@@ -7,13 +7,14 @@ import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IGovernance} from "@/interfaces/IGovernance.sol";
-import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import {ImpactCatalyst} from "@/ImpactCatalyst.sol";
 import {IERC20Permit} from "@/interfaces/IERC20Permit.sol";
 import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import {console} from "forge-std/console.sol";
 /**
  * @title GCC (Glow Carbon Credit)
  * @author DavidVorick
@@ -40,6 +41,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     bytes32 public constant COMMIT_PERMIT_TYPEHASH = keccak256(
         "CommitPermit(address owner,address spender,address rewardAddress,address referralAddress,uint256 amount,uint256 nonce,uint256 deadline)"
     );
+
     /// @notice The maximum shift for a bucketId
     uint256 private constant _BITS_IN_UINT = 256;
 
@@ -112,31 +114,32 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         address _glowToken,
         address _usdc,
         address _uniswapRouter
-    ) payable ERC20("Glow Carbon Certificate", "GCC") EIP712("Glow Carbon Certificate", "1") {
-        //Set the immutable variables
+    ) payable ERC20("Glow Carbon Certificate", "GCC-BETA") EIP712("Glow Carbon Certificate", "1") {
+        // Set the immutable variables
         USDC = _usdc;
         GCA_AND_MINER_POOL_CONTRACT = _gcaAndMinerPoolContract;
         UNISWAP_ROUTER = IUniswapRouterV2(_uniswapRouter);
         GOVERNANCE = IGovernance(_governance);
         GLOW = _glowToken;
         //Create the carbon credit auction directly in the constructor
-        CarbonCreditDutchAuction cccAuction = new CarbonCreditDutchAuction({
-                            glow: IERC20(_glowToken),
-                            gcc: IERC20(address(this)),
-                            startingPrice: 1e5 //Carbon Credit Auction sells increments of 1e6 GCC,
-                            //Setting the price to 1e5 per unit means that 1 GCC = .1 GLOW
-                        });
+        CarbonCreditDescendingPriceAuction cccAuction = new CarbonCreditDescendingPriceAuction({
+            glow: IERC20(_glowToken),
+            gcc: IERC20(address(this)),
+            startingPrice: 1e5 // Carbon Credit Auction sells increments of 1e6 GCC,
+                // Setting the price to 1e5 per unit means that 1 GCC = .1 GLOW
+        });
 
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));
         //Create the impact catalyst
         address factory = UNISWAP_ROUTER.factory();
         address pair = getPair(factory, _usdc);
         //Mint 1 to set the LP with USDC
+        //Note: On Guarded Launch the LP is set with USDG
         if (block.chainid == 1) {
-            _mint(tx.origin, 1 ether);
+            _mint(tx.origin, 1.1 ether);
         }
         //The impact catalyst is responsible for handling the commitments of GCC and USDC
-        IMPACT_CATALYST = new ImpactCatalyst(_usdc,_uniswapRouter,factory,pair);
+        IMPACT_CATALYST = new ImpactCatalyst(_usdc, _uniswapRouter, factory, pair);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -146,10 +149,12 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
      * @inheritdoc IGCC
      */
     function mintToCarbonCreditAuction(uint256 bucketId, uint256 amount) external {
-        if (_msgSender() != GCA_AND_MINER_POOL_CONTRACT) _revert(IGCC.CallerNotGCAContract.selector);
+        if (msg.sender != GCA_AND_MINER_POOL_CONTRACT) _revert(IGCC.CallerNotGCAContract.selector);
         _setBucketMinted(bucketId);
-        CARBON_CREDIT_AUCTION.receiveGCC(amount);
-        _mint(address(CARBON_CREDIT_AUCTION), amount);
+        if (amount > 0) {
+            CARBON_CREDIT_AUCTION.receiveGCC(amount);
+            _mint(address(CARBON_CREDIT_AUCTION), amount);
+        }
     }
 
     /* -------------------------------------------------------------------------- */
@@ -164,11 +169,11 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         returns (uint256 usdcEffect, uint256 impactPower)
     {
         //Transfer GCC from the msg.sender to the impact catalyst
-        _transfer(_msgSender(), address(IMPACT_CATALYST), amount);
+        _transfer(msg.sender, address(IMPACT_CATALYST), amount);
         //get back the amount of USDC that was used in the LP and the impact power earned
         (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount, minImpactPower);
         //handle the commitment
-        _handleCommitment(_msgSender(), rewardAddress, amount, usdcEffect, impactPower, referralAddress);
+        _handleCommitment(msg.sender, rewardAddress, amount, usdcEffect, impactPower, referralAddress);
     }
 
     /**
@@ -179,7 +184,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         returns (uint256, uint256)
     {
         //Same as above, but with no referrer
-        return (commitGCC(amount, rewardAddress, address(0), minImpactPower));
+        return commitGCC(amount, rewardAddress, address(0), minImpactPower);
     }
 
     /**
@@ -195,8 +200,8 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         //Transfer GCC `from` to the impact catalyst
         transferFrom(from, address(IMPACT_CATALYST), amount);
         //If the msg.sender is not `from`, then check and decrease the allowance
-        if (_msgSender() != from) {
-            _decreaseCommitAllowance(from, _msgSender(), amount, false);
+        if (msg.sender != from) {
+            _decreaseCommitAllowance(from, msg.sender, amount, false);
         }
         //get back the amount of USDC that was used in the LP and the impact power earned
         (usdcEffect, impactPower) = IMPACT_CATALYST.commitGCC(amount, minImpactPower);
@@ -236,17 +241,17 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         uint256 _nextCommitNonce = nextCommitNonce[from]++;
         //Construct the message to be signed
         bytes32 message = _constructCommitPermitDigest(
-            from, _msgSender(), rewardAddress, referralAddress, amount, _nextCommitNonce, deadline
+            from, msg.sender, rewardAddress, referralAddress, amount, _nextCommitNonce, deadline
         );
         //Check the signature
         if (!_checkCommitPermitSignature(from, message, signature)) {
             _revert(IGCC.CommitSignatureInvalid.selector);
         }
         //Increase the allowance for the msg.sender on the `from` account
-        _increaseCommitAllowance(from, _msgSender(), amount, false);
-        uint256 transferAllowance = allowance(from, _msgSender());
+        _increaseCommitAllowance(from, msg.sender, amount, false);
+        uint256 transferAllowance = allowance(from, msg.sender);
         if (transferAllowance < amount) {
-            _approve(from, _msgSender(), amount, false);
+            _approve(from, msg.sender, amount, false);
         }
         //Commit the GCC
         return (commitGCCFor(from, rewardAddress, amount, referralAddress, minImpactPower));
@@ -285,7 +290,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         //get back the impaoct power earned
         impactPower = IMPACT_CATALYST.commitUSDC(usdcUsing, minImpactPower);
         //handle the commitment
-        _handleUSDCcommitment(_msgSender(), rewardAddress, amount, impactPower, referralAddress);
+        _handleUSDCcommitment(msg.sender, rewardAddress, amount, impactPower, referralAddress);
     }
 
     /**
@@ -324,41 +329,41 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
     /* -------------------------------------------------------------------------- */
     /// @inheritdoc IGCC
     function setAllowances(address spender, uint256 transferAllowance, uint256 committingAllowance) external {
-        _approve(_msgSender(), spender, transferAllowance);
-        _commitGCCAllowances[_msgSender()][spender] = committingAllowance;
-        emit IGCC.CommitGCCAllowance(_msgSender(), spender, committingAllowance);
+        _approve(msg.sender, spender, transferAllowance);
+        _commitGCCAllowances[msg.sender][spender] = committingAllowance;
+        emit IGCC.CommitGCCAllowance(msg.sender, spender, committingAllowance);
     }
 
     /// @inheritdoc IGCC
     function increaseAllowances(address spender, uint256 addedValue) public {
-        _approve(_msgSender(), spender, allowance(_msgSender(), spender) + addedValue);
-        _increaseCommitAllowance(_msgSender(), spender, addedValue, true);
+        _approve(msg.sender, spender, allowance(msg.sender, spender) + addedValue);
+        _increaseCommitAllowance(msg.sender, spender, addedValue, true);
     }
 
     /// @inheritdoc IGCC
     function decreaseAllowances(address spender, uint256 requestedDecrease) public {
-        uint256 currentAllowance = allowance(_msgSender(), spender);
+        uint256 currentAllowance = allowance(msg.sender, spender);
         if (currentAllowance < requestedDecrease) {
             revert ERC20.ERC20FailedDecreaseAllowance(spender, currentAllowance, requestedDecrease);
         }
         unchecked {
-            _approve(_msgSender(), spender, currentAllowance - requestedDecrease);
+            _approve(msg.sender, spender, currentAllowance - requestedDecrease);
         }
-        _decreaseCommitAllowance(_msgSender(), spender, requestedDecrease, true);
+        _decreaseCommitAllowance(msg.sender, spender, requestedDecrease, true);
     }
 
     /**
      * @inheritdoc IGCC
      */
     function increaseCommitAllowance(address spender, uint256 amount) external override {
-        _increaseCommitAllowance(_msgSender(), spender, amount, true);
+        _increaseCommitAllowance(msg.sender, spender, amount, true);
     }
 
     /**
      * @inheritdoc IGCC
      */
     function decreaseCommitAllowance(address spender, uint256 amount) external override {
-        _decreaseCommitAllowance(_msgSender(), spender, amount, true);
+        _decreaseCommitAllowance(msg.sender, spender, amount, true);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -426,6 +431,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         //committing USDC calls syncProposals in governance to ensure that the proposals are up to date
         //This design is meant to ensure that the proposals are as up to date as possible
         GOVERNANCE.syncProposals();
+
         //Increase the total impact power earned by the reward address
         totalImpactPowerEarned[rewardAddress] += impactPower;
         //Grant the nominations to the reward address
@@ -564,6 +570,12 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
         return SignatureChecker.isValidSignatureNow(signer, message, signature);
     }
 
+    /**
+     * @notice Returns the univ2 pair for a given factory and token
+     * @param factory The address of the univ2 factory
+     * @param _usdc The address of the USDC token
+     * @return pair The address of the univ2 pair of the factory and token with this contract
+     */
     function getPair(address factory, address _usdc) internal view virtual returns (address) {
         return UniswapV2Library.pairFor(factory, _usdc, address(this));
     }
@@ -572,7 +584,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
      * @param selector The selector to revert with
      */
 
-    function _revert(bytes4 selector) private pure {
+    function _revert(bytes4 selector) internal pure {
         // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
             mstore(0x0, selector)

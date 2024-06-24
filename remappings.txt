@@ -9,3 +9,4 @@ ds-test/=lib/forge-std/lib/ds-test/src/
 @unifapv2/=src/UnifapV2/
 clones=lib/clones-with-immutable-args/src/
 @openzeppelin=lib/openzeppelin-contracts/contracts/
+~test/=test/

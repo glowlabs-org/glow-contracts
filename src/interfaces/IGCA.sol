@@ -122,10 +122,29 @@ interface IGCA {
     event ProposalHashUpdate(uint256 indexed index, bytes32 proposalHash);
 
     /**
+     * @dev emitted when a proposal hash is pushed
+     * @param proposalHash - the proposal hash
+     */
+    event ProposalHashPushed(bytes32 proposalHash);
+
+    /**
      * @dev Emitted when governacne updates the {requirementsHash}
      * @param requirementsHash - the new requirements hash gcas must abide by
      */
     event RequirementsHashUpdated(bytes32 requirementsHash);
+
+    /**
+     * @dev emitted when new GCAs are appointed
+     * @dev the new GCAs completely replace the old ones
+     * @param newGcas - the new GCAs
+     */
+    event NewGCAsAppointed(address[] newGcas);
+
+    /**
+     * @dev emitted when GCAs are slashed
+     * @param slashedGcas - the slashed GCAs
+     */
+    event GCAsSlashed(address[] slashedGcas);
 
     /**
      * @notice emitted when a GCA submits a report for a bucket
@@ -239,6 +258,5 @@ interface IGCA {
      * @notice returns if the bucket is finalized or not
      * @param bucketId - the id of the bucket
      */
-
     function isBucketFinalized(uint256 bucketId) external view returns (bool);
 }

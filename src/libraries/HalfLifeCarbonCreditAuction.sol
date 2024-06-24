@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@/libraries/ABDKMath64x64.sol";
+import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
 
 library HalfLifeCarbonCreditAuction {
     /**

@@ -18,21 +18,22 @@ contract EarlyLiquidityMockMinerPool is MinerPoolAndGCA {
             _grcToken,
             //Veto Council Contract
             address(0x4444),
-            _holdingContract
+            _holdingContract,
+            address(0xfffffffffaa3141241) // gcc
         )
     {}
     /**
      * @inheritdoc MinerPoolAndGCA
      */
 
-    function donateToGRCMinerRewardsPool(uint256 amount) external virtual override {
+    function donateToUSDCMinerRewardsPool(uint256 amount) external virtual override {
         return;
     }
 
     /**
      * @inheritdoc MinerPoolAndGCA
      */
-    function donateToGRCMinerRewardsPoolEarlyLiquidity(uint256 amount) external virtual override {
+    function donateToUSDCMinerRewardsPoolEarlyLiquidity(uint256 amount) external virtual override {
         if (msg.sender != this.earlyLiquidity()) {
             _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
         }
