@@ -8,6 +8,31 @@
     "@solady/=lib/solady/src/"
 
     ],
+    "wake.compiler.solc.remappings": [
+        "forge-std/=lib/forge-std/src/",
+        "solmate/=lib/solmate/src/",
+        "ds-test/=lib/forge-std/lib/ds-test/src/",
+        "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+        "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+        "@/=src/",
+        "@solady/=lib/solady/src/",
+        "@unifapv2/=src/UnifapV2/",
+        "clones/=lib/clones-with-immutable-args/src/",
+        "@openzeppelin/=lib/openzeppelin-contracts/contracts/",
+        "~test/=test/",
+        "@clones/=lib/unifap-v2/lib/clones-with-immutable-args/src/",
+        "@ds/=lib/unifap-v2/lib/ds-test/src/",
+        "@solmate/=lib/unifap-v2/lib/solmate/src/",
+        "@std/=lib/unifap-v2/lib/forge-std/src/",
+        "abdk-libraries-solidity/=lib/abdk-libraries-solidity/",
+        "clones-with-immutable-args/=lib/clones-with-immutable-args/src/",
+        "clones/=lib/unifap-v2/lib/clones-with-immutable-args/src/",
+        "erc4626-tests/=lib/openzeppelin-contracts-upgradeable/lib/erc4626-tests/",
+        "openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/",
+        "openzeppelin-contracts/=lib/openzeppelin-contracts/",
+        "solady/=lib/solady/",
+        "unifap-v2/=lib/unifap-v2/src/"
+    ],
 
       
 }
