@@ -307,7 +307,7 @@ contract Governance is IGovernance, EIP712 {
         GLOW = glw;
         USDG = GCCContract(gcc).USDC();
     }
-ew
+
     /* -------------------------------------------------------------------------- */
     /*                               proposal execution                           */
     /* -------------------------------------------------------------------------- */
@@ -600,11 +600,8 @@ ew
         if (msg.sender != GCC) {
             _revert(IGovernance.CallerNotGCC.selector);
         }
-        //Step 1: check their current balance
-        Nominations memory n = _nominations[to];
-        uint256 currentBalance = HalfLife.calculateHalfLifeValue(n.amount, block.timestamp - n.lastUpdate);
-        //Step 2: update their balance
-        _nominations[to] = Nominations(SafeCast.toUint192(currentBalance + amount), SafeCast.toUint64(block.timestamp));
+
+        _grantNominations(to, amount);
         return;
     }
 
@@ -978,30 +975,31 @@ ew
         );
     }
 
-    function createUpgradeUSDGProposal(address newUSDGAddress, bytes memory _data, uint256 maxNominations) external {
-        uint256 proposalId = _proposalCount;
-        uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
-        if (maxNominations < nominationCost) {
-            _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
-        }
-        _spendNominations(msg.sender, nominationCost);
-        _proposals[proposalId] = IGovernance.Proposal(
-            IGovernance.ProposalType.UPGRADE_USDG,
-            uint64(block.timestamp + MAX_PROPOSAL_DURATION),
-            SafeCast.toUint184(nominationCost),
-            abi.encode(newUSDGAddress, _data)
-        );
-        uint256 currentWeek = currentWeek();
-        uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
-        if (nominationCost > _proposals[_mostPopularProposalOfWeek].votes) {
-            mostPopularProposalOfWeek[currentWeek] = proposalId;
-            emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
-        }
+    //TODO: Delete this
+    // function createUpgradeUSDGProposal(address newUSDGAddress, bytes memory _data, uint256 maxNominations) external {
+    //     uint256 proposalId = _proposalCount;
+    //     uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
+    //     if (maxNominations < nominationCost) {
+    //         _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
+    //     }
+    //     _spendNominations(msg.sender, nominationCost);
+    //     _proposals[proposalId] = IGovernance.Proposal(
+    //         IGovernance.ProposalType.UPGRADE_USDG,
+    //         uint64(block.timestamp + MAX_PROPOSAL_DURATION),
+    //         SafeCast.toUint184(nominationCost),
+    //         abi.encode(newUSDGAddress, _data)
+    //     );
+    //     uint256 currentWeek = currentWeek();
+    //     uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
+    //     if (nominationCost > _proposals[_mostPopularProposalOfWeek].votes) {
+    //         mostPopularProposalOfWeek[currentWeek] = proposalId;
+    //         emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
+    //     }
 
-        _proposalCount = proposalId + 1;
+    //     _proposalCount = proposalId + 1;
 
-        emit IGovernance.UpgradeUSDGProposalCreation(proposalId, msg.sender, newUSDGAddress, nominationCost);
-    }
+    //     emit IGovernance.UpgradeUSDGProposalCreation(proposalId, msg.sender, newUSDGAddress, nominationCost);
+    // }
 
     /**
      * @notice Creates a proposal to send a grant to a recipient
@@ -1138,25 +1136,25 @@ ew
         );
     }
 
-    /**
-     * @notice Creates a proposal to upgrade the USDG contract
-     * @param newUSDGAddress the new USDG address
-     * @param data the data to be used in the upgrade
-     */
-    function createUSDGUpgradeProposalSigs(
-        address newUSDGAddress,
-        bytes memory data,
-        uint256[] memory deadlines,
-        uint256[] memory nominationsToSpend,
-        address[] memory signers,
-        bytes[] memory sigs
-    ) external {
-        bytes memory data = abi.encode(newUSDGAddress, data);
-        (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
-            deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.UPGRADE_USDG
-        );
-        emit IGovernance.UpgradeUSDGProposalCreation(proposalId, msg.sender, newUSDGAddress, nominationsSpent);
-    }
+    // /**
+    //  * @notice Creates a proposal to upgrade the USDG contract
+    //  * @param newUSDGAddress the new USDG address
+    //  * @param data the data to be used in the upgrade
+    //  */
+    // function createUSDGUpgradeProposalSigs(
+    //     address newUSDGAddress,
+    //     bytes memory data,
+    //     uint256[] memory deadlines,
+    //     uint256[] memory nominationsToSpend,
+    //     address[] memory signers,
+    //     bytes[] memory sigs
+    // ) external {
+    //     bytes memory data = abi.encode(newUSDGAddress, data);
+    //     (uint256 proposalId, uint256 nominationsSpent) = checkBulkSignaturesAndCheckSufficientNominations(
+    //         deadlines, nominationsToSpend, signers, sigs, data, IGovernance.ProposalType.UPGRADE_USDG
+    //     );
+    //     emit IGovernance.UpgradeUSDGProposalCreation(proposalId, msg.sender, newUSDGAddress, nominationsSpent);
+    // }
 
     /**
      * @notice Updates the last expired proposal id
@@ -1534,6 +1532,20 @@ ew
         // since we are sqrt'ing this, we factor our 12 decimals of precision since sqrt(1e24) = 1e12
         // and end up in 12 decimals of precision
         return res * 1e8;
+    }
+
+    /**
+     * @dev Grants nominations to a user
+     * @param to the address to grant nominations to
+     * @param amount the amount of nominations to grant
+     */
+    function _grantNominations(address to, uint256 amount) internal {
+        //Step 1: check their current balance
+        Nominations memory n = _nominations[to];
+        uint256 currentBalance = HalfLife.calculateHalfLifeValue(n.amount, block.timestamp - n.lastUpdate);
+        //Step 2: update their balance
+        _nominations[to] = Nominations(SafeCast.toUint192(currentBalance + amount), SafeCast.toUint64(block.timestamp));
+        return;
     }
 
     /**

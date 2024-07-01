@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {USDG} from "@/USDG.sol";
 
-contract USDGV2 is USDG {
+contract USDGGuardedLaunchV2 is USDG {
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */

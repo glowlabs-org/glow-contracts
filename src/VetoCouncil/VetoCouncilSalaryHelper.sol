@@ -58,13 +58,13 @@ contract VetoCouncilSalaryHelper {
     /**
      * @dev (member -> Status)
      */
-    mapping(address => Status) private _status;
+    mapping(address => Status) internal _status;
 
     /**
      * @notice an array containing all the veto council members
      * @dev the null address is represented as 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF
      */
-    address[7] private _vetoCouncilMembers;
+    address[7] internal _vetoCouncilMembers;
 
     /**
      * @notice paymentNonce -> keccak256(abi.encodePacked(vetoCouncilMembers))
@@ -75,7 +75,7 @@ contract VetoCouncilSalaryHelper {
     /**
      * @dev payment nonce -> shift start timestamp
      */
-    mapping(uint256 => uint256) private _paymentNonceToShiftStartTimestamp;
+    mapping(uint256 => uint256) internal _paymentNonceToShiftStartTimestamp;
 
     /**
      * @notice The amount of tokens that have been withdrawn from a given payment nonce for a given member
@@ -157,9 +157,9 @@ contract VetoCouncilSalaryHelper {
      * @param members The addresses of the starting council members
      * @param genesisTimestamp The timestamp of the genesis block
      */
-    function initializeMembers(address[] memory members, uint256 genesisTimestamp) internal {
+    function initializeMembers(address[] memory members, uint256 genesisTimestamp) internal virtual {
         address[7] memory initmembers;
-        if (members.length > type(uint8).max) {
+        if (members.length > 7) {
             _revert(MaxSevenVetoCouncilMembers.selector);
         }
         uint8 len = uint8(members.length);
@@ -395,7 +395,7 @@ contract VetoCouncilSalaryHelper {
      * @param a the address to check
      * @return res - true if the address is the zero address
      */
-    function isZero(address a) private pure returns (bool res) {
+    function isZero(address a) internal pure returns (bool res) {
         // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
             res := iszero(a)

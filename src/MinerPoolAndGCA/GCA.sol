@@ -5,7 +5,7 @@ import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
 import {GCASalaryHelper} from "./GCASalaryHelper.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
+import {_BUCKET_DURATION, _GENESIS_TIMESTAMP} from "@/Constants/Constants.sol";
 
 /**
  * @title GCA (Glow Certification Agent)
@@ -106,7 +106,7 @@ contract GCA is IGCA, GCASalaryHelper {
     mapping(uint256 => uint256) public slashNonceToSlashTimestamp;
 
     /// @notice the gca payouts
-    mapping(address => IGCA.GCAPayout) private _gcaPayouts;
+    mapping(address => IGCA.GCAPayout) internal _gcaPayouts;
 
     /// @notice bucket -> Bucket Struct
     mapping(uint256 => IGCA.Bucket) internal _buckets;
@@ -137,9 +137,7 @@ contract GCA is IGCA, GCASalaryHelper {
         //Set the genesis timestamp
         GENESIS_TIMESTAMP = GLOW_TOKEN.GENESIS_TIMESTAMP();
         //Initialize the payouts for the gcas
-        for (uint256 i; i < _gcaAgents.length; ++i) {
-            _gcaPayouts[_gcaAgents[i]].lastClaimedTimestamp = uint64(GENESIS_TIMESTAMP);
-        }
+        _constructorSetAgentsLastClaimedTimestamp(_gcaAgents,GENESIS_TIMESTAMP);
         //Set the GCA requirements hash
         requirementsHash = _requirementsHash;
         GCASalaryHelper.setZeroPaymentStartTimestamp();
@@ -372,7 +370,7 @@ contract GCA is IGCA, GCASalaryHelper {
     /**
      * @inheritdoc IGCA
      */
-    function bucket(uint256 bucketId) public view returns (IGCA.Bucket memory bucket) {
+    function bucket(uint256 bucketId) public view virtual returns (IGCA.Bucket memory _bucket) {
         return _buckets[bucketId];
     }
 
@@ -906,6 +904,17 @@ contract GCA is IGCA, GCASalaryHelper {
      */
     function _calculateShift(uint256 index) private pure returns (uint256) {
         return index * _UINT24_SHIFT;
+    }
+
+    function _constructorSetAgentsLastClaimedTimestamp(address[] memory gcaAddresses, uint256 timestamp)
+        internal
+        virtual
+    {
+        unchecked {
+            for (uint256 i; i < gcaAddresses.length; ++i) {
+                _gcaPayouts[gcaAddresses[i]].lastClaimedTimestamp = SafeCast.toUint64(timestamp);
+            }
+        }
     }
 
     /* -------------------------------------------------------------------------- */

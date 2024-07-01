@@ -4,6 +4,9 @@ pragma solidity ^0.8.19;
 import {GCCGuardedLaunch} from "@/GuardedLaunch/GCC.GuardedLaunch.sol";
 
 contract GCCGuardedLaunchV2 is GCCGuardedLaunch {
+    error NotMigrationContract();
+
+    address public immutable MIGRATION_CONTRACT;
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
@@ -20,6 +23,7 @@ contract GCCGuardedLaunchV2 is GCCGuardedLaunch {
      * @param migrationContract The address of the migration contract
      * @param migrationAmount The amount to send to the migration contract
      */
+
     constructor(
         address _gcaAndMinerPoolContract,
         address _governance,
@@ -45,11 +49,19 @@ contract GCCGuardedLaunchV2 is GCCGuardedLaunch {
     {
         for (uint256 i; i < _allowlistedMultisigContracts.length;) {
             allowlistedContracts[_allowlistedMultisigContracts[i]] = true;
+            allowlistedContracts[migrationContract] = true;
+            _mint(migrationContract, migrationAmount);
             unchecked {
                 ++i;
             }
-            allowlistedContracts[migrationContract] = true;
-            _mint(migrationContract, migrationAmount);
         }
+        MIGRATION_CONTRACT = migrationContract;
+    }
+
+    function migrateImpactPower(address account, uint256 amount) external {
+        if (msg.sender != MIGRATION_CONTRACT) {
+            revert NotMigrationContract();
+        }
+        totalImpactPowerEarned[account] += amount;
     }
 }

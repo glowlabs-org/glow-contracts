@@ -159,16 +159,18 @@ interface IGovernance {
         uint256 indexed proposalId, address indexed proposer, bytes32 rfcHash, uint256 nominationsUsed
     );
 
-    /**
-     * @notice emitted when a proposal to upgrade USDG is created
-     * @param proposalId the id of the proposal
-     * @param proposer the address of the proposer
-     * @param newImplementationAddress the address of the new implementation for the USDG Proxy
-     * @param nominationsUsed the amount of nominations used
-     */
-    event UpgradeUSDGProposalCreation(
-        uint256 indexed proposalId, address indexed proposer, address newImplementationAddress, uint256 nominationsUsed
-    );
+    //TODO: Delete this event
+
+    // /**
+    //  * @notice emitted when a proposal to upgrade USDG is created
+    //  * @param proposalId the id of the proposal
+    //  * @param proposer the address of the proposer
+    //  * @param newImplementationAddress the address of the new implementation for the USDG Proxy
+    //  * @param nominationsUsed the amount of nominations used
+    //  */
+    // event UpgradeUSDGProposalCreation(
+    //     uint256 indexed proposalId, address indexed proposer, address newImplementationAddress, uint256 nominationsUsed
+    // );
 
     /**
      * @notice emitted when a long glow staker casts a ratify vote on a proposal

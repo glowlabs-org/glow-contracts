@@ -97,7 +97,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
     /* -------------------------------------------------------------------------- */
     /// @dev tokens are demagnified by 1e18 to make floating point math easier
     /// @dev the {totalSold} function returns the total sold in 1e18 (GLW DECIMALS)
-    uint256 private _totalIncrementsSold;
+    uint256 internal _totalIncrementsSold;
 
     /// @notice The Glow token
     IERC20 public immutable GLOW_TOKEN;

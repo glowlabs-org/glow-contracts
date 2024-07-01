@@ -51,7 +51,7 @@ abstract contract GCASalaryHelper {
     //payment nonce -> gca index -> comp plan
     mapping(uint256 => mapping(uint256 => uint32[5])) private _paymentNonceToCompensationPlan;
     //payment nonce -> shift start timestamp
-    mapping(uint256 => uint256) private _paymentNonceToShiftStartTimestamp;
+    mapping(uint256 => uint256) internal _paymentNonceToShiftStartTimestamp;
 
     // agent -> payment nonce -> amount already withdrawn
     mapping(address => mapping(uint256 => uint256)) public amountWithdrawnAtPaymentNonce;
@@ -240,7 +240,7 @@ abstract contract GCASalaryHelper {
     }
 
     /// @dev should only be used once in the constructor of GCA
-    function setZeroPaymentStartTimestamp() internal {
+    function setZeroPaymentStartTimestamp() internal virtual {
         _paymentNonceToShiftStartTimestamp[0] = _genesisTimestamp();
     }
 

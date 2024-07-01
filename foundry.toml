@@ -20,3 +20,5 @@ runs = 10
 # depth = 100_000
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
+
+ignored_warnings_from = ["node_modules", "lib","test"]

@@ -19,7 +19,7 @@ import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 /**
  * @title Miner Pool And GCA
  * @author @DavidVorick
- * @author @0xSimon(twitter) - 0xSimon(github)
+ * @author @0xSimon(twitter) - 0xSimbo(github)
  *  @notice this contract allows veto council members to delay buckets as defined in the `GCA` contract
  * @notice It is the entry point for farms participating in GLOW to claim their rewards for their contributions
  */
@@ -197,6 +197,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
     /* -------------------------------------------------------------------------- */
     /*                                 claiming rewards                           */
     /* -------------------------------------------------------------------------- */
+    //   TODO: add an approval operator so we do not need signatures
     /**
      * @inheritdoc IMinerPool
      */
@@ -209,7 +210,7 @@ contract MinerPoolAndGCA is GCA, EIP712, IMinerPool, BucketSubmission {
         address user,
         bool claimFromInflation,
         bytes memory signature
-    ) external {
+    ) public virtual {
         if (msg.sender != user) {
             bytes32 hash = createClaimRewardFromBucketDigest(bucketId, glwWeight, usdcWeight, index, claimFromInflation);
             if (!SignatureChecker.isValidSignatureNow(user, hash, signature)) {

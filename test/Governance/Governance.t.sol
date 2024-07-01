@@ -84,6 +84,7 @@ contract GovernanceTest is Test {
     address defaultAddressInWithdraw = address(0x555);
     address bidder1 = address(0x12);
     address bidder2 = address(0x13);
+    address gccAddress;
 
     address[] startingAgents;
 
@@ -114,6 +115,7 @@ contract GovernanceTest is Test {
         address precomputedVetoCouncil = computeCreateAddress(deployer, deployerNonce + 5);
         address precomputedTreasury = computeCreateAddress(deployer, deployerNonce + 4);
         address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 2);
+        gccAddress = precomputedGCC;
         usdg = USDGUpgradeable(
             address(
                 new ERC1967Proxy(
@@ -1227,26 +1229,26 @@ contract GovernanceTest is Test {
         vm.stopPrank();
     }
 
-    function test_createUpgradeUSDGProposal() public {
-        vm.startPrank(SIMON);
-        gcc.mint(SIMON, 100 ether);
-        gcc.commitGCC(100 ether, SIMON, 0);
-        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        uint256 maxNominations = nominationsOfSimon;
-        uint256 creationTimestamp = block.timestamp;
-        uint256 nominationsToUse = governance.costForNewProposal();
-        USDGUpgradeableV2 newUSDG = new USDGUpgradeableV2();
-        governance.createUpgradeUSDGProposal(address(newUSDG), "", maxNominations);
-        IGovernance.Proposal memory proposal = governance.proposals(1);
-        (address _impl, bytes memory _data) = abi.decode(proposal.data, (address, bytes));
-        assertEq(governance.proposalCount(), 1);
-        assertTrue(proposal.proposalType == IGovernance.ProposalType.UPGRADE_USDG, "Proposal type is not correct");
-        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16, "Expiration timestamp is not correct");
-        assertEq(proposal.votes, nominationsToUse);
-        assertEq(_impl, address(newUSDG), "Impl address is not correct");
-        assertEq(_data, "", "Data is not correct");
-        vm.stopPrank();
-    }
+    // function test_createUpgradeUSDGProposal() public {
+    //     vm.startPrank(SIMON);
+    //     gcc.mint(SIMON, 100 ether);
+    //     gcc.commitGCC(100 ether, SIMON, 0);
+    //     uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+    //     uint256 maxNominations = nominationsOfSimon;
+    //     uint256 creationTimestamp = block.timestamp;
+    //     uint256 nominationsToUse = governance.costForNewProposal();
+    //     USDGUpgradeableV2 newUSDG = new USDGUpgradeableV2();
+    //     governance.createUpgradeUSDGProposal(address(newUSDG), "", maxNominations);
+    //     IGovernance.Proposal memory proposal = governance.proposals(1);
+    //     (address _impl, bytes memory _data) = abi.decode(proposal.data, (address, bytes));
+    //     assertEq(governance.proposalCount(), 1);
+    //     assertTrue(proposal.proposalType == IGovernance.ProposalType.UPGRADE_USDG, "Proposal type is not correct");
+    //     assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16, "Expiration timestamp is not correct");
+    //     assertEq(proposal.votes, nominationsToUse);
+    //     assertEq(_impl, address(newUSDG), "Impl address is not correct");
+    //     assertEq(_data, "", "Data is not correct");
+    //     vm.stopPrank();
+    // }
 
     //----------------------------------------------------//
     //----------------  USING NOMINATIONS -----------------//
@@ -2067,58 +2069,58 @@ contract GovernanceTest is Test {
         // assertEq(lastExecutedWeek, 0);
     }
 
-    function test_executeUSDGUpgrade() public {
-        test_createUpgradeUSDGProposal();
-        vm.warp(block.timestamp + ONE_WEEK + 1);
-        castLongStakedVotes(SIMON, 0, true, 1);
-        vm.warp(block.timestamp + ONE_WEEK * 4);
-        bytes memory data = governance.proposals(1).data;
-        governance.executeProposalAtWeek(0);
-        USDGUpgradeableV2 _usdgV2 = USDGUpgradeableV2(address(usdg));
-        _usdgV2.newSetter(1212312);
-        assertEq(_usdgV2.newVar(), 1212312);
-        IGovernance.ProposalStatus status = governance.getProposalStatus(1);
-        assertEq(
-            uint256(status),
-            uint256(IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY),
-            "A good upgrade should have been successful"
-        );
-    }
+    // function test_executeUSDGUpgrade() public {
+    //     test_createUpgradeUSDGProposal();
+    //     vm.warp(block.timestamp + ONE_WEEK + 1);
+    //     castLongStakedVotes(SIMON, 0, true, 1);
+    //     vm.warp(block.timestamp + ONE_WEEK * 4);
+    //     bytes memory data = governance.proposals(1).data;
+    //     governance.executeProposalAtWeek(0);
+    //     USDGUpgradeableV2 _usdgV2 = USDGUpgradeableV2(address(usdg));
+    //     _usdgV2.newSetter(1212312);
+    //     assertEq(_usdgV2.newVar(), 1212312);
+    //     IGovernance.ProposalStatus status = governance.getProposalStatus(1);
+    //     assertEq(
+    //         uint256(status),
+    //         uint256(IGovernance.ProposalStatus.EXECUTED_SUCCESSFULLY),
+    //         "A good upgrade should have been successful"
+    //     );
+    // }
 
-    function test_createUpgradeUSDGProposal_withBadData_upgradeShouldFail_butNotRevert() public {
-        vm.startPrank(SIMON);
-        gcc.mint(SIMON, 100 ether);
-        gcc.commitGCC(100 ether, SIMON, 0);
-        uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
-        uint256 maxNominations = nominationsOfSimon;
-        uint256 creationTimestamp = block.timestamp;
-        uint256 nominationsToUse = governance.costForNewProposal();
-        USDGUpgradeableV2 newUSDG = new USDGUpgradeableV2();
-        bytes memory badData = abi.encodeWithSignature("badFunction()");
-        governance.createUpgradeUSDGProposal(address(newUSDG), badData, maxNominations);
-        IGovernance.Proposal memory proposal = governance.proposals(1);
-        (address _impl, bytes memory _data) = abi.decode(proposal.data, (address, bytes));
-        assertEq(governance.proposalCount(), 1);
-        assertTrue(proposal.proposalType == IGovernance.ProposalType.UPGRADE_USDG, "Proposal type is not correct");
-        assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16, "Expiration timestamp is not correct");
-        assertEq(proposal.votes, nominationsToUse);
-        assertEq(_impl, address(newUSDG), "Impl address is not correct");
-        assertEq(_data, badData, "Data is not correct");
+    // function test_createUpgradeUSDGProposal_withBadData_upgradeShouldFail_butNotRevert() public {
+    //     vm.startPrank(SIMON);
+    //     gcc.mint(SIMON, 100 ether);
+    //     gcc.commitGCC(100 ether, SIMON, 0);
+    //     uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
+    //     uint256 maxNominations = nominationsOfSimon;
+    //     uint256 creationTimestamp = block.timestamp;
+    //     uint256 nominationsToUse = governance.costForNewProposal();
+    //     USDGUpgradeableV2 newUSDG = new USDGUpgradeableV2();
+    //     bytes memory badData = abi.encodeWithSignature("badFunction()");
+    //     governance.createUpgradeUSDGProposal(address(newUSDG), badData, maxNominations);
+    //     IGovernance.Proposal memory proposal = governance.proposals(1);
+    //     (address _impl, bytes memory _data) = abi.decode(proposal.data, (address, bytes));
+    //     assertEq(governance.proposalCount(), 1);
+    //     assertTrue(proposal.proposalType == IGovernance.ProposalType.UPGRADE_USDG, "Proposal type is not correct");
+    //     assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16, "Expiration timestamp is not correct");
+    //     assertEq(proposal.votes, nominationsToUse);
+    //     assertEq(_impl, address(newUSDG), "Impl address is not correct");
+    //     assertEq(_data, badData, "Data is not correct");
 
-        vm.warp(block.timestamp + ONE_WEEK + 1);
-        castLongStakedVotes(SIMON, 0, true, 1);
-        vm.warp(block.timestamp + ONE_WEEK * 4);
-        bytes memory data = governance.proposals(1).data;
-        governance.executeProposalAtWeek(0);
+    //     vm.warp(block.timestamp + ONE_WEEK + 1);
+    //     castLongStakedVotes(SIMON, 0, true, 1);
+    //     vm.warp(block.timestamp + ONE_WEEK * 4);
+    //     bytes memory data = governance.proposals(1).data;
+    //     governance.executeProposalAtWeek(0);
 
-        IGovernance.ProposalStatus status = governance.getProposalStatus(1);
-        assertEq(
-            uint256(status),
-            uint256(IGovernance.ProposalStatus.EXECUTED_WITH_ERROR),
-            "The bad data should have prevented the upgrade"
-        );
-        vm.stopPrank();
-    }
+    //     IGovernance.ProposalStatus status = governance.getProposalStatus(1);
+    //     assertEq(
+    //         uint256(status),
+    //         uint256(IGovernance.ProposalStatus.EXECUTED_WITH_ERROR),
+    //         "The bad data should have prevented the upgrade"
+    //     );
+    //     vm.stopPrank();
+    // }
 
     function test_executeGrantsProposal_rejectionShouldUpdateStateInTarget() public {
         //Grants proposals dont need to be ratified to be executed
