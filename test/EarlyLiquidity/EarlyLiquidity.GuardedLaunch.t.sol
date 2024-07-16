@@ -313,7 +313,6 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         earlyLiquidity.buy(1_000_000, totalCost - 1);
     }
 
-
     function test_guarded_getCurrentPrice() public {
         test_guarded_setGlowAndMint();
         //starting price should be 30 cents

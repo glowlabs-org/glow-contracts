@@ -23,13 +23,11 @@ contract EarlyLiquidityMockMinerPoolV2 is MinerPoolAndGCAV2 {
         )
     {}
 
-
-    function donateToUSDCMinerRewardsPool(address token,uint256 amount) external virtual override {
+    function donateToUSDCMinerRewardsPool(address token, uint256 amount) external virtual override {
         return;
     }
 
- 
-    function donateToUSDCMinerRewardsPoolEarlyLiquidity(address token,uint256 amount) external virtual override {
+    function donateToUSDCMinerRewardsPoolEarlyLiquidity(address token, uint256 amount) external virtual override {
         if (msg.sender != this.earlyLiquidity()) {
             _revert(IMinerPool.CallerNotEarlyLiquidity.selector);
         }

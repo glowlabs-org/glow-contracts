@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
+import {MinerPoolAndGCA as MinerPoolAndGCAV1} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
+import {MinerPoolAndGCAV2} from "@/MinerPoolAndGCA/MinerPoolAndGCAV2.sol";
 import {GCASalaryHelper} from "@/MinerPoolAndGCA/GCASalaryHelper.sol";
 import {GCA} from "@/MinerPoolAndGCA/GCA.sol";
 import {_GENESIS_TIMESTAMP_GUARDED_LAUNCH_V2} from "@/Constants/Constants.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 
-contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCA {
+contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCAV2 {
     struct MigrationInformation {
         uint256 migrationWeek;
         address previousMinerPool;
@@ -27,6 +28,7 @@ contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCA {
      * @param _vetoCouncil - the address of the veto council contract.
      * @param _holdingContract - the address of the holding contract
      * @param _gcc - the address of the gcc contract
+     * @param _migrationInfo - the migration information to transition from the previous contract
      */
 
     constructor(
@@ -43,7 +45,7 @@ contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCA {
     )
         // address _previousMinerPoolContract
         payable
-        MinerPoolAndGCA(
+        MinerPoolAndGCAV2(
             _gcaAgents,
             _glowToken,
             _governance,
@@ -60,25 +62,25 @@ contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCA {
     }
 
     /**
-     * @inheritdoc MinerPoolAndGCA
+     * @inheritdoc MinerPoolAndGCAV2
      */
     function claimRewardFromBucket(
         uint256 bucketId,
         uint256 glwWeight,
         uint256 usdcWeight,
-        bytes32[] calldata proof,
+        bytes32[][] calldata proofs,
+        address[] calldata tokens,
         uint256 index,
-        address user,
-        bool claimFromInflation,
-        bytes memory signature
+        address user
     ) public virtual override {
         if (bucketId < MIGRATION_WEEK) revert CannotClaimFromPreviousContract();
-        super.claimRewardFromBucket(bucketId, glwWeight, usdcWeight, proof, index, user, claimFromInflation, signature);
+        super.claimRewardFromBucket(bucketId, glwWeight, usdcWeight, proofs, tokens, index, user);
     }
 
+    //TODO: probably best to throw an error....... ?
     function bucket(uint256 bucketId) public view virtual override returns (IGCA.Bucket memory _bucket) {
         if (bucketId < MIGRATION_WEEK) {
-            return MinerPoolAndGCA(PREVIOUS_MINERPOOL_CONTRACT).bucket(bucketId);
+            return MinerPoolAndGCAV1(PREVIOUS_MINERPOOL_CONTRACT).bucket(bucketId);
         }
         return super.bucket(bucketId);
     }

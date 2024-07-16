@@ -13,7 +13,8 @@ import {EarlyLiquidityV2} from "@/EarlyLiquidityV2.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {Handler} from "./handlers/Handler.GuardedLaunch.t.sol";
 import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
-import {EarlyLiquidityMockMinerPoolV2 as EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPoolV2.sol";
+import {EarlyLiquidityMockMinerPoolV2 as EarlyLiquidityMockMinerPool} from
+    "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPoolV2.sol";
 import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
@@ -54,7 +55,6 @@ contract EarlyLiquidityV2GuardedLaunchTest is Test {
     uint256 incrementsSoldInV1 = 6_000_000 * 1e2;
     uint256 tokensSoldInV1 = incrementsSoldInV1 * 1e16;
     uint256 constant STARTING_PRICE_RELAUNCH = 192 * (10 ** (USDC_DECIMALS - 1)); //19.2 (.3 * 2^6)
-    
 
     address deployer = tx.origin;
     address notDeployer = address(0x123123);
