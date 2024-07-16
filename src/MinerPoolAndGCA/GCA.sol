@@ -137,7 +137,7 @@ contract GCA is IGCA, GCASalaryHelper {
         //Set the genesis timestamp
         GENESIS_TIMESTAMP = GLOW_TOKEN.GENESIS_TIMESTAMP();
         //Initialize the payouts for the gcas
-        _constructorSetAgentsLastClaimedTimestamp(_gcaAgents,GENESIS_TIMESTAMP);
+        _constructorSetAgentsLastClaimedTimestamp(_gcaAgents, GENESIS_TIMESTAMP);
         //Set the GCA requirements hash
         requirementsHash = _requirementsHash;
         GCASalaryHelper.setZeroPaymentStartTimestamp();

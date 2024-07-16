@@ -312,6 +312,32 @@ contract MD2Test is Test {
         assertEq(reward2.amountInBucket, expectedAmount);
     }
 
+    function test_bucketTrackerGlobalStateFirstAddedBucketIdShouldUpdate() public {
+        //warp 4 weeks in advance
+        vm.warp(block.timestamp + 4 weeks);
+        minerMath.addToCurrentBucket(1 ether);
+        //get bucket 16
+        MD2.WeeklyReward memory reward = minerMath.reward(20);
+
+        uint256 expectedAmount = uint256(1 ether) / uint256(192);
+        assertEq(reward.amountInBucket, expectedAmount);
+
+        MD2.BucketTracker memory tracker = minerMath.getBucketTracker();
+        assertEq(tracker.firstAddedBucketId, 20, "first added bucket id should be 20");
+
+        //log the first added bucket id, should be 16
+        // console.log("First added bucket id: %s", tracker.firstAddedBucketId);
+        // //Warp (209-16) weeks
+        // vm.warp(block.timestamp + 193 weeks);
+
+        // // Add to bucket 209
+        // minerMath.addToCurrentBucket(2 ether);
+
+        // MD2.WeeklyReward memory reward2 = minerMath.reward(209);
+        // expectedAmount = uint256(2 ether) / uint256(192);
+        // assertEq(reward2.amountInBucket, expectedAmount);
+    }
+
     function test_weeksBeforeOffsetDoNotRevert() public {
         minerMath.setBucketTracker(34, 34 + 191, 0);
         uint256 reward = minerMath.reward(16).amountInBucket;

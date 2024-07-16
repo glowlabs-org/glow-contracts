@@ -9,6 +9,7 @@ evm_version = "paris"
 solc_version = '0.8.21'
 line_length = 100                                         # While we allow up to 120, we lint at 100 for readability.
 fs_permissions = [{ access = "read-write", path = "./" }]
+ignored_warnings_from = ["node_modules", "lib","test"]
 
 [profile.default.fuzz]
 runs = 1000
@@ -21,4 +22,3 @@ runs = 10
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
-ignored_warnings_from = ["node_modules", "lib","test"]

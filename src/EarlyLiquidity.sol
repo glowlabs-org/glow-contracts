@@ -171,7 +171,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
         SafeERC20.safeTransfer(GLOW_TOKEN, msg.sender, glowToSend);
 
         // Donate the received USDC to the miner rewards pool, possibly accounting for a tax or fee.
-        pool.donateToUSDCMinerRewardsPoolEarlyLiquidity(diff);
+        _handleRegisterPurchaseToMinerPool(diff);
 
         // Update the total amount of tokens sold by adding the normalized amount to the total.
         _totalIncrementsSold += increments;
@@ -272,6 +272,10 @@ contract EarlyLiquidity is IEarlyLiquidity {
         //The maximum value of firstTermInSeries is 3000 * 2^12 = 12288000
         //The maximum value of geometricSeries is 12288000 * 590,783,619,721.2834  = 7.259549119135131e+18
         //This cant overflow since it's < 2^63-1
+    }
+
+    function _handleRegisterPurchaseToMinerPool(uint256 amount) internal virtual {
+        MINER_POOL.donateToUSDCMinerRewardsPoolEarlyLiquidity(amount);
     }
 
     /**

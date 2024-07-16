@@ -9,11 +9,11 @@ import {IGlow} from "@/interfaces/IGlow.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
 import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
-import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
+import {EarlyLiquidityV2} from "@/EarlyLiquidityV2.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {Handler} from "./handlers/Handler.GuardedLaunch.t.sol";
 import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
-import {EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
+import {EarlyLiquidityMockMinerPoolV2 as EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPoolV2.sol";
 import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
@@ -21,7 +21,7 @@ import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
 import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
 import {TestUSDG} from "@/testing/TestUSDG.sol";
 
-contract EarlyLiquidityGuardedLaunchTest is Test {
+contract EarlyLiquidityV2GuardedLaunchTest is Test {
     //-----------------CONSTANTS-----------------
     address public constant SIMON = address(0x11241998);
     address public constant GCA = address(0x1);
@@ -36,7 +36,7 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
     address mockGCC = address(0x12339182938aaffffff19389128);
     //-----------------CONTRACTS-----------------
     TestGLOWGuardedLaunch public glw;
-    EarlyLiquidity public earlyLiquidity;
+    EarlyLiquidityV2 public earlyLiquidity;
     MockUSDC usdc;
     Handler handler;
     EarlyLiquidityMockMinerPool minerPool;
@@ -50,6 +50,11 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
     address vetoCouncilAddress = address(0x49349031419);
     address usdgOwner = address(0xaaa112);
     address usdcReceiver = address(0xaaa113);
+
+    uint256 incrementsSoldInV1 = 6_000_000 * 1e2;
+    uint256 tokensSoldInV1 = incrementsSoldInV1 * 1e16;
+    uint256 constant STARTING_PRICE_RELAUNCH = 192 * (10 ** (USDC_DECIMALS - 1)); //19.2 (.3 * 2^6)
+    
 
     address deployer = tx.origin;
     address notDeployer = address(0x123123);
@@ -95,8 +100,10 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         }); //deployerNonce + 2
 
         holdingContract = new SafetyDelay(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 3
-        earlyLiquidity =
-            new EarlyLiquidity(address(usdg), address(holdingContract), precomputedGlow, precomputedMinerPool); //deployerNonce + 4
+        //assume that half of early liquidity is sold for testing purposes
+        earlyLiquidity = new EarlyLiquidityV2(
+            address(usdg), address(holdingContract), precomputedGlow, precomputedMinerPool, incrementsSoldInV1
+        ); //deployerNonce + 4
         minerPool = new EarlyLiquidityMockMinerPool(
             address(earlyLiquidity), address(glow), address(usdc), address(holdingContract)
         ); //deployerNonce + 5
@@ -153,7 +160,7 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
      * @dev we also send 1 billion * 1e12 USDC to SIMON to buy GLOW with
      * @dev this function is used in other tests to stage the contract
      */
-    function test_guarded_setGlowAndMint() public {
+    function test_v2_guarded_setGlowAndMint() public {
         assertEq(glw.balanceOf(address(earlyLiquidity)), 12_000_000 ether);
         vm.startPrank(SIMON);
         usdc.mint(SIMON, 1_000_000_000 ether);
@@ -162,10 +169,10 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         vm.stopPrank();
     }
 
-    function test_guarded_buyAllInEL() public {
-        test_guarded_setGlowAndMint();
+    function test_v2_guarded_buyAllInEL() public {
+        test_v2_guarded_setGlowAndMint();
         vm.startPrank(SIMON);
-        uint256 incrementsToPurchase = earlyLiquidity.TOTAL_INCREMENTS_TO_SELL();
+        uint256 incrementsToPurchase = earlyLiquidity.TOTAL_INCREMENTS_TO_SELL() - incrementsSoldInV1;
         uint256 price = earlyLiquidity.getPrice(incrementsToPurchase);
         usdc.mint(SIMON, price);
         usdc.approve(address(usdg), price);
@@ -183,12 +190,12 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
      *         -   the price increases after the purchase
      * @dev for more comprehensive tests regarding pricing, see the EarlyLiquidityTest.ts file in this folder
      */
-    function test_guarded_Buy_s() public {
-        test_guarded_setGlowAndMint();
+    function test_v2_guarded_Buy_s() public {
+        test_v2_guarded_setGlowAndMint();
 
         vm.startPrank(SIMON);
         //buy 400,000 tokens (max increments)
-        //400,000 million tokens = 40_000_000 increments of .01
+        //400,000 tokens = 40_000_000 increments of .01
         uint256 incrementsToPurchase = 40_000_000;
         uint256 totalCost = earlyLiquidity.getPrice(incrementsToPurchase);
         usdg.approve(address(earlyLiquidity), totalCost);
@@ -202,7 +209,7 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         uint256 glwBalanceAfter = glow.balanceOf(SIMON);
         uint256 usdcBalanceAfter = usdg.balanceOf(SIMON);
 
-        assertEq(earlyLiquidity.totalSold(), 400_000 ether);
+        assertEq(earlyLiquidity.totalSold(), 400_000 ether + tokensSoldInV1);
         assertEq(glwBalanceAfter, 400_000 ether);
         assertEq(usdcBalanceAfter, usdcBalanceBefore - totalCost);
 
@@ -213,8 +220,8 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         vm.stopPrank();
     }
 
-    function test_guarded_noPriceShouldEverRevert() public {
-        test_guarded_setGlowAndMint();
+    function test_v2_guarded_noPriceShouldEverRevert() public {
+        test_v2_guarded_setGlowAndMint();
 
         vm.startPrank(SIMON);
         //buy 400,000 tokens (max increments)
@@ -223,8 +230,8 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         usdg.approve(address(earlyLiquidity), 1_000_000_000);
         uint256 glwBalanceBefore = glw.balanceOf(SIMON);
 
-        //12 million tokens / 400,000 max per tx = 30
-        for (uint256 i; i < 30; ++i) {
+        //6 million tokens / 400,000 max per tx = 30
+        for (uint256 i; i < 15; ++i) {
             uint256 totalCost = earlyLiquidity.getPrice(incrementsToPurchase);
             usdc.mint(SIMON, totalCost);
             usdc.approve(address(usdg), totalCost);
@@ -249,8 +256,7 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         vm.expectRevert(IEarlyLiquidity.AllSold.selector);
         earlyLiquidity.buy(1, price);
 
-        assertEq(glow.balanceOf(address(earlyLiquidity)), 0);
-        assertEq(glow.balanceOf(SIMON), 12_000_000 ether);
+        assertEq(glow.balanceOf(SIMON), 12_000_000 ether - tokensSoldInV1);
 
         vm.stopPrank();
     }
@@ -259,8 +265,8 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
      * @dev we test to make sure that usdc used to buy goes to the
      *             - miner pool contract
      */
-    function test_guarded_Buy_checkUSDCGoesToHoldingContract() public {
-        test_guarded_setGlowAndMint();
+    function test_v2_guarded_Buy_checkUSDCGoesToHoldingContract() public {
+        test_v2_guarded_setGlowAndMint();
 
         // vm.startPrank(usdgOwner);
         // usdg.setAllowlistedContracts({
@@ -290,7 +296,7 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         uint256 usdcBalanceAfter = usdg.balanceOf(SIMON);
         uint256 holdingContractBalanceAfter = usdg.balanceOf(address(holdingContract));
 
-        assertEq(earlyLiquidity.totalSold(), 400_000 ether);
+        assertEq(earlyLiquidity.totalSold(), tokensSoldInV1 + 400_000 ether);
 
         uint256 amountReceivedFromELInMP = minerPool.grcDepositFromEarlyLiquidity();
         assertEq(amountReceivedFromELInMP, holdingContractBalanceAfter - holdingContractBalanceBefore);
@@ -299,11 +305,11 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         vm.stopPrank();
     }
 
-    /**
-     * @dev we test that if the user input maxCost is too low, the transaction should revert
-     */
-    function test_guarded_Buy_priceTooHigh_shouldFail() public {
-        test_guarded_setGlowAndMint();
+    // /**
+    //  * @dev we test that if the user input maxCost is too low, the transaction should revert
+    //  */
+    function test_v2_guarded_Buy_priceTooHigh_shouldFail() public {
+        test_v2_guarded_setGlowAndMint();
 
         vm.startPrank(SIMON);
         //buy 1_000_000 * .01 = 10_000  tokens
@@ -313,21 +319,23 @@ contract EarlyLiquidityGuardedLaunchTest is Test {
         earlyLiquidity.buy(1_000_000, totalCost - 1);
     }
 
-
-    function test_guarded_getCurrentPrice() public {
-        test_guarded_setGlowAndMint();
-        //starting price should be 30 cents
+    // /**
+    //  * @dev we test that the starting price should be 0.6 (6 * 1e5) USDC
+    //  */
+    function test_v2_guarded_getCurrentPrice() public {
+        test_v2_guarded_setGlowAndMint();
+        //starting price should be 60 cents
         uint256 currentPrice = earlyLiquidity.getCurrentPrice();
         console.log("current price", currentPrice);
-        bool withinRange = fallsWithinRange(currentPrice, STARTING_USDC_PRICE / 100, 1);
+        bool withinRange = fallsWithinRange(currentPrice, STARTING_PRICE_RELAUNCH / 100, 1);
         assertTrue(withinRange);
     }
 
-    function test_guarded_simonCustom() public {
-        console.log("price = ", earlyLiquidity.getPrice(100));
+    // function test_guarded_simonCustom() public {
+    //     console.log("price = ", earlyLiquidity.getPrice(100));
 
-        //55609618602381372
-    }
+    //     //55609618602381372
+    // }
     //-----------------UTILS-----------------
 
     function fallsWithinRange(uint256 a, uint256 b, uint256 range) public pure returns (bool) {
