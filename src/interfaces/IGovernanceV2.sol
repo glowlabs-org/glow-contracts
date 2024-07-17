@@ -44,6 +44,12 @@ interface IGovernanceV2 {
     error VetoMemberCannotBeNullAddress();
     error WeekMustHaveEndedToAcceptRatifyOrRejectVotes();
 
+    //
+    error CannotSpendZeroNominations();
+    error NonexistentIntent();
+    error IntentAlreadyExecuted();
+    error NoVotesToClaim();
+
     /* -------------------------------------------------------------------------- */
     /*                                    enums                                   */
     /* -------------------------------------------------------------------------- */
@@ -69,6 +75,7 @@ interface IGovernanceV2 {
     /**
      * @param proposalType the type of the proposal
      * @param expirationTimestamp the timestamp at which the proposal expires
+     * @param votes - the number of votes on the proposal
      * @param data the data of the proposal
      */
     struct Proposal {
@@ -76,6 +83,32 @@ interface IGovernanceV2 {
         uint64 expirationTimestamp;
         uint184 votes;
         bytes data;
+    }
+
+    /**
+     * @dev ProposalIntent is a struct that represents a proposal intent
+     * @dev When a proposal intent reaches enough votes to be executed, it is converted into a proposal
+     * @dev votes used on a proposal intent can be withdrawn by users at any time
+     * @param proposalType the type of the proposal
+     * @param executed whether or not the proposal has been executed
+     * @param votes - the number of votes on the proposal
+     * @param data the data of the proposal
+     */
+    struct ProposalIntent {
+        ProposalType proposalType;
+        bool executed;
+        uint184 votes;
+        bytes data;
+    }
+
+    /**
+     * @dev ProposalIntentSpend is a struct that represents the time and amount of nominations spent on a proposal intent
+     * @param votes - the number of votes on the proposal
+     * @param spendTimestamp the timestamp at which the proposal intent spend was created
+     */
+    struct ProposalIntentSpend {
+        uint184 votes;
+        uint64 spendTimestamp;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -158,18 +191,54 @@ interface IGovernanceV2 {
         uint256 indexed proposalId, address indexed proposer, bytes32 rfcHash, uint256 nominationsUsed
     );
 
-    //TODO: Delete this event
+    /*----------------------------- Intent Events -----------------------------*/
 
-    // /**
-    //  * @notice emitted when a proposal to upgrade USDG is created
-    //  * @param proposalId the id of the proposal
-    //  * @param proposer the address of the proposer
-    //  * @param newImplementationAddress the address of the new implementation for the USDG Proxy
-    //  * @param nominationsUsed the amount of nominations used
-    //  */
-    // event UpgradeUSDGProposalCreation(
-    //     uint256 indexed proposalId, address indexed proposer, address newImplementationAddress, uint256 nominationsUsed
-    // );
+    /// @dev Intent events are similar to proposal events, but they are emitted when a proposa intent is created
+
+    event VetoCouncilElectionOrSlashIntentCreation(
+        uint256 indexed proposalIntentId,
+        address indexed proposer,
+        address oldAgent,
+        address newAgent,
+        bool slashOldAgent,
+        uint256 nominationsUsedFromIntent
+    );
+
+    event GCACouncilElectionOrSlashIntentCreation(
+        uint256 indexed proposalIntentId,
+        address indexed proposer,
+        address[] agentsToSlash,
+        address[] newGCAs,
+        uint256 nominationsUsedFromIntent
+    );
+
+    event GrantsProposalIntentCreation(
+        uint256 indexed proposalIntentId,
+        address indexed proposer,
+        address recipient,
+        uint256 amount,
+        bytes32 hash,
+        uint256 nominationsUsedFromIntent
+    );
+
+    event ChangeGCARequirementsProposalIntentCreation(
+        uint256 indexed proposalIntentId,
+        address indexed proposer,
+        bytes32 requirementsHash,
+        uint256 nominationsUsedFromIntent
+    );
+
+    event RFCProposalIntentCreation(
+        uint256 indexed proposalIntentId, address indexed proposer, bytes32 rfcHash, uint256 nominationsUsedFromIntent
+    );
+
+    event VotesAddedToIntent(uint256 indexed proposalIntentId, address indexed voter, uint256 numVotes);
+
+    event VotesWithdrawnFromIntent(
+        uint256 indexed proposalIntentId, address indexed voter, uint256 numVotesWithdrawnFromIntent
+    );
+
+    event IntentExecutedIntoProposal(uint256 indexed proposalIntentId, uint256 indexed proposalId);
 
     /**
      * @notice emitted when a long glow staker casts a ratify vote on a proposal

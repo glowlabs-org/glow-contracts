@@ -39,6 +39,11 @@ import {console} from "forge-std/console.sol";
  *                      - multiplying gcc (18 decimals) and usdc (6 decimals) gives us an output in 24 decimals.
  *                      - since we are sqrt'ing this, we factor out 12 decimals of precision since sqrt(1e24) = 1e12
  *                      - and end up in 12 decimals of precision
+ *                In order to prevent a single user from dominating the governance process, the protocol allows for `intents`
+ *                - If a single participant does not have enough nominations to create a proposal, they can create an intent
+ *                      - Other members can contribute to the intent, and when the intent has enough nominations, it can be converted into a proposal
+ *                      - Any participant to the intent can withdraw their nominations at any time
+ *                      -  Nominations that were used on an intent have the half life applied to them as well to prevent a half life loophole
  */
 
 contract GovernanceV2 is IGovernance, EIP712 {
@@ -47,12 +52,6 @@ contract GovernanceV2 is IGovernance, EIP712 {
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */
     /* -------------------------------------------------------------------------- */
-    /**
-     * @notice  Spend nominations EIP712 Typehash
-     */
-    bytes32 public constant SPEND_NOMINATIONS_ON_PROPOSAL_TYPEHASH = keccak256(
-        "SpendNominationsOnProposal(uint8 proposalType,uint256 nominationsToSpend,uint256 nonce,uint256 deadline,bytes data)"
-    );
 
     /**
      * @dev one in 64x64 fixed point
@@ -163,6 +162,12 @@ contract GovernanceV2 is IGovernance, EIP712 {
     uint256 private _proposalCount = 1;
 
     /**
+     * @dev the total number of proposal intents created
+     * @dev we start at one to ensure that a proposal intent with id 0 is invalid
+     */
+    uint256 private _proposalIntentCount = 1;
+
+    /**
      * @notice The last expired proposal id (should not be used for anything other than caching)
      * @dev The last proposal that expired (in storage)
      * @dev this may be out of sync with the actual last expired proposal id
@@ -211,6 +216,16 @@ contract GovernanceV2 is IGovernance, EIP712 {
      * @dev proposalId -> Proposal
      */
     mapping(uint256 => IGovernance.Proposal) private _proposals;
+
+    /**
+     * @dev proposalIntentId -> ProposalIntent
+     */
+    mapping(uint256 => IGovernance.ProposalIntent) private _proposalIntents;
+
+    /**
+     * @dev user -> proposalIntentId -> ProposalIntentSpend
+     */
+    mapping(address => mapping(uint256 => IGovernance.ProposalIntentSpend)) private _proposalIntentSpends;
 
     /**
      * @notice the most popular proposal of a given week
@@ -673,11 +688,12 @@ contract GovernanceV2 is IGovernance, EIP712 {
     function createGrantsProposal(address grantsRecipient, uint256 amount, bytes32 hash, uint256 maxNominations)
         external
     {
-        (uint256 currentWeek, uint256 proposalId) = _createProposal(
+        uint256 proposalId = _createProposal(
             msg.sender,
             maxNominations,
             IGovernance.ProposalType.GRANTS_PROPOSAL,
-            abi.encode(grantsRecipient, amount, hash)
+            abi.encode(grantsRecipient, amount, hash),
+            true
         );
 
         emit IGovernance.GrantsProposalCreation(proposalId, msg.sender, grantsRecipient, amount, hash, maxNominations);
@@ -690,11 +706,12 @@ contract GovernanceV2 is IGovernance, EIP712 {
      * @param maxNominations the maximum amount of nominations to spend on this proposal
      */
     function createChangeGCARequirementsProposal(bytes32 newRequirementsHash, uint256 maxNominations) external {
-        (uint256 currentWeek, uint256 proposalId) = _createProposal(
+        uint256 proposalId = _createProposal(
             msg.sender,
             maxNominations,
             IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS,
-            abi.encode(newRequirementsHash)
+            abi.encode(newRequirementsHash),
+            true
         );
 
         emit IGovernance.ChangeGCARequirementsProposalCreation(
@@ -711,8 +728,9 @@ contract GovernanceV2 is IGovernance, EIP712 {
      * @param maxNominations the maximum amount of nominations to spend on this proposal
      */
     function createRFCProposal(bytes32 hash, uint256 maxNominations) external {
-        (uint256 currentWeek, uint256 proposalId) =
-            _createProposal(msg.sender, maxNominations, IGovernance.ProposalType.REQUEST_FOR_COMMENT, abi.encode(hash));
+        uint256 proposalId = _createProposal(
+            msg.sender, maxNominations, IGovernance.ProposalType.REQUEST_FOR_COMMENT, abi.encode(hash), true
+        );
 
         emit IGovernance.RFCProposalCreation(proposalId, msg.sender, hash, maxNominations);
     }
@@ -742,11 +760,12 @@ contract GovernanceV2 is IGovernance, EIP712 {
         bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
         bool incrementSlashNonce = agentsToSlash.length > 0;
 
-        (uint256 currentWeek, uint256 proposalId) = _createProposal(
+        uint256 proposalId = _createProposal(
             msg.sender,
             maxNominations,
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
-            abi.encode(hash, incrementSlashNonce)
+            abi.encode(hash, incrementSlashNonce),
+            true
         );
 
         emit IGovernance.GCACouncilElectionOrSlashCreation(
@@ -780,16 +799,246 @@ contract GovernanceV2 is IGovernance, EIP712 {
             _revert(IGovernance.VetoMemberCannotBeNullAddress.selector);
         }
 
-        (uint256 currentWeek, uint256 proposalId) = _createProposal(
+        uint256 proposalId = _createProposal(
             msg.sender,
             maxNominations,
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
-            abi.encode(oldMember, newMember, slashOldMember,block.timestamp)
+            abi.encode(oldMember, newMember, slashOldMember, block.timestamp),
+            true
         );
 
         emit IGovernance.VetoCouncilElectionOrSlash(
             proposalId, msg.sender, oldMember, newMember, slashOldMember, maxNominations
         );
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                    intents                                 */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Allows a user to add votes to an intent
+     * @dev The intent will be turned into a proposal if the votes exceed or match the cost of a new proposal
+     * @param intentId the id of the intent
+     * @param amount the amount of nominations to add to the intent
+     */
+    function addVotesToIntent(uint256 intentId, uint256 amount) external {
+        _spendNominations(msg.sender, amount);
+        IGovernance.ProposalIntent memory intent = _proposalIntents[intentId];
+        if (intent.proposalType == IGovernance.ProposalType.NONE) {
+            _revert(IGovernance.NonexistentIntent.selector);
+        }
+        if (intent.executed) {
+            _revert(IGovernance.IntentAlreadyExecuted.selector);
+        }
+        //If the intent has already been executed, we don't allow votes to be added
+        uint256 nominationCostForNewProposal = costForNewProposal();
+        intent.votes = SafeCast.toUint184(intent.votes + amount);
+
+        if (intent.votes >= nominationCostForNewProposal) {
+            //Then we need to create the proposal without spending nominations from that user
+            // Since they are already deducted above.
+            uint256 proposalId = _createProposal(address(this), intent.votes, intent.proposalType, intent.data, false);
+            _proposalIntents[intentId].executed = true;
+            // We can return here since the intent has been turned into a proposal
+            // There is no need to add `amount` to the intent since it would be an unnecessary gas cost
+            emit IGovernance.IntentExecutedIntoProposal(intentId, proposalId);
+            return;
+        }
+        IGovernance.ProposalIntentSpend memory spend = _proposalIntentSpends[msg.sender][intentId];
+        //If this is their first time adding a spend to an intent, simply add it
+        if (spend.spendTimestamp == 0) {
+            _proposalIntentSpends[msg.sender][intentId] = IGovernance.ProposalIntentSpend({
+                votes: SafeCast.toUint184(amount),
+                spendTimestamp: SafeCast.toUint64(block.timestamp)
+            });
+        } else {
+            //If it's not their first time, we need to calculate the half life or what those nominations
+            // are worth now. We don't worry about deducting the difference in the total votes, just in the
+            // amount of votes they have spent. This is necessary because they can withdraw votes that are part
+            // of an intent that has not yet been turned into a proposal
+            uint256 halfLifeValue = HalfLife.calculateHalfLifeValue(spend.votes, block.timestamp - spend.spendTimestamp);
+
+            _proposalIntentSpends[msg.sender][intentId] = IGovernance.ProposalIntentSpend({
+                votes: SafeCast.toUint184(halfLifeValue + amount),
+                spendTimestamp: SafeCast.toUint64(block.timestamp)
+            });
+        }
+
+        _proposalIntents[intentId].votes += SafeCast.toUint184(amount);
+        emit IGovernance.VotesAddedToIntent(intentId, msg.sender, amount);
+    }
+
+    function withdrawVotesFromNonexecutedIntent(uint256 proposalIntentId) external {
+        IGovernance.ProposalIntent memory intent = _proposalIntents[proposalIntentId];
+        if (intent.proposalType == IGovernance.ProposalType.NONE) {
+            _revert(IGovernance.NonexistentIntent.selector);
+        }
+        if (intent.executed) {
+            _revert(IGovernance.IntentAlreadyExecuted.selector);
+        }
+        IGovernance.ProposalIntentSpend memory spend = _proposalIntentSpends[msg.sender][proposalIntentId];
+        if (spend.spendTimestamp == 0) {
+            _revert(IGovernance.NoVotesToClaim.selector);
+        }
+        uint256 halfLifeValue = HalfLife.calculateHalfLifeValue(spend.votes, block.timestamp - spend.spendTimestamp);
+        delete _proposalIntentSpends[msg.sender][proposalIntentId];
+        _grantNominations(msg.sender, halfLifeValue);
+        _proposalIntents[proposalIntentId].votes -= spend.votes;
+        emit IGovernance.VotesWithdrawnFromIntent(proposalIntentId, msg.sender, spend.votes);
+    }
+
+    /**
+     * @notice Creates a proposal intent to send a grant to a recipient
+     * @param grantsRecipient the recipient of the grant
+     * @param amount the amount of the grant
+     * @param hash the hash of the proposal
+     *             - the pre-image should be made public off-chain
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     */
+    function createGrantsProposalIntent(address grantsRecipient, uint256 amount, bytes32 hash, uint256 maxNominations)
+        external
+    {
+        uint256 proposalIdIntentId = _createProposalIntent(
+            msg.sender,
+            maxNominations,
+            IGovernance.ProposalType.GRANTS_PROPOSAL,
+            abi.encode(grantsRecipient, amount, hash)
+        );
+
+        emit IGovernance.GrantsProposalIntentCreation({
+            proposalIntentId: proposalIdIntentId,
+            proposer: msg.sender,
+            recipient: grantsRecipient,
+            amount: amount,
+            hash: hash,
+            nominationsUsedFromIntent: maxNominations
+        });
+    }
+
+    /**
+     * @notice Creates a proposal intent to change the GCA requirements
+     * @param newRequirementsHash the new requirements hash
+     *             - the pre-image should be made public off-chain
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     */
+    function createChangeGCARequirementsProposalIntent(bytes32 newRequirementsHash, uint256 maxNominations) external {
+        uint256 proposalIdIntentId = _createProposalIntent(
+            msg.sender,
+            maxNominations,
+            IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS,
+            abi.encode(newRequirementsHash)
+        );
+
+        emit IGovernance.ChangeGCARequirementsProposalIntentCreation({
+            proposalIntentId: proposalIdIntentId,
+            proposer: msg.sender,
+            requirementsHash: newRequirementsHash,
+            nominationsUsedFromIntent: maxNominations
+        });
+    }
+
+    /**
+     * @notice Creates a proposal intent to create an RFC
+     *     - the pre-image should be made public off-chain
+     *     - if accepted, veto council members must read the RFC (up to 10k Words) and provide a written statement on their thoughts
+     *
+     * @param hash the hash of the proposal
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     */
+    function createRFCProposalIntent(bytes32 hash, uint256 maxNominations) external {
+        uint256 proposalIntentId = _createProposalIntent(
+            msg.sender, maxNominations, IGovernance.ProposalType.REQUEST_FOR_COMMENT, abi.encode(hash)
+        );
+        emit IGovernance.RFCProposalIntentCreation({
+            proposalIntentId: proposalIntentId,
+            proposer: msg.sender,
+            rfcHash: hash,
+            nominationsUsedFromIntent: maxNominations
+        });
+    }
+
+    /**
+     * @notice Creates a proposal intent to add, replace, or slash GCA council members
+     * @param agentsToSlash an array of all gca's that are to be slashed
+     *         - could be empty
+     *         - could be a subset of the current GCAs
+     *         - could be any address [in order to account for previous GCA's]
+     * @param newGCAs the new GCAs
+     *     -   can be empty if all GCA's are bad actors
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     */
+    function createGCACouncilElectionOrSlashIntent(
+        address[] calldata agentsToSlash,
+        address[] calldata newGCAs,
+        uint256 maxNominations
+    ) external {
+        if (newGCAs.length > MAX_GCAS_AT_ONE_POINT_IN_TIME) {
+            _revert(IGovernance.MaximumNumberOfGCAS.selector);
+        }
+        if (agentsToSlash.length > MAX_SLASHES_IN_ONE_GCA_ELECTION) {
+            _revert(IGovernance.MaxSlashesInGCAElection.selector);
+        }
+        //[agentsToSlash,newGCAs,proposalCreationTimestamp]
+        bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
+        bool incrementSlashNonce = agentsToSlash.length > 0;
+
+        uint256 proposalIntentId = _createProposalIntent(
+            msg.sender,
+            maxNominations,
+            IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
+            abi.encode(hash, incrementSlashNonce)
+        );
+
+        emit IGovernance.GCACouncilElectionOrSlashIntentCreation({
+            proposalIntentId: proposalIntentId,
+            proposer: msg.sender,
+            agentsToSlash: agentsToSlash,
+            newGCAs: newGCAs,
+            nominationsUsedFromIntent: maxNominations
+        });
+    }
+
+    /**
+     * @notice Creates a proposal intent to add, replace, or slash Veto a single veto council member
+     * @param oldMember the old agent to be replaced
+     *         -   If the agent is address(0), it means we are simply adding a new agent
+     * @param newMember the new agent to replace the old agent
+     *         -   If the agent is address(0), it means we are simply removing an agent
+     * @param slashOldMember whether or not to slash the old agent
+     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     */
+    function createVetoCouncilElectionOrSlashIntent(
+        address oldMember,
+        address newMember,
+        bool slashOldMember,
+        uint256 maxNominations
+    ) external {
+        if (oldMember == newMember) {
+            _revert(IGovernance.VetoCouncilProposalCreationOldMemberCannotEqualNewMember.selector);
+        }
+
+        if (oldMember == NULL_ADDRESS) {
+            _revert(IGovernance.VetoMemberCannotBeNullAddress.selector);
+        }
+        if (newMember == NULL_ADDRESS) {
+            _revert(IGovernance.VetoMemberCannotBeNullAddress.selector);
+        }
+
+        uint256 proposalIntentId = _createProposalIntent(
+            msg.sender,
+            maxNominations,
+            IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
+            abi.encode(oldMember, newMember, slashOldMember, block.timestamp)
+        );
+        emit IGovernance.VetoCouncilElectionOrSlashIntentCreation({
+            proposalIntentId: proposalIntentId,
+            proposer: msg.sender,
+            oldAgent: oldMember,
+            newAgent: newMember,
+            slashOldAgent: slashOldMember,
+            nominationsUsedFromIntent: maxNominations
+        });
     }
 
     /**
@@ -898,23 +1147,27 @@ contract GovernanceV2 is IGovernance, EIP712 {
         address creator,
         uint256 maxNominations,
         IGovernance.ProposalType proposalType,
-        bytes memory data
-    ) internal returns (uint256 _currentWeek, uint256 proposalId) {
+        bytes memory data,
+        bool spendNominations
+    ) internal returns (uint256 proposalId) {
         proposalId = _proposalCount;
         uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
         if (maxNominations < nominationCost) {
             _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
         }
-        _spendNominations(creator, maxNominations);
+
+        if (spendNominations) {
+            _spendNominations(creator, maxNominations);
+        }
 
         _proposals[proposalId] = IGovernance.Proposal(
-             proposalType,
+            proposalType,
             SafeCast.toUint64(block.timestamp + MAX_PROPOSAL_DURATION),
             SafeCast.toUint184(maxNominations),
             data
         );
 
-        _currentWeek = currentWeek();
+        uint256 _currentWeek = currentWeek();
         uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[_currentWeek];
         if (maxNominations > _proposals[_mostPopularProposalOfWeek].votes) {
             mostPopularProposalOfWeek[_currentWeek] = proposalId;
@@ -922,6 +1175,28 @@ contract GovernanceV2 is IGovernance, EIP712 {
         }
 
         _proposalCount = proposalId + 1;
+    }
+
+    function _createProposalIntent(
+        address user,
+        uint256 nominationsToUse,
+        IGovernance.ProposalType proposalType,
+        bytes memory data
+    ) internal returns (uint256 proposalIntentId) {
+        proposalIntentId = _proposalIntentCount;
+        _spendNominations(user, nominationsToUse);
+        _proposalIntents[proposalIntentId] = IGovernance.ProposalIntent({
+            proposalType: proposalType,
+            executed: false,
+            votes: SafeCast.toUint184(nominationsToUse),
+            data: data
+        });
+        _proposalIntentSpends[user][proposalIntentId] = IGovernance.ProposalIntentSpend({
+            votes: SafeCast.toUint184(nominationsToUse),
+            spendTimestamp: SafeCast.toUint64(block.timestamp)
+        });
+
+        _proposalIntentCount = proposalIntentId + 1;
     }
 
     /**
@@ -1028,6 +1303,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
      * @param amount the amount of nominations to spend
      */
     function _spendNominations(address account, uint256 amount) internal {
+        if (amount == 0) _revert(IGovernance.CannotSpendZeroNominations.selector);
         uint256 currentBalance = nominationsOf(account);
         if (currentBalance < amount) {
             _revert(IGovernance.InsufficientNominations.selector);
