@@ -897,15 +897,6 @@ contract GCA is IGCA, GCASalaryHelper {
         return GENESIS_TIMESTAMP;
     }
 
-    /**
-     * @dev calculates the shift to apply to the bitpacked compensation plans
-     *     @param index - the index of the gca agent
-     *     @return the shift to apply to the bitpacked compensation plans
-     */
-    function _calculateShift(uint256 index) private pure returns (uint256) {
-        return index * _UINT24_SHIFT;
-    }
-
     function _constructorSetAgentsLastClaimedTimestamp(address[] memory gcaAddresses, uint256 timestamp)
         internal
         virtual

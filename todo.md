@@ -40,6 +40,11 @@
 * Buyout the carbon credit auction
 
 
+---- 
+## V2 TODOS 
+* Make sure that claim reward function is protected by an approved claimer;
+
+
 -----
 ##  Nice To Haves
 * Remove sigs and find a better system
