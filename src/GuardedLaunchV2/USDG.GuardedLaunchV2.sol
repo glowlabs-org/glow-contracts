@@ -4,9 +4,24 @@ pragma solidity ^0.8.19;
 import {USDG} from "@/USDG.sol";
 
 contract USDGGuardedLaunchV2 is USDG {
+    error CannotSendZeroAmount();
+    error ClaimNotAvailableYet();
+    error NoUSDCToClaim();
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
+
+    uint256 internal constant QUEUE_TIME = 14 days;
+
+    struct USDCWithdrawal {
+        uint192 amount;
+        uint64 expirationTimestamp;
+    }
+
+    event USDCWithdrawalQueued(address indexed user, uint192 amount, uint64 expirationTimestamp);
+    event USDCWithdrawalClaimed(address indexed user, uint192 amount);
+
+    mapping(address => USDCWithdrawal) internal _usdcWithdrawalQueue;
 
     /**
      * @param _usdc the USDC token
@@ -56,6 +71,36 @@ contract USDGGuardedLaunchV2 is USDG {
         }
 
         _decodeMigrationContractAndSendAmount(_migrationContractAndAmount);
+    }
+
+    function depositUSDCToWithdrawalQueue(uint192 _amount) external {
+        if (_amount == 0) {
+            revert CannotSendZeroAmount();
+        }
+        //transfer usdg from user to here
+        transferFrom(msg.sender, address(this), _amount);
+        uint64 expirationTimestamp = uint64(block.timestamp + QUEUE_TIME);
+        USDCWithdrawal memory withdrawal = _usdcWithdrawalQueue[msg.sender];
+        uint192 newTotalAmount = withdrawal.amount + _amount;
+        _usdcWithdrawalQueue[msg.sender] = USDCWithdrawal(newTotalAmount, expirationTimestamp);
+        emit USDCWithdrawalQueued(msg.sender, _amount, expirationTimestamp);
+    }
+
+    function claimUSDCFromWithdrawalQueue() external {
+        USDCWithdrawal memory withdrawal = _usdcWithdrawalQueue[msg.sender];
+        if (withdrawal.amount == 0) {
+            revert NoUSDCToClaim();
+        }
+        if (block.timestamp < withdrawal.expirationTimestamp) {
+            revert ClaimNotAvailableYet();
+        }
+        delete _usdcWithdrawalQueue[msg.sender];
+        USDC.transferFrom(address(this), msg.sender, withdrawal.amount);
+        emit USDCWithdrawalClaimed(msg.sender, withdrawal.amount);
+    }
+
+    function usdcWithdrawalQueue(address _user) external view returns (USDCWithdrawal memory) {
+        return _usdcWithdrawalQueue[_user];
     }
 
     function _decodeMigrationContractAndSendAmount(bytes memory _migrationContractAndAmount) internal {

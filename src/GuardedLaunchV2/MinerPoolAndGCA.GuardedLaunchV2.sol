@@ -8,16 +8,18 @@ import {GCA} from "@/MinerPoolAndGCA/GCA.sol";
 import {_GENESIS_TIMESTAMP_GUARDED_LAUNCH_V2} from "@/Constants/Constants.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 
+//TODO: check miner pool claim function and do the approvals for the claims
+
 contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCAV2 {
-    struct MigrationInformation {
-        uint256 migrationWeek;
-        address previousMinerPool;
-    }
+    // struct MigrationInformation {
+    //     uint256 migrationWeek;
+    //     address previousMinerPool;
+    // }
 
-    error CannotClaimFromPreviousContract();
+    // error CannotClaimFromPreviousContract();
 
-    uint256 public immutable MIGRATION_WEEK;
-    address public immutable PREVIOUS_MINERPOOL_CONTRACT;
+    // uint256 public immutable MIGRATION_WEEK;
+    // address public immutable PREVIOUS_MINERPOOL_CONTRACT;
     /**
      * @notice constructs a new MinerPoolAndGCA contract
      * @param _gcaAgents the addresses of the gca agents the contract starts with
@@ -28,9 +30,7 @@ contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCAV2 {
      * @param _vetoCouncil - the address of the veto council contract.
      * @param _holdingContract - the address of the holding contract
      * @param _gcc - the address of the gcc contract
-     * @param _migrationInfo - the migration information to transition from the previous contract
      */
-
     constructor(
         address[] memory _gcaAgents,
         address _glowToken,
@@ -40,9 +40,9 @@ contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCAV2 {
         address _usdcToken,
         address _vetoCouncil,
         address _holdingContract,
-        address _gcc,
-        MigrationInformation memory _migrationInfo
+        address _gcc
     )
+        // MigrationInformation memory _migrationInfo
         // address _previousMinerPoolContract
         payable
         MinerPoolAndGCAV2(
@@ -57,8 +57,8 @@ contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCAV2 {
             _gcc
         )
     {
-        MIGRATION_WEEK = _migrationInfo.migrationWeek;
-        PREVIOUS_MINERPOOL_CONTRACT = _migrationInfo.previousMinerPool;
+        // MIGRATION_WEEK = _migrationInfo.migrationWeek;
+        // PREVIOUS_MINERPOOL_CONTRACT = _migrationInfo.previousMinerPool;
     }
 
     /**
@@ -73,15 +73,16 @@ contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCAV2 {
         uint256 index,
         address user
     ) public virtual override {
-        if (bucketId < MIGRATION_WEEK) revert CannotClaimFromPreviousContract();
+        //     if (bucketId < MIGRATION_WEEK) revert CannotClaimFromPreviousContract();
         super.claimRewardFromBucket(bucketId, glwWeight, usdcWeight, proofs, tokens, index, user);
+        // }
     }
-
     //TODO: probably best to throw an error....... ?
+
     function bucket(uint256 bucketId) public view virtual override returns (IGCA.Bucket memory _bucket) {
-        if (bucketId < MIGRATION_WEEK) {
-            return MinerPoolAndGCAV1(PREVIOUS_MINERPOOL_CONTRACT).bucket(bucketId);
-        }
+        // if (bucketId < MIGRATION_WEEK) {
+        //     return MinerPoolAndGCAV1(PREVIOUS_MINERPOOL_CONTRACT).bucket(bucketId);
+        // }
         return super.bucket(bucketId);
     }
 
