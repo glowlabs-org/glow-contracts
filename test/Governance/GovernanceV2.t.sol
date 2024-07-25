@@ -2091,7 +2091,7 @@ contract GovernanceV2Test is Test {
             uint256 balanceBeforeWithdraw = governance.nominationsOf(SIMON);
             //Also assert eq on the proposalIntentSpend that totalNominations is amountToSpendOnIntent * 2
             assertEq(
-                uint256(governance.getProposalIntentSpend(SIMON,1).totalNominationsUsed),
+                uint256(governance.getProposalIntentSpend(SIMON, 1).totalNominationsUsed),
                 amountToSpendOnIntent * 2,
                 "The total nominations should be the amount spent on the intent"
             );
@@ -2106,6 +2106,12 @@ contract GovernanceV2Test is Test {
             //We also need to make sure that the amount of nominations on the proposal is 0 and is not affected by the decay
             IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(1);
             assertEq(intent.votes, 0, "The amount of nominations on the proposal should be 0");
+
+            //Now check the spend and make sure that the fields are all 0
+            IGovernanceV2.ProposalIntentSpend memory spend = governance.getProposalIntentSpend(SIMON, 1);
+            assertEq(spend.totalNominationsUsed, 0, "The total nominations used should be 0");
+            assertEq(spend.totalNominationsUsedWithDecay, 0, "The total nominations withdrawn should be 0");
+            assertEq(spend.spendTimestamp, 0, "The time should be reset to 0");
             //the balance should be zero
         }
 
@@ -2260,6 +2266,8 @@ contract GovernanceV2Test is Test {
 
         vm.stopPrank();
     }
+
+    //Let's create a simple intent for each of the proposal types and make sure that they have the right types
 
     //-----------------  HELPERS -----------------//
     function divergenceCheck(uint128 a, uint128 b) internal returns (bool) {

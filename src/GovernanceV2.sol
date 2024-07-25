@@ -691,7 +691,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
             msg.sender,
             maxNominations,
             IGovernance.ProposalType.GRANTS_PROPOSAL,
-            abi.encode(grantsRecipient, amount, hash),
+            _encodeGrantsProposalData(grantsRecipient, amount, hash),
             true
         );
 
@@ -709,7 +709,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
             msg.sender,
             maxNominations,
             IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS,
-            abi.encode(newRequirementsHash),
+            _encodeChangeGCARequirementsProposalData(newRequirementsHash),
             true
         );
 
@@ -728,7 +728,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
      */
     function createRFCProposal(bytes32 hash, uint256 maxNominations) external {
         uint256 proposalId = _createProposal(
-            msg.sender, maxNominations, IGovernance.ProposalType.REQUEST_FOR_COMMENT, abi.encode(hash), true
+            msg.sender, maxNominations, IGovernance.ProposalType.REQUEST_FOR_COMMENT, _encodeRFCProposalData(hash), true
         );
 
         emit IGovernance.RFCProposalCreation(proposalId, msg.sender, hash, maxNominations);
@@ -755,15 +755,14 @@ contract GovernanceV2 is IGovernance, EIP712 {
         if (agentsToSlash.length > MAX_SLASHES_IN_ONE_GCA_ELECTION) {
             _revert(IGovernance.MaxSlashesInGCAElection.selector);
         }
-        //[agentsToSlash,newGCAs,proposalCreationTimestamp]
-        bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
+
         bool incrementSlashNonce = agentsToSlash.length > 0;
 
         uint256 proposalId = _createProposal(
             msg.sender,
             maxNominations,
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
-            abi.encode(hash, incrementSlashNonce),
+            _encodeGCACouncilElectionOrSlashData(agentsToSlash, newGCAs, incrementSlashNonce, block.timestamp),
             true
         );
 
@@ -802,7 +801,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
             msg.sender,
             maxNominations,
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
-            abi.encode(oldMember, newMember, slashOldMember, block.timestamp),
+            _encodeVetoCouncilElectionOrSlashData(oldMember, newMember, slashOldMember, block.timestamp),
             true
         );
 
@@ -904,7 +903,10 @@ contract GovernanceV2 is IGovernance, EIP712 {
         external
     {
         uint256 proposalIdIntentId = _createProposalIntent(
-            msg.sender, nominations, IGovernance.ProposalType.GRANTS_PROPOSAL, abi.encode(grantsRecipient, amount, hash)
+            msg.sender,
+            nominations,
+            IGovernance.ProposalType.GRANTS_PROPOSAL,
+            _encodeGrantsProposalData(grantsRecipient, amount, hash)
         );
 
         emit IGovernance.GrantsProposalIntentCreation({
@@ -925,7 +927,10 @@ contract GovernanceV2 is IGovernance, EIP712 {
      */
     function createChangeGCARequirementsProposalIntent(bytes32 newRequirementsHash, uint256 nominations) external {
         uint256 proposalIdIntentId = _createProposalIntent(
-            msg.sender, nominations, IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS, abi.encode(newRequirementsHash)
+            msg.sender,
+            nominations,
+            IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS,
+            _encodeChangeGCARequirementsProposalData(newRequirementsHash)
         );
 
         emit IGovernance.ChangeGCARequirementsProposalIntentCreation({
@@ -946,7 +951,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
      */
     function createRFCProposalIntent(bytes32 hash, uint256 nominations) external {
         uint256 proposalIntentId = _createProposalIntent(
-            msg.sender, nominations, IGovernance.ProposalType.REQUEST_FOR_COMMENT, abi.encode(hash)
+            msg.sender, nominations, IGovernance.ProposalType.REQUEST_FOR_COMMENT, _encodeRFCProposalData(hash)
         );
         emit IGovernance.RFCProposalIntentCreation({
             proposalIntentId: proposalIntentId,
@@ -978,14 +983,14 @@ contract GovernanceV2 is IGovernance, EIP712 {
             _revert(IGovernance.MaxSlashesInGCAElection.selector);
         }
         //[agentsToSlash,newGCAs,proposalCreationTimestamp]
-        bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
+        // bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, block.timestamp));
         bool incrementSlashNonce = agentsToSlash.length > 0;
 
         uint256 proposalIntentId = _createProposalIntent(
             msg.sender,
             nominations,
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
-            abi.encode(hash, incrementSlashNonce)
+            _encodeGCACouncilElectionOrSlashData(agentsToSlash, newGCAs, incrementSlashNonce, block.timestamp)
         );
 
         emit IGovernance.GCACouncilElectionOrSlashIntentCreation({
@@ -1027,7 +1032,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
             msg.sender,
             nominations,
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
-            abi.encode(oldMember, newMember, slashOldMember, block.timestamp)
+            _encodeVetoCouncilElectionOrSlashData(oldMember, newMember, slashOldMember, block.timestamp)
         );
         emit IGovernance.VetoCouncilElectionOrSlashIntentCreation({
             proposalIntentId: proposalIntentId,
@@ -1487,6 +1492,53 @@ contract GovernanceV2 is IGovernance, EIP712 {
             _revert(IGovernance.ZeroAddressNotAllowed.selector);
         }
     }
+
+    //-------------------------------------------------------------------------------------//
+    // ------------------------------- ENCODING FUNCTIONS --------------------------------//
+    //-----------------------------------------------------------------------------------//
+    function _encodeGrantsProposalData(address grantsRecipient, uint256 amount, bytes32 hash)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(grantsRecipient, amount, hash);
+    }
+
+    function _encodeChangeGCARequirementsProposalData(bytes32 newRequirementsHash)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(newRequirementsHash);
+    }
+
+    function _encodeRFCProposalData(bytes32 hash) internal pure returns (bytes memory) {
+        return abi.encode(hash);
+    }
+
+    function _encodeGCACouncilElectionOrSlashData(
+        address[] calldata agentsToSlash,
+        address[] calldata newGCAs,
+        bool incrementSlashNonce,
+        uint256 timestamp
+    ) internal pure returns (bytes memory) {
+        bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, timestamp));
+        return abi.encode(hash, incrementSlashNonce);
+    }
+
+    function _encodeVetoCouncilElectionOrSlashData(
+        address oldMember,
+        address newMember,
+        bool slashOldMember,
+        uint256 timestamp
+    ) internal pure returns (bytes memory) {
+        return abi.encode(oldMember, newMember, slashOldMember, timestamp);
+    }
+
+
+    //-------------------------------------------------------------------------------------//
+    //--------------------------------- UTIL FUNCTIONS -----------------------------------//
+    //-------------------------------------------------------------------------------------//
 
     /**
      * @dev efficiently determines if an address is the zero address
