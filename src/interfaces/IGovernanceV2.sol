@@ -103,12 +103,15 @@ interface IGovernanceV2 {
 
     /**
      * @dev ProposalIntentSpend is a struct that represents the time and amount of nominations spent on a proposal intent
-     * @param votes - the number of votes on the proposal
+     * @param totalNominationsUsed - the total number of nominations used on the proposal intent
+     * @param totalNominationsUsedWithDecay - the total number of nominations used on the proposal intent with decay
+     *     - Takes effect if the user wants to withdraw nominations from the proposal intent
      * @param spendTimestamp the timestamp at which the proposal intent spend was created
      */
     struct ProposalIntentSpend {
-        uint184 votes;
-        uint64 spendTimestamp;
+        uint104 totalNominationsUsed;
+        uint104 totalNominationsUsedWithDecay;
+        uint48 spendTimestamp;
     }
 
     /* -------------------------------------------------------------------------- */

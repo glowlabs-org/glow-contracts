@@ -243,7 +243,7 @@ contract GovernanceV2Test is Test {
         assert(!diverged);
     }
 
-    function test_v2_syncProposals_shouldNotFailFirst4Weeks() public {
+    function _syncProposals_shouldNotFailFirst4Weeks() public {
         //Try calling sync proposals 5 times and then loop 1 week
         for (uint256 i; i < 5; i++) {
             governance.syncProposals();
@@ -251,27 +251,27 @@ contract GovernanceV2Test is Test {
         }
     }
 
-    function test_updateLastExpiredProposalId() public {
-        test_createGrantsProposal();
+    function test_v2_updateLastExpiredProposalId() public {
+        test_v2_createGrantsProposal();
         vm.warp(block.timestamp + ONE_WEEK * 16 + 1);
         governance.updateLastExpiredProposalId();
         assertEq(governance.getLastExpiredProposalId(), 1);
     }
 
-    function test_grantNomination_halfLifeShouldCorrectlyCalculate() public {
-        test_grantNominations_fromGCC_shouldWork();
+    function test_v2_grantNomination_halfLifeShouldCorrectlyCalculate() public {
+        test_v2_grantNominations_fromGCC_shouldWork();
         vm.warp(block.timestamp + ONE_YEAR);
         uint256 nominationsOfSimon = governance.nominationsOf(SIMON);
     }
 
-    function test_grantNomination_shouldRevertCallerNotGCC() public {
+    function test_v2_grantNomination_shouldRevertCallerNotGCC() public {
         vm.startPrank(SIMON);
         vm.expectRevert(IGovernanceV2.CallerNotGCC.selector);
         governance.grantNominations(SIMON, 100);
         vm.stopPrank();
     }
 
-    function test_grantNominations_fromGCC_shouldWork() public {
+    function test_v2_grantNominations_fromGCC_shouldWork() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -284,7 +284,7 @@ contract GovernanceV2Test is Test {
     //----------------  CREATE PROPOSALS -----------------//
     //----------------------------------------------------//
 
-    function test_createGrantsProposal() public {
+    function test_v2_createGrantsProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -309,7 +309,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_createGrantsProposal_secondOneShouldBecomeMostPopularProposal() public {
+    function test_v2_createGrantsProposal_secondOneShouldBecomeMostPopularProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -350,7 +350,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_createGrantsProposal_notEnoughNominationsShouldRevert() public {
+    function test_v2_createGrantsProposal_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.01 ether);
         gcc.commitGCC(0.0000001 ether, SIMON, 0);
@@ -367,7 +367,7 @@ contract GovernanceV2Test is Test {
         governance.createGrantsProposal(grantsRecipient, amount, hash, nominationsToUse);
     }
 
-    function test_createGrantsProposal_nominationsGreaterThanAllowance_shouldRevert() public {
+    function test_v2_createGrantsProposal_nominationsGreaterThanAllowance_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -384,7 +384,7 @@ contract GovernanceV2Test is Test {
         governance.createGrantsProposal(grantsRecipient, amount, hash, nominationsToUse);
     }
 
-    function test_v2_createChangeGCARequirementsProposalSimon() public {
+    function _createChangeGCARequirementsProposalSimon() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -409,7 +409,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_v2_createChangeGCARequirementsProposal() public {
+    function _createChangeGCARequirementsProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -434,7 +434,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_v2_sep_createChangeGCARequirementsProposal_secondOneShouldBecomeMostPopularProposal() public {
+    function _sep_createChangeGCARequirementsProposal_secondOneShouldBecomeMostPopularProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -472,7 +472,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_v2_createChangeGCARequirementsProposal_notEnoughNominationsShouldRevert() public {
+    function _createChangeGCARequirementsProposal_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.001 ether);
         gcc.commitGCC(0.0000001 ether, SIMON, 0);
@@ -493,7 +493,7 @@ contract GovernanceV2Test is Test {
         governance.createChangeGCARequirementsProposal(hash, nominationsToUse);
     }
 
-    function test_v2_createChangeGCARequirementsProposal_nominationsGreaterThanAllowance_shouldRevert() public {
+    function _createChangeGCARequirementsProposal_nominationsGreaterThanAllowance_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -510,7 +510,7 @@ contract GovernanceV2Test is Test {
         governance.createChangeGCARequirementsProposal(hash, nominationsToUse);
     }
 
-    function test_createRFCProposal() public {
+    function test_v2_createRFCProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -531,7 +531,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_createRFCProposal_secondOneShouldBecomeMostPopular() public {
+    function test_v2_createRFCProposal_secondOneShouldBecomeMostPopular() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -566,7 +566,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_createRFCProposal_notEnoughNominationsShouldRevert() public {
+    function test_v2_createRFCProposal_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.01 ether);
         gcc.commitGCC(0.0000001 ether, SIMON, 0);
@@ -580,7 +580,7 @@ contract GovernanceV2Test is Test {
         governance.createRFCProposal(hash, nominationsToUse);
     }
 
-    function test_createRFCProposal_nominationsGreaterThanAllowance_shouldRevert() public {
+    function test_v2_createRFCProposal_nominationsGreaterThanAllowance_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -594,7 +594,7 @@ contract GovernanceV2Test is Test {
         governance.createRFCProposal(hash, nominationsToUse);
     }
 
-    function test_createGCAElectionOrSlashProposal() public {
+    function test_v2_createGCAElectionOrSlashProposal() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -618,7 +618,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_createGCAElectionOrSlashProposal_tooManySlashes_shouldRevert() public {
+    function test_v2_createGCAElectionOrSlashProposal_tooManySlashes_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -635,7 +635,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_createGCAElectionOrSlashProposal_secondOneShouldBecomeMostPopular() public {
+    function test_v2_createGCAElectionOrSlashProposal_secondOneShouldBecomeMostPopular() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -673,7 +673,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_createGCAElectionOrSlashProposal_notEnoughNominationsShouldRevert() public {
+    function test_v2_createGCAElectionOrSlashProposal_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.01 ether);
         gcc.commitGCC(0.0000001 ether, SIMON, 0);
@@ -689,7 +689,7 @@ contract GovernanceV2Test is Test {
         governance.createGCACouncilElectionOrSlashProposal(agentsToSlash, newGCAs, nominationsToUse);
     }
 
-    function test_createGCAElectionOrSlashProposal_nominationsGreaterThanAllowance_shouldRevert() public {
+    function test_v2_createGCAElectionOrSlashProposal_nominationsGreaterThanAllowance_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -705,7 +705,7 @@ contract GovernanceV2Test is Test {
         governance.createGCACouncilElectionOrSlashProposal(agentsToSlash, newGCAs, nominationsToUse);
     }
 
-    function test_createVetoCouncilElectionOrSlash() public {
+    function test_v2_createVetoCouncilElectionOrSlash() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -731,7 +731,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_createVetoCouncilElectionOrSlash_newAgentEqualsOldAgent_shouldRevert() public {
+    function test_v2_createVetoCouncilElectionOrSlash_newAgentEqualsOldAgent_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -747,7 +747,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_createVetoCouncilElectionOrSlash_secondOneShouldBecomeMostPopular() public {
+    function test_v2_createVetoCouncilElectionOrSlash_secondOneShouldBecomeMostPopular() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -791,7 +791,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_createVetoCouncilElectionOrSlash_notEnoughNominationsShouldRevert() public {
+    function test_v2_createVetoCouncilElectionOrSlash_notEnoughNominationsShouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 0.01 ether);
         gcc.commitGCC(0.0000001 ether, SIMON, 0);
@@ -806,7 +806,7 @@ contract GovernanceV2Test is Test {
         governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
     }
 
-    function test_createVetoCouncilElectionOrSlash_nominationsGreaterThanAllowance_shouldRevert() public {
+    function test_v2_createVetoCouncilElectionOrSlash_nominationsGreaterThanAllowance_shouldRevert() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -823,7 +823,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    // function test_createUpgradeUSDGProposal() public {
+    // function test_v2_createUpgradeUSDGProposal() public {
     //     vm.startPrank(SIMON);
     //     gcc.mint(SIMON, 100 ether);
     //     gcc.commitGCC(100 ether, SIMON, 0);
@@ -848,8 +848,8 @@ contract GovernanceV2Test is Test {
     //----------------  USING NOMINATIONS -----------------//
     //----------------------------------------------------//
 
-    function test_useNominationsOnProposal() public {
-        test_v2_createChangeGCARequirementsProposal();
+    function test_v2_useNominationsOnProposal() public {
+        _createChangeGCARequirementsProposal();
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -868,7 +868,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_useNominationsOnProposal_shouldRevertIfProposalDoesNotExist() public {
+    function test_v2_useNominationsOnProposal_shouldRevertIfProposalDoesNotExist() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -879,8 +879,8 @@ contract GovernanceV2Test is Test {
         governance.useNominationsOnProposal(1, nominationsToUse);
     }
 
-    function test_useNominationsOnProposal_proposalExpiredShouldRevert() public {
-        test_v2_createChangeGCARequirementsProposal();
+    function test_v2_useNominationsOnProposal_proposalExpiredShouldRevert() public {
+        _createChangeGCARequirementsProposal();
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -893,8 +893,8 @@ contract GovernanceV2Test is Test {
         governance.useNominationsOnProposal(1, nominationsToUse);
     }
 
-    function test_useNominationsOnProposal_notEnoughNominations_shouldRevert() public {
-        test_v2_createChangeGCARequirementsProposal();
+    function test_v2_useNominationsOnProposal_notEnoughNominations_shouldRevert() public {
+        _createChangeGCARequirementsProposal();
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -905,9 +905,9 @@ contract GovernanceV2Test is Test {
         governance.useNominationsOnProposal(1, nominationsToUse);
     }
 
-    function test_useNominationsOnProposal_shouldUpdateMostPopularProposal() public {
+    function test_v2_useNominationsOnProposal_shouldUpdateMostPopularProposal() public {
         /// @dev should now have 2 proposals
-        test_v2_sep_createChangeGCARequirementsProposal_secondOneShouldBecomeMostPopularProposal();
+        _sep_createChangeGCARequirementsProposal_secondOneShouldBecomeMostPopularProposal();
 
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
@@ -933,9 +933,9 @@ contract GovernanceV2Test is Test {
     //----------------  RATIFY/REJECT VOTING -----------------//
     //----------------------------------------------------//
 
-    function test_ratifyProposal() public {
+    function test_v2_ratifyProposal() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         // and the week should be finalized
@@ -954,9 +954,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_rejectProposal() public {
+    function test_v2_rejectProposal() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         // and the week should be finalized
@@ -975,9 +975,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_ratifyOrReject_ratifyCurrentWeek_shouldRevert() public {
+    function test_v2_ratifyOrReject_ratifyCurrentWeek_shouldRevert() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         // and the week should be finalized
@@ -992,9 +992,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_ratifyOrReject_ratifyFutureWeek_shouldRevert() public {
+    function test_v2_ratifyOrReject_ratifyFutureWeek_shouldRevert() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         // and the week should be finalized
@@ -1009,7 +1009,7 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_ratifyOrReject_mostPopularProposalNotSet_shouldRevert() public {
+    function test_v2_ratifyOrReject_mostPopularProposalNotSet_shouldRevert() public {
         //Create one proposal
 
         //Should be the most popular proposal now
@@ -1025,9 +1025,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_ratifyOrReject_notEnoughStakedGlow_shouldRevert() public {
+    function test_v2_ratifyOrReject_notEnoughStakedGlow_shouldRevert() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         // and the week should be finalized
@@ -1042,9 +1042,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_ratifyOrReject_twoStakeActions_shouldWork() public {
+    function test_v2_ratifyOrReject_twoStakeActions_shouldWork() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         // and the week should be finalized
@@ -1063,9 +1063,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_ratifyOrReject_twoStakeActions_moreThanAmountStaked_shouldRevert() public {
+    function test_v2_ratifyOrReject_twoStakeActions_moreThanAmountStaked_shouldRevert() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         // and the week should be finalized
@@ -1080,9 +1080,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_ratifyOrReject_vetoedProposal_shouldRevert() public {
+    function test_v2_ratifyOrReject_vetoedProposal_shouldRevert() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         // and the week should be finalized
@@ -1100,9 +1100,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_ratifyProposal_afterVotingPeriodEnded_shouldRevert() public {
+    function test_v2_ratifyProposal_afterVotingPeriodEnded_shouldRevert() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         vm.startPrank(SIMON);
@@ -1115,9 +1115,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_rejectProposal_afterVotingPeriodHasEnded_shouldRevert() public {
+    function test_v2_rejectProposal_afterVotingPeriodHasEnded_shouldRevert() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         vm.startPrank(SIMON);
@@ -1130,9 +1130,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_vetoProposal_callerNotVetoCouncilMember() public {
+    function test_v2_vetoProposal_callerNotVetoCouncilMember() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         // and the week should be finalized
@@ -1145,9 +1145,9 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_vetoProposal_sameWeekNotFinalized_shouldRevert() public {
+    function test_v2_vetoProposal_sameWeekNotFinalized_shouldRevert() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         vm.startPrank(SIMON);
@@ -1156,16 +1156,16 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_vetoProposal_futureWeek_shouldRevert() public {
+    function test_v2_vetoProposal_futureWeek_shouldRevert() public {
         vm.startPrank(SIMON);
         vm.expectRevert(IGovernanceV2.ProposalIdDoesNotMatchMostPopularProposal.selector);
         governance.vetoProposal(1, 1);
         vm.stopPrank();
     }
 
-    function test_vetoProposal_ratifyOrRejectionPeriodEnded_shouldRevert() public {
+    function test_v2_vetoProposal_ratifyOrRejectionPeriodEnded_shouldRevert() public {
         //Create one proposal
-        test_v2_createChangeGCARequirementsProposal();
+        _createChangeGCARequirementsProposal();
 
         //Should be the most popular proposal now
         vm.startPrank(SIMON);
@@ -1175,8 +1175,8 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_vetoProposal_VetoCouncilElection_shouldRevert() public {
-        test_createVetoCouncilElectionOrSlash();
+    function test_v2_vetoProposal_VetoCouncilElection_shouldRevert() public {
+        test_v2_createVetoCouncilElectionOrSlash();
         //Should be the most popular proposal now
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + ONE_WEEK);
@@ -1185,8 +1185,8 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_vetoProposal_GCAElection_shouldRevert() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_vetoProposal_GCAElection_shouldRevert() public {
+        test_v2_createGCAElectionOrSlashProposal();
         //Should be the most popular proposal now
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + ONE_WEEK);
@@ -1195,8 +1195,8 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_endorseGCAProposal() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_endorseGCAProposal() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + ONE_WEEK);
         governance.endorseGCAProposal(0);
@@ -1207,8 +1207,8 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_endorseGCAProposal_callerNotVetoCouncilMember_shouldRevert() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_endorseGCAProposal_callerNotVetoCouncilMember_shouldRevert() public {
+        test_v2_createGCAElectionOrSlashProposal();
         address notSimon;
         assembly {
             notSimon := not(sload(SIMON.slot))
@@ -1223,31 +1223,31 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_endorseGCAProposal_currentWeek_shouldRevert() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_endorseGCAProposal_currentWeek_shouldRevert() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + ONE_WEEK - 1);
         vm.expectRevert(IGovernanceV2.WeekNotStarted.selector);
         governance.endorseGCAProposal(0);
     }
 
-    function test_endorseGCAProposal_futureWeek_shouldRevert() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_endorseGCAProposal_futureWeek_shouldRevert() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.startPrank(SIMON);
         vm.expectRevert(IGovernanceV2.WeekNotStarted.selector);
         governance.endorseGCAProposal(1);
     }
 
-    function test_endorseGCAProposal_ratifyOrRejectPeriodEnded_shouldRevert() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_endorseGCAProposal_ratifyOrRejectPeriodEnded_shouldRevert() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + (ONE_WEEK * 5) + 1);
         vm.expectRevert(IGovernanceV2.RatifyOrRejectPeriodEnded.selector);
         governance.endorseGCAProposal(0);
     }
 
-    function test_endorseGCAProposal_proposalNotGCAElection_shouldRevert() public {
-        test_v2_createChangeGCARequirementsProposal();
+    function test_v2_endorseGCAProposal_proposalNotGCAElection_shouldRevert() public {
+        _createChangeGCARequirementsProposal();
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + ONE_WEEK);
         vm.expectRevert(IGovernanceV2.OnlyGCAElectionsCanBeEndorsed.selector);
@@ -1255,8 +1255,8 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_endorseGCAProposal_cannotEndorseSameWeekTwice() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_endorseGCAProposal_cannotEndorseSameWeekTwice() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + ONE_WEEK);
         governance.endorseGCAProposal(0);
@@ -1271,8 +1271,8 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_endorseGCAProposal_cannotEndorseMoreThanMaxEndorsements_shouldRevert() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_endorseGCAProposal_cannotEndorseMoreThanMaxEndorsements_shouldRevert() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.startPrank(SIMON);
         vm.warp(block.timestamp + ONE_WEEK);
         governance.endorseGCAProposal(0);
@@ -1332,8 +1332,8 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_executeGrantsProposal() public {
-        test_createGrantsProposal();
+    function test_v2_executeGrantsProposal() public {
+        test_v2_createGrantsProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1349,8 +1349,8 @@ contract GovernanceV2Test is Test {
 
     //TODO: long stakers shouldnt be able to vote on grants proposals.
     //TODO: check all end timestamps on grants proposals
-    function test_syncGrantsProposal() public {
-        test_createGrantsProposal();
+    function test_v2_syncGrantsProposal() public {
+        test_v2_createGrantsProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1375,8 +1375,8 @@ contract GovernanceV2Test is Test {
     }
 
     //Grants proposals dont need to be ratified, so we can just execute them right away
-    function test_syncGrantsProposal_rejection_ShouldUpdateRecipientBalance() public {
-        test_createGrantsProposal();
+    function test_v2_syncGrantsProposal_rejection_ShouldUpdateRecipientBalance() public {
+        test_v2_createGrantsProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1400,10 +1400,10 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncGrantsProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState()
+    function test_v2_syncGrantsProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState()
         public
     {
-        test_createGrantsProposal();
+        test_v2_createGrantsProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
 
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
@@ -1425,8 +1425,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncRFCProposal() public {
-        test_createRFCProposal();
+    function test_v2_syncRFCProposal() public {
+        test_v2_createRFCProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1435,8 +1435,10 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncRFCProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState() public {
-        test_createRFCProposal();
+    function test_v2_syncRFCProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState()
+        public
+    {
+        test_v2_createRFCProposal();
         vm.warp(block.timestamp + ONE_WEEK * 5);
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
         //We actually don't need this syncProposals call since
@@ -1447,8 +1449,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncGCAElectionOrSlashProposal() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_syncGCAElectionOrSlashProposal() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1461,8 +1463,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncGCAElectionOrSlashProposal_rejection_ShouldNotUpdateHashOrNonce() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_syncGCAElectionOrSlashProposal_rejection_ShouldNotUpdateHashOrNonce() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1477,9 +1479,9 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncGCAElectionOrSlashProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
+    function test_v2_syncGCAElectionOrSlashProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
     ) public {
-        test_createGCAElectionOrSlashProposal();
+        test_v2_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
@@ -1493,8 +1495,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncVetoCouncilElectionOrSlash() public {
-        test_createVetoCouncilElectionOrSlash();
+    function test_v2_syncVetoCouncilElectionOrSlash() public {
+        test_v2_createVetoCouncilElectionOrSlash();
         bool slashOldAgent = true;
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
@@ -1508,8 +1510,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncVetoCouncilElectionOrSlash_rejection_shouldNotChangeVetoCouncilState() public {
-        test_createVetoCouncilElectionOrSlash();
+    function test_v2_syncVetoCouncilElectionOrSlash_rejection_shouldNotChangeVetoCouncilState() public {
+        test_v2_createVetoCouncilElectionOrSlash();
         bool slashOldAgent = true;
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
@@ -1523,9 +1525,9 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_syncVetoCouncilElectionOrSlash_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
+    function test_v2_syncVetoCouncilElectionOrSlash_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
     ) public {
-        test_createVetoCouncilElectionOrSlash();
+        test_v2_createVetoCouncilElectionOrSlash();
         bool slashOldAgent = true;
         vm.warp(block.timestamp + ONE_WEEK + 1);
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
@@ -1540,8 +1542,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_v2_syncChangeGCARequirements_aaa() public {
-        test_v2_createChangeGCARequirementsProposal();
+    function _syncChangeGCARequirements_aaa() public {
+        _createChangeGCARequirementsProposal();
         bytes32 expectedHash = keccak256("new requirements hash");
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
@@ -1561,8 +1563,8 @@ contract GovernanceV2Test is Test {
          */
     }
 
-    function test_syncChangeGCARequirements_rejection_ShouldNotChangRequirements() public {
-        test_v2_createChangeGCARequirementsProposal();
+    function test_v2_syncChangeGCARequirements_rejection_ShouldNotChangRequirements() public {
+        _createChangeGCARequirementsProposal();
         bytes32 expectedHash = keccak256("new requirements hash");
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
@@ -1582,10 +1584,9 @@ contract GovernanceV2Test is Test {
          */
     }
 
-    function test_syncChangeGCARequirements_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState()
-        public
-    {
-        test_v2_createChangeGCARequirementsProposal();
+    function test_v2_syncChangeGCARequirements_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
+    ) public {
+        _createChangeGCARequirementsProposal();
         bytes32 expectedHash = keccak256("new requirements hash");
         vm.warp(block.timestamp + ONE_WEEK + 1);
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
@@ -1612,8 +1613,8 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_executeChangeGCARequirements() public {
-        test_v2_createChangeGCARequirementsProposal();
+    function test_v2_executeChangeGCARequirements() public {
+        _createChangeGCARequirementsProposal();
         bytes32 expectedHash = keccak256("new requirements hash");
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
@@ -1624,8 +1625,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_executeRFCProposal() public {
-        test_createRFCProposal();
+    function test_v2_executeRFCProposal() public {
+        test_v2_createRFCProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
         vm.warp(block.timestamp + (ONE_WEEK * 4));
@@ -1634,8 +1635,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_executeGCAElectionOrSlashProposal() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_executeGCAElectionOrSlashProposal() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1648,8 +1649,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_executeVetoCouncilElectionOrSlash() public {
-        test_createVetoCouncilElectionOrSlash();
+    function test_v2_executeVetoCouncilElectionOrSlash() public {
+        test_v2_createVetoCouncilElectionOrSlash();
         bool slashOldAgent = true;
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
@@ -1663,8 +1664,8 @@ contract GovernanceV2Test is Test {
         // assertEq(lastExecutedWeek, 0);
     }
 
-    // function test_executeUSDGUpgrade() public {
-    //     test_createUpgradeUSDGProposal();
+    // function test_v2_executeUSDGUpgrade() public {
+    //     test_v2_createUpgradeUSDGProposal();
     //     vm.warp(block.timestamp + ONE_WEEK + 1);
     //     castLongStakedVotes(SIMON, 0, true, 1);
     //     vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1681,7 +1682,7 @@ contract GovernanceV2Test is Test {
     //     );
     // }
 
-    // function test_createUpgradeUSDGProposal_withBadData_upgradeShouldFail_butNotRevert() public {
+    // function test_v2_createUpgradeUSDGProposal_withBadData_upgradeShouldFail_butNotRevert() public {
     //     vm.startPrank(SIMON);
     //     gcc.mint(SIMON, 100 ether);
     //     gcc.commitGCC(100 ether, SIMON, 0);
@@ -1716,9 +1717,9 @@ contract GovernanceV2Test is Test {
     //     vm.stopPrank();
     // }
 
-    function test_executeGrantsProposal_rejectionShouldUpdateStateInTarget() public {
+    function test_v2_executeGrantsProposal_rejectionShouldUpdateStateInTarget() public {
         //Grants proposals dont need to be ratified to be executed
-        test_createGrantsProposal();
+        test_v2_createGrantsProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1732,8 +1733,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_executeChangeGCARequirements_rejectionShouldNotUpdateStateInTarget() public {
-        test_v2_createChangeGCARequirementsProposal();
+    function test_v2_executeChangeGCARequirements_rejectionShouldNotUpdateStateInTarget() public {
+        _createChangeGCARequirementsProposal();
         bytes32 expectedHash = keccak256("new requirements hash");
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
@@ -1745,8 +1746,8 @@ contract GovernanceV2Test is Test {
     }
 
     /// @dev The hash is emitted so we can't check state
-    function test_executeRFCProposal_shouldNotRevert() public {
-        test_createRFCProposal();
+    function test_v2_executeRFCProposal_shouldNotRevert() public {
+        test_v2_createRFCProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
         vm.warp(block.timestamp + (ONE_WEEK * 4));
@@ -1755,8 +1756,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_executeGCAElectionOrSlashProposal_rejectionShouldNotUpdateStateInTarget() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_executeGCAElectionOrSlashProposal_rejectionShouldNotUpdateStateInTarget() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1773,8 +1774,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_executeVetoCouncilElectionOrSlash_rejectionShouldNotUpdateStateInTarget() public {
-        test_createVetoCouncilElectionOrSlash();
+    function test_v2_executeVetoCouncilElectionOrSlash_rejectionShouldNotUpdateStateInTarget() public {
+        test_v2_createVetoCouncilElectionOrSlash();
         bool slashOldAgent = true;
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, false, 1);
@@ -1788,7 +1789,7 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_executingSameProposalTwice_shouldNotCreateStateChanges() public {
+    function test_v2_executingSameProposalTwice_shouldNotCreateStateChanges() public {
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 100 ether);
         gcc.commitGCC(100 ether, SIMON, 0);
@@ -1838,7 +1839,7 @@ contract GovernanceV2Test is Test {
 
     function testFuzz_executeChangeGCARequirements_withEndorsement(uint256 numEndorsements) public {
         vm.assume(numEndorsements <= 6);
-        test_createGCAElectionOrSlashProposal();
+        test_v2_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
 
         for (uint256 i; i < numEndorsements; i++) {
@@ -1872,7 +1873,7 @@ contract GovernanceV2Test is Test {
         uint256 numEndorsements
     ) public {
         vm.assume(numEndorsements <= 6);
-        test_createGCAElectionOrSlashProposal();
+        test_v2_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
 
         for (uint256 i; i < numEndorsements; i++) {
@@ -1903,7 +1904,7 @@ contract GovernanceV2Test is Test {
         assertEq(slashNonce, 0);
     }
 
-    function test_executeNoneProposal() public {
+    function test_v2_executeNoneProposal() public {
         vm.warp(block.timestamp + ONE_WEEK + 1);
         vm.warp(block.timestamp + ONE_WEEK * 4);
         governance.executeProposalAtWeek(0);
@@ -1920,51 +1921,51 @@ contract GovernanceV2Test is Test {
      *  All proposals except RFC and None should revert if it hasn't been 4 weeks since the proposal was finalized
      *         as the most popular proposal
      */
-    function test_executeRFCProposal_shouldRevert_ifNotWeekEnd() public {
-        test_createRFCProposal();
+    function test_v2_executeRFCProposal_shouldRevert_ifNotWeekEnd() public {
+        test_v2_createRFCProposal();
         vm.warp(block.timestamp + (ONE_WEEK) - 1);
         vm.expectRevert(IGovernanceV2.RatifyOrRejectPeriodNotEnded.selector);
         governance.executeProposalAtWeek(0);
     }
 
     //Same rules for timestamping apply to Grants proposals, and to none
-    function test_executeGrantsProposal_shouldRevert_ifNotWeekEnd() public {
-        test_createGrantsProposal();
+    function test_v2_executeGrantsProposal_shouldRevert_ifNotWeekEnd() public {
+        test_v2_createGrantsProposal();
         vm.warp(block.timestamp + (ONE_WEEK) - 1);
         vm.expectRevert(IGovernanceV2.RatifyOrRejectPeriodNotEnded.selector);
         governance.executeProposalAtWeek(0);
     }
 
-    function test_executeChangeGCARequirements_shouldRevert_ifNotWeekEnd() public {
+    function test_v2_executeChangeGCARequirements_shouldRevert_ifNotWeekEnd() public {
         vm.warp(block.timestamp + (ONE_WEEK) - 1);
         vm.expectRevert(IGovernanceV2.RatifyOrRejectPeriodNotEnded.selector);
         governance.executeProposalAtWeek(0);
     }
 
     //All others need to wait at least 4 weeks until they can be executed
-    function test_executeGCAElectionOrSlash_shouldRevert_ifNotRatifyEnd_shouldRevert() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_executeGCAElectionOrSlash_shouldRevert_ifNotRatifyEnd_shouldRevert() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + (ONE_WEEK * 4) - 1);
         vm.expectRevert(IGovernanceV2.RatifyOrRejectPeriodNotEnded.selector);
         governance.executeProposalAtWeek(0);
     }
 
-    function test_executeVetoCouncilElectionOrSlash_shouldRevert_ifNotRatifyEnd_shouldRevert() public {
-        test_createVetoCouncilElectionOrSlash();
+    function test_v2_executeVetoCouncilElectionOrSlash_shouldRevert_ifNotRatifyEnd_shouldRevert() public {
+        test_v2_createVetoCouncilElectionOrSlash();
         vm.warp(block.timestamp + (ONE_WEEK * 4) - 1);
         vm.expectRevert(IGovernanceV2.RatifyOrRejectPeriodNotEnded.selector);
         governance.executeProposalAtWeek(0);
     }
 
-    function test_executeGCAElectionOrSlash_shouldRevert_ifNotWeekEnd_shouldRevert() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_executeGCAElectionOrSlash_shouldRevert_ifNotWeekEnd_shouldRevert() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + (ONE_WEEK * 4) - 1);
         vm.expectRevert(IGovernanceV2.RatifyOrRejectPeriodNotEnded.selector);
         governance.executeProposalAtWeek(0);
     }
 
-    function test_executeProposalsOutOfSync_shouldRevert() public {
-        // test_v2_createChangeGCARequirementsProposal();
+    function test_v2_executeProposalsOutOfSync_shouldRevert() public {
+        // _createChangeGCARequirementsProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
         // vm.warp(block.timestamp + ONE_WEEK * 4);
@@ -1973,8 +1974,8 @@ contract GovernanceV2Test is Test {
         // governance.executeProposalAtWeek(1);
     }
 
-    function test_executeVetoedProposal_shouldUpdateState() public {
-        test_v2_createChangeGCARequirementsProposal();
+    function test_v2_executeVetoedProposal_shouldUpdateState() public {
+        _createChangeGCARequirementsProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         createVetoCouncilElectionOrSlashProposal(SIMON, startingAgents[0], address(0x10), true);
         castLongStakedVotes(SIMON, 0, true, 1);
@@ -1988,8 +1989,8 @@ contract GovernanceV2Test is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_executeProposalWithZeroVotes_shouldUpdateState() public {
-        test_createGCAElectionOrSlashProposal();
+    function test_v2_executeProposalWithZeroVotes_shouldUpdateState() public {
+        test_v2_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + (ONE_WEEK * 5) + 1);
         governance.executeProposalAtWeek(0);
         assertEq(governance.getLastExecutedWeek(), 0);
@@ -2000,8 +2001,8 @@ contract GovernanceV2Test is Test {
      *     - grants proposals
      *     - and none proposals
      */
-    function test_executeProposal_proposalThatCanBeExecutedAfterWeekEndWithZeroVotes_shouldUpdateState() public {
-        test_createRFCProposal();
+    function test_v2_executeProposal_proposalThatCanBeExecutedAfterWeekEndWithZeroVotes_shouldUpdateState() public {
+        test_v2_createRFCProposal();
         vm.startPrank(SIMON);
         uint256 nominationsToUse = governance.costForNewProposal();
         gcc.mint(SIMON, 10000 ether);
@@ -2022,7 +2023,7 @@ contract GovernanceV2Test is Test {
         assertEq(governance.getLastExecutedWeek(), 1);
     }
 
-    function test_setMostPopularProposalAtWeek() public {
+    function test_v2_setMostPopularProposalAtWeek() public {
         //Create 2 proposals
         vm.startPrank(SIMON);
         gcc.mint(SIMON, 10000 ether);
@@ -2050,9 +2051,214 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
-    function test_setMostPopularProposalAtWeek_proposalNotCreated_shouldRevert() public {
+    function test_v2_setMostPopularProposalAtWeek_proposalNotCreated_shouldRevert() public {
         vm.expectRevert(IGovernanceV2.ProposalExpired.selector);
         governance.setMostPopularProposalForCurrentWeek(3);
+    }
+
+    //---- START TESTS FOR INTENTS----//
+
+    function test_v2_intents_spendNominationsOnNonexistentIntentShouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 10000 ether);
+        gcc.commitGCC(10000 ether, SIMON, 0);
+        vm.expectRevert(IGovernanceV2.NonexistentIntent.selector);
+        governance.addVotesToIntent({intentId: 1, amount: 1});
+        vm.stopPrank();
+    }
+
+    function test_v2_intents_addTwiceFromIntent_shouldDecayWithdraw() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 10000 ether);
+        gcc.commitGCC(10000 ether, SIMON, 0);
+        uint256 nomCost = governance.costForNewProposal();
+
+        //div by 3 so we don't create a proposal accidentally
+        uint256 amountToSpendOnIntent = nomCost / 3;
+
+        governance.createGrantsProposalIntent({
+            grantsRecipient: SIMON,
+            amount: 1 ether,
+            hash: keccak256("really good use"),
+            nominations: amountToSpendOnIntent
+        });
+
+        //warp so we have some decay happening
+        vm.warp(block.timestamp + ONE_WEEK * 12);
+        governance.addVotesToIntent({intentId: 1, amount: amountToSpendOnIntent});
+
+        {
+            uint256 balanceBeforeWithdraw = governance.nominationsOf(SIMON);
+            //Also assert eq on the proposalIntentSpend that totalNominations is amountToSpendOnIntent * 2
+            assertEq(
+                uint256(governance.getProposalIntentSpend(SIMON,1).totalNominationsUsed),
+                amountToSpendOnIntent * 2,
+                "The total nominations should be the amount spent on the intent"
+            );
+            governance.withdrawVotesFromNonexecutedIntent(1);
+            uint256 balanceAfterWithdraw = governance.nominationsOf(SIMON);
+
+            //We need to make sure we have less nominations than balanceBeforeWithdraw + amountToSpendOnIntent * 2
+            //since we should have decayed
+            assertTrue(balanceAfterWithdraw < balanceBeforeWithdraw + amountToSpendOnIntent * 2, "Should have decayed");
+            assertTrue(balanceAfterWithdraw > balanceBeforeWithdraw, "Should have at least gotten more nominations");
+
+            //We also need to make sure that the amount of nominations on the proposal is 0 and is not affected by the decay
+            IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(1);
+            assertEq(intent.votes, 0, "The amount of nominations on the proposal should be 0");
+            //the balance should be zero
+        }
+
+        vm.stopPrank();
+    }
+    //For generic testing, we can just choose any proposal type since they use the same logic from _createProposalIntent
+
+    function test_v2_intents_createProposalIntent_fullFlow() public {
+        //Create 2 proposals
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 10000 ether);
+        gcc.commitGCC(10000 ether, SIMON, 0);
+
+        uint256 nomCost = governance.costForNewProposal();
+        uint256 amountToSpendOnIntent = nomCost - 1;
+
+        {
+            uint256 nominationBalanceBefore = governance.nominationsOf(SIMON);
+            governance.createGrantsProposalIntent({
+                grantsRecipient: SIMON,
+                amount: 1 ether,
+                hash: keccak256("really good use"),
+                nominations: amountToSpendOnIntent
+            });
+            uint256 nominationBalanceAfter = governance.nominationsOf(SIMON);
+
+            uint256 expectedNominationBalanceAfterCreation = nominationBalanceBefore - amountToSpendOnIntent;
+            assertEq(
+                nominationBalanceAfter, expectedNominationBalanceAfterCreation, "Nominations should have been spent"
+            );
+        }
+
+        IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(1);
+
+        assertEq(
+            uint8(intent.proposalType),
+            uint8(IGovernanceV2.ProposalType.GRANTS_PROPOSAL),
+            "Proposal should be a grants proposal"
+        );
+        assertEq(intent.executed, false, "The intent should not have been executed");
+        assertEq(
+            intent.votes, amountToSpendOnIntent, "The amount of nominations should be the same as the amount spent"
+        );
+        {
+            bytes memory expectedData = abi.encode(SIMON, 1 ether, keccak256("really good use"));
+            assertEq(intent.data, expectedData, "The data should be the same as the expected data");
+        }
+
+        //Make sure that no actual proposal got created
+        assertEq(governance.proposalCount(), 0, "No proposal should have been created");
+
+        //Let's transform it into a proposal by adding enough nominations
+        {
+            uint256 costForProposal = governance.costForNewProposal();
+            uint256 nominationsToUse = costForProposal - amountToSpendOnIntent;
+            governance.addVotesToIntent({intentId: 1, amount: nominationsToUse});
+
+            intent = governance.getProposalIntent(1);
+            assertEq(intent.executed, true, "The intent should have been executed and turned into a proposal");
+            assertEq(governance.proposalCount(), 1, "A proposal should have been created");
+            IGovernanceV2.Proposal memory proposal = governance.proposals(1);
+
+            assertEq(
+                uint8(proposal.proposalType),
+                uint8(IGovernanceV2.ProposalType.GRANTS_PROPOSAL),
+                "Proposal should be a grants proposal"
+            );
+            assertEq(intent.data, proposal.data, "The data should be the same as the expected data");
+        }
+
+        {
+            //Make sure we can't vote on it anymore
+            vm.expectRevert(IGovernanceV2.IntentAlreadyExecuted.selector);
+            governance.addVotesToIntent({intentId: 1, amount: 1});
+        }
+
+        vm.stopPrank();
+    }
+
+    //For generic testing, we can just choose any proposal type since they use the same logic from _createProposalIntent
+    function test_v2_intents_createProposalIntent_refundNominations() public {
+        //Create 2 proposals
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 10000 ether);
+        gcc.commitGCC(10000 ether, SIMON, 0);
+
+        uint256 nomCost = governance.costForNewProposal();
+        uint256 amountToSpendOnIntent = nomCost - 1;
+
+        {
+            uint256 nominationBalanceBefore = governance.nominationsOf(SIMON);
+            governance.createGrantsProposalIntent({
+                grantsRecipient: SIMON,
+                amount: 1 ether,
+                hash: keccak256("really good use"),
+                nominations: amountToSpendOnIntent
+            });
+            uint256 nominationBalanceAfter = governance.nominationsOf(SIMON);
+
+            uint256 expectedNominationBalanceAfterCreation = nominationBalanceBefore - amountToSpendOnIntent;
+            assertEq(
+                nominationBalanceAfter, expectedNominationBalanceAfterCreation, "Nominations should have been spent"
+            );
+        }
+
+        IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(1);
+
+        assertEq(
+            uint8(intent.proposalType),
+            uint8(IGovernanceV2.ProposalType.GRANTS_PROPOSAL),
+            "Proposal should be a grants proposal"
+        );
+        assertEq(intent.executed, false, "The intent should not have been executed");
+        assertEq(
+            intent.votes, amountToSpendOnIntent, "The amount of nominations should be the same as the amount spent"
+        );
+        {
+            bytes memory expectedData = abi.encode(SIMON, 1 ether, keccak256("really good use"));
+            assertEq(intent.data, expectedData, "The data should be the same as the expected data");
+        }
+
+        //Make sure that no actual proposal got created
+        assertEq(governance.proposalCount(), 0, "No proposal should have been created");
+
+        //Let's refund ourselves the nomiantions, and let's also warp to make sure some half life decay took place
+        {
+            vm.warp(block.timestamp + ONE_WEEK * 4);
+            uint256 balanceOfNominationsBeforeWithdraw = governance.nominationsOf(SIMON);
+            governance.withdrawVotesFromNonexecutedIntent({proposalIntentId: 1});
+            uint256 balanceOfNominationsAfterWithdraw = governance.nominationsOf(SIMON);
+
+            assertEq(
+                balanceOfNominationsAfterWithdraw > balanceOfNominationsBeforeWithdraw,
+                true,
+                "Nominations should have been refunded"
+            );
+            //also assert that it's not as much as before + amountToSpendOnIntent since the `amountToSpendOnIntent` was decayed
+            assertEq(
+                balanceOfNominationsAfterWithdraw < balanceOfNominationsBeforeWithdraw + amountToSpendOnIntent,
+                true,
+                "Refunded noms should decay"
+            );
+
+            //make sure the intent has no votes anymore
+            intent = governance.getProposalIntent(1);
+            assertEq(intent.votes, 0, "The intent should have no votes anymore");
+
+            //Let's try laiming again and should revert since we have no votes to cliam anymore
+            vm.expectRevert(IGovernanceV2.NoVotesToClaim.selector);
+            governance.withdrawVotesFromNonexecutedIntent({proposalIntentId: 1});
+        }
+
+        vm.stopPrank();
     }
 
     //-----------------  HELPERS -----------------//

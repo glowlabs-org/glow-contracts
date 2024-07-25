@@ -15,9 +15,9 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {GCC as GCCContract} from "@/GCC.sol";
-import {console} from "forge-std/console.sol";
+
 /**
- * @title Governance
+ * @title GovernanceV2
  * @author DavidVorick
  * @author 0xSimon(twitter) - 0xSimbo(githuhb)
  * @notice This contract is used to manage the Glow governance
@@ -45,7 +45,6 @@ import {console} from "forge-std/console.sol";
  *                      - Any participant to the intent can withdraw their nominations at any time
  *                      -  Nominations that were used on an intent have the half life applied to them as well to prevent a half life loophole
  */
-
 contract GovernanceV2 is IGovernance, EIP712 {
     using ABDKMath64x64 for int128;
 
@@ -823,11 +822,11 @@ contract GovernanceV2 is IGovernance, EIP712 {
      * @param amount the amount of nominations to add to the intent
      */
     function addVotesToIntent(uint256 intentId, uint256 amount) external {
-        _spendNominations(msg.sender, amount);
         IGovernance.ProposalIntent memory intent = _proposalIntents[intentId];
         if (intent.proposalType == IGovernance.ProposalType.NONE) {
             _revert(IGovernance.NonexistentIntent.selector);
         }
+        _spendNominations(msg.sender, amount);
         if (intent.executed) {
             _revert(IGovernance.IntentAlreadyExecuted.selector);
         }
@@ -849,19 +848,23 @@ contract GovernanceV2 is IGovernance, EIP712 {
         //If this is their first time adding a spend to an intent, simply add it
         if (spend.spendTimestamp == 0) {
             _proposalIntentSpends[msg.sender][intentId] = IGovernance.ProposalIntentSpend({
-                votes: SafeCast.toUint184(amount),
-                spendTimestamp: SafeCast.toUint64(block.timestamp)
+                totalNominationsUsed: SafeCast.toUint104(amount),
+                totalNominationsUsedWithDecay: SafeCast.toUint104(amount),
+                spendTimestamp: SafeCast.toUint48(block.timestamp)
             });
         } else {
             //If it's not their first time, we need to calculate the half life or what those nominations
             // are worth now. We don't worry about deducting the difference in the total votes, just in the
             // amount of votes they have spent. This is necessary because they can withdraw votes that are part
             // of an intent that has not yet been turned into a proposal
-            uint256 halfLifeValue = HalfLife.calculateHalfLifeValue(spend.votes, block.timestamp - spend.spendTimestamp);
+            uint256 halfLifeValue = HalfLife.calculateHalfLifeValue(
+                spend.totalNominationsUsedWithDecay, block.timestamp - spend.spendTimestamp
+            );
 
             _proposalIntentSpends[msg.sender][intentId] = IGovernance.ProposalIntentSpend({
-                votes: SafeCast.toUint184(halfLifeValue + amount),
-                spendTimestamp: SafeCast.toUint64(block.timestamp)
+                totalNominationsUsedWithDecay: SafeCast.toUint104(halfLifeValue + amount),
+                totalNominationsUsed: SafeCast.toUint104(spend.totalNominationsUsed + amount),
+                spendTimestamp: SafeCast.toUint48(block.timestamp)
             });
         }
 
@@ -881,11 +884,12 @@ contract GovernanceV2 is IGovernance, EIP712 {
         if (spend.spendTimestamp == 0) {
             _revert(IGovernance.NoVotesToClaim.selector);
         }
-        uint256 halfLifeValue = HalfLife.calculateHalfLifeValue(spend.votes, block.timestamp - spend.spendTimestamp);
+        uint256 halfLifeValue =
+            HalfLife.calculateHalfLifeValue(spend.totalNominationsUsedWithDecay, block.timestamp - spend.spendTimestamp);
         delete _proposalIntentSpends[msg.sender][proposalIntentId];
         _grantNominations(msg.sender, halfLifeValue);
-        _proposalIntents[proposalIntentId].votes -= spend.votes;
-        emit IGovernance.VotesWithdrawnFromIntent(proposalIntentId, msg.sender, spend.votes);
+        _proposalIntents[proposalIntentId].votes -= spend.totalNominationsUsed;
+        emit IGovernance.VotesWithdrawnFromIntent(proposalIntentId, msg.sender, spend.totalNominationsUsed);
     }
 
     /**
@@ -894,16 +898,13 @@ contract GovernanceV2 is IGovernance, EIP712 {
      * @param amount the amount of the grant
      * @param hash the hash of the proposal
      *             - the pre-image should be made public off-chain
-     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     * @param nominations the maximum amount of nominations to spend on this proposal intent
      */
-    function createGrantsProposalIntent(address grantsRecipient, uint256 amount, bytes32 hash, uint256 maxNominations)
+    function createGrantsProposalIntent(address grantsRecipient, uint256 amount, bytes32 hash, uint256 nominations)
         external
     {
         uint256 proposalIdIntentId = _createProposalIntent(
-            msg.sender,
-            maxNominations,
-            IGovernance.ProposalType.GRANTS_PROPOSAL,
-            abi.encode(grantsRecipient, amount, hash)
+            msg.sender, nominations, IGovernance.ProposalType.GRANTS_PROPOSAL, abi.encode(grantsRecipient, amount, hash)
         );
 
         emit IGovernance.GrantsProposalIntentCreation({
@@ -912,7 +913,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
             recipient: grantsRecipient,
             amount: amount,
             hash: hash,
-            nominationsUsedFromIntent: maxNominations
+            nominationsUsedFromIntent: nominations
         });
     }
 
@@ -920,21 +921,18 @@ contract GovernanceV2 is IGovernance, EIP712 {
      * @notice Creates a proposal intent to change the GCA requirements
      * @param newRequirementsHash the new requirements hash
      *             - the pre-image should be made public off-chain
-     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     * @param nominations the maximum amount of nominations to spend on this proposal intent
      */
-    function createChangeGCARequirementsProposalIntent(bytes32 newRequirementsHash, uint256 maxNominations) external {
+    function createChangeGCARequirementsProposalIntent(bytes32 newRequirementsHash, uint256 nominations) external {
         uint256 proposalIdIntentId = _createProposalIntent(
-            msg.sender,
-            maxNominations,
-            IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS,
-            abi.encode(newRequirementsHash)
+            msg.sender, nominations, IGovernance.ProposalType.CHANGE_GCA_REQUIREMENTS, abi.encode(newRequirementsHash)
         );
 
         emit IGovernance.ChangeGCARequirementsProposalIntentCreation({
             proposalIntentId: proposalIdIntentId,
             proposer: msg.sender,
             requirementsHash: newRequirementsHash,
-            nominationsUsedFromIntent: maxNominations
+            nominationsUsedFromIntent: nominations
         });
     }
 
@@ -944,17 +942,17 @@ contract GovernanceV2 is IGovernance, EIP712 {
      *     - if accepted, veto council members must read the RFC (up to 10k Words) and provide a written statement on their thoughts
      *
      * @param hash the hash of the proposal
-     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     * @param nominations the maximum amount of nominations to spend on this proposal intent
      */
-    function createRFCProposalIntent(bytes32 hash, uint256 maxNominations) external {
+    function createRFCProposalIntent(bytes32 hash, uint256 nominations) external {
         uint256 proposalIntentId = _createProposalIntent(
-            msg.sender, maxNominations, IGovernance.ProposalType.REQUEST_FOR_COMMENT, abi.encode(hash)
+            msg.sender, nominations, IGovernance.ProposalType.REQUEST_FOR_COMMENT, abi.encode(hash)
         );
         emit IGovernance.RFCProposalIntentCreation({
             proposalIntentId: proposalIntentId,
             proposer: msg.sender,
             rfcHash: hash,
-            nominationsUsedFromIntent: maxNominations
+            nominationsUsedFromIntent: nominations
         });
     }
 
@@ -966,12 +964,12 @@ contract GovernanceV2 is IGovernance, EIP712 {
      *         - could be any address [in order to account for previous GCA's]
      * @param newGCAs the new GCAs
      *     -   can be empty if all GCA's are bad actors
-     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     * @param nominations the maximum amount of nominations to spend on this proposal intent
      */
     function createGCACouncilElectionOrSlashIntent(
         address[] calldata agentsToSlash,
         address[] calldata newGCAs,
-        uint256 maxNominations
+        uint256 nominations
     ) external {
         if (newGCAs.length > MAX_GCAS_AT_ONE_POINT_IN_TIME) {
             _revert(IGovernance.MaximumNumberOfGCAS.selector);
@@ -985,7 +983,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
 
         uint256 proposalIntentId = _createProposalIntent(
             msg.sender,
-            maxNominations,
+            nominations,
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
             abi.encode(hash, incrementSlashNonce)
         );
@@ -995,7 +993,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
             proposer: msg.sender,
             agentsToSlash: agentsToSlash,
             newGCAs: newGCAs,
-            nominationsUsedFromIntent: maxNominations
+            nominationsUsedFromIntent: nominations
         });
     }
 
@@ -1006,13 +1004,13 @@ contract GovernanceV2 is IGovernance, EIP712 {
      * @param newMember the new agent to replace the old agent
      *         -   If the agent is address(0), it means we are simply removing an agent
      * @param slashOldMember whether or not to slash the old agent
-     * @param maxNominations the maximum amount of nominations to spend on this proposal
+     * @param nominations the maximum amount of nominations to spend on this proposal intent
      */
     function createVetoCouncilElectionOrSlashIntent(
         address oldMember,
         address newMember,
         bool slashOldMember,
-        uint256 maxNominations
+        uint256 nominations
     ) external {
         if (oldMember == newMember) {
             _revert(IGovernance.VetoCouncilProposalCreationOldMemberCannotEqualNewMember.selector);
@@ -1027,7 +1025,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
 
         uint256 proposalIntentId = _createProposalIntent(
             msg.sender,
-            maxNominations,
+            nominations,
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
             abi.encode(oldMember, newMember, slashOldMember, block.timestamp)
         );
@@ -1037,7 +1035,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
             oldAgent: oldMember,
             newAgent: newMember,
             slashOldAgent: slashOldMember,
-            nominationsUsedFromIntent: maxNominations
+            nominationsUsedFromIntent: nominations
         });
     }
 
@@ -1109,6 +1107,22 @@ contract GovernanceV2 is IGovernance, EIP712 {
         uint256 mask = uint256(0xff) << shift;
         uint256 value = (_packedProposalStatus[key] & mask) >> shift;
         return IGovernance.ProposalStatus(value);
+    }
+
+    /**
+     * @notice Gets the proposal intent for a given id
+     * @param proposalIntentId the id of the proposal intent
+     */
+    function getProposalIntent(uint256 proposalIntentId) external view returns (IGovernance.ProposalIntent memory) {
+        return _proposalIntents[proposalIntentId];
+    }
+
+    function getProposalIntentSpend(address user, uint256 proposalIntentId)
+        external
+        view
+        returns (IGovernance.ProposalIntentSpend memory)
+    {
+        return _proposalIntentSpends[user][proposalIntentId];
     }
 
     /**
@@ -1192,8 +1206,9 @@ contract GovernanceV2 is IGovernance, EIP712 {
             data: data
         });
         _proposalIntentSpends[user][proposalIntentId] = IGovernance.ProposalIntentSpend({
-            votes: SafeCast.toUint184(nominationsToUse),
-            spendTimestamp: SafeCast.toUint64(block.timestamp)
+            totalNominationsUsed: SafeCast.toUint104(nominationsToUse),
+            totalNominationsUsedWithDecay: SafeCast.toUint104(nominationsToUse),
+            spendTimestamp: SafeCast.toUint48(block.timestamp)
         });
 
         _proposalIntentCount = proposalIntentId + 1;
