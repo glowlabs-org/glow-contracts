@@ -975,32 +975,6 @@ contract Governance is IGovernance, EIP712 {
         );
     }
 
-    //TODO: Delete this
-    // function createUpgradeUSDGProposal(address newUSDGAddress, bytes memory _data, uint256 maxNominations) external {
-    //     uint256 proposalId = _proposalCount;
-    //     uint256 nominationCost = costForNewProposalAndUpdateLastExpiredProposalId();
-    //     if (maxNominations < nominationCost) {
-    //         _revert(IGovernance.NominationCostGreaterThanAllowance.selector);
-    //     }
-    //     _spendNominations(msg.sender, nominationCost);
-    //     _proposals[proposalId] = IGovernance.Proposal(
-    //         IGovernance.ProposalType.UPGRADE_USDG,
-    //         uint64(block.timestamp + MAX_PROPOSAL_DURATION),
-    //         SafeCast.toUint184(nominationCost),
-    //         abi.encode(newUSDGAddress, _data)
-    //     );
-    //     uint256 currentWeek = currentWeek();
-    //     uint256 _mostPopularProposalOfWeek = mostPopularProposalOfWeek[currentWeek];
-    //     if (nominationCost > _proposals[_mostPopularProposalOfWeek].votes) {
-    //         mostPopularProposalOfWeek[currentWeek] = proposalId;
-    //         emit IGovernance.MostPopularProposalSet(currentWeek, proposalId);
-    //     }
-
-    //     _proposalCount = proposalId + 1;
-
-    //     emit IGovernance.UpgradeUSDGProposalCreation(proposalId, msg.sender, newUSDGAddress, nominationCost);
-    // }
-
     /**
      * @notice Creates a proposal to send a grant to a recipient
      */

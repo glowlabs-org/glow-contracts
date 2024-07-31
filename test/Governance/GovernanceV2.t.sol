@@ -2267,6 +2267,161 @@ contract GovernanceV2Test is Test {
         vm.stopPrank();
     }
 
+    function test_v2_createAllIntentsMatchData() public {
+        //Create 2 proposals
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 10000 ether);
+        gcc.commitGCC(10000 ether, SIMON, 0);
+
+        uint256 n = 1;
+
+        //Grants
+        {
+            governance.createGrantsProposalIntent({
+                grantsRecipient: address(0x1),
+                amount: 10,
+                hash: keccak256("hash"),
+                nominations: n
+            });
+            IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(1);
+            assertEq(
+                uint8(intent.proposalType),
+                uint8(IGovernanceV2.ProposalType.GRANTS_PROPOSAL),
+                "Proposal should be a grants proposal"
+            );
+            assertEq(intent.executed, false, "The intent should not have been executed");
+            assertEq(intent.votes, n, "The amount of nominations should be the same as the amount spent");
+            assertEq(
+                intent.data,
+                abi.encode(address(0x1), 10, keccak256("hash")),
+                "The data should be the same as the expected data"
+            );
+        }
+
+        //Change gca requirements
+        {
+            governance.createChangeGCARequirementsProposalIntent({
+                newRequirementsHash: keccak256("new requirements"),
+                nominations: n
+            });
+
+            IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(2);
+            assertEq(
+                uint8(intent.proposalType),
+                uint8(IGovernanceV2.ProposalType.CHANGE_GCA_REQUIREMENTS),
+                "Proposal should be a change gca requirements proposal"
+            );
+            assertEq(intent.executed, false, "The intent should not have been executed");
+            assertEq(intent.votes, n, "The amount of nominations should be the same as the amount spent");
+            assertEq(
+                intent.data,
+                abi.encode(keccak256("new requirements")),
+                "The data should be the same as the expected data"
+            );
+        }
+
+        //RFC
+        {
+            governance.createRFCProposalIntent({hash: keccak256("rfc hash"), nominations: n});
+
+            IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(3);
+            assertEq(
+                uint8(intent.proposalType),
+                uint8(IGovernanceV2.ProposalType.REQUEST_FOR_COMMENT),
+                "Proposal should be a rfc proposal"
+            );
+            assertEq(intent.executed, false, "The intent should not have been executed");
+            assertEq(intent.votes, n, "The amount of nominations should be the same as the amount spent");
+            assertEq(intent.data, abi.encode(keccak256("rfc hash")), "The data should be the same as the expected data");
+        }
+
+        //GCA Elections No Slashes
+        {
+            address[] memory agentsToSlash = new address[](0);
+            address[] memory agentsToElect = new address[](1);
+            agentsToElect[0] = address(0x1);
+
+            governance.createGCACouncilElectionOrSlashIntent({
+                agentsToSlash: agentsToSlash,
+                newGCAs: agentsToElect,
+                nominations: n
+            });
+
+            bytes32 hash = keccak256(abi.encode(agentsToSlash, agentsToElect, block.timestamp));
+            bool incrementSlashNonce = agentsToSlash.length > 0;
+            bytes memory expectedData = abi.encode(hash, incrementSlashNonce);
+
+            IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(4);
+            assertEq(
+                uint8(intent.proposalType),
+                uint8(IGovernanceV2.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH),
+                "Proposal should be a gca election or slash proposal"
+            );
+
+            assertEq(intent.executed, false, "The intent should not have been executed");
+            assertEq(intent.votes, n, "The amount of nominations should be the same as the amount spent");
+            assertEq(intent.data, expectedData, "The data should be the same as the expected data");
+        }
+
+        //GCA Election With Slashes
+        {
+            address[] memory agentsToSlash = new address[](1);
+            agentsToSlash[0] = address(0x2);
+            address[] memory agentsToElect = new address[](1);
+            agentsToElect[0] = address(0x1);
+
+            governance.createGCACouncilElectionOrSlashIntent({
+                agentsToSlash: agentsToSlash,
+                newGCAs: agentsToElect,
+                nominations: n
+            });
+
+            bytes32 hash = keccak256(abi.encode(agentsToSlash, agentsToElect, block.timestamp));
+            bool incrementSlashNonce = agentsToSlash.length > 0;
+            bytes memory expectedData = abi.encode(hash, incrementSlashNonce);
+
+            IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(5);
+            assertEq(
+                uint8(intent.proposalType),
+                uint8(IGovernanceV2.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH),
+                "Proposal should be a gca election or slash proposal"
+            );
+
+            assertEq(intent.executed, false, "The intent should not have been executed");
+            assertEq(intent.votes, n, "The amount of nominations should be the same as the amount spent");
+            assertEq(intent.data, expectedData, "The data should be the same as the expected data");
+        }
+
+        //Veto council election
+        {
+            address oldAgent = address(0x1);
+            address newAgent = address(0x2);
+            bool slashOldAgent = true;
+
+            governance.createVetoCouncilElectionOrSlashIntent({
+                oldMember: oldAgent,
+                newMember: newAgent,
+                slashOldMember: slashOldAgent,
+                nominations: n
+            });
+
+            bytes memory expectedData = abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp);
+
+            IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(6);
+            assertEq(
+                uint8(intent.proposalType),
+                uint8(IGovernanceV2.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH),
+                "Proposal should be a veto council election or slash proposal"
+            );
+
+            assertEq(intent.executed, false, "The intent should not have been executed");
+            assertEq(intent.votes, n, "The amount of nominations should be the same as the amount spent");
+            assertEq(intent.data, expectedData, "The data should be the same as the expected data");
+        }
+
+        vm.stopPrank();
+    }
+
     //Let's create a simple intent for each of the proposal types and make sure that they have the right types
 
     //-----------------  HELPERS -----------------//

@@ -8,6 +8,13 @@
     "@solady/=lib/solady/src/"
 
     ],
+    
+    "[solidity]": {
+        "editor.defaultFormatter": "JuanBlanco.solidity" 
+      },
+    "editor.formatOnSave": true,
+    "solidity.formatter": "forge",
+
     "wake.compiler.solc.remappings": [
         "forge-std/=lib/forge-std/src/",
         "solmate/=lib/solmate/src/",
