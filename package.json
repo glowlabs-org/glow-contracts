@@ -35,7 +35,7 @@
     "typescript": "^5.0"
   },
   "dependencies": {
-    "@openzeppelin/merkle-tree": "^1.0.5",
+    "@openzeppelin/merkle-tree": "^1.0.7",
     "bignumber.js": "^9.1.2",
     "dotenv": "^16.3.1",
     "keccak256": "^1.0.6",

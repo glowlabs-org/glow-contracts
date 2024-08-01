@@ -33,24 +33,29 @@ interface IMinerPoolV2 {
     /*                                     state-changing                        */
     /* -------------------------------------------------------------------------- */
     /**
-     * @notice Allows anyone to donate USDC into the miner USDC rewards pool
+     * @notice Allows anyone to donate any erc20 into the miner token rewards pool
      * @notice the amount is split across 192 weeks starting at the current week + 16
      * @param token - the erc20 token to donate
      * @param amount -  amount to deposit
      */
-    function donateToUSDCMinerRewardsPool(address token, uint256 amount) external;
+    function donateTokenToMinerRewardsPool(
+        address token,
+        uint256 amount
+    ) external;
 
     /**
-     * @notice Allows the early liquidity to donate USDC into the miner USDC rewards pool
+     * @notice Allows the early liquidity to donate an erc20 into the miner token rewards pool
      * @notice the amount is split across 192 weeks starting at the current week + 16
-     * @dev the USDC token must be a valid USDC token
      * @dev early liquidity will safeTransfer from the user to the miner pool
      *     -   and then call this function directly.
      *     -   we do this to prevent extra transfers.
      * @param token - the erc20 token to donate
      * @param amount -  amount to deposit
      */
-    function donateToUSDCMinerRewardsPoolEarlyLiquidity(address token, uint256 amount) external;
+    function donateTokenToRewardsPoolEarlyLiquidity(
+        address token,
+        uint256 amount
+    ) external;
 
     /**
      * @notice allows a user to claim their rewards for a bucket
@@ -61,10 +66,9 @@ interface IMinerPoolV2 {
      *             - failure to input all correct USDC Tokens will result in lost rewards
      * @param bucketId - the id of the bucket
      * @param glwWeight - the weight of the user's glw rewards
-     * @param USDCWeight - the weight of the user's USDC rewards
-     * @param proofs - index 0 contains the merkle proof of the user's rewards
-     *                     - the leaves are {payoutWallet, glwWeight, USDCWeight}
-     *                  - index 1 contains the proof for the `tokens` array
+     * @param usdcWeight - the weight of the user's USDC rewards
+     * @param proof - the merkle proof that the user's rewards are stored in the bucket
+     * @param flags - the flags used in the multi-merkle proof
      * @param tokens - the addresses of the payout tokens
      * @param index - the index of the report in the bucket
      *                     - that contains the merkle root where the user's rewards are stored
@@ -73,11 +77,13 @@ interface IMinerPoolV2 {
     function claimRewardFromBucket(
         uint256 bucketId,
         uint256 glwWeight,
-        uint256 USDCWeight,
-        bytes32[][] calldata proofs,
-        address[] calldata tokens,
+        uint256 usdcWeight,
+        bytes32[] memory proof,
+        bool[] memory flags,
+        address[] memory tokens,
         uint256 index,
-        address user
+        address user,
+        bool claimFromInflation
     ) external;
 
     /**
@@ -97,23 +103,7 @@ interface IMinerPoolV2 {
      * @param bucketId - the id of the bucket
      * @return true if the bucket has been delayed
      */
-    function hasBucketBeenDelayed(uint256 bucketId) external view returns (bool);
-
-    /**
-     * @notice returns the bytes32 digest of the claim reward from bucket message
-     * @param bucketId - the id of the bucket
-     * @param glwWeight - the weight of the user's glw rewards in the leaf of the report root
-     * @param USDCWeight - the weight of the user's USDC rewards in the leaf of the report root
-     * @param index - the index of the report in the bucket
-     *                     - that contains the merkle root where the user's rewards are stored
-     * @param claimFromInflation - whether or not to claim glow from inflation
-     * @return the bytes32 digest of the claim reward from bucket message
-     */
-    function createClaimRewardFromBucketDigest(
-        uint256 bucketId,
-        uint256 glwWeight,
-        uint256 USDCWeight,
-        uint256 index,
-        bool claimFromInflation
-    ) external view returns (bytes32);
+    function hasBucketBeenDelayed(
+        uint256 bucketId
+    ) external view returns (bool);
 }

@@ -68,13 +68,17 @@ contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCAV2 {
         uint256 bucketId,
         uint256 glwWeight,
         uint256 usdcWeight,
-        bytes32[][] calldata proofs,
-        address[] calldata tokens,
+        bytes32[] memory proof,
+        bool[] memory flags,
+        address[] memory tokens,
         uint256 index,
-        address user
+        address user,
+        bool claimFromInflation
     ) public virtual override {
         //     if (bucketId < MIGRATION_WEEK) revert CannotClaimFromPreviousContract();
-        super.claimRewardFromBucket(bucketId, glwWeight, usdcWeight, proofs, tokens, index, user);
+        super.claimRewardFromBucket(
+            bucketId, glwWeight, usdcWeight, proof, flags, tokens, index, user, claimFromInflation
+        );
         // }
     }
     //TODO: probably best to throw an error....... ?
