@@ -52,7 +52,7 @@ contract MockMinerPoolAndGCAV2 is MinerPoolAndGCAV2 {
     }
 
     function getUserBitmapForBucket(uint256 bucketId, address user) public view returns (uint256) {
-        return _getUserBitmapForBucket(bucketId, user);
+        return bucketClaimBitmap(bucketId, user);
     }
 
     function getPushedWeights(uint256 bucketId) external view returns (uint256 glw, uint256 usdc) {
