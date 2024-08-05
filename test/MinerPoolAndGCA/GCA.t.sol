@@ -19,26 +19,26 @@ import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
 
 contract GCATest is Test {
     //--------  CONTRACTS ---------//
-    MockGCA gca;
-    TestGLOW glow;
-    Handler handler;
+    MockGCA public gca;
+    TestGLOW public glow;
+    Handler public handler;
 
     //--------  ADDRESSES ---------//
-    address governance = address(0x1);
-    address earlyLiquidity = address(0x2);
-    address vestingContract = address(0x3);
-    address vetoCouncilAddress = address(0x4);
-    address grantsTreasuryAddress = address(0x5);
-    address SIMON = address(0x6);
-    address OTHER_GCA = address(0x7);
-    address OTHER_GCA_2 = address(0x8);
-    address OTHER_GCA_3 = address(0x9);
-    address OTHER_GCA_4 = address(0x10);
+    address public governance = address(0x1);
+    address public earlyLiquidity = address(0x2);
+    address public vestingContract = address(0x3);
+    address public vetoCouncilAddress = address(0x4);
+    address public grantsTreasuryAddress = address(0x5);
+    address public SIMON = address(0x6);
+    address public OTHER_GCA = address(0x7);
+    address public OTHER_GCA_2 = address(0x8);
+    address public OTHER_GCA_3 = address(0x9);
+    address public OTHER_GCA_4 = address(0x10);
 
     //--------  CONSTANTS ---------//
-    uint256 constant ONE_WEEK = 7 * uint256(1 days);
-    uint256 constant _UINT64_MAX_DIV5 = type(uint64).max / 5;
-    uint256 constant _200_BILLION = 200_000_000_000 * 1e18;
+    uint256 public constant ONE_WEEK = 7 * uint256(1 days);
+    uint256 public constant _UINT64_MAX_DIV5 = type(uint64).max / 5;
+    uint256 public constant _200_BILLION = 200_000_000_000 * 1e18;
 
     address deployer = tx.origin;
 

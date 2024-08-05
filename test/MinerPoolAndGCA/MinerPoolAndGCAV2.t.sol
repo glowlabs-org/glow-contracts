@@ -409,7 +409,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: proofFlags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
 
@@ -480,7 +479,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
     }
@@ -545,7 +543,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
     }
@@ -611,7 +608,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
     }
@@ -675,7 +671,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
     }
@@ -890,7 +885,6 @@ contract MinerPoolAndGCAV2Test is Test {
                 flags: flags,
                 tokens: payoutTokens,
                 index: 1,
-                user: (defaultAddressInWithdraw),
                 claimFromInflation: true
             });
 
@@ -904,7 +898,6 @@ contract MinerPoolAndGCAV2Test is Test {
                 flags: flags,
                 tokens: payoutTokens,
                 index: 0,
-                user: (defaultAddressInWithdraw),
                 claimFromInflation: true
             });
         }
@@ -1031,7 +1024,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
 
@@ -1121,7 +1113,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
 
@@ -1226,7 +1217,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
         vm.stopPrank();
@@ -1244,7 +1234,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (address(uint160(uint160(defaultAddressInWithdraw) + 1))),
             claimFromInflation: true
         });
     }
@@ -1310,7 +1299,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
         vm.stopPrank();
@@ -1328,9 +1316,10 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (address(uint160(uint160(defaultAddressInWithdraw) + 1))),
             claimFromInflation: true
         });
+
+        vm.stopPrank();
     }
 
     function test_v2_guarded_handleMintToCarbonCreditAuction() public {
@@ -1439,7 +1428,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
 
@@ -1500,7 +1488,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
     }
@@ -1555,7 +1542,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
     }
@@ -1614,7 +1600,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
 
@@ -1631,7 +1616,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
 
@@ -1684,7 +1668,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
 
@@ -1697,7 +1680,6 @@ contract MinerPoolAndGCAV2Test is Test {
             flags: flags,
             tokens: payoutTokens,
             index: 0,
-            user: (defaultAddressInWithdraw),
             claimFromInflation: true
         });
 

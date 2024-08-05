@@ -38,10 +38,7 @@ interface IMinerPoolV2 {
      * @param token - the erc20 token to donate
      * @param amount -  amount to deposit
      */
-    function donateTokenToMinerRewardsPool(
-        address token,
-        uint256 amount
-    ) external;
+    function donateTokenToMinerRewardsPool(address token, uint256 amount) external;
 
     /**
      * @notice Allows the early liquidity to donate an erc20 into the miner token rewards pool
@@ -52,10 +49,7 @@ interface IMinerPoolV2 {
      * @param token - the erc20 token to donate
      * @param amount -  amount to deposit
      */
-    function donateTokenToRewardsPoolEarlyLiquidity(
-        address token,
-        uint256 amount
-    ) external;
+    function donateTokenToRewardsPoolEarlyLiquidity(address token, uint256 amount) external;
 
     /**
      * @notice allows a user to claim their rewards for a bucket
@@ -72,7 +66,6 @@ interface IMinerPoolV2 {
      * @param tokens - the addresses of the payout tokens
      * @param index - the index of the report in the bucket
      *                     - that contains the merkle root where the user's rewards are stored
-     * @param user - the address of the user
      */
     function claimRewardFromBucket(
         uint256 bucketId,
@@ -82,7 +75,6 @@ interface IMinerPoolV2 {
         bool[] memory flags,
         address[] memory tokens,
         uint256 index,
-        address user,
         bool claimFromInflation
     ) external;
 
@@ -103,7 +95,5 @@ interface IMinerPoolV2 {
      * @param bucketId - the id of the bucket
      * @return true if the bucket has been delayed
      */
-    function hasBucketBeenDelayed(
-        uint256 bucketId
-    ) external view returns (bool);
+    function hasBucketBeenDelayed(uint256 bucketId) external view returns (bool);
 }

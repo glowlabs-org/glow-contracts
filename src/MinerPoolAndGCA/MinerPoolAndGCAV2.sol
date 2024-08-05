@@ -214,20 +214,18 @@ contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
         bool[] memory flags,
         address[] memory tokens,
         uint256 index,
-        address user,
         bool claimFromInflation
     ) public virtual {
         if (claimFromInflation) {
             claimGlowFromInflation();
         }
-        //TODO: check the permissions on {user} and add permisions to claim
         if (!isBucketFinalized(bucketId)) {
             _revert(IMinerPoolV2.BucketNotFinalized.selector);
         }
 
         {
             bytes32 root = getBucketRootAtIndexEfficient(bucketId, index);
-            _checkClaimMultiProof(user, glwWeight, usdcWeight, tokens, proof, flags, root);
+            _checkClaimMultiProof(msg.sender, glwWeight, usdcWeight, tokens, proof, flags, root);
         }
 
         uint256 globalStatePackedData = getPackedBucketGlobalState(bucketId);
@@ -251,11 +249,11 @@ contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
 
         //no need to use a mask since totalUSDCWeight uses the last 64 bits, so we can just shift
         {
-            bool alreadyClaimed = _bucketClaimBitmap[user].get(bucketId);
+            bool alreadyClaimed = _bucketClaimBitmap[msg.sender].get(bucketId);
             if (alreadyClaimed) {
                 _revert(IMinerPoolV2.UserAlreadyClaimed.selector);
             }
-            _bucketClaimBitmap[user].set(bucketId);
+            _bucketClaimBitmap[msg.sender].set(bucketId);
         }
 
         //Just in case a faulty report is submitted, we need to choose the min of _glwWeight and totalGlwWeight
@@ -263,12 +261,12 @@ contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
         // and grab rewards from other buckets
         _revertIfGreater(usdcWeight, totalUSDCWeight, IMinerPoolV2.USDCWeightGreaterThanTotalWeight.selector);
         _revertIfGreater(glwWeight, totalGlwWeight, IMinerPoolV2.GlowWeightGreaterThanTotalWeight.selector);
-        _handleClaimRewardsTokenLoop(bucketId, user, tokens, usdcWeight, totalUSDCWeight);
+        _handleClaimRewardsTokenLoop(bucketId, msg.sender, tokens, usdcWeight, totalUSDCWeight);
 
         {
             uint256 amountGlowToSend = (GLOW_REWARDS_PER_BUCKET * glwWeight) / totalGlwWeight;
             if (amountGlowToSend > 0) {
-                SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), user, amountGlowToSend);
+                SafeERC20.safeTransfer(IERC20(address(GLOW_TOKEN)), msg.sender, amountGlowToSend);
             }
         }
     }
