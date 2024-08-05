@@ -418,6 +418,96 @@ contract MinerPoolAndGCAV2Test is Test {
         vm.stopPrank();
     }
 
+    //TODO: Here
+    function test_v2_guarded_claim_multiple_buckets_withdrawFromBucket() public {
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalusdcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalusdcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                usdcWeight: 200 + i
+            });
+        }
+
+        address[] memory payoutTokens = new address[](1);
+        payoutTokens[0] = address(usdc);
+        bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
+
+        uint256 bucketId = 0;
+        uint256 totalNewGCC = 101 * 1e15;
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalusdcWeight,
+            randomMerkleRoot: root
+        });
+        //warp a week forward and submit another report at bucket + 1
+        vm.warp(block.timestamp + ONE_WEEK);
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: bucketId + 1,
+            totalNewGCC: totalNewGCC,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalusdcWeight,
+            randomMerkleRoot: root
+        });
+
+        vm.warp(block.timestamp + (ONE_WEEK * 2));
+
+        vm.startPrank(defaultAddressInWithdraw);
+        uint256 glwWeightForAddress = 100;
+        uint256 usdcWeightForAddress = 200;
+        // minerPoolAndGCA.claimRewardFromBucket(bucketId, glwWeight, usdcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
+
+        (bytes32[] memory proof, bool[] memory proofFlags) =
+            createClaimLeafProof(claimLeaves, payoutTokens, claimLeaves[0]);
+
+        //Use multicall to claim from both buckets
+
+        {
+            bytes[] memory data = new bytes[](2);
+            data[0] = abi.encodeWithSelector(
+                minerPoolAndGCA.claimRewardFromBucket.selector,
+                bucketId,
+                glwWeightForAddress,
+                usdcWeightForAddress,
+                proof,
+                proofFlags,
+                payoutTokens,
+                0,
+                true
+            );
+
+            data[1] = abi.encodeWithSelector(
+                minerPoolAndGCA.claimRewardFromBucket.selector,
+                bucketId + 1,
+                glwWeightForAddress,
+                usdcWeightForAddress,
+                proof,
+                proofFlags,
+                payoutTokens,
+                0,
+                true
+            );
+
+            minerPoolAndGCA.multicall({data: data});
+        }
+
+        // Should have gotten all the glow rewards twice
+        assertEq(
+            glow.balanceOf((defaultAddressInWithdraw)), ((175_000 ether * glwWeightForAddress) / totalGlwWeight) * 2
+        );
+
+        vm.stopPrank();
+    }
+
     function test_v2_guarded_withdrawFromBucket_glowWeightGreaterThanUint64Max_ShouldRevert() public {
         vm.startPrank(defaultAddressInWithdraw);
         // uint
@@ -960,10 +1050,6 @@ contract MinerPoolAndGCAV2Test is Test {
         vm.warp(block.timestamp + warpSeconds);
         uint256 currentWeek = minerPoolAndGCA.currentWeekInternal();
         assertEq(minerPoolAndGCA.currentBucket(), currentWeek);
-    }
-
-    function test_v2_guarded_domainSeperatorV4_makeCoverageHappy() public {
-        assert(minerPoolAndGCA.domainSeperatorOZ() == minerPoolAndGCA.domainSeperatorV4MainInternal());
     }
 
     function test_v2_guarded_withdrawFromBucket_shouldAddToHoldings() public {

@@ -3,8 +3,8 @@ pragma solidity ^0.8.19;
 
 import {MinerPoolAndGCA as MinerPoolAndGCAV1} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
 import {MinerPoolAndGCAV2} from "@/MinerPoolAndGCA/MinerPoolAndGCAV2.sol";
-import {GCASalaryHelper} from "@/MinerPoolAndGCA/GCASalaryHelper.sol";
-import {GCA} from "@/MinerPoolAndGCA/GCA.sol";
+import {GCASalaryHelperV2} from "@/MinerPoolAndGCA/GCASalaryHelperV2.sol";
+import {GCAV2} from "@/MinerPoolAndGCA/GCAV2.sol";
 import {_GENESIS_TIMESTAMP_GUARDED_LAUNCH_V2} from "@/Constants/Constants.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 
@@ -94,7 +94,7 @@ contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCAV2 {
     function _constructorSetAgentsLastClaimedTimestamp(address[] memory _gcaAddresses, uint256)
         internal
         virtual
-        override(GCA)
+        override(GCAV2)
     {
         unchecked {
             for (uint256 i; i < _gcaAddresses.length; ++i) {
@@ -107,7 +107,7 @@ contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCAV2 {
      * @dev Due to the migration, we override the function to correctly set the payout start timestamp
      *       - in the constructor of the Salary Helper
      */
-    function setZeroPaymentStartTimestamp() internal virtual override(GCASalaryHelper) {
+    function setZeroPaymentStartTimestamp() internal virtual override(GCASalaryHelperV2) {
         _paymentNonceToShiftStartTimestamp[0] = block.timestamp;
     }
 }

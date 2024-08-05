@@ -78,7 +78,7 @@ contract MockMinerPoolAndGCAV2 is MinerPoolAndGCAV2 {
         uint256 glwWeight,
         uint256 usdcWeight
     ) external {
-        _checkWeightsForOverflow(bucketId, totalGlwWeight, totalUsdcWeight, glwWeight, usdcWeight);
+        _checkWeightsForOverflowAndWriteStorage(bucketId, totalGlwWeight, totalUsdcWeight, glwWeight, usdcWeight);
     }
 
     function pushedWeights(uint256 bucketId) external view returns (uint64, uint64) {
@@ -87,13 +87,5 @@ contract MockMinerPoolAndGCAV2 is MinerPoolAndGCAV2 {
 
     function currentWeekInternal() public view returns (uint256) {
         return _currentWeek();
-    }
-
-    function domainSeperatorV4MainInternal() public view returns (bytes32) {
-        return _domainSeperatorV4Main();
-    }
-
-    function domainSeperatorOZ() public view returns (bytes32) {
-        return _domainSeparatorV4();
     }
 }

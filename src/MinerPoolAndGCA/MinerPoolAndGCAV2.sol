@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {GCA} from "./GCA.sol";
+import {GCAV2} from "./GCAV2.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
@@ -16,6 +16,7 @@ import {IGCC} from "@/interfaces/IGCC.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 import {LibBitmap} from "@solady/utils/LibBitmap.sol";
+import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
 
 /**
  * @title Miner Pool And GCA
@@ -24,7 +25,7 @@ import {LibBitmap} from "@solady/utils/LibBitmap.sol";
  *  @notice this contract allows veto council members to delay buckets as defined in the `GCA` contract
  * @notice It is the entry point for farms participating in GLOW to claim their rewards for their contributions
  */
-contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
+contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall {
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */
     /* -------------------------------------------------------------------------- */
@@ -81,23 +82,14 @@ contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
     /* -------------------------------------------------------------------------- */
     /*                                   mappings                                  */
     /* -------------------------------------------------------------------------- */
-    // /**
-    //  * @dev a mapping of (bucketId / 256) -> user  -> bitmap
-    //  */
-    // mapping(uint256 => mapping(address => uint256)) private _bucketClaimBitmap;
 
+    /// @dev A Mapping of (user -> bitmap) to check if a user has claimed from a bucket
     mapping(address => LibBitmap.Bitmap) private _bucketClaimBitmap;
 
-    /**
-     * @dev a mapping of (bucketId / 256) -> bitmap
-     */
-    // mapping(uint256 => uint256) private _mintedToCarbonCreditAuctionBitmap;
+    /// @dev bitmap (bucketId -> bitmap) to check if a bucket has been used to mint to the carbon credit auction
     LibBitmap.Bitmap private _mintedToCarbonCreditAuctionBitmap;
 
-    /**
-     * @dev a mapping of (bucketId / 256) -> bitmap
-     * @dev a bucket can only be delayed once
-     */
+    /// @dev A bitmap of bucketIds that have been delayed
     LibBitmap.Bitmap private _bucketDelayedBitmap;
 
     /**
@@ -152,7 +144,7 @@ contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
         address _vetoCouncil,
         address _holdingContract,
         address _gcc
-    ) payable GCA(_gcaAgents, _glowToken, _governance, _requirementsHash) EIP712("GCA and MinerPool", "2.0") {
+    ) payable GCAV2(_gcaAgents, _glowToken, _governance, _requirementsHash) {
         _EARLY_LIQUIDITY = _earlyLiquidity;
         _VETO_COUNCIL = _vetoCouncil;
         HOLDING_CONTRACT = ISafetyDelay(_holdingContract);
@@ -237,7 +229,7 @@ contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
          */
         uint256 totalUSDCWeight = globalStatePackedData >> 192;
         uint256 totalGlwWeight = (globalStatePackedData >> 128) & _UINT64_MASK;
-        _checkWeightsForOverflow({
+        _checkWeightsForOverflowAndWriteStorage({
             bucketId: bucketId,
             totalGlwWeight: totalGlwWeight,
             totalUSDCWeight: totalUSDCWeight,
@@ -393,7 +385,7 @@ contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
             uint256 amountInBucket = _getAmountForTokenAndInitIfNot(token, bucketId);
             amountInBucket = (amountInBucket * usdcWeight) / totalUSDCWeight;
             if (amountInBucket > 0) {
-                //Cant overflow since the amountInBucket is less than  or equal to the total amount in the bucket
+                // Cant overflow since the amountInBucket is less than  or equal to the total amount in the bucket
                 HOLDING_CONTRACT.addHolding(user, token, SafeCast.toUint192(amountInBucket));
             }
         }
@@ -404,27 +396,15 @@ contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
     /* -------------------------------------------------------------------------- */
 
     /**
-     * @dev user internally to check if a user has already claimed for a bucket
-     *             -   if the have already claimed, the function reverts
-     *             -   if they have not claimed from the bucket, the function returns the new bitmap that should be stored
-     * @param bucketId - the id of the bucket
-     * @param userBitmap - the existing bitmap of the user
-     * @return userBitmap - the new bitmap of the user
+     * @notice Checks the multi proof for the user's claim
+     * @param user - the address of the user
+     * @param glwWeight - the weight of the user's glw rewards
+     * @param usdcWeight - the weight of the user's USDC rewards
+     * @param tokens - the addresses of the payout tokens
+     * @param proof - the merkle proof that the user's rewards are stored in the bucket
+     * @param flags - the flags used in the multi-merkle proof
+     * @param root - the root of the merkle tree
      */
-    function _checkClaimAvailableAndReturnNewBitmap(uint256 bucketId, uint256 userBitmap)
-        internal
-        pure
-        returns (uint256)
-    {
-        uint256 shift = (bucketId % _BITS_IN_UINT);
-        uint256 mask = 1 << shift;
-        if (mask & userBitmap != 0) {
-            _revert(IMinerPoolV2.UserAlreadyClaimed.selector);
-        }
-        userBitmap |= mask;
-        return userBitmap;
-    }
-
     function _checkClaimMultiProof(
         address user,
         uint256 glwWeight,
@@ -462,7 +442,7 @@ contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
      * @param glwWeight - the glw weight of the leaf in the report being claimed
      * @param usdcWeight - the USDC weight of the leaf in the report being claimed
      */
-    function _checkWeightsForOverflow(
+    function _checkWeightsForOverflowAndWriteStorage(
         uint256 bucketId,
         uint256 totalGlwWeight,
         uint256 totalUSDCWeight,
@@ -486,29 +466,22 @@ contract MinerPoolAndGCAV2 is GCA, EIP712, IMinerPoolV2, BucketSubmissionV2 {
      *             - it must override the function in BucketSubmission
      * @return the genesis timestamp
      */
-    function _genesisTimestamp() internal view virtual override(BucketSubmissionV2, GCA) returns (uint256) {
+    function _genesisTimestamp() internal view virtual override(BucketSubmissionV2, GCAV2) returns (uint256) {
         return GENESIS_TIMESTAMP;
     }
 
     /**
      * @dev used to pass down the current week to the {GCASalaryHelper} contract
      */
-    function _currentWeek() internal view override(GCA) returns (uint256) {
+    function _currentWeek() internal view override(GCAV2) returns (uint256) {
         return currentBucket();
-    }
-
-    /**
-     * @dev used to pass down the domain separator to the {GCASalaryHelper} contract
-     */
-    function _domainSeperatorV4Main() internal view virtual override(GCA) returns (bytes32) {
-        return _domainSeparatorV4();
     }
 
     /**
      * @notice returns the bucket duration
      * @return bucketDuration - the bucket duration
      */
-    function bucketDuration() internal pure virtual override(GCA, BucketSubmissionV2) returns (uint256) {
+    function bucketDuration() internal pure virtual override(GCAV2, BucketSubmissionV2) returns (uint256) {
         return _BUCKET_DURATION;
     }
 
