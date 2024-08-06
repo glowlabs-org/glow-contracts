@@ -2,6 +2,9 @@
 pragma solidity ^0.8.19;
 
 import {USDG} from "@/USDG.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 contract USDGGuardedLaunchV2 is USDG {
     error CannotSendZeroAmount();
@@ -18,8 +21,8 @@ contract USDGGuardedLaunchV2 is USDG {
         uint64 expirationTimestamp;
     }
 
-    event USDCWithdrawalQueued(address indexed user, uint192 amount, uint64 expirationTimestamp);
-    event USDCWithdrawalClaimed(address indexed user, uint192 amount);
+    event USDCWithdrawalQueued(address indexed user, uint256 amount, uint64 expirationTimestamp);
+    event USDCWithdrawalClaimed(address indexed user, uint256 amount);
 
     mapping(address => USDCWithdrawal) internal _usdcWithdrawalQueue;
 
@@ -73,19 +76,20 @@ contract USDGGuardedLaunchV2 is USDG {
         _decodeMigrationContractAndSendAmount(_migrationContractAndAmount);
     }
 
-    function depositUSDCToWithdrawalQueue(uint192 _amount) external {
+    /// @notice Allows the `msg.sender` to deposit USDG into the withdrawal queue
+    function depositUSDCToWithdrawalQueue(uint256 _amount) external {
         if (_amount == 0) {
             revert CannotSendZeroAmount();
         }
-        //transfer usdg from user to here
-        transferFrom(msg.sender, address(this), _amount);
+        _burn(msg.sender, _amount);
         uint64 expirationTimestamp = uint64(block.timestamp + QUEUE_TIME);
         USDCWithdrawal memory withdrawal = _usdcWithdrawalQueue[msg.sender];
-        uint192 newTotalAmount = withdrawal.amount + _amount;
+        uint192 newTotalAmount = SafeCast.toUint192(uint256(withdrawal.amount) + _amount);
         _usdcWithdrawalQueue[msg.sender] = USDCWithdrawal(newTotalAmount, expirationTimestamp);
         emit USDCWithdrawalQueued(msg.sender, _amount, expirationTimestamp);
     }
 
+    /// @notice Allows the `msg.sender` to claim USDG from the withdrawal queue
     function claimUSDCFromWithdrawalQueue() external {
         USDCWithdrawal memory withdrawal = _usdcWithdrawalQueue[msg.sender];
         if (withdrawal.amount == 0) {
@@ -94,11 +98,13 @@ contract USDGGuardedLaunchV2 is USDG {
         if (block.timestamp < withdrawal.expirationTimestamp) {
             revert ClaimNotAvailableYet();
         }
+        SafeERC20.safeTransfer(IERC20(address(USDC)), msg.sender, withdrawal.amount);
         delete _usdcWithdrawalQueue[msg.sender];
-        USDC.transferFrom(address(this), msg.sender, withdrawal.amount);
         emit USDCWithdrawalClaimed(msg.sender, withdrawal.amount);
     }
 
+    /// @notice Returns the USDG withdrawal queue for a user
+    /// @params _user The user to get the withdrawal queue for
     function usdcWithdrawalQueue(address _user) external view returns (USDCWithdrawal memory) {
         return _usdcWithdrawalQueue[_user];
     }
