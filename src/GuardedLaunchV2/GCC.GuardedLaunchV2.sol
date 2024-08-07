@@ -47,15 +47,15 @@ contract GCCGuardedLaunchV2 is GCCGuardedLaunch {
             _uniswapFactory
         )
     {
+        MIGRATION_CONTRACT = migrationContract;
+        allowlistedContracts[migrationContract] = true;
+        _mint(migrationContract, migrationAmount);
         for (uint256 i; i < _allowlistedMultisigContracts.length;) {
             allowlistedContracts[_allowlistedMultisigContracts[i]] = true;
-            allowlistedContracts[migrationContract] = true;
-            _mint(migrationContract, migrationAmount);
             unchecked {
                 ++i;
             }
         }
-        MIGRATION_CONTRACT = migrationContract;
     }
 
     function migrateImpactPower(address account, uint256 amount) external {

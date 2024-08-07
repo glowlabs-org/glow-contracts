@@ -1,8 +1,5 @@
-import MerkleTree from 'merkletreejs';
-import keccak256 from 'keccak256';
 import * as fs from 'fs';
-import { BigNumber, ethers } from 'ethers';
-import * as eK from '@ethersproject/keccak256';
+import { ethers } from 'ethers';
 import { SimpleMerkleTree } from '@openzeppelin/merkle-tree';
 
 // Function to extract leaves argument from the command line arguments

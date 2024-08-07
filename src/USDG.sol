@@ -178,12 +178,17 @@ contract USDG is ERC20Permit, Ownable {
      * @param value the amount of USDG to send
      */
     function _update(address from, address to, uint256 value) internal override(ERC20) {
-        if (permanentlyFreezeTransfers) {
-            revert ErrPermanentlyFrozen();
-        }
+        _revertIfFrozen();
         _revertIfNotAllowlistedContract(from);
         _revertIfNotAllowlistedContract(to);
         super._update(from, to, value);
+    }
+
+    /// @dev Reverts if the contract is permanently frozen
+    function _revertIfFrozen() internal view {
+        if (permanentlyFreezeTransfers) {
+            revert ErrPermanentlyFrozen();
+        }
     }
 
     /**

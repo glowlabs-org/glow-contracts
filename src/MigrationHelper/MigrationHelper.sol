@@ -62,7 +62,20 @@ contract MigrationHelper {
         bytes32[] memory leaves = new bytes32[](accounts.length);
         unchecked {
             for (uint256 i; i < accounts.length; ++i) {
-                leaves[i] = keccak256(abi.encodePacked(accounts[i], glowAmounts[i], gccAmounts[i], usdgAmounts[i]));
+                leaves[i] = keccak256(
+                    bytes.concat(
+                        keccak256(
+                            abi.encode(
+                                accounts[i],
+                                glowAmounts[i],
+                                gccAmounts[i],
+                                usdgAmounts[i],
+                                nominations[i],
+                                impactPowers[i]
+                            )
+                        )
+                    )
+                );
                 //Optimistically transfer
                 if (migrated[accounts[i]]) {
                     revert AlreadyMigrated();

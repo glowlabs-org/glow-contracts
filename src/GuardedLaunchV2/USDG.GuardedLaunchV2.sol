@@ -10,6 +10,7 @@ contract USDGGuardedLaunchV2 is USDG {
     error CannotSendZeroAmount();
     error ClaimNotAvailableYet();
     error NoUSDCToClaim();
+    error ContractNotFrozen();
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
@@ -91,6 +92,7 @@ contract USDGGuardedLaunchV2 is USDG {
 
     /// @notice Allows the `msg.sender` to claim USDG from the withdrawal queue
     function claimUSDCFromWithdrawalQueue() external {
+        _revertIfFrozen();
         USDCWithdrawal memory withdrawal = _usdcWithdrawalQueue[msg.sender];
         if (withdrawal.amount == 0) {
             revert NoUSDCToClaim();
@@ -104,11 +106,21 @@ contract USDGGuardedLaunchV2 is USDG {
     }
 
     /// @notice Returns the USDG withdrawal queue for a user
-    /// @params _user The user to get the withdrawal queue for
+    /// @param _user - The user to get the withdrawal queue for
     function usdcWithdrawalQueue(address _user) external view returns (USDCWithdrawal memory) {
         return _usdcWithdrawalQueue[_user];
     }
 
+    /// @notice Sends all remaining USDC to the Multisig contract in case of a freeze
+    function sendTokensToUSDCReceiverInCaseOfFreeze() public {
+        if (!permanentlyFreezeTransfers) {
+            revert ContractNotFrozen();
+        }
+
+        SafeERC20.safeTransfer(IERC20(address(USDC)), USDC_RECEIVER, USDC.balanceOf(address(this)));
+    }
+
+    /// @dev Decodes the migration contract and amount and sends the amount to the migration contract
     function _decodeMigrationContractAndSendAmount(bytes memory _migrationContractAndAmount) internal {
         (address _migrationContract, uint256 _amountToSendToMigrationContract) =
             abi.decode(_migrationContractAndAmount, (address, uint256));

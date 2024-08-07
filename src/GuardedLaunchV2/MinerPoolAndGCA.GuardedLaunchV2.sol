@@ -8,8 +8,6 @@ import {GCAV2} from "@/MinerPoolAndGCA/GCAV2.sol";
 import {_GENESIS_TIMESTAMP_GUARDED_LAUNCH_V2} from "@/Constants/Constants.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 
-//TODO: check miner pool claim function and do the approvals for the claims
-
 contract MinerPoolAndGCAGuardedLaunchV2 is MinerPoolAndGCAV2 {
     // struct MigrationInformation {
     //     uint256 migrationWeek;
