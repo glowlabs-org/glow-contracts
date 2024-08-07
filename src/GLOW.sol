@@ -652,15 +652,6 @@ contract Glow is ERC20, ERC20Permit, IGlow {
     /* -------------------------------------------------------------------------- */
 
     /**
-     * @notice Returns the smaller of two numbers
-     * @param a The first number
-     * @param b The second number
-     */
-    function _min(uint256 a, uint256 b) private pure returns (uint256) {
-        return a < b ? a : b;
-    }
-
-    /**
      * @notice More efficiently reverts with a bytes4 selector
      * @param selector The selector to revert with
      */

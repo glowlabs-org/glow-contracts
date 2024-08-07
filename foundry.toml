@@ -22,3 +22,9 @@ runs = 10
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
+[profile.report.fuzz]
+runs = 1
+
+[profile.report.invariant]
+depth = 1
+runs = 1

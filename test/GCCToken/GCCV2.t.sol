@@ -1,0 +1,922 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.19;
+
+import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
+import {TestGCCV2 as TestGCC} from "@/testing/TestGCCV2.sol";
+import "forge-std/console.sol";
+import {IGCCV2} from "@/interfaces/IGCCV2.sol";
+import "forge-std/StdError.sol";
+import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {Governance} from "@/Governance.sol";
+import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
+import {Handler} from "./Handler.sol";
+import "forge-std/StdUtils.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {TestGLOW} from "@/testing/TestGLOW.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
+import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
+import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
+import {MockUSDC} from "@/testing/MockUSDC.sol";
+import {UnifapV2Pair} from "@unifapv2/UnifapV2Pair.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
+import {ImpactCatalyst} from "@/ImpactCatalyst.sol";
+
+// @dev, to test the results for enough precision if you are saving the csv
+// run python3 repo-utils/commit-analysis/main.py to get the results
+
+bytes32 constant PERMIT_TYPEHASH =
+    keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+uint256 constant GCC_MAGNIFICATION = 1e18;
+uint256 constant USDC_MAGNIFICATION = 1e24;
+
+contract GCCTestV2 is Test {
+    bool saveLogs = vm.envBool("SAVE_RETIRE_RUNS");
+    UnifapV2Factory public uniswapFactory;
+    WETH9 public weth;
+    UnifapV2Router public uniswapRouter;
+    MockUSDC usdc;
+    TestGCC public gcc;
+    Governance public gov;
+    CarbonCreditDescendingPriceAuction public auction;
+    address public constant GCA_AND_MINER_POOL_CONTRACT = address(0x2);
+    address public SIMON;
+    uint256 public SIMON_PK;
+    Handler public handler;
+    address gca = address(0x155);
+    address vetoCouncil = address(0x156);
+    address grantsTreasury = address(0x157);
+    address glw;
+    TestGLOW glwContract;
+    address vestingContract = address(0x412412);
+    address earlyLiquidity = address(0x412412);
+    address other = address(0xdead);
+    address accountWithLotsOfUSDC = 0xcEe284F754E854890e311e3280b767F80797180d; //arbitrum bridge
+    // string forkUrl = vm.envString("MAINNET_RPC");
+    // uint256 mainnetFork;
+
+    address deployer = tx.origin;
+
+    function setUp() public {
+        vm.startPrank(deployer);
+        uniswapFactory = new UnifapV2Factory();
+        weth = new WETH9();
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+        usdc = new MockUSDC();
+        // mainnetFork = vm.createFork(forkUrl);
+
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 2);
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
+        glw = address(glwContract); //deployerNonce
+
+        gcc = new TestGCC(
+            GCA_AND_MINER_POOL_CONTRACT, address(precomputedGovernance), glw, address(usdc), address(uniswapRouter)
+        ); //deployerNonce+1
+
+        (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
+        gov = new Governance({
+            gcc: address(gcc),
+            gca: gca,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce + 2
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        handler = new Handler(address(gcc), GCA_AND_MINER_POOL_CONTRACT);
+
+        //TODO: precompute
+        // gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
+
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = Handler.mintToCarbonCreditAuction.selector;
+        FuzzSelector memory fs = FuzzSelector({selectors: selectors, addr: address(handler)});
+
+        bytes32 initCodePair = keccak256(abi.encodePacked(type(UnifapV2Pair).creationCode));
+        console.logBytes32(initCodePair);
+
+        targetContract(address(handler));
+        seedLP(400 ether, 1000 * 1e6);
+        address pair = uniswapFactory.pairs(address(usdc), address(gcc));
+
+        (uint256 reserveA, uint256 reserveB,) = UnifapV2Pair(pair).getReserves();
+        console.log("reserveA = %s", reserveA);
+        console.log("reserveB = %s", reserveB);
+
+        vm.stopPrank();
+    }
+
+    /**
+     * forge-config: default.fuzz.runs = 250
+     */
+    function testFuzz_ensureOptimalAmountOutput_isLessThanAmountTocommit(uint256 a, uint256 b) public {
+        /**
+         * This test exists because our 'findOptimalAmountToSwap' function
+         *         can lead to weird results due to precision loss in extreme cases.
+         *         This test ensures that the optimal amount is always less than the
+         *         amount to commit so that there is no underflow in the commit function.
+         *         We choose a sensible range for the amount to commit and total reserves.
+         *         We need to bound the input to a sensible range to avoid unrealistic results.
+         *         To run this in a more fullproof manner, we created a python script and looped
+         *         1000 times on this test.
+         */
+        /*vm.assume(a > 0.01 ether && a < 1_000_000_000_000 * 1e6 ether);
+        vm.assume(b > 0.01 ether && b < 1_000_000_000_000 * 1e6 ether);
+        a = a % 1_000_000_000_000 * 1e6 ether;
+        b = b % 1_000_000_000_000 * 1e6 ether;*/
+        a = bound(a, 0.01 ether, 1_000_000_000_000 * 1e6 ether);
+        b = bound(b, 0.01 ether, 1_000_000_000_000 * 1e6 ether);
+
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
+        uint256 amount = a;
+        uint256 totalReserves = b;
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+        optimalAmount /= GCC_MAGNIFICATION;
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+
+        if (success == 0) {
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(success)
+                )
+            );
+            if (saveLogs) {
+                vm.writeLine("logs/gcc.csv", stringToWrite);
+            }
+        }
+        assert(amount > optimalAmount);
+    }
+
+    /**
+     * forge-config: default.fuzz.runs = 1000
+     */
+    function testFuzz_uniswapManualRetiringGCC(uint256 a, uint256 b) public {
+        // a = amount to commit
+        // b = total reserves
+
+        /**
+         * The point of this test is to ensure that precision loss for dust
+         *         is sensible even in extreme scenarios such as the ranges described below.
+         *         Manual analysis was done on the outputs of this test to ensure that
+         *         the precision loss and dust is sensible and minimal.
+         */
+        /*vm.assume(a > 0.01 ether && a < 1_000_000_000_000 ether);
+        vm.assume(b > 0.01 ether && b < 1_000_000_000_000 ether);*/
+        vm.assume(a > 0.01 ether);
+        vm.assume(b > 0.01 ether);
+        a = bound(a, 0.01 ether, 1_000_000_000_000 ether);
+        b = bound(b, 0.01 ether, 1_000_000_000_000 ether);
+
+        vm.startPrank(deployer);
+        uniswapFactory = new UnifapV2Factory();
+        weth = new WETH9();
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+        usdc = new MockUSDC();
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
+        glw = address(glwContract);
+        (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 1);
+        gcc = new TestGCC(
+            GCA_AND_MINER_POOL_CONTRACT, address(precomputedGovernance), glw, address(usdc), address(uniswapRouter)
+        ); //deployerNonce
+        gov = new Governance({
+            gcc: address(gcc),
+            gca: gca,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce + 1
+
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+
+        vm.stopPrank();
+        uint256 totalReserves = b;
+        seedLP(totalReserves, 1000 * 1e6);
+
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
+        uint256 amount = a;
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+        optimalAmount /= GCC_MAGNIFICATION;
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+
+        address[] memory path = new address[](2);
+        path[0] = address(gcc);
+        path[1] = gcc.USDC();
+
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, amount);
+        gcc.approve(address(uniswapRouter), amount);
+        // uint256[] memory amounts =
+        //     uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp);
+        try uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp) returns (
+            uint256[] memory amounts
+        ) {
+            // Success. Do something with `amounts` if needed.
+
+            IERC20(gcc.USDC()).approve(address(uniswapRouter), amounts[1]);
+            uint256 amountLiquidityToAdd = amount - optimalAmount;
+
+            uniswapRouter.addLiquidity(
+                address(gcc), gcc.USDC(), amountLiquidityToAdd, amounts[1], 0, 0, SIMON, block.timestamp
+            );
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+            //totalReserves,amount,optimalAmount,leftoverGCC,leftoverUSDC,success,optimalAmountGreaterThanReserves
+
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(leftoverGCC),
+                    ",",
+                    Strings.toString(leftoverUSDC),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves)
+                )
+            );
+
+            if (saveLogs) {
+                vm.writeLine("logs/swap-succeses.csv", stringToWrite);
+            }
+        } catch Error(string memory reason) {
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+            /**
+             * CSV Headers:
+             *     totalReserves,amount,optimalAmount,,success,optimalAmountGreaterThanReserves,reason
+             */
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves),
+                    ",",
+                    reason
+                )
+            );
+
+            if (saveLogs) {
+                vm.writeLine("logs/swap-errors.csv", stringToWrite);
+            }
+        }
+    }
+
+    //-------------------  USDC RETIRING  -----------------------------
+    /**
+     * forge-config: default.fuzz.runs = 250
+     */
+    function testFuzz_ensureOptimalAmountOutput_isLessThanAmountTocommit_USDC(uint256 a, uint256 b) public {
+        /**
+         * This test exists because our 'findOptimalAmountToSwap' function
+         *         can lead to weird results due to precision loss in extreme cases.
+         *         This test ensures that the optimal amount is always less than the
+         *         amount to commit so that there is no underflow in the commit function.
+         *         We choose a sensible range for the amount to commit and total reserves.
+         *         Fuzz runs are set to 250 to prevent foundry from throwing errors due to
+         *         too many rejected values.
+         *         To run this in a more fullproof manner, we created a python script and looped
+         *         1000 times on this test.
+         */
+        vm.assume(a > 0.01 * 1e6 && a < 1_000_000_000_000 * 1e6 * 1e6);
+        vm.assume(b > 0.01 * 1e6 && b < 1_000_000_000_000 * 1e6 * 1e6);
+
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
+        uint256 amount = a;
+        uint256 totalReserves = b;
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
+        optimalAmount /= USDC_MAGNIFICATION;
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+
+        if (success == 0) {
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(success)
+                )
+            );
+            if (saveLogs) {
+                vm.writeLine("logs/usdc-data.csv", stringToWrite);
+            }
+        }
+        assert(amount > optimalAmount);
+    }
+
+    /**
+     * forge-config: default.fuzz.runs = 1000
+     */
+    function testFuzz_uniswapManualRetiringUSDC(uint256 a, uint256 b) public {
+        // a = amount to commit
+        // b = total reserves
+
+        /**
+         * The point of this test is to ensure that precision loss for dust
+         *         is sensible even in extreme scenarios such as the ranges described below.
+         *         Manual analysis was done on the outputs of this test to ensure that
+         *         the precision loss and dust is sensible and minimal.
+         *         Note: USDC has 6 decimals
+         */
+        vm.startPrank(deployer);
+        {
+            uint256 A_MIN = 10 * 1e6;
+            uint256 A_MAX = 1_000_000_000_000 * 1e6;
+            a = bound(a, A_MIN, A_MAX);
+            uint256 B_MIN = 10 * 1e6;
+            uint256 B_MAX = 1_000_000_000_000 * 1e6;
+            b = bound(b, B_MIN, B_MAX);
+        }
+
+        uniswapFactory = new UnifapV2Factory();
+        weth = new WETH9();
+        uniswapRouter = new UnifapV2Router(address(uniswapFactory));
+        usdc = new MockUSDC();
+        glwContract =
+            new TestGLOW(earlyLiquidity, vestingContract, GCA_AND_MINER_POOL_CONTRACT, vetoCouncil, grantsTreasury);
+        glw = address(glwContract);
+        (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputedGovernance = computeCreateAddress(deployer, deployerNonce + 1);
+        gcc = new TestGCC(
+            GCA_AND_MINER_POOL_CONTRACT, address(precomputedGovernance), glw, address(usdc), address(uniswapRouter)
+        ); //deployerNonce + 1
+
+        gov = new Governance({
+            gcc: address(gcc),
+            gca: gca,
+            vetoCouncil: vetoCouncil,
+            grantsTreasury: grantsTreasury,
+            glw: glw
+        }); //deployerNonce
+
+        auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+
+        vm.stopPrank();
+        uint256 totalReserves = b;
+        seedLP(100 ether, totalReserves);
+
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
+        uint256 amount = a;
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToSwap(amount * USDC_MAGNIFICATION, totalReserves * USDC_MAGNIFICATION);
+        optimalAmount /= USDC_MAGNIFICATION;
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+
+        address[] memory path = new address[](2);
+        path[0] = gcc.USDC();
+        path[1] = address(gcc);
+
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, amount);
+        usdc.approve(address(uniswapRouter), amount);
+        // uint256[] memory amounts =
+        //     uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp);
+        try uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp) returns (
+            uint256[] memory amounts
+        ) {
+            // Success. Do something with `amounts` if needed.
+
+            gcc.approve(address(uniswapRouter), amounts[1]);
+            uint256 amountLiquidityToAdd = amount - optimalAmount;
+
+            uniswapRouter.addLiquidity(
+                address(usdc), address(gcc), amountLiquidityToAdd, amounts[1], 0, 0, SIMON, block.timestamp
+            );
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+            //totalReserves,amount,optimalAmount,leftoverGCC,leftoverUSDC,success,optimalAmountGreaterThanReserves
+
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(leftoverGCC),
+                    ",",
+                    Strings.toString(leftoverUSDC),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves)
+                )
+            );
+
+            if (saveLogs) {
+                vm.writeLine("logs/swap-succeses-usdc.csv", stringToWrite);
+            }
+        } catch Error(string memory reason) {
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+            /**
+             * CSV Headers:
+             *     totalReserves,amount,optimalAmount,,success,optimalAmountGreaterThanReserves,reason
+             */
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves),
+                    ",",
+                    reason
+                )
+            );
+
+            if (saveLogs) {
+                vm.writeLine("logs/swap-errors-usdc.csv", stringToWrite);
+            }
+        }
+    }
+
+    //-------------------  END USDC RETIRING  -----------------------------
+
+    // A manual test we used to confirm suspicions about certain inputs/outputs
+    function test_v2_manualGCCcommit() public {
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
+        uint256 amount = 9392183157865769199004733;
+        uint256 totalReserves;
+
+        {
+            (uint256 reserveA, uint256 reserveB,) =
+                UnifapV2Pair(uniswapFactory.pairs(address(gcc), address(usdc))).getReserves();
+            uint256 gccReserve = address(gcc) < address(usdc) ? reserveA : reserveB;
+            uint256 usdcReserve = address(gcc) < address(usdc) ? reserveB : reserveA;
+            totalReserves = gccReserve;
+        }
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+        optimalAmount /= GCC_MAGNIFICATION;
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+
+        address[] memory path = new address[](2);
+        path[0] = address(gcc);
+        path[1] = gcc.USDC();
+
+        address receiver = address(0xfffaaadeaadd);
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, amount);
+        gcc.approve(address(uniswapRouter), amount);
+        // uint256[] memory amounts =
+
+        {
+            (uint256 reserveA, uint256 reserveB,) =
+                UnifapV2Pair(uniswapFactory.pairs(address(gcc), address(usdc))).getReserves();
+            uint256 gccReserve = address(gcc) < address(usdc) ? reserveA : reserveB;
+            uint256 usdcReserve = address(gcc) < address(usdc) ? reserveB : reserveA;
+
+            console.log("gccReserve before swap= %s", gccReserve);
+            console.log("usdcReserve  before swap= %s", usdcReserve);
+            console.log("gcc swapping = %s", optimalAmount);
+        }
+        //     uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp);
+        try uniswapRouter.swapExactTokensForTokens(optimalAmount, 0, path, SIMON, block.timestamp) returns (
+            uint256[] memory amounts
+        ) {
+            // Success. Do something with `amounts` if needed.
+
+            uint256 amountUSDCBeforeLiquidityEvent = usdc.balanceOf(SIMON);
+
+            IERC20(gcc.USDC()).approve(address(uniswapRouter), amounts[1]);
+
+            uint256 amountLiquidityToAdd = amount - optimalAmount;
+
+            {
+                (uint256 reserveA, uint256 reserveB,) =
+                    UnifapV2Pair(uniswapFactory.pairs(address(gcc), address(usdc))).getReserves();
+                uint256 gccReserve = address(gcc) < address(usdc) ? reserveA : reserveB;
+                uint256 usdcReserve = address(gcc) < address(usdc) ? reserveB : reserveA;
+
+                console.log("gccReserve after swap= %s", gccReserve);
+                console.log("usdcReserve  after swap= %s", usdcReserve);
+                console.log("gccLiquidityToAdd = %s", amountLiquidityToAdd);
+                console.log("usdcLiquidityToAdd = %s", amounts[1]);
+            }
+
+            uniswapRouter.addLiquidity(
+                address(gcc), gcc.USDC(), amountLiquidityToAdd, amounts[1], 0, 0, SIMON, block.timestamp
+            );
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+
+            // console.log("amountUSDCBeforeLiquidityEvent = %s", amountUSDCBeforeLiquidityEvent);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+
+            //totalReserves,amount,optimalAmount,leftoverGCC,leftoverUSDC,success,optimalAmountGreaterThanReserves
+
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(leftoverGCC),
+                    ",",
+                    Strings.toString(leftoverUSDC),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves)
+                )
+            );
+
+            // vm.writeLine("swap-succeses.csv", stringToWrite);
+            console.log("SUCCESS");
+            console.log("GCC DUST  = %s", leftoverGCC);
+            console.log("USDC DUST = %s", leftoverUSDC);
+        } catch Error(string memory reason) {
+            // This will catch failing revert() or require() with an error message.
+            // Handle the error. Maybe emit a log or revert again with a custom message.
+            uint256 leftoverGCC = gcc.balanceOf(SIMON);
+            uint256 leftoverUSDC = usdc.balanceOf(SIMON);
+            uint256 optimalAmountGreaterThanReserves = optimalAmount > totalReserves ? 1 : 0;
+            console.log("FAIL");
+
+            /**
+             * CSV Headers:
+             *     totalReserves,amount,optimalAmount,,success,optimalAmountGreaterThanReserves,reason
+             */
+            string memory stringToWrite = string(
+                abi.encodePacked(
+                    Strings.toString(totalReserves),
+                    ",",
+                    Strings.toString(amount),
+                    ",",
+                    Strings.toString(optimalAmount),
+                    ",",
+                    Strings.toString(success),
+                    ",",
+                    Strings.toString(optimalAmountGreaterThanReserves),
+                    ",",
+                    reason
+                )
+            );
+
+            if (saveLogs) {
+                vm.writeLine("logs/swap-errors.csv", stringToWrite);
+            }
+        }
+    }
+
+    function test_v2_getStuff() public {
+        uint256 a = 0.01 ether;
+        uint256 b = 1_000_000_000_000 * 1e6 ether;
+        ImpactCatalyst swapper = gcc.IMPACT_CATALYST();
+        uint256 MAGNIFIER = 1e18;
+        uint256 amount = a;
+        uint256 totalReserves = b;
+        // console.log("amount = ", amount);
+        // console.log("totalReserves = ", totalReserves);
+        uint256 optimalAmount =
+            swapper.findOptimalAmountToSwap(amount * GCC_MAGNIFICATION, totalReserves * GCC_MAGNIFICATION);
+        optimalAmount /= MAGNIFIER;
+
+        uint256 success = amount >= optimalAmount ? 1 : 0;
+        string memory stringToWrite = string(
+            abi.encodePacked(
+                Strings.toString(totalReserves),
+                ",",
+                Strings.toString(amount),
+                ",",
+                Strings.toString(optimalAmount),
+                ",",
+                Strings.toString(success)
+            )
+        );
+        if (saveLogs) {
+            vm.writeLine("logs/gcc.csv", stringToWrite);
+        }
+        /*
+        args=[1000000000000000000000000000000001 [1e33],
+        569316204070399230977136833119242087930906411821164 [5.693e50]]]
+        testFuzz_getStuff(uint256,uint256) (runs: 89, μ: 17220, ~: 17220)
+        */
+
+        console.log("amount = %s", amount);
+        console.log("optimal amount = %s", optimalAmount);
+        assertTrue(amount > optimalAmount, "amount is less than optimal amount");
+    }
+
+    /// forge-config: default.invariant.depth = 1000
+    // We make sure that the bucketMintedBitmap is set correctly by creating
+    /// a stateful fuzz that tracks all used bucketIds
+    function invariant_v2_setBucketMintedBitmapLogic() public {
+        uint256[] memory allFuzzIds = handler.getAllFuzzIds();
+        uint256[] memory allNotFuzzIds = handler.getAllNotFuzzIds();
+        // assertEq(allFuzzIds.length > 0,true);
+        for (uint256 i = 0; i < allFuzzIds.length; i++) {
+            assertEq(handler.isBucketMinted(allFuzzIds[i]), true);
+        }
+        for (uint256 i = 0; i < allNotFuzzIds.length; i++) {
+            assertEq(handler.isBucketMinted(allNotFuzzIds[i]), false);
+        }
+    }
+
+    modifier mintTo(address user) {
+        gcc.mint(user, 1e20 ether);
+        assertEq(gcc.balanceOf(user), 1e20 ether);
+        _;
+    }
+
+    modifier prankAsGCA() {
+        vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
+        _;
+        vm.stopPrank();
+    }
+
+    /**
+     * This test ensures that the GCC contract
+     * is correctly minting to the carbon credit auction contract.
+     */
+    function test_v2_sendToCarbonCreditAuction() public {
+        vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
+        gcc.mintToCarbonCreditAuction(1, 1e20 ether);
+        assertEq(gcc.balanceOf(address(auction)), 1e20 ether);
+        assertEq(gcc.isBucketMinted(1), true);
+        //Let's have a sanity check and make sure that bucketMinted(2) is false
+        assertEq(gcc.isBucketMinted(2), false);
+
+        //Also try bucket 10000000
+        gcc.mintToCarbonCreditAuction(10000000, 1e20 ether);
+        assertEq(gcc.isBucketMinted(10000000), true);
+        vm.stopPrank();
+    }
+
+    /**
+     * This test ensures that only the GCA and
+     *     Miner Pool contract can use the ```mintToCarbonCredit``` function.
+     */
+    function test_v2_sendToCarbonCreditAuction_callerNotGCA_shouldRevert() public {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGCCV2.CallerNotGCAContract.selector);
+        gcc.mintToCarbonCreditAuction(1, 1e20 ether);
+        vm.stopPrank();
+    }
+
+    //This test ensures that we can only mint from a bucket once
+    function test_v2_sendToCarbonCreditAuctionSameBucketShouldRevert() public {
+        test_v2_sendToCarbonCreditAuction();
+        vm.startPrank(GCA_AND_MINER_POOL_CONTRACT);
+        vm.expectRevert(IGCCV2.BucketAlreadyMinted.selector);
+        gcc.mintToCarbonCreditAuction(1, 1e20 ether);
+    }
+
+    function test_v2_commitGCC() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        gcc.commitGCC(100 ether, SIMON, 0);
+        // assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        // assertEq(gcc.totalCreditsCommitted(SIMON), 1e20 ether);
+        // assertEq(gcc.balanceOf(address(gcc)), 1e20 ether);
+    }
+
+    function test_v2_commitGCC_notEnoughNominationsShouldRevert() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 100 ether);
+        //Should earn earned 74550935508537, so we add 1 and it should revert
+        vm.expectRevert(ImpactCatalyst.NotEnoughImpactPowerFromCommitment.selector);
+        gcc.commitGCC(100 ether, SIMON, 74550935508537 + 1);
+    }
+
+    function test_v2_commitGCC_GiveRewardsToOthers() public {
+        vm.startPrank(SIMON);
+        gcc.mint(SIMON, 1 ether);
+        (, uint256 impactPower) = gcc.commitGCC(1 ether, other, 0);
+        assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        assertEq(gcc.totalImpactPowerEarned(other), impactPower);
+    }
+
+    function test_v2_commitUSDC_referral() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, address(0), 0);
+        assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        assertEq(gcc.totalImpactPowerEarned(SIMON), impactPower);
+        assertEq(gov.nominationsOf(SIMON), impactPower);
+        vm.stopPrank();
+    }
+
+    function test_v2_commitUSDC_referralAddressEqFrom_shouldRevert() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        vm.expectRevert(IGCCV2.CannotReferSelf.selector);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, SIMON, 0);
+        vm.stopPrank();
+    }
+
+    function test_v2_commitUSDC() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, 0);
+        assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        assertEq(gcc.totalImpactPowerEarned(SIMON), impactPower);
+        assertEq(gov.nominationsOf(SIMON), impactPower);
+        vm.stopPrank();
+    }
+
+    function test_v2_commitUSDC_notEnoughImpactPowerShouldRevert() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        //Should give us 261693317327390 impact power
+        //so we add 1 and it should revert
+        // vm.expectRevert();
+        vm.expectRevert(ImpactCatalyst.NotEnoughImpactPowerFromCommitment.selector);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, SIMON, 261693317327390 + 1);
+        vm.stopPrank();
+    }
+
+    function test_v2_commitUSDC_rewardToOther() public {
+        vm.startPrank(SIMON);
+        usdc.mint(SIMON, 1000 * 1e6);
+        usdc.approve(address(gcc), 1000 * 1e6);
+        address rewardAddress = address(0xffffaa);
+        uint256 impactPower = gcc.commitUSDC(1000 * 1e6, rewardAddress, 0);
+        assertEq(gcc.balanceOf(SIMON), 0);
+        //make sure i get neutrality
+        assertEq(gcc.totalImpactPowerEarned(rewardAddress), impactPower);
+        assertEq(gov.nominationsOf(rewardAddress), impactPower);
+        vm.stopPrank();
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   helpers                                  */
+    /* -------------------------------------------------------------------------- */
+    function _createAccount(uint256 privateKey, uint256 amount) internal returns (address addr, uint256 priv) {
+        addr = vm.addr(privateKey);
+        vm.deal(addr, amount);
+        priv = privateKey;
+
+        return (addr, priv);
+    }
+
+    // function _signUSDCPermit(
+    //     address owner,
+    //     address spender,
+    //     uint256 amount,
+    //     uint256 nonce,
+    //     uint256 deadline,
+    //     uint256 privateKey
+    // ) internal returns (uint8 v, bytes32 r, bytes32 s) {
+    //     bytes32 structHash = keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, amount, nonce, deadline));
+    //     bytes32 messageHash = MessageHashUtils.toTypedDataHash(usdc.DOMAIN_SEPARATOR(), structHash);
+
+    //     (v, r, s) = vm.sign(privateKey, messageHash);
+    // }
+
+    function test_v2_swap() public {
+        vm.startPrank(accountWithLotsOfUSDC);
+        //     vm.selectFork(mainnetFork);
+        //     glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+        //     glw = address(glwContract);
+        //     (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
+        //     gov = new Governance();
+        // gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+        //     auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+        //     handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
+        //     gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
+
+        gcc.mint(accountWithLotsOfUSDC, 1e20 ether);
+        usdc.mint(accountWithLotsOfUSDC, 2000 * 1e6);
+        usdc.approve(address(uniswapRouter), 2000 * 1e6);
+        gcc.approve(address(uniswapRouter), 1e20 ether);
+
+        gcc.commitGCC(50 ether, SIMON, 0);
+        vm.stopPrank();
+        address swapper = address(gcc.IMPACT_CATALYST());
+        console.log("swapper usdc balance after = ", IERC20(usdc).balanceOf(swapper));
+        console.log("swapper gcc balance after = ", gcc.balanceOf(swapper));
+    }
+
+    // function test_v2_swap2() public {
+    //     vm.startPrank(accountWithLotsOfUSDC);
+    //     vm.selectFork(mainnetFork);
+    //     glwContract = new TestGLOW(earlyLiquidity,vestingContract);
+    //     glw = address(glwContract);
+    //     (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
+    //     gov = new Governance();
+    // gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw,address(usdc),address(uniswapRouter));
+    //     auction = CarbonCreditDutchAuction(address(gcc.CARBON_CREDIT_AUCTION()));
+    //     handler = new Handler(address(gcc),GCA_AND_MINER_POOL_CONTRACT);
+    //     gov.setContractAddresses(address(gcc), gca, vetoCouncil, grantsTreasury, glw);
+
+    //     gcc.mint(accountWithLotsOfUSDC, 1e20 ether);
+    //     address usdc = gcc.USDC();
+    //     //Assume that 1 GCC = $20
+    //     IUniswapRouterV2 router = gcc.UNISWAP_ROUTER();
+    //     uint256 amountA = 100 ether; //100 gcc
+    //     uint256 amountB = 2000 * 1e6; //2000 usdc
+    //     gcc.approve(address(router), amountA);
+    //     IERC20(usdc).approve(address(router), amountB);
+    //     uint256 gccBalanceBefore = 1e20 ether;
+    //     uint256 usdcBalanceBefore = IERC20(usdc).balanceOf(accountWithLotsOfUSDC);
+    //     router.addLiquidity(
+    //         address(gcc), usdc, amountA, amountB, amountA, amountB, accountWithLotsOfUSDC, block.timestamp
+    //     );
+    //     uint256 gccBalanceAfter = gcc.balanceOf(accountWithLotsOfUSDC);
+    //     uint256 usdcBalanceAfter = IERC20(usdc).balanceOf(accountWithLotsOfUSDC);
+
+    //     address pairAddress = UniswapV2Library.pairFor(UNISWAP_V2_FACTORY, address(gcc), usdc);
+    //     uint256 balanceOfLPTokens = IERC20(pairAddress).balanceOf(accountWithLotsOfUSDC);
+    //     // console.log("balance of LP tokens = %s", balanceOfLPTokens);
+    //     // //log the diffs
+    //     // console.log("Gcc diff = %s", gccBalanceBefore - gccBalanceAfter);
+    //     // console.log("USDC diff = %s", usdcBalanceBefore - usdcBalanceAfter);
+
+    //     //Perform a swap
+    //     IERC20(usdc).approve(address(gcc), type(uint256).max);
+    //     gcc.swapUSDC(500 * 1e6);
+    //     address swapper = address(gcc.IMPACT_CATALYST());
+    // }
+
+    function seedLP(uint256 amountGCC, uint256 amountUSDC) public {
+        vm.startPrank(accountWithLotsOfUSDC);
+        usdc.mint(accountWithLotsOfUSDC, amountUSDC);
+        gcc.mint(accountWithLotsOfUSDC, amountGCC);
+        gcc.approve(address(uniswapRouter), amountGCC);
+        usdc.approve(address(uniswapRouter), amountUSDC);
+        uniswapRouter.addLiquidity(
+            address(gcc),
+            address(usdc),
+            amountGCC,
+            amountUSDC,
+            amountGCC,
+            amountUSDC,
+            accountWithLotsOfUSDC,
+            block.timestamp
+        );
+        vm.stopPrank();
+    }
+}
