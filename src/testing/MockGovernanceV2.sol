@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import {GovernanceV2 as Governance} from "@/GovernanceV2.sol";
+import {GovernanceV2} from "@/GovernanceV2.sol";
 import {IGovernanceV2} from "@/interfaces/IGovernanceV2.sol";
 
-contract MockGovernanceV2 is Governance {
+contract MockGovernanceV2 is GovernanceV2 {
     /**
      * @param gcc - the GCC contract
      * @param gca - the GCA contract
@@ -14,7 +14,7 @@ contract MockGovernanceV2 is Governance {
      */
     constructor(address gcc, address gca, address vetoCouncil, address grantsTreasury, address glw)
         payable
-        Governance(gcc, gca, vetoCouncil, grantsTreasury, glw)
+        GovernanceV2(gcc, gca, vetoCouncil, grantsTreasury, glw)
     {}
 
     function setProposalStatus(uint256 weekId, IGovernanceV2.ProposalStatus status) public {

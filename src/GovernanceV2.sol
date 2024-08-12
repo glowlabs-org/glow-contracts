@@ -8,14 +8,11 @@ import {IGlow} from "@/interfaces/IGlow.sol";
 import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {NULL_ADDRESS} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {GCC as GCCContract} from "@/GCC.sol";
-
+import {LibBitmap} from "@solady/utils/LibBitmap.sol";
 /**
  * @title GovernanceV2
  * @author DavidVorick
@@ -45,8 +42,10 @@ import {GCC as GCCContract} from "@/GCC.sol";
  *                      - Any participant to the intent can withdraw their nominations at any time
  *                      -  Nominations that were used on an intent have the half life applied to them as well to prevent a half life loophole
  */
-contract GovernanceV2 is IGovernance, EIP712 {
+
+contract GovernanceV2 is IGovernance {
     using ABDKMath64x64 for int128;
+    using LibBitmap for LibBitmap.Bitmap;
 
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */
@@ -268,7 +267,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
      *             - each bit represents a week
      *             - if the bit is set, then the veto council agent has vetoed the most popular proposal for that week
      */
-    mapping(address => mapping(uint256 => uint256)) private _hasEndorsedProposalBitmap;
+    mapping(address => LibBitmap.Bitmap) private _hasEndorsedProposalBitmap;
 
     /* -------------------------------------------------------------------------- */
     /*                                   structs                                  */
@@ -305,10 +304,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
      * @param grantsTreasury - the Grants Treasury contract
      * @param glw - the GLW contract
      */
-    constructor(address gcc, address gca, address vetoCouncil, address grantsTreasury, address glw)
-        payable
-        EIP712("Glow Governance", "2.0")
-    {
+    constructor(address gcc, address gca, address vetoCouncil, address grantsTreasury, address glw) payable {
         GCC = gcc;
         GCA = gca;
         GENESIS_TIMESTAMP = IGlow(glw).GENESIS_TIMESTAMP();
@@ -454,14 +450,10 @@ contract GovernanceV2 is IGovernance, EIP712 {
             _revert(IGovernance.RatifyOrRejectPeriodEnded.selector);
         }
 
-        uint256 key = weekId / 256;
-        uint256 shift = weekId % 256;
-        uint256 existingEndorsementBitmap = _hasEndorsedProposalBitmap[msg.sender][key];
-        uint256 bitVal = (1 << shift);
-        if (existingEndorsementBitmap & bitVal != 0) {
+        if (_hasEndorsedProposalBitmap[msg.sender].get(weekId)) {
             _revert(IGovernance.AlreadyEndorsedWeek.selector);
         }
-        _hasEndorsedProposalBitmap[msg.sender][key] = existingEndorsementBitmap | bitVal;
+        _hasEndorsedProposalBitmap[msg.sender].set(weekId);
         uint256 numEndorsements = numEndorsementsOnWeek[weekId];
         uint256 proposalId = mostPopularProposalOfWeek[weekId];
         IGovernance.ProposalType proposalType = _proposals[proposalId].proposalType;
@@ -1065,9 +1057,7 @@ contract GovernanceV2 is IGovernance, EIP712 {
      * @return hasEndorsedProposal - true if the specified gca endorsed the proposal at the specified week
      */
     function hasEndorsedProposal(address gca, uint256 weekId) external view returns (bool) {
-        uint256 key = weekId / 256;
-        uint256 shift = weekId % 256;
-        return _hasEndorsedProposalBitmap[gca][key] & (1 << shift) != 0;
+        return _hasEndorsedProposalBitmap[gca].get(weekId);
     }
 
     /**

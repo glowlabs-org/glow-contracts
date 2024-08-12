@@ -172,7 +172,7 @@ contract GCCV2 is ERC20, ERC20Burnable, IGCC {
         external
         returns (uint256, uint256)
     {
-        //Same as above, but with no referrer
+        // Same as above, but with no referrer
         return commitGCC(amount, rewardAddress, address(0), minImpactPower);
     }
 
@@ -201,7 +201,7 @@ contract GCCV2 is ERC20, ERC20Burnable, IGCC {
      * @inheritdoc IGCC
      */
     function commitUSDC(uint256 amount, address rewardAddress, uint256 minImpactPower) external returns (uint256) {
-        //Same as above, but with no referrer
+        // Same as above, but with no referrer
         return (commitUSDC(amount, rewardAddress, address(0), minImpactPower));
     }
 

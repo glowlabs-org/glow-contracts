@@ -40,7 +40,7 @@ contract GCCTestV2 is Test {
     UnifapV2Factory public uniswapFactory;
     WETH9 public weth;
     UnifapV2Router public uniswapRouter;
-    MockUSDC usdc;
+    MockUSDC internal usdc;
     TestGCC public gcc;
     Governance public gov;
     CarbonCreditDescendingPriceAuction public auction;
@@ -48,19 +48,19 @@ contract GCCTestV2 is Test {
     address public SIMON;
     uint256 public SIMON_PK;
     Handler public handler;
-    address gca = address(0x155);
-    address vetoCouncil = address(0x156);
-    address grantsTreasury = address(0x157);
-    address glw;
-    TestGLOW glwContract;
-    address vestingContract = address(0x412412);
-    address earlyLiquidity = address(0x412412);
-    address other = address(0xdead);
-    address accountWithLotsOfUSDC = 0xcEe284F754E854890e311e3280b767F80797180d; //arbitrum bridge
+    address internal gca = address(0x155);
+    address internal vetoCouncil = address(0x156);
+    address internal grantsTreasury = address(0x157);
+    address internal glw;
+    TestGLOW internal glwContract;
+    address internal vestingContract = address(0x412412);
+    address internal earlyLiquidity = address(0x412412);
+    address internal other = address(0xdead);
+    address internal accountWithLotsOfUSDC = 0xcEe284F754E854890e311e3280b767F80797180d; //arbitrum bridge
     // string forkUrl = vm.envString("MAINNET_RPC");
     // uint256 mainnetFork;
 
-    address deployer = tx.origin;
+    address internal deployer = tx.origin;
 
     function setUp() public {
         vm.startPrank(deployer);

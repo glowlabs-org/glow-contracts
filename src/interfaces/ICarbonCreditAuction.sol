@@ -43,4 +43,6 @@ interface ICarbonCreditAuction {
      * @notice returns the cumulative total number of units of GCC that have been sold or are available for sale
      */
     function totalSaleUnits() external view returns (uint256);
+
+    event Purchase(address indexed buyer, uint256 unitsPurchased, uint256 pricePerUnit);
 }

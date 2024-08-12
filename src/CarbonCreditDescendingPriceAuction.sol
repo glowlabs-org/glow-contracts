@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HalfLifeCarbonCreditAuction} from "@/libraries/HalfLifeCarbonCreditAuction.sol";
 import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
-import "forge-std/console.sol";
 /**
  * @title CarbonCreditDescendingPriceAuction
  * @notice This contract is a reverse dutch auction for GCC.
@@ -64,22 +63,22 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
      *             - {totalAmountReceived} to calculate the total supply
      *             - as shown in {totalSupply}
      */
-    uint256 internal _pesudoTotalAmountFullyAvailableForSale;
+    uint256 internal $_pesudoTotalAmountFullyAvailableForSale;
 
     /// @notice The total amount of GLOW received from the miner pool
-    uint256 public totalAmountReceived;
+    uint256 internal $totalAmountReceived;
 
     /// @notice The total number of units of GCC sold
-    uint256 public totalUnitsSold;
+    uint256 internal $totalUnitsSold;
 
     /// @notice The price of GCC 24 hours ago
     ///         - this price is not accurate if there have been no sales in the last 24 hours
     ///         - it should not be relied on for accurate calculations
-    uint256 public pseudoPrice24HoursAgo;
+    uint256 internal $pseudoPrice24HoursAgo;
 
     /// @dev The price of GCC per sale unit
     /// @dev this price is not the actual price, and should be used in conjunction with {getPricePerUnit}
-    uint256 internal pricePerSaleUnit;
+    uint256 internal $pricePerSaleUnit;
 
     /// @notice The timestamps
     Timestamps public timestamps;
@@ -111,8 +110,8 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
     constructor(IERC20 glow, IERC20 gcc, uint256 startingPrice) payable {
         GLOW = glow;
         GCC = gcc;
-        pricePerSaleUnit = startingPrice;
-        pseudoPrice24HoursAgo = startingPrice;
+        $pricePerSaleUnit = startingPrice;
+        $pseudoPrice24HoursAgo = startingPrice;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -130,8 +129,7 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
         uint256 price = getPricePerUnit();
         uint256 _lastPriceChangeTimestamp = _timestamps.lastPriceChangeTimestamp;
         bool greaterThanOneDayHasPased = block.timestamp - _lastPriceChangeTimestamp > ONE_DAY;
-        // console.log("greater than one day has passed",greaterThanOneDayHasPased);
-        uint256 _pseudoPrice24HoursAgo = greaterThanOneDayHasPased ? price : pseudoPrice24HoursAgo;
+        uint256 _pseudoPrice24HoursAgo = greaterThanOneDayHasPased ? price : $pseudoPrice24HoursAgo;
 
         if (price > maxPricePerUnit) {
             _revert(UserPriceNotHighEnough.selector);
@@ -140,7 +138,7 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
         uint256 glowToTransfer = unitsToBuy * price;
 
         uint256 totalSaleUnitsAvailable = totalSaleUnits();
-        uint256 saleUnitsLeftForSale = totalSaleUnitsAvailable - totalUnitsSold;
+        uint256 saleUnitsLeftForSale = totalSaleUnitsAvailable - $totalUnitsSold;
 
         if (saleUnitsLeftForSale < unitsToBuy) {
             _revert(NotEnoughGCCForSale.selector);
@@ -156,22 +154,14 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
         //If it's been more than a day since the last sale, then update the price
         //To the price in the current tx
         //Also update the last price change timestamp
-        //TODO: Changes
         if (greaterThanOneDayHasPased) {
-            // console.log("units", unitsToBuy);
-            // console.log("!~~~price~~~~! = ", price);
-            pseudoPrice24HoursAgo = price;
-            // if (_lastPriceChangeTimestamp == 0) {
-            //     pseudoPrice24HoursAgo = newPrice;
-            // } else {
-            //     pseudoPrice24HoursAgo = price;
-            // }
+            $pseudoPrice24HoursAgo = price;
             _lastPriceChangeTimestamp = block.timestamp;
         }
 
-        pricePerSaleUnit = newPrice;
+        $pricePerSaleUnit = newPrice;
 
-        totalUnitsSold += unitsToBuy;
+        $totalUnitsSold += unitsToBuy;
         timestamps = Timestamps({
             lastSaleTimestamp: uint64(block.timestamp),
             lastReceivedTimestamp: _timestamps.lastReceivedTimestamp,
@@ -180,6 +170,7 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
         });
         GLOW.transferFrom(msg.sender, address(this), glowToTransfer);
         GCC.transfer(msg.sender, gccPurchasing);
+        emit Purchase(msg.sender, unitsToBuy, price);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -194,7 +185,7 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
             _revert(CallerNotGCC.selector);
         }
         Timestamps memory _timestamps = timestamps;
-        _pesudoTotalAmountFullyAvailableForSale = totalSupply();
+        $_pesudoTotalAmountFullyAvailableForSale = totalSupply();
         timestamps = Timestamps({
             lastSaleTimestamp: _timestamps.lastSaleTimestamp,
             lastReceivedTimestamp: uint64(block.timestamp),
@@ -203,7 +194,7 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
                 ? uint64(block.timestamp)
                 : _timestamps.firstReceivedTimestamp
         });
-        totalAmountReceived += amount;
+        $totalAmountReceived += amount;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -218,12 +209,12 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
         uint256 _lastSaleTimestamp = _timestamps.lastSaleTimestamp;
         uint256 firstReceivedTimestamp = _timestamps.firstReceivedTimestamp;
         if (firstReceivedTimestamp == 0) {
-            return pricePerSaleUnit;
+            return $pricePerSaleUnit;
         }
         if (_lastSaleTimestamp == 0) {
             _lastSaleTimestamp = firstReceivedTimestamp;
         }
-        uint256 _pricePerSaleUnit = pricePerSaleUnit;
+        uint256 _pricePerSaleUnit = $pricePerSaleUnit;
         return
             HalfLifeCarbonCreditAuction.calculateHalfLifeValue(_pricePerSaleUnit, block.timestamp - _lastSaleTimestamp);
     }
@@ -234,17 +225,17 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
     function totalSupply() public view returns (uint256) {
         Timestamps memory _timestamps = timestamps;
         uint256 _lastReceivedTimestamp = _timestamps.lastReceivedTimestamp;
-        uint256 _totalAmountReceived = totalAmountReceived;
-        uint256 amountThatNeedsToVest = _totalAmountReceived - _pesudoTotalAmountFullyAvailableForSale;
+        uint256 _totalAmountReceived = $totalAmountReceived;
+        uint256 amountThatNeedsToVest = _totalAmountReceived - $_pesudoTotalAmountFullyAvailableForSale;
         uint256 timeDiff = _min(ONE_WEEK, block.timestamp - _lastReceivedTimestamp);
-        return (_pesudoTotalAmountFullyAvailableForSale + amountThatNeedsToVest * timeDiff / ONE_WEEK);
+        return ($_pesudoTotalAmountFullyAvailableForSale + amountThatNeedsToVest * timeDiff / ONE_WEEK);
     }
 
     /**
      * @inheritdoc ICarbonCreditAuction
      */
     function unitsForSale() external view returns (uint256) {
-        return totalSaleUnits() - totalUnitsSold;
+        return totalSaleUnits() - $totalUnitsSold;
     }
 
     /**
@@ -252,6 +243,22 @@ contract CarbonCreditDescendingPriceAuction is ICarbonCreditAuction {
      */
     function totalSaleUnits() public view returns (uint256) {
         return totalSupply() / (SALE_UNIT);
+    }
+
+    function totalAmountReceived() external view returns (uint256) {
+        return $totalAmountReceived;
+    }
+
+    function totalUnitsSold() external view returns (uint256) {
+        return $totalUnitsSold;
+    }
+
+    function pseudoPrice24HoursAgo() external view returns (uint256) {
+        return $pseudoPrice24HoursAgo;
+    }
+
+    function pricePerSaleUnit() external view returns (uint256) {
+        return $pricePerSaleUnit;
     }
 
     /* -------------------------------------------------------------------------- */

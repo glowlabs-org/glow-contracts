@@ -24,6 +24,7 @@ contract CarbonCreditDutchAuctionTest is Test {
     address earlyLiquidityAddress = address(0x15);
     address vestingContract = address(0x16);
     uint256 constant ONE_WEEK = 1 weeks;
+    uint256 constant ONE_DAY = 1 days;
     uint256 constant SALE_UNIT = 1e6;
 
     address GCA = address(0xffaffafafa);
@@ -34,11 +35,13 @@ contract CarbonCreditDutchAuctionTest is Test {
     address minerPool = address(0x2);
 
     function setUp() public {
+        //fork a realistic timestamp
+        vm.warp(1723492036);
         uniswapFactory = new UnifapV2Factory();
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         usdc = new MockUSDC();
-        vm.warp(100000);
+        // vm.warp(100000);
         glow = new TestGLOW(earlyLiquidityAddress, vestingContract, GCA, VETO_COUNCIL, GRANTS);
         gcc = new TestGCC(address(this), address(this), address(glow), address(usdc), address(uniswapRouter));
         //Starting price is 1:1
@@ -132,15 +135,15 @@ contract CarbonCreditDutchAuctionTest is Test {
         vm.warp(block.timestamp + ONE_WEEK);
     }
 
-    function buyEntireSupply() internal {
-        uint256 unitsForSale = auction.unitsForSale();
-        vm.startPrank(operator);
-        glow.approve(address(auction), 100_000_000_000_000_000 ether);
+    // function buyEntireSupply() internal {
+    //     uint256 unitsForSale = auction.unitsForSale();
+    //     vm.startPrank(operator);
+    //     glow.approve(address(auction), 100_000_000_000_000_000 ether);
 
-        uint256 price = auction.getPricePerUnit();
-        auction.buyGCC({unitsToBuy: unitsForSale, maxPricePerUnit: price});
-        vm.stopPrank();
-    }
+    //     uint256 price = auction.getPricePerUnit();
+    //     auction.buyGCC({unitsToBuy: unitsForSale, maxPricePerUnit: price});
+    //     vm.stopPrank();
+    // }
 
     function test_BuyCCAuction2() public {
         vm.warp(10000000000);
@@ -288,6 +291,47 @@ contract CarbonCreditDutchAuctionTest is Test {
         glow.approve(address(auction), 100_000_000_000_000_000 ether);
         vm.expectRevert(CarbonCreditDescendingPriceAuction.UserPriceNotHighEnough.selector);
         auction.buyGCC({unitsToBuy: 10_000 ether / SALE_UNIT, maxPricePerUnit: price - 1});
+        vm.stopPrank();
+    }
+
+    function test_ccc_manual_sanity() public {
+        uint256 startingPrice = auction.getPricePerUnit();
+
+        sendGCCToAuction(10_000 ether);
+        console.log("starting price = ", startingPrice);
+        vm.warp(block.timestamp + ONE_WEEK / 2);
+        uint256 price = auction.getPricePerUnit();
+
+        ///-----------------------------------///
+
+        console.log("price before buy [0] = ", price);
+        buyEntireSupply();
+        console.log("price after buy [0] = ", auction.getPricePerUnit());
+        //-----------------------------------///
+
+        //go forward one day + 1
+        vm.warp(block.timestamp + ONE_DAY + 1);
+        price = auction.getPricePerUnit();
+        console.log("price before buy [1] = ", price);
+        buyEntireSupply();
+        console.log("price after buy [1] = ", auction.getPricePerUnit());
+
+        //warp 20 minutes
+        vm.warp(block.timestamp + 1200);
+        price = auction.getPricePerUnit();
+        console.log("price before buy [2] = ", price);
+        buyEntireSupply();
+        price = auction.getPricePerUnit();
+        console.log("price after buy [2] = ", price);
+    }
+
+    function buyEntireSupply() internal {
+        vm.startPrank(operator);
+        uint256 unitsForSale = auction.unitsForSale();
+        glow.mint(operator, 100_000_000_000_000_000 ether);
+        glow.approve(address(auction), 100_000_000_000_000_000 ether);
+        uint256 price = auction.getPricePerUnit();
+        auction.buyGCC({unitsToBuy: unitsForSale, maxPricePerUnit: price});
         vm.stopPrank();
     }
 
