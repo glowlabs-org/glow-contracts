@@ -53,6 +53,8 @@ contract MinerPoolAndGCAV2Test is Test {
     SafetyDelay holdingContract;
     TestGCCGuardedLaunch gcc;
 
+    uint256 internal VESTING_PERIODS;
+
     //TODO: add usdg to testing
     TestUSDG usdg;
 
@@ -194,6 +196,7 @@ contract MinerPoolAndGCAV2Test is Test {
         // targetSender(OTHER_GCA_3);
         // targetSender(OTHER_GCA_4);
         targetContract(address(bucketDelayHandler));
+        VESTING_PERIODS = minerPoolAndGCA.OFFSET_RIGHT() - minerPoolAndGCA.OFFSET_LEFT();
     }
 
     //-------- ISSUING REPORTS ---------//
@@ -519,7 +522,7 @@ contract MinerPoolAndGCAV2Test is Test {
         }
         vm.stopPrank();
 
-        vm.warp(block.timestamp + (ONE_WEEK * 16));
+        vm.warp(block.timestamp + (ONE_WEEK * minerPoolAndGCA.OFFSET_LEFT()));
 
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
         address[] memory payoutTokens = new address[](1);
@@ -536,7 +539,7 @@ contract MinerPoolAndGCAV2Test is Test {
             });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
-        uint256 bucketId = 16;
+        uint256 bucketId = minerPoolAndGCA.OFFSET_LEFT();
 
         {
             uint256 totalNewGCC = 101 * 1e15;
@@ -584,7 +587,7 @@ contract MinerPoolAndGCAV2Test is Test {
         }
         vm.stopPrank();
 
-        vm.warp(block.timestamp + (ONE_WEEK * 16));
+        vm.warp(block.timestamp + (ONE_WEEK * minerPoolAndGCA.OFFSET_LEFT()));
 
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
         address[] memory payoutTokens = new address[](1);
@@ -601,7 +604,7 @@ contract MinerPoolAndGCAV2Test is Test {
             });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
-        uint256 bucketId = 16;
+        uint256 bucketId = minerPoolAndGCA.OFFSET_LEFT();
 
         {
             uint256 totalNewGCC = 101 * 1e15;
@@ -648,7 +651,7 @@ contract MinerPoolAndGCAV2Test is Test {
         }
         vm.stopPrank();
 
-        vm.warp(block.timestamp + (ONE_WEEK * 16));
+        vm.warp(block.timestamp + (ONE_WEEK * minerPoolAndGCA.OFFSET_LEFT()));
 
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](1);
         address[] memory payoutTokens = new address[](1);
@@ -665,7 +668,7 @@ contract MinerPoolAndGCAV2Test is Test {
             });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
-        uint256 bucketId = 16;
+        uint256 bucketId = minerPoolAndGCA.OFFSET_LEFT();
 
         {
             uint256 totalNewGCC = 101 * 1e15;
@@ -713,7 +716,7 @@ contract MinerPoolAndGCAV2Test is Test {
         }
         vm.stopPrank();
 
-        vm.warp(block.timestamp + (ONE_WEEK * 16));
+        vm.warp(block.timestamp + (ONE_WEEK * minerPoolAndGCA.OFFSET_LEFT()));
 
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](1);
         address[] memory payoutTokens = new address[](1);
@@ -730,7 +733,7 @@ contract MinerPoolAndGCAV2Test is Test {
             });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
-        uint256 bucketId = 16;
+        uint256 bucketId = minerPoolAndGCA.OFFSET_LEFT();
 
         {
             uint256 totalNewGCC = 101 * 1e15;
@@ -775,7 +778,7 @@ contract MinerPoolAndGCAV2Test is Test {
     // //     }
     // //     vm.stopPrank();
 
-    // //     vm.warp(block.timestamp + (ONE_WEEK * 16));
+    // //     vm.warp(block.timestamp + (ONE_WEEK * minerPoolAndGCA.OFFSET_LEFT()));
 
     // //     ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](1);
     // //     uint256 totalGlwWeight;
@@ -790,7 +793,7 @@ contract MinerPoolAndGCAV2Test is Test {
     // //         });
     // //     }
     // //     bytes32 root = createClaimLeafRoot(claimLeaves);
-    // //     uint256 bucketId = 16;
+    // //     uint256 bucketId = minerPoolAndGCA.OFFSET_LEFT();
     // //     uint256 totalNewGCC = 101 * 1e15;
 
     // //     issueReport({
@@ -1055,14 +1058,14 @@ contract MinerPoolAndGCAV2Test is Test {
     function test_v2_guarded_withdrawFromBucket_shouldAddToHoldings() public {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
-        uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
+        uint256 expectedAmountInEachBucket = amountGRCToDonate / VESTING_PERIODS;
         mintUSDG(SIMON, amountGRCToDonate);
         usdg.approve(address(minerPoolAndGCA), amountGRCToDonate);
         minerPoolAndGCA.donateTokenToMinerRewardsPool(address(usdg), amountGRCToDonate);
         vm.stopPrank();
 
-        //Go to the 16th bucket since that's where the grc tokens start unlocking
-        vm.warp(block.timestamp + ONE_WEEK * 16);
+        //Go to the OFFSET_LEFT bucket since that's where the grc tokens start unlocking
+        vm.warp(block.timestamp + ONE_WEEK * minerPoolAndGCA.OFFSET_LEFT());
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
         address[] memory payoutTokens = new address[](1);
         payoutTokens[0] = address(usdg);
@@ -1079,7 +1082,7 @@ contract MinerPoolAndGCAV2Test is Test {
             });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
-        uint256 bucketId = 16;
+        uint256 bucketId = minerPoolAndGCA.OFFSET_LEFT();
 
         {
             uint256 totalNewGCC = 101 * 1e15;
@@ -1138,7 +1141,7 @@ contract MinerPoolAndGCAV2Test is Test {
     function test_v2_guarded_withdrawFromBucket_multipleTokens_shouldAddToHoldings() public {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
-        uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
+        uint256 expectedAmountInEachBucket = amountGRCToDonate / VESTING_PERIODS;
         mintUSDG(SIMON, amountGRCToDonate);
         usdg.approve(address(minerPoolAndGCA), amountGRCToDonate);
         minerPoolAndGCA.donateTokenToMinerRewardsPool(address(usdg), amountGRCToDonate);
@@ -1149,8 +1152,8 @@ contract MinerPoolAndGCAV2Test is Test {
 
         vm.stopPrank();
 
-        //Go to the 16th bucket since that's where the grc tokens start unlocking
-        vm.warp(block.timestamp + ONE_WEEK * 16);
+        //Go to the OFFSET_LEFT bucket since that's where the grc tokens start unlocking
+        vm.warp(block.timestamp + ONE_WEEK * minerPoolAndGCA.OFFSET_LEFT());
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
         address[] memory payoutTokens = new address[](2);
         payoutTokens[0] = address(usdg);
@@ -1168,7 +1171,7 @@ contract MinerPoolAndGCAV2Test is Test {
             });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
-        uint256 bucketId = 16;
+        uint256 bucketId = minerPoolAndGCA.OFFSET_LEFT();
 
         {
             uint256 totalNewGCC = 101 * 1e15;
@@ -1244,7 +1247,7 @@ contract MinerPoolAndGCAV2Test is Test {
     {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
-        uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
+        uint256 expectedAmountInEachBucket = amountGRCToDonate / VESTING_PERIODS;
         // usdc.mint(SIMON, amountGRCToDonate);
         // usdc.approve(address(minerPoolAndGCA), amountGRCToDonate);
         mintUSDG(SIMON, amountGRCToDonate);
@@ -1252,8 +1255,8 @@ contract MinerPoolAndGCAV2Test is Test {
         minerPoolAndGCA.donateTokenToMinerRewardsPool(address(usdg), amountGRCToDonate);
         vm.stopPrank();
 
-        //Go to the 16th bucket since that's where the grc tokens start unlocking
-        vm.warp(block.timestamp + ONE_WEEK * 16);
+        //Go to the OFFSET_LEFT bucket since that's where the grc tokens start unlocking
+        vm.warp(block.timestamp + ONE_WEEK * minerPoolAndGCA.OFFSET_LEFT());
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](2);
         address[] memory payoutTokens = new address[](1);
         payoutTokens[0] = address(usdg);
@@ -1273,7 +1276,7 @@ contract MinerPoolAndGCAV2Test is Test {
         uint256 glwWeight = 199; //1 less than the actual in the leaves
         uint256 usdcWeight = 400;
         bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
-        uint256 bucketId = 16;
+        uint256 bucketId = minerPoolAndGCA.OFFSET_LEFT();
 
         {
             uint256 totalNewGCC = 101 * 1e15;
@@ -1329,14 +1332,14 @@ contract MinerPoolAndGCAV2Test is Test {
     {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
-        uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
+        uint256 expectedAmountInEachBucket = amountGRCToDonate / VESTING_PERIODS;
         mintUSDG(SIMON, amountGRCToDonate);
         usdg.approve(address(minerPoolAndGCA), amountGRCToDonate);
         minerPoolAndGCA.donateTokenToMinerRewardsPool(address(usdg), amountGRCToDonate);
         vm.stopPrank();
 
-        //Go to the 16th bucket since that's where the grc tokens start unlocking
-        vm.warp(block.timestamp + ONE_WEEK * 16);
+        //Go to the OFFSET_LEFT bucket since that's where the grc tokens start unlocking
+        vm.warp(block.timestamp + ONE_WEEK * minerPoolAndGCA.OFFSET_LEFT());
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](2);
         address[] memory payoutTokens = new address[](1);
         payoutTokens[0] = address(usdg);
@@ -1356,7 +1359,7 @@ contract MinerPoolAndGCAV2Test is Test {
         uint256 glwWeight = 200; //1 less than the actual in the leaves
         uint256 usdcWeight = 399;
         bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
-        uint256 bucketId = 16;
+        uint256 bucketId = minerPoolAndGCA.OFFSET_LEFT();
 
         {
             uint256 totalNewGCC = 101 * 1e15;
@@ -1411,14 +1414,14 @@ contract MinerPoolAndGCAV2Test is Test {
     function test_v2_guarded_handleMintToCarbonCreditAuction() public {
         vm.startPrank(SIMON);
         uint256 amountGRCToDonate = 1_000_000 * 1e6;
-        uint256 expectedAmountInEachBucket = amountGRCToDonate / 192;
+        uint256 expectedAmountInEachBucket = amountGRCToDonate / VESTING_PERIODS;
         mintUSDG(SIMON, amountGRCToDonate);
         usdg.approve(address(minerPoolAndGCA), amountGRCToDonate);
         minerPoolAndGCA.donateTokenToMinerRewardsPool(address(usdg), amountGRCToDonate);
         vm.stopPrank();
 
-        //Go to the 16th bucket since that's where the grc tokens start unlocking
-        vm.warp(block.timestamp + ONE_WEEK * 16);
+        //Go to the OFFSET_LEFT bucket since that's where the grc tokens start unlocking
+        vm.warp(block.timestamp + ONE_WEEK * minerPoolAndGCA.OFFSET_LEFT());
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
         address[] memory payoutTokens = new address[](1);
         payoutTokens[0] = address(usdg);
@@ -1435,7 +1438,7 @@ contract MinerPoolAndGCAV2Test is Test {
             });
         }
         bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
-        uint256 bucketId = 16;
+        uint256 bucketId = minerPoolAndGCA.OFFSET_LEFT();
         uint256 totalNewGCC = 101 * 1e15;
 
         issueReport({
@@ -1449,13 +1452,13 @@ contract MinerPoolAndGCAV2Test is Test {
 
         vm.warp(block.timestamp + (ONE_WEEK * 2));
 
-        minerPoolAndGCA.handleMintToCarbonCreditAuction(16);
+        minerPoolAndGCA.handleMintToCarbonCreditAuction(minerPoolAndGCA.OFFSET_LEFT());
     }
 
     function test_v2_guarded_handleMintToCarbonCreditAuction_mintingTwice_shouldNotMint_andNotRevert() public {
         test_v2_guarded_handleMintToCarbonCreditAuction();
         uint256 gccBalanceBeforeSecondMint = gcc.balanceOf(address(carbonCreditAuction));
-        minerPoolAndGCA.handleMintToCarbonCreditAuction(16);
+        minerPoolAndGCA.handleMintToCarbonCreditAuction(minerPoolAndGCA.OFFSET_LEFT());
         uint256 gccBalanceAfterSecondMint = gcc.balanceOf(address(carbonCreditAuction));
         assert(gccBalanceAfterSecondMint == gccBalanceBeforeSecondMint);
     }
@@ -2037,13 +2040,13 @@ contract MinerPoolAndGCAV2Test is Test {
             assertEq(simonBalanceAfter, 0);
             assertEq(usdg.balanceOf(address(holdingContract)), donationAmount);
         }
-        uint256 amountExpectedInEachBucket = donationAmount / 192;
+        uint256 amountExpectedInEachBucket = donationAmount / VESTING_PERIODS;
         //Since we are at bucket 0 when we deposit
         unchecked {
-            for (uint256 i = 16; i < 208; ++i) {
+            for (uint256 i = minerPoolAndGCA.OFFSET_LEFT(); i < VESTING_PERIODS; ++i) {
                 BucketSubmission.WeeklyReward memory reward = minerPoolAndGCA.reward(address(usdg), i);
                 uint256 amount = reward.amountInBucket;
-                //Rewards vest over 192 weeks
+                //Rewards vest over VESTING_PERIODS weeks
                 assertEq(amount, amountExpectedInEachBucket);
             }
         }
@@ -2057,13 +2060,13 @@ contract MinerPoolAndGCAV2Test is Test {
         vm.startPrank(earlyLiquidity);
         uint256 donationAmount = 1_000_000_000 * 1e6;
         minerPoolAndGCA.donateTokenToRewardsPoolEarlyLiquidity(address(usdg), donationAmount);
-        uint256 amountExpectedInEachBucket = donationAmount / 192;
+        uint256 amountExpectedInEachBucket = donationAmount / VESTING_PERIODS;
         //Since we are at bucket 0 when we deposit
         unchecked {
-            for (uint256 i = 16; i < 208; ++i) {
+            for (uint256 i = minerPoolAndGCA.OFFSET_LEFT(); i < VESTING_PERIODS; ++i) {
                 BucketSubmission.WeeklyReward memory reward = minerPoolAndGCA.reward(address(usdg), i);
                 uint256 amount = reward.amountInBucket;
-                //Rewards vest over 192 weeks
+                //Rewards vest over VESTING_PERIODS weeks
                 assertEq(amount, amountExpectedInEachBucket);
             }
         }

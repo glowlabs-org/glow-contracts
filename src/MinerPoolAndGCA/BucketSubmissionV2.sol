@@ -9,7 +9,7 @@ contract BucketSubmissionV2 {
     /* -------------------------------------------------------------------------- */
     /**
      * @notice the start offset to the current bucket for the grc deposit
-     * @dev when depositing grc, the grc is evenly distributed across 192 weeks
+     * @dev when depositing grc, the grc is evenly distributed across (OFFSET_RIGHT - OFFSET_LEFT) weeks
      *         -   The first bucket to receive grc is the current bucket + 16 weeks
      *         -   The last bucket to receive grc is the current bucket + 208 weeks
      */
@@ -20,9 +20,9 @@ contract BucketSubmissionV2 {
      * @dev the amount to offset b(x) by to get the final bucket number where the grc will have finished vesting
      *         - where b(x) is the current bucket
      */
-    uint256 public constant OFFSET_RIGHT = 208;
+    uint256 public constant OFFSET_RIGHT = 104;
 
-    /// @notice a constant holding the total vesting periods for a grc donation (192)
+    /// @notice a constant holding the total vesting periods for a grc donation ((OFFSET_RIGHT - OFFSET_LEFT))
     uint256 public constant TOTAL_VESTING_PERIODS = OFFSET_RIGHT - OFFSET_LEFT;
 
     /* -------------------------------------------------------------------------- */
@@ -47,7 +47,7 @@ contract BucketSubmissionV2 {
     /**
      * @dev a helper to keep track of last updated bucket ids for buckets
      * @param lastUpdatedBucket - the last bucket + 16 that grc was deposited to this bucket
-     * @param maxBucketId - the lastUpdatedBucket + 191 since the range of buckets is (lastUpdatedBucket, lastUpdatedBucket + 192]
+     * @param maxBucketId - the lastUpdatedBucket + 191 since the range of buckets is (lastUpdatedBucket, lastUpdatedBucket + (OFFSET_RIGHT - OFFSET_LEFT)]
      *                                                                                       ^ inclusive,             exclusive ^
      * @param firstAddedBucketId - the first bucket + 16 that grc was deposited to this bucket
      * @dev none of the params should overflow, since they represent weeks
@@ -80,7 +80,7 @@ contract BucketSubmissionV2 {
      * @param bucketId - the bucket id in which the donation happened.
      *        - the result of this donation vests from bucketId + 16 to bucketId + 208
      * @param totalAmountDonated - the total amount donated at `bucketId`
-     *         - the total amount donated at `bucketId` is evenly distributed over 192 buckets
+     *         - the total amount donated at `bucketId` is evenly distributed over (OFFSET_RIGHT - OFFSET_LEFT) buckets
      */
     event AmountDonatedToBucket(uint256 indexed bucketId, uint256 totalAmountDonated);
 
@@ -122,7 +122,7 @@ contract BucketSubmissionV2 {
      * @notice adds the the token to the current bucket
      * @dev this function is called when a user donates the token to the contract
      * @param amount - the amount of the token to add
-     *                  - the `amount` gets distributed over 192 buckets with the first bucket being the current bucket + OFFSET_LEFT
+     *                  - the `amount` gets distributed over (OFFSET_RIGHT - OFFSET_LEFT) buckets with the first bucket being the current bucket + OFFSET_LEFT
      */
     function _addToCurrentBucket(address token, uint256 amount) internal {
         //Calculate the current bucket
@@ -166,7 +166,7 @@ contract BucketSubmissionV2 {
         rewards[token][bucketToDeductFrom].amountToDeduct += amountToAddOrSubtract;
 
         //This means that we don't need to look backwards
-        //Since all the vested amount from that bucket would have been emptied by now if the bucket hadnt been refreshed in 192 weeks
+        //Since all the vested amount from that bucket would have been emptied by now if the bucket hadnt been refreshed in (OFFSET_RIGHT - OFFSET_LEFT) weeks
         // If the lastUpdatedBucket is the current bucket, we also don't need to look backwards
         //If the {bucketToAddTo} is greater than the {maxBucketId} then we don't need to look backwards
         //This is so because if {bucketToAddTo} is > {maxBucketId} then that means that all the tokens have already vested
