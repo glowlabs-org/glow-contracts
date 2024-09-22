@@ -37,14 +37,18 @@ gas.snapshot :; forge snapshot --gas-report --ffi
 deploy.testnet.gcc :; forge script script/Testnet/DeployGCC.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
-deploy.testnet.batch-retire :; forge script script/Testnet/DeployBatchRetire.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
---etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+	deploy.testnet.batch-retire :; forge script script/Testnet/DeployBatchRetire.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
+	--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
 deploy.full.testnet :; forge script script/Testnet/DeployFull.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
 deploy.guarded_commit.sepolia :; forge script script/Mainnet/DeployBatchCommit.s.sol --rpc-url ${SEPOLIA_RPC} --broadcast -vvvv --private-key ${SIMON_REGULAR_PK}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+
+deploy.poster.sepolia :; forge script script/Testnet/DeployMerkleRootPoster.s.sol --rpc-url ${SEPOLIA_RPC} --broadcast -vvvv --private-key ${SEPOLIA_PRIVATE_KEY}  \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10 --legacy.e
+
 
 deploy.guarded_commit.mainnet :; forge script script/Mainnet/DeployGuardedCommit.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
@@ -64,9 +68,17 @@ deploy.guardedlaunch.full.replica :; forge script script/Testnet/DeployMainnetRe
 deploy.guardedlaunch.mainnet :; forge script script/Mainnet/DeployGuardedLaunch.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
+
+deploy.poster.mainnet :; forge script script/Testnet/DeployMerkleRootPoster.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY}  \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10 --legacy
+
 deploy.full.anvil :; forge script script/Testnet/DeployFull.s.sol --rpc-url  http://127.0.0.1:8545 --broadcast -vvvv --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
 setlp.goerli :; forge script script/Testnet/SetLP.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}
+
+
+deploy.fake.governance.sepolia :; forge script script/Testnet/DeployGuardedFakeGovernance.s.sol --rpc-url ${SEPOLIA_RPC} --broadcast -vvvv --private-key ${SIMON_REGULAR_PK}  \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10 --legacy
 
 panic.verify :;  forge verify-contract 0x85fbB04DEBBDEa052a6422E74bFeA57B17e50A80 CarbonCreditDescendingPriceAuction --chain-id 1 --libraries src/libraries/HalfLifeCarbonCreditAuction.sol:HalfLifeCarbonCreditAuction:0xd178525026bafc51d045a2e98b0c79a526d446de \
 				--constructor-args 0x000000000000000000000000f4fbc617a5733eaaf9af08e1ab816b103388d8b600000000000000000000000021c46173591f39afc1d2b634b74c98f0576a272b00000000000000000000000000000000000000000000000000000000000186a0 \
@@ -83,7 +95,7 @@ panic.verify :;  forge verify-contract 0x85fbB04DEBBDEa052a6422E74bFeA57B17e50A8
 verify.guardedlaunch :;  forge verify-contract \
         --constructor-args 0x000000000000000000000000ea0f0b7497d043c553238e77eda66c2965a67b43000000000000000000000000e414d49268837291fde21c33ad7e30233b7041c20000000000000000000000004c2c9a36ec98ed9a1fffd9122c1b366a73f20fad00000000000000000000000018b6f81b92a9474d584d4f59a25e993337aa49f9000000000000000000000000de25f61a8f3bdf006a21b9284c6849c2818aedb9000000000000000000000000d509a9480559337e924c764071009d60aaca623d0000000000000000000000007734720e7cea67b29f53800c4ad5c40e61abb6450000000000000000000000005c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f00000000000000000000000071ceb276788c40d59e244087a1fbb185373aab1a \
         --chain 5 \
-        0x895fAce9c838127abD2150474880A7fb175a621E \
+        0x895fAce9c838127abD2150474880A7fb1753a621E \
         src/GuardedLaunch/Glow.GuardedLaunch.sol:GlowGuardedLaunch \
         $${ETHERSCAN_API_KEY} --watch
 

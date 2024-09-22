@@ -53,8 +53,7 @@ interface IGovernance {
         GCA_COUNCIL_ELECTION_OR_SLASH,
         GRANTS_PROPOSAL,
         CHANGE_GCA_REQUIREMENTS,
-        REQUEST_FOR_COMMENT,
-        UPGRADE_USDG
+        REQUEST_FOR_COMMENT
     }
 
     enum ProposalStatus {

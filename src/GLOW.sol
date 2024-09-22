@@ -266,7 +266,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
 
         _unstakedPositions[msg.sender][indexInMappingToPushTo] = UnstakedPosition({
             amount: SafeCast.toUint192(amount),
-            cooldownEnd: SafeCast.toUint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)
+            cooldownEnd: SafeCast.toUint64(block.timestamp + stakeCooldownPeriod())
         });
 
         pointers = Pointers({head: SafeCast.toUint128(indexInMappingToPushTo), tail: pointers.tail});
@@ -671,5 +671,9 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         assembly {
             isZero := iszero(_address)
         }
+    }
+
+    function stakeCooldownPeriod() internal pure virtual returns (uint256) {
+        return _STAKE_COOLDOWN_PERIOD;
     }
 }

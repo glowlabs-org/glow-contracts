@@ -17,105 +17,63 @@
 // // import {GrantsTreasury} from "@/GrantsTreasury.sol";
 // // import {BatchCommit} from "@/BatchCommit.sol";
 // import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
+// import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+// import {SafetyDelay} from "@/SafetyDelay.sol";
 // import "forge-std/Test.sol";
 
 // contract Debug2 is Test {
 //     string mainnetForkUrl = vm.envString("MAINNET_RPC");
 //     uint256 mainnetFork;
 //     address gca = 0xB2d687b199ee40e6113CD490455cC81eC325C496;
-//     address farm = 0x7781182412aC86aC1a1a50686847728002211882;
+//     address farm = 0xD8E3164744916b8c0D1d6cc01ad82F76ec94058e;
 //     MinerPoolAndGCA minerPoolAndGCA = MinerPoolAndGCA(0x6Fa8C7a89b22bf3212392b778905B12f3dBAF5C4);
-//     /*
-//     {
-//     "weekNumber": 19,
-//     "totalCreditsProduced": 0.4970041288201747,
-//     "totalCreditsProducedBN": "497004128820174700",
-//     "totalGlowWeightInFinalized": "350581250",
-//     "totalGlowWeightHuman": "350.58125",
-//     "totalGCCWeightInFinalized": "497004",
-//     "totalGCCWeightHuman": "0.497004",
-//     "root": "0xc13bb1d37a18d61b0ce3a77ce447936444adf3768e1fdbb0300c34a7db565c43"
-//     }
-//     */
+//     SafetyDelay safetyDelay = SafetyDelay(0xd5970622b740a2eA5A5574616c193968b10e1297);
+//     address usdg = 0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2;
+//     IERC20 glow = IERC20(0xf4fbC617A5733EAAF9af08E1Ab816B103388d8B6);
 
-//     /*
-//     {
-//         "wallet": "0xCB0695C5e231D04a36feb07841e26D44e6D08c9d",
-//         "glowWeight": "65935096",
-//         "usdgWeight": "65920",
-//         "proof": [
-//             "0x3b3366fa05f2f8045b29f89fa869b7f68385d40acfe190a83951189df12ab6ff",
-//             "0xa2cab092ec2b91edd76cadb016c3d7b301d4e3e1ed718da9eee197931529150b",
-//             "0xd10d4cae3a3a3d6a3c74cbd373536eec3998304dc199c02848c8ab114389e278"
-//         ]
-//     }
-//     */
 //     function setUp() public {
 //         mainnetFork = vm.createFork(mainnetForkUrl);
 //         vm.selectFork(mainnetFork);
 //     }
 
-//     function testForkChangeGCAs() public {
-//         address[] memory gcasToSlash = new address[](0);
-//         address[] memory newGCAs = new address[](2);
-//         newGCAs[0] = 0xB2d687b199ee40e6113CD490455cC81eC325C496;
-//         newGCAs[1] = 0x63a74612274FbC6ca3f7096586aF01Fd986d69cE;
-//         uint256 proposalCreationTimestamp = 1713556415;
-//         minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
-//     }
+//     // function testForkChangeGCAs() public {
+//     //     address[] memory gcasToSlash = new address[](0);
+//     //     address[] memory newGCAs = new address[](2);
+//     //     newGCAs[0] = 0xB2d687b199ee40e6113CD490455cC81eC325C496;
+//     //     newGCAs[1] = 0x63a74612274FbC6ca3f7096586aF01Fd986d69cE;
+//     //     uint256 proposalCreationTimestamp = 1713556415;
+//     //     minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
+//     // }
 
-//     function test_claimWeek23() public {
+//     function test_claimWeek41() public {
 //         vm.startPrank(farm);
-//         /*
+//         vm.warp(block.timestamp + 2 weeks);
 
-//         bucketNumber
-//         :
-//         23
-//         glowWeight
-//         :
-//         "68627700"
-//         indexOfGCA
-//         :
-//         0
-//         payoutWallet
-//         :
-//         "0x7781182412aC86aC1a1a50686847728002211882"
-//         proof
-//         :
-//         Array(4)
-//         0
-//         :
-//         "0xed30f9fbb32b7fed702ac387c51155312c5e61e79405dbf1f024585feb0b03d9"
-//         1
-//         :
-//         "0x4ee0c843256916e4e8787dad8a54cbdc7bc7fcdb602c3741dd07f3ed1ada17ea"
-//         2
-//         :
-//         "0xeffd64e6c57ead8a5c80b6ffc975be73d313fb6fd70a0a582601d07f3bbb3661"
-//         3
-//         :
-//         "0x87aa313f618efd96556168344d5721069b30545b4f769f4c49ef1752203eb604"
-//         length
-//         :
-//         4
-//         [[Prototype]]
-//         :
-//         Array(0)
-//         usdcWeight
-//         :
-//         "70555"
-//         */
-//         bytes32[] memory proof = new bytes32[](4);
-//         proof[0] = 0xed30f9fbb32b7fed702ac387c51155312c5e61e79405dbf1f024585feb0b03d9;
-//         proof[1] = 0x4ee0c843256916e4e8787dad8a54cbdc7bc7fcdb602c3741dd07f3ed1ada17ea;
-//         proof[2] = 0xeffd64e6c57ead8a5c80b6ffc975be73d313fb6fd70a0a582601d07f3bbb3661;
-//         proof[3] = 0x87aa313f618efd96556168344d5721069b30545b4f769f4c49ef1752203eb604;
+//         bytes32[] memory proof = new bytes32[](6);
+//         //         "glowWeight": "26248982812",
+//         // "usdgWeight": "6142286",
+//         // "proof": [
+//         //     "0xd56e6a70daa9bf57dc57cc2e5ecd0727953d9ef50a4867bb6d580e97e6e47423",
+//         //     "0x4480acfe49590a641e719f06526c14cf9064169b51492db75b1a33769dc43a46",
+//         //     "0x005a06740b8d79b86b11765c372ed71d8fbb694731dca7156b835a5569a1c587",
+//         //     "0xc8c9c4b4f4a8ee9c91fcba8d30badfc1421ce682edbbc606f9f104a615fd53a1",
+//         //     "0x2811a7a18fb881649044340cd2bf74dc00215f4d22aaa67cb6486d12bca021e3",
+//         //     "0xfb73ca718ae1fe8b1def6f0a230a6813f0cd654de5f24756e851797ad0984509"
+//         // ]
+//         proof[0] = bytes32(0xd56e6a70daa9bf57dc57cc2e5ecd0727953d9ef50a4867bb6d580e97e6e47423);
+//         proof[1] = bytes32(0x4480acfe49590a641e719f06526c14cf9064169b51492db75b1a33769dc43a46);
+//         proof[2] = bytes32(0x005a06740b8d79b86b11765c372ed71d8fbb694731dca7156b835a5569a1c587);
+//         proof[3] = bytes32(0xc8c9c4b4f4a8ee9c91fcba8d30badfc1421ce682edbbc606f9f104a615fd53a1);
+//         proof[4] = bytes32(0x2811a7a18fb881649044340cd2bf74dc00215f4d22aaa67cb6486d12bca021e3);
+//         proof[5] = bytes32(0xfb73ca718ae1fe8b1def6f0a230a6813f0cd654de5f24756e851797ad0984509);
 
-//         uint256 farmGlowWeight = 68627700;
-//         uint256 farmUsdgWeight = 70555;
+//         uint256 farmGlowWeight = 26248982812;
+//         uint256 farmUsdgWeight = 6142286;
+//         uint256 farmSafetyDelayAmountBefore = safetyDelay.holdings(farm, usdg).amount;
+//         uint256 glowBefore = glow.balanceOf(farm);
 
 //         minerPoolAndGCA.claimRewardFromBucket({
-//             bucketId: 23,
+//             bucketId: 41,
 //             glwWeight: farmGlowWeight,
 //             usdcWeight: farmUsdgWeight,
 //             proof: proof,
@@ -125,6 +83,12 @@
 //             signature: ""
 //         });
 
+//         uint256 farmSafetyDelayAmountAfter = safetyDelay.holdings(farm, usdg).amount;
+//         uint256 glowAfter = glow.balanceOf(farm);
+
+//         //Log the diff between the usdg and the glow
+//         console.log("glow diff", glowAfter - glowBefore);
+//         console.log("usdg diff", farmSafetyDelayAmountAfter - farmSafetyDelayAmountBefore);
 //         vm.stopPrank();
 //     }
 // }

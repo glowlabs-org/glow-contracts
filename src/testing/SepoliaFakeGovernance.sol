@@ -13,7 +13,6 @@ import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/Signa
 import {NULL_ADDRESS} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {GCC as GCCContract} from "@/GCC.sol";
 /**
  * @title Governance
@@ -40,7 +39,7 @@ import {GCC as GCCContract} from "@/GCC.sol";
  *                      - and end up in 12 decimals of precision
  */
 
-contract Governance is IGovernance, EIP712 {
+contract SepoliaFakeGovernance is IGovernance, EIP712 {
     using ABDKMath64x64 for int128;
 
     /* -------------------------------------------------------------------------- */
@@ -544,10 +543,6 @@ contract Governance is IGovernance, EIP712 {
      *         -for implementation details check {src/libraries/HalfLife.sol}
      */
     function grantNominations(address to, uint256 amount) external override {
-        if (msg.sender != GCC) {
-            _revert(IGovernance.CallerNotGCC.selector);
-        }
-
         _grantNominations(to, amount);
         return;
     }

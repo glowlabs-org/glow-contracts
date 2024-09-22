@@ -5,6 +5,7 @@ import {GlowGuardedLaunch} from "../GuardedLaunch/Glow.GuardedLaunch.sol";
 import {_GENESIS_TIMESTAMP_GUARDED_LAUNCH_V2} from "@/Constants/Constants.sol";
 
 contract GlowGuardedLaunchV2 is GlowGuardedLaunch {
+    uint256 private constant _STAKE_COOLDOWN_PERIOD_V2 = 730 days; //2 years
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
@@ -26,6 +27,7 @@ contract GlowGuardedLaunchV2 is GlowGuardedLaunch {
         - Also includes the last claimed timestamps for the inflationary contracts
         - To prevent stack too deep error
     */
+
     constructor(
         address _earlyLiquidityAddress,
         address _vestingContract,
@@ -108,5 +110,9 @@ contract GlowGuardedLaunchV2 is GlowGuardedLaunch {
         vetoCouncilLastClaimedTimestamp = _vetoCouncilLastClaimedTimestamp;
         grantsTreasuryLastClaimedTimestamp = _grantsLastClaimedTimestamp;
         _mint(_migrationContract, _amountToSendToMigrationContract);
+    }
+
+    function stakeCooldownPeriod() internal pure virtual override returns (uint256) {
+        return _STAKE_COOLDOWN_PERIOD_V2;
     }
 }
