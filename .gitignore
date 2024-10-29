@@ -30,7 +30,7 @@ exec.py
 swap-succeses-usdc.csv
 simulations.csv
 abis
-utils/
+./utils/
 cloc-table.md
 
 test/EarlyLiquidity/data/
