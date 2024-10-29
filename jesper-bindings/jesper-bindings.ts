@@ -24,57 +24,107 @@ export type SolidityMessageAndArgs = {
   };
 
 export const errors:JesperObject = {
-  "0xacf931cc": {
-    "errorName": "WithdrawalNotReady()",
+  "0x89560ca1": {
+    "errorName": "BalanceOverflow()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xf5d22eaa": {
+  "0x82d2be18": {
+    "errorName": "TooManyIncrements()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x457945d6": {
+    "errorName": "OnlyGCAElectionsCanBeEndorsed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x177e802f": {
+    "errorName": "ERC721InsufficientApproval(address,uint256)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "operator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    }
+  },
+  "0x34b37818": {
+    "errorName": "BucketSubmissionNotOpen()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x5ab88588": {
+    "errorName": "GCCAlreadySet()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xcc3edcc4": {
+    "errorName": "CallerNotGCAAtIndex()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x6e48d7c5": {
+    "errorName": "BucketAlreadyFinalized()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x2bacdf67": {
+    "errorName": "CallerNotVetoCouncil()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x44333a25": {
     "errorName": "SwapToSelf()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x19d76113": {
-    "errorName": "ElectricityFuturesSignatureExpired()",
+  "0x4b800e46": {
+    "errorName": "ERC2612InvalidSigner(address,address)",
     "solidityMessageAndArgs": {
       "errorMessage": "",
-      "args": []
+      "args": [
+        {
+          "name": "signer",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
     }
   },
-  "0x4e1ad8b0": {
-    "errorName": "ToCannotBeUSDCReceiver()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf645eedf": {
-    "errorName": "ECDSAInvalidSignature()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe7e8d14b": {
-    "errorName": "ContractsAlreadySet()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe7689acd": {
-    "errorName": "MustIncreaseCommitAllowanceByAtLeastOne()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xcd6064a4": {
-    "errorName": "CannotClaimZeroTokens()",
+  "0x3fb087f4": {
+    "errorName": "NoRewards()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -87,15 +137,85 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x825e0111": {
-    "errorName": "GlowWeightOverflow()",
+  "0xdb12cf27": {
+    "errorName": "NoRewards()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x7a8ed5d8": {
-    "errorName": "MaxSlashesInGCAElection()",
+  "0x081156a3": {
+    "errorName": "InvalidTokensProof()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xb012ea23": {
+    "errorName": "CannotUnstakeZeroTokens()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x24fe1192": {
+    "errorName": "PriceTooHigh()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x969a2323": {
+    "errorName": "ArrayLengthMismatch()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x82bf4965": {
+    "errorName": "ReleasePeriodNotStarted()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x5fc91d03": {
+    "errorName": "RFCPeriodNotEnded()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x0ff49839": {
+    "errorName": "BucketAlreadyDelayed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x0907fef2": {
+    "errorName": "NotAnAgent()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xaecfbab6": {
+    "errorName": "AddressAlreadySet()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf183c8b0": {
+    "errorName": "Expired()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x51ab315c": {
+    "errorName": "CallerNotGrantsTreasury()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -108,80 +228,137 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0xf2e36f93": {
-    "errorName": "ReportWeightMustBeLTUint64MaxDiv5()",
+  "0x005694cd": {
+    "errorName": "ElectricityFuturesAuctionEnded()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x82469919": {
-    "errorName": "UserAlreadyClaimed()",
+  "0xe23124ad": {
+    "errorName": "ElectricityFuturesAuctionAuthorizationTooLong()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x20551315": {
-    "errorName": "ProposalAlreadyVetoed()",
+  "0x2c1de4f7": {
+    "errorName": "ResubmissionBucketNotInitialized()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x5137f176": {
-    "errorName": "InsufficientAmountA()",
+  "0x19d76113": {
+    "errorName": "ElectricityFuturesSignatureExpired()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xd92e233d": {
-    "errorName": "ZeroAddress()",
+  "0x801332f9": {
+    "errorName": "VetoCouncilElectionsCannotBeVetoed()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xf5b9b3d2": {
-    "errorName": "GlowWeightOverflow()",
+  "0x141e72b2": {
+    "errorName": "CallerNotVetoCouncil()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x7b8a8aa6": {
-    "errorName": "WeekMustHaveEndedToAcceptRatifyOrRejectVotes()",
+  "0x0c882fc0": {
+    "errorName": "PrecisionLossLeadToUnderflow()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x260d3f37": {
-    "errorName": "USDCWeightOverflow()",
+  "0xcb433150": {
+    "errorName": "ProposalIdDoesNotMatchMostPopularProposal()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x17fbc1c4": {
-    "errorName": "InsufficientAmountB()",
+  "0x9c5b4622": {
+    "errorName": "CannotReferSelf()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xd78bce0c": {
-    "errorName": "ECDSAInvalidSignatureS(bytes32)",
+  "0x86f8152e": {
+    "errorName": "NothingToClaim()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
-      "args": [
-        {
-          "name": "s",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
-      ]
+      "args": []
+    }
+  },
+  "0x701ef0cf": {
+    "errorName": "ProposalIsVetoed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xbf7933ee": {
+    "errorName": "NoBalanceToPayout()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xe6a2daf9": {
+    "errorName": "ModNotZero()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x284f58d5": {
+    "errorName": "NoVotesToClaim()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xb3512b0c": {
+    "errorName": "InvalidShortString()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf45bb089": {
+    "errorName": "CommitSignatureInvalid()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x3f26b91e": {
+    "errorName": "TooFewAgents()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x53ce4ece": {
+    "errorName": "EmptyRoot()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xcd754f2e": {
+    "errorName": "NoUSDCToClaim()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
     }
   },
   "0xa60f030c": {
@@ -207,92 +384,21 @@ export const errors:JesperObject = {
       ]
     }
   },
-  "0xad251c27": {
-    "errorName": "MulDivFailed()",
+  "0x4c9c8ce3": {
+    "errorName": "ERC1967InvalidImplementation(address)",
     "solidityMessageAndArgs": {
       "errorMessage": "",
-      "args": []
+      "args": [
+        {
+          "name": "implementation",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
     }
   },
-  "0xafaace5c": {
-    "errorName": "InsufficientClaimableBalance()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6867b330": {
-    "errorName": "WeekNotStarted()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xeaab93be": {
-    "errorName": "BucketAlreadyMinted()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xad672c30": {
-    "errorName": "ProposalHashesEmpty()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x141e72b2": {
-    "errorName": "CallerNotVetoCouncil()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xa00141bd": {
-    "errorName": "InsufficientRatifyOrRejectVotes()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xfa035d1a": {
-    "errorName": "ErrPermanentlyFrozen()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6efc8790": {
-    "errorName": "GCCAlreadySet()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe07c8dba": {
-    "errorName": "UUPSUnauthorizedCallContext()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6fa56d6e": {
-    "errorName": "DuplicatePair()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x82d2be18": {
-    "errorName": "TooManyIncrements()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x12498cab": {
-    "errorName": "InvalidShares()",
+  "0xc75d5b3a": {
+    "errorName": "NoBalanceToPayout()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -316,50 +422,180 @@ export const errors:JesperObject = {
       ]
     }
   },
-  "0xb7d0ea71": {
-    "errorName": "WeekMustHaveEndedToAcceptRatifyOrRejectVotes()",
+  "0xe09cc45f": {
+    "errorName": "ZeroAddressInConstructor()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xae474820": {
-    "errorName": "ProposalHashesNotUpdated()",
+  "0x7d3bdde5": {
+    "errorName": "ErrIsContract()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x7759264f": {
-    "errorName": "CompensationPlanLengthMustBeGreaterThanZero()",
+  "0xacd7985c": {
+    "errorName": "NotMigrationContract()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xa24a13a6": {
-    "errorName": "ArrayLengthMismatch()",
+  "0x0513cd7a": {
+    "errorName": "CannotBuyZeroUnits()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x78046bfe": {
-    "errorName": "InvalidUserProof()",
+  "0x31715d5c": {
+    "errorName": "ProposalsMustBeExecutedSynchonously()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xd226f9d4": {
-    "errorName": "InsufficientLiquidityMinted()",
+  "0xe9a21d53": {
+    "errorName": "InvalidUserIndex()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x3bc195f7": {
-    "errorName": "USDCWeightGreaterThanTotalWeight()",
+  "0xb1ca8fcf": {
+    "errorName": "BucketSubmissionEnded()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xa9fbf51f": {
+    "errorName": "ERC721InvalidApprover(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "approver",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0x49f7642b": {
+    "errorName": "RPowOverflow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x64ced0ec": {
+    "errorName": "ERC1967InvalidBeacon(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "beacon",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0x5c6d7b73": {
+    "errorName": "IdenticalTokens()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x260d3f37": {
+    "errorName": "USDCWeightOverflow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xcbc5bb9f": {
+    "errorName": "ProposalNotInitialized()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x30a8b0dc": {
+    "errorName": "RatifyOrRejectPeriodEnded()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x5137f176": {
+    "errorName": "InsufficientAmountA()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xa363a16f": {
+    "errorName": "ElectricityFuturesAuctionInvalidSignature()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x7f292081": {
+    "errorName": "BalanceOverflow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x1e03a2b2": {
+    "errorName": "ElectricityFuturesAuctionAuthorizationTooLong()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x5274afe7": {
+    "errorName": "SafeERC20FailedOperation(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0x6f9401bc": {
+    "errorName": "PrecisionLossLeadToUnderflow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x0a7d3525": {
+    "errorName": "HashMismatch()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xcc776bc9": {
+    "errorName": "HashesNotUpdated()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xaf6ed3e6": {
+    "errorName": "InvalidConstantProductFormula()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -372,38 +608,39 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x5fc91d03": {
-    "errorName": "RFCPeriodNotEnded()",
+  "0x046e6d00": {
+    "errorName": "NominationCostGreaterThanAllowance()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x7866f889": {
-    "errorName": "InvalidConstantProductFormula()",
+  "0xf2be30fb": {
+    "errorName": "CallerNotGovernance()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xf1bc40d1": {
-    "errorName": "ProposalAlreadyExecuted()",
+  "0x843b801b": {
+    "errorName": "HashesNotUpdated()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x1e4fbdf7": {
-    "errorName": "OwnableInvalidOwner(address)",
+  "0x796ffca1": {
+    "errorName": "InsufficientNominations()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
-      "args": [
-        {
-          "name": "owner",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
+      "args": []
+    }
+  },
+  "0x11a12cfc": {
+    "errorName": "MaxSlashesInGCAElection()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
     }
   },
   "0x1446355b": {
@@ -413,22 +650,40 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0xcc3edcc4": {
+  "0x327269a7": {
+    "errorName": "SafeCastOverflowedIntDowncast(uint8,int256)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "bits",
+          "type": "uint8",
+          "internalType": "uint8"
+        },
+        {
+          "name": "value",
+          "type": "int256",
+          "internalType": "int256"
+        }
+      ]
+    }
+  },
+  "0xa312070f": {
     "errorName": "CallerNotGCAAtIndex()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xae47f702": {
-    "errorName": "FullMulDivFailed()",
+  "0x3bc996a9": {
+    "errorName": "NetworkIsFrozen()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x969a2323": {
-    "errorName": "ArrayLengthMismatch()",
+  "0x61f8b657": {
+    "errorName": "NetworkIsFrozen()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -452,73 +707,92 @@ export const errors:JesperObject = {
       ]
     }
   },
-  "0xbf87f0f4": {
-    "errorName": "InsufficientLiquidity()",
+  "0x51618d53": {
+    "errorName": "ProposalAlreadyExecuted()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x16a02fde": {
-    "errorName": "BucketNotFinalized()",
+  "0xfea41c81": {
+    "errorName": "InvalidUserProof()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x536bfd7d": {
-    "errorName": "CannotBuyZeroUnits()",
+  "0xe7e8d14b": {
+    "errorName": "ContractsAlreadySet()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xdb12cf27": {
-    "errorName": "NoRewards()",
+  "0xb34ea774": {
+    "errorName": "DelayStillOnCooldown()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x30a8b0dc": {
-    "errorName": "RatifyOrRejectPeriodEnded()",
+  "0x11e3defc": {
+    "errorName": "ProposalHashesNotUpdated()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x969bf728": {
-    "errorName": "NothingToClaim()",
+  "0x7b8a8aa6": {
+    "errorName": "WeekMustHaveEndedToAcceptRatifyOrRejectVotes()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xfb8f41b2": {
-    "errorName": "ERC20InsufficientAllowance(address,uint256,uint256)",
+  "0x3b68b0fd": {
+    "errorName": "IntentAlreadyExecuted()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
-      "args": [
-        {
-          "name": "spender",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "allowance",
-          "type": "uint256",
-          "internalType": "uint256"
-        },
-        {
-          "name": "needed",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ]
+      "args": []
     }
   },
-  "0x65244e4e": {
-    "errorName": "DivFailed()",
+  "0xcd9b4680": {
+    "errorName": "UserPriceNotHighEnough()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x17443282": {
+    "errorName": "ResubmissionAlreadyRequestedForSlashNonce()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x6032dc5a": {
+    "errorName": "ProposalsMustBeExecutedSynchonously()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xccf0a889": {
+    "errorName": "NotUSDCToken()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x8bb22f59": {
+    "errorName": "MustIncreaseCommitAllowanceByAtLeastOne()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x48121c80": {
+    "errorName": "SignatureDoesNotMatchUser()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -531,29 +805,85 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x203d82d8": {
-    "errorName": "Expired()",
+  "0xa24a13a6": {
+    "errorName": "ArrayLengthMismatch()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xd7e6bcf8": {
-    "errorName": "NotInitializing()",
+  "0xaa29e9f8": {
+    "errorName": "MaxCouncilMembersExceeded()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xaab28a45": {
+  "0x633b5e7f": {
+    "errorName": "DuplicateAddressNotAllowed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xebfbbd42": {
+    "errorName": "ProposalDoesNotExist()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x1fdd7d63": {
+    "errorName": "MemberNotFound()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xde2f58b1": {
     "errorName": "SpendNominationsOnProposalSignatureExpired()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x6474e7eb": {
-    "errorName": "USDCWeightGreaterThanTotalWeight()",
+  "0xca1c3cbc": {
+    "errorName": "AlreadyMigrated()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x813c7dbd": {
+    "errorName": "MostPopularProposalNotSelected()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x4cdf5489": {
+    "errorName": "ErrPermanentlyFrozen()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xc89d624b": {
+    "errorName": "EmptyRoot()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xe30d9137": {
+    "errorName": "SlashedAgentCannotClaimReward()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xbbe6c638": {
+    "errorName": "CannotStakeZeroTokens()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -566,28 +896,158 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x24775e06": {
-    "errorName": "SafeCastOverflowedUintToInt(uint256)",
+  "0xf4e984f2": {
+    "errorName": "ZeroAddressInConstructor()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xe6db6490": {
+    "errorName": "CallerNotGCA()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xafaace5c": {
+    "errorName": "InsufficientClaimableBalance()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x22bdb8b8": {
+    "errorName": "InvalidTokensProof()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x53fcaf7f": {
+    "errorName": "NotMigrationContract()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xa8b47d63": {
+    "errorName": "ZeroAddress()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x49900a87": {
+    "errorName": "DuplicatePair()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x4cd68d80": {
+    "errorName": "AlreadyWithdrawnFromHolding()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x62e77ba2": {
+    "errorName": "ERC1967InvalidAdmin(address)",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": [
         {
-          "name": "value",
-          "type": "uint256",
-          "internalType": "uint256"
+          "name": "admin",
+          "type": "address",
+          "internalType": "address"
         }
       ]
     }
   },
-  "0x67abc29b": {
+  "0x2ef0fd7f": {
+    "errorName": "GlowWeightGreaterThanTotalWeight()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x5d5db1ae": {
+    "errorName": "CannotSendZeroAmount()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x6d3e6293": {
+    "errorName": "ProposalIsVetoed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x3f4d6053": {
+    "errorName": "HashMismatch()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xaba0f2a2": {
+    "errorName": "FactorialOverflow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf5d22eaa": {
+    "errorName": "SwapToSelf()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x820fa933": {
+    "errorName": "InvalidSpendNominationsOnProposalSignature()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x6474e7eb": {
+    "errorName": "USDCWeightGreaterThanTotalWeight()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xfb7f5079": {
     "errorName": "SafeTransferFailed()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xdc334245": {
-    "errorName": "CannotReferSelf()",
+  "0xe237d922": {
+    "errorName": "ERC1155MissingApprovalForAll(address,address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "operator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0xfdbe8876": {
+    "errorName": "BucketIndexOutOfBounds()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -600,33 +1060,843 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x4e0621e3": {
-    "errorName": "AlreadyAnAgent()",
+  "0xdf345efe": {
+    "errorName": "AllocationCannotBeZero()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xe22e27eb": {
-    "errorName": "StringsInsufficientHexLength(uint256,uint256)",
+  "0xaa1d49a4": {
+    "errorName": "UUPSUnsupportedProxiableUUID(bytes32)",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": [
         {
-          "name": "value",
-          "type": "uint256",
-          "internalType": "uint256"
-        },
+          "name": "slot",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ]
+    }
+  },
+  "0x5be3aa5c": {
+    "errorName": "Log2Undefined()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x9c4e4d00": {
+    "errorName": "MaxCouncilMembersExceeded()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xd1275aff": {
+    "errorName": "RootAlreadyPosted()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x4c1907d5": {
+    "errorName": "BARFSN()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x3823d0a1": {
+    "errorName": "ElectricityFutureAuctionBidMustBeGreaterThanMinimumBid()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xcbc34222": {
+    "errorName": "WeekNotFinalized()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x0f2ca6e7": {
+    "errorName": "WithdrawalNotReady()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xebf5f399": {
+    "errorName": "InsufficientLiquidityBurned()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x2d3ff6f8": {
+    "errorName": "BucketSubmissionEnded()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xeffa4879": {
+    "errorName": "OnlyGCAElectionsCanBeEndorsed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x69b600a4": {
+    "errorName": "AlreadyEndorsedWeek()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xb398979f": {
+    "errorName": "ERC1967NonPayable()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x84f4500a": {
+    "errorName": "ErrIsContract()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x17fbc1c4": {
+    "errorName": "InsufficientAmountB()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x203d82d8": {
+    "errorName": "Expired()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xfa035d1a": {
+    "errorName": "ErrPermanentlyFrozen()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xe602df05": {
+    "errorName": "ERC20InvalidApprover(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
         {
-          "name": "length",
+          "name": "approver",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0x66526891": {
+    "errorName": "ElectricityFutureAuctionBidMustBeGreaterThanMinimumBid()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x39996567": {
+    "errorName": "InsufficientShares()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x101dbe5e": {
+    "errorName": "ReportGCCMustBeLT200Billion()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x04c66fe1": {
+    "errorName": "GCAContractAlreadySet()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xc7a184f7": {
+    "errorName": "CallerNotVetoCouncilMember()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x3646d782": {
+    "errorName": "RatifyOrRejectPeriodNotEnded()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xd226f9d4": {
+    "errorName": "InsufficientLiquidityMinted()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x1e4fbdf7": {
+    "errorName": "OwnableInvalidOwner(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0x63a7d358": {
+    "errorName": "NotAnAgent()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x4b9c8937": {
+    "errorName": "ErrNotVetoCouncilMember()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x88ccd575": {
+    "errorName": "GCACouncilElectionsCannotBeVetoed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xaab28a45": {
+    "errorName": "SpendNominationsOnProposalSignatureExpired()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x80c3ccd7": {
+    "errorName": "CallerNotGCA()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x52129102": {
+    "errorName": "RFCPeriodNotEnded()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x73c6ac6e": {
+    "errorName": "ERC721InvalidSender(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "sender",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0x6fa56d6e": {
+    "errorName": "DuplicatePair()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x74481f4a": {
+    "errorName": "ProposalAlreadyVetoed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xec442f05": {
+    "errorName": "ERC20InvalidReceiver(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "receiver",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0xac990dde": {
+    "errorName": "UnstakeAmountExceedsStakedBalance()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x01a83514": {
+    "errorName": "ERC1155InvalidSender(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "sender",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0xdd7b0cd3": {
+    "errorName": "CallerNotGCC()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xaece1bd5": {
+    "errorName": "ElectricityFuturesAuctionEnded()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xcd786059": {
+    "errorName": "AddressInsufficientBalance(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0xd730e5d8": {
+    "errorName": "AllocationCannotBeZero()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xd9c78e02": {
+    "errorName": "ProposalDoesNotExist()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x529d00b9": {
+    "errorName": "InsufficientShares()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xbf4cce15": {
+    "errorName": "NotEnoughGCCForSale()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x2390f0b7": {
+    "errorName": "ProposalNotInitialized()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xfe5ac779": {
+    "errorName": "AlreadyMigrated()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xad672c30": {
+    "errorName": "ProposalHashesEmpty()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x65244e4e": {
+    "errorName": "DivFailed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x188d7f4f": {
+    "errorName": "InvalidGCAHash()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x6d47e1ae": {
+    "errorName": "BucketSubmissionNotOpen()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xca5e951d": {
+    "errorName": "ZeroAddressNotAllowed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf4ffcdea": {
+    "errorName": "InvalidRelaySignature()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x2a27735f": {
+    "errorName": "TooManyIncrements()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x7ec03745": {
+    "errorName": "CallerMustBeVetoCouncilMember()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xced3e100": {
+    "errorName": "ERC1155InvalidOperator(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "operator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0xf3ac1b52": {
+    "errorName": "VetoCouncilElectionsCannotBeVetoed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x562ece0a": {
+    "errorName": "GCACouncilElectionsCannotBeVetoed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf055d759": {
+    "errorName": "CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpen()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf5b9b3d2": {
+    "errorName": "GlowWeightOverflow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x20551315": {
+    "errorName": "ProposalAlreadyVetoed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x2bb38ec6": {
+    "errorName": "CommitAllowanceUnderflow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x0630d39a": {
+    "errorName": "InvalidGCAHash()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x4b1c64be": {
+    "errorName": "OnlyMinerPoolCanAddHoldings()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xc98cb2a4": {
+    "errorName": "ElectricityFuturesAuctionBidTooLow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xaf7ecada": {
+    "errorName": "CallerNotGovernance()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf4059071": {
+    "errorName": "SafeTransferFromFailed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x089484c8": {
+    "errorName": "GlowWeightGreaterThanTotalWeight()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x6bab6ded": {
+    "errorName": "CommitAllowanceUnderflow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x749383ad": {
+    "errorName": "InsufficientLiquidityBurned()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x3e7f421e": {
+    "errorName": "IntentAlreadyExecuted()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x4490b748": {
+    "errorName": "ResubmissionBucketAlreadyFinalized()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xcd6064a4": {
+    "errorName": "CannotClaimZeroTokens()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x17b5994a": {
+    "errorName": "NotEnoughImpactPowerFromCommitment()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xad251c27": {
+    "errorName": "MulDivFailed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xdff45e0c": {
+    "errorName": "ShiftHasNotStarted()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xbf87f0f4": {
+    "errorName": "InsufficientLiquidity()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x0622c329": {
+    "errorName": "CallerNotVetoCouncilMember()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x8f66ec14": {
+    "errorName": "InsufficientAmountA()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x7e273289": {
+    "errorName": "ERC721NonexistentToken(uint256)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "tokenId",
           "type": "uint256",
           "internalType": "uint256"
         }
       ]
     }
   },
-  "0xa363a16f": {
-    "errorName": "ElectricityFuturesAuctionInvalidSignature()",
+  "0xeb813eb3": {
+    "errorName": "SignatureDoesNotMatchUser()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x1b89f837": {
+    "errorName": "BucketIndexOutOfBounds()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xa8fd44a0": {
+    "errorName": "ContractNotFrozen()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x44c16c11": {
+    "errorName": "CommitPermitSignatureExpired()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x5b08ba18": {
+    "errorName": "ERC721InvalidOperator(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "operator",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0xbac65e5b": {
+    "errorName": "MulWadFailed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xc9e2f204": {
+    "errorName": "InsufficientRatifyOrRejectVotes()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf1bc40d1": {
+    "errorName": "ProposalAlreadyExecuted()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x9d622343": {
+    "errorName": "CompensationPlanLengthMustBeGreaterThanZero()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x94c703b3": {
+    "errorName": "InsufficientAmountUSD()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x80dc8fb5": {
+    "errorName": "ShiftHasNotStarted()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x9d4aa6c4": {
+    "errorName": "ErrCannotSwapZero()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x987cd0b3": {
+    "errorName": "MaximumNumberOfGCAS()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xd78bce0c": {
+    "errorName": "ECDSAInvalidSignatureS(bytes32)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "s",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ]
+    }
+  },
+  "0x3bc195f7": {
+    "errorName": "USDCWeightGreaterThanTotalWeight()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xd229fe47": {
+    "errorName": "ReportWeightMustBeLTUint64MaxDiv5()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x22a91123": {
+    "errorName": "ErrCallerNotGovernance()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xdb675414": {
+    "errorName": "WeekNotStarted()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xde0bf924": {
+    "errorName": "AlreadyWithdrawnFromHolding()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf645eedf": {
+    "errorName": "ECDSAInvalidSignature()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xa8ce4432": {
+    "errorName": "SafeCastOverflowedIntToUint(int256)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "value",
+          "type": "int256",
+          "internalType": "int256"
+        }
+      ]
+    }
+  },
+  "0xffbd5e1e": {
+    "errorName": "NoVotesToClaim()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x864a6163": {
+    "errorName": "CallerNotGrantsTreasury()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x292d0d13": {
+    "errorName": "WeekNotFinalized()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x78046bfe": {
+    "errorName": "InvalidUserProof()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x7a8ed5d8": {
+    "errorName": "MaxSlashesInGCAElection()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x7866f889": {
+    "errorName": "InvalidConstantProductFormula()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x0a927e68": {
+    "errorName": "VetoMemberCannotBeNullAddress()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x1b40804d": {
+    "errorName": "CallerNotGCAContract()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -655,118 +1925,6 @@ export const errors:JesperObject = {
       ]
     }
   },
-  "0xbf2f7db1": {
-    "errorName": "ProposalAlreadyUpdated()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x118cdaa7": {
-    "errorName": "OwnableUnauthorizedAccount(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x9996b315": {
-    "errorName": "AddressEmptyCode(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "target",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0xd1428d82": {
-    "errorName": "ProposalExpired()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x64283d7b": {
-    "errorName": "ERC721IncorrectOwner(address,uint256,address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "sender",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "tokenId",
-          "type": "uint256",
-          "internalType": "uint256"
-        },
-        {
-          "name": "owner",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0xb398979f": {
-    "errorName": "ERC1967NonPayable()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf4e984f2": {
-    "errorName": "ZeroAddressInConstructor()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x0dc149f0": {
-    "errorName": "AlreadyInitialized()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x9472ad34": {
-    "errorName": "ProposalNotMostPopular()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xb34ea774": {
-    "errorName": "DelayStillOnCooldown()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xd1c62825": {
-    "errorName": "NominationCostGreaterThanAllowance()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x88558ee9": {
-    "errorName": "AddressNotSet()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
   "0xa37bfec9": {
     "errorName": "ExpOverflow()",
     "solidityMessageAndArgs": {
@@ -774,92 +1932,15 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0xacd7985c": {
-    "errorName": "NotMigrationContract()",
+  "0xf2e36f93": {
+    "errorName": "ReportWeightMustBeLTUint64MaxDiv5()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xbbb5a50e": {
-    "errorName": "CommitPermitSignatureExpired()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xcc776bc9": {
-    "errorName": "HashesNotUpdated()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x1615e638": {
-    "errorName": "LnWadUndefined()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x60d3cf1e": {
-    "errorName": "CannotSetNonceToZero()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xb1ca8fcf": {
-    "errorName": "BucketSubmissionEnded()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xbf4cce15": {
-    "errorName": "NotEnoughGCCForSale()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6fa94eb4": {
-    "errorName": "SafeTransferFromFailed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xc9e2f204": {
-    "errorName": "InsufficientRatifyOrRejectVotes()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xa7f69732": {
-    "errorName": "AlreadyMintedToCarbonCreditAuction()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x86f8152e": {
-    "errorName": "NothingToClaim()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x2bb38ec6": {
-    "errorName": "CommitAllowanceUnderflow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x1a95f50c": {
-    "errorName": "RatifyOrRejectPeriodEnded()",
+  "0x82469919": {
+    "errorName": "UserAlreadyClaimed()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -872,318 +1953,22 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x0c882fc0": {
-    "errorName": "PrecisionLossLeadToUnderflow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x61f8b657": {
-    "errorName": "NetworkIsFrozen()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xcd754f2e": {
+  "0xc1fd7642": {
     "errorName": "NoUSDCToClaim()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xa1ad2bf3": {
-    "errorName": "CannotSpendZeroNominations()",
+  "0xcc0b0eab": {
+    "errorName": "InsufficientLiquidityMinted()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xca1c3cbc": {
-    "errorName": "AlreadyMigrated()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x2bacdf67": {
-    "errorName": "CallerNotVetoCouncil()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x22a91123": {
-    "errorName": "ErrCallerNotGovernance()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x843b801b": {
-    "errorName": "HashesNotUpdated()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x7d3bdde5": {
-    "errorName": "ErrIsContract()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xc75d5b3a": {
-    "errorName": "NoBalanceToPayout()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xebfbbd42": {
-    "errorName": "ProposalDoesNotExist()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xb012ea23": {
-    "errorName": "CannotUnstakeZeroTokens()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x5b059991": {
-    "errorName": "ERC1155InvalidArrayLength(uint256,uint256)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "idsLength",
-          "type": "uint256",
-          "internalType": "uint256"
-        },
-        {
-          "name": "valuesLength",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ]
-    }
-  },
-  "0x0907fef2": {
-    "errorName": "NotAnAgent()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xcbc34222": {
-    "errorName": "WeekNotFinalized()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xaa29e9f8": {
-    "errorName": "MaxCouncilMembersExceeded()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x005694cd": {
-    "errorName": "ElectricityFuturesAuctionEnded()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x633b5e7f": {
-    "errorName": "DuplicateAddressNotAllowed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x84f4500a": {
-    "errorName": "ErrIsContract()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x749383ad": {
-    "errorName": "InsufficientLiquidityBurned()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf45bb089": {
-    "errorName": "CommitSignatureInvalid()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xeced761d": {
-    "errorName": "CallerNotEarlyLiquidity()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x7e273289": {
-    "errorName": "ERC721NonexistentToken(uint256)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "tokenId",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ]
-    }
-  },
-  "0xca5e951d": {
-    "errorName": "ZeroAddressNotAllowed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xc1ab6dc1": {
-    "errorName": "InvalidToken()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x436093a5": {
-    "errorName": "IncorrectDecimals()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x483313f3": {
-    "errorName": "InvalidAmount()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x4b9c8937": {
-    "errorName": "ErrNotVetoCouncilMember()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xb3723c6b": {
-    "errorName": "AllSold()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x82bf4965": {
-    "errorName": "ReleasePeriodNotStarted()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x2c5211c6": {
-    "errorName": "InvalidAmount()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x78a65193": {
-    "errorName": "GCAContractAlreadySet()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x0dc1e83a": {
-    "errorName": "SignerNotGCA()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xdf345efe": {
-    "errorName": "AllocationCannotBeZero()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x1b89f837": {
-    "errorName": "BucketIndexOutOfBounds()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x01a83514": {
-    "errorName": "ERC1155InvalidSender(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "sender",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x3592b417": {
-    "errorName": "ElectricityFuturesAuctionInvalidSignature()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x06f29f91": {
-    "errorName": "NotGCA()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x4c5312ed": {
-    "errorName": "IndexDoesNotMatchNextProposalIndex()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x73cfea71": {
-    "errorName": "InvalidToken()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x1e6a2935": {
-    "errorName": "MaximumNumberOfGCAS()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6d2e02ad": {
-    "errorName": "NotEnoughImpactPowerFromCommitment()",
+  "0x4e1ad8b0": {
+    "errorName": "ToCannotBeUSDCReceiver()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -1196,85 +1981,50 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x864a6163": {
-    "errorName": "CallerNotGrantsTreasury()",
+  "0x5232d1dc": {
+    "errorName": "ResubmissionBucketAlreadyDelayedOrRequestedForResubmission()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x611e1857": {
-    "errorName": "ErrNotVetoCouncilMember()",
+  "0xa53ccf43": {
+    "errorName": "IndexDoesNotMatchNextProposalIndex()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x820fa933": {
+  "0x7caf5a70": {
     "errorName": "InvalidSpendNominationsOnProposalSignature()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x3e7f421e": {
-    "errorName": "IntentAlreadyExecuted()",
+  "0xd2506c77": {
+    "errorName": "NotEnoughGCCForSale()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x11e3defc": {
-    "errorName": "ProposalHashesNotUpdated()",
+  "0xa217a141": {
+    "errorName": "CommitSignatureInvalid()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xceaef865": {
-    "errorName": "CallerNotGCC()",
+  "0xdee388bd": {
+    "errorName": "AllSold()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x2a27735f": {
-    "errorName": "TooManyIncrements()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x620bc496": {
-    "errorName": "InsufficientNominations()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x5d5db1ae": {
-    "errorName": "CannotSendZeroAmount()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf3ac1b52": {
-    "errorName": "VetoCouncilElectionsCannotBeVetoed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xd730e5d8": {
-    "errorName": "AllocationCannotBeZero()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xdff45e0c": {
-    "errorName": "ShiftHasNotStarted()",
+  "0x3934b931": {
+    "errorName": "ReleasePeriodNotStarted()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -1287,61 +2037,25 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x6f902b75": {
-    "errorName": "UserAlreadyClaimed()",
+  "0x77339867": {
+    "errorName": "ContractsAlreadySet()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x305a27a9": {
-    "errorName": "StringTooLong(string)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "str",
-          "type": "string",
-          "internalType": "string"
-        }
-      ]
-    }
-  },
-  "0xebf5f399": {
-    "errorName": "InsufficientLiquidityBurned()",
+  "0x7759264f": {
+    "errorName": "CompensationPlanLengthMustBeGreaterThanZero()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x9c5b4622": {
-    "errorName": "CannotReferSelf()",
+  "0xd1428d82": {
+    "errorName": "ProposalExpired()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
-    }
-  },
-  "0xe450d38c": {
-    "errorName": "ERC20InsufficientBalance(address,uint256,uint256)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "sender",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "balance",
-          "type": "uint256",
-          "internalType": "uint256"
-        },
-        {
-          "name": "needed",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ]
     }
   },
   "0xc5d24b3a": {
@@ -1351,63 +2065,29 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x2ef0fd7f": {
-    "errorName": "GlowWeightGreaterThanTotalWeight()",
+  "0xb3723c6b": {
+    "errorName": "AllSold()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xaf7ecada": {
-    "errorName": "CallerNotGovernance()",
+  "0x9472ad34": {
+    "errorName": "ProposalNotMostPopular()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x04c66fe1": {
-    "errorName": "GCAContractAlreadySet()",
+  "0x06f29f91": {
+    "errorName": "NotGCA()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x701ef0cf": {
-    "errorName": "ProposalIsVetoed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x44333a25": {
-    "errorName": "SwapToSelf()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x009835dc": {
-    "errorName": "CannotDelayBucketThatNeedsToUpdateSlashNonce()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x4c9c8ce3": {
-    "errorName": "ERC1967InvalidImplementation(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "implementation",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x801332f9": {
-    "errorName": "VetoCouncilElectionsCannotBeVetoed()",
+  "0x6fa94eb4": {
+    "errorName": "SafeTransferFromFailed()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -1420,8 +2100,8 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x8f66ec14": {
-    "errorName": "InsufficientAmountA()",
+  "0xa1db7253": {
+    "errorName": "ProposalNotMostPopular()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -1440,248 +2120,54 @@ export const errors:JesperObject = {
       ]
     }
   },
-  "0x177e802f": {
-    "errorName": "ERC721InsufficientApproval(address,uint256)",
+  "0xa7f69732": {
+    "errorName": "AlreadyMintedToCarbonCreditAuction()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x0dc149f0": {
+    "errorName": "AlreadyInitialized()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xe22e27eb": {
+    "errorName": "StringsInsufficientHexLength(uint256,uint256)",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": [
         {
-          "name": "operator",
-          "type": "address",
-          "internalType": "address"
+          "name": "value",
+          "type": "uint256",
+          "internalType": "uint256"
         },
         {
-          "name": "tokenId",
+          "name": "length",
           "type": "uint256",
           "internalType": "uint256"
         }
       ]
     }
   },
-  "0x52129102": {
-    "errorName": "RFCPeriodNotEnded()",
+  "0xcf942234": {
+    "errorName": "ResubmissionBucketNotInitialized()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xa8b47d63": {
-    "errorName": "ZeroAddress()",
+  "0x5660a375": {
+    "errorName": "ReportGCCMustBeLT200Billion()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x4cdf5489": {
-    "errorName": "ErrPermanentlyFrozen()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x529d00b9": {
-    "errorName": "InsufficientShares()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x735375ff": {
-    "errorName": "MemberNotFound()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x02a768c4": {
-    "errorName": "ProposalHashDoesNotMatch()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x3fb087f4": {
-    "errorName": "NoRewards()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x3646d782": {
-    "errorName": "RatifyOrRejectPeriodNotEnded()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xcbc5bb9f": {
-    "errorName": "ProposalNotInitialized()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xfa0c3826": {
-    "errorName": "ErrMustMintPositiveAmount()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6970aec5": {
-    "errorName": "BucketNotFinalized()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x89560ca1": {
-    "errorName": "BalanceOverflow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6edcc523": {
-    "errorName": "InvalidShares()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xec442f05": {
-    "errorName": "ERC20InvalidReceiver(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "receiver",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x51ab315c": {
-    "errorName": "CallerNotGrantsTreasury()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x28a72379": {
-    "errorName": "ProposalExpired()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x081156a3": {
-    "errorName": "InvalidTokensProof()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xfb7f5079": {
-    "errorName": "SafeTransferFailed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x75c8f5fb": {
-    "errorName": "NonexistentIntent()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xc14d5d60": {
-    "errorName": "NotAuth()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6f9401bc": {
-    "errorName": "PrecisionLossLeadToUnderflow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xfea41c81": {
-    "errorName": "InvalidUserProof()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe8adc5eb": {
-    "errorName": "SlashedAgentCannotClaimReward()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf8638ff2": {
-    "errorName": "SignerNotGCA()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x3f26b91e": {
-    "errorName": "TooFewAgents()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x3823d0a1": {
-    "errorName": "ElectricityFutureAuctionBidMustBeGreaterThanMinimumBid()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x51618d53": {
-    "errorName": "ProposalAlreadyExecuted()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xc89d624b": {
-    "errorName": "EmptyRoot()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe602df05": {
-    "errorName": "ERC20InvalidApprover(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "approver",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x7ff38ffb": {
-    "errorName": "USDCWeightOverflow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xaa77fc5a": {
-    "errorName": "CannotDelayEmptyBucket()",
+  "0xd62931b2": {
+    "errorName": "CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpen()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -1694,6 +2180,41 @@ export const errors:JesperObject = {
       "args": []
     }
   },
+  "0x3e9283f4": {
+    "errorName": "InsufficientClaimableBalance()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xd7e6bcf8": {
+    "errorName": "NotInitializing()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x6f902b75": {
+    "errorName": "UserAlreadyClaimed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x895076c0": {
+    "errorName": "CannotUnstakeZeroTokens()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xc27cd771": {
+    "errorName": "VetoMemberCannotBeNullAddress()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
   "0x8851d920": {
     "errorName": "MaxSevenVetoCouncilMembers()",
     "solidityMessageAndArgs": {
@@ -1701,49 +2222,98 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0xac990dde": {
-    "errorName": "UnstakeAmountExceedsStakedBalance()",
+  "0x611e1857": {
+    "errorName": "ErrNotVetoCouncilMember()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x7c5f487d": {
-    "errorName": "DivWadFailed()",
+  "0xb1deb0c6": {
+    "errorName": "ClaimNotAvailableYet()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xe30d9137": {
-    "errorName": "SlashedAgentCannotClaimReward()",
+  "0x0dc1e83a": {
+    "errorName": "SignerNotGCA()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x57f447ce": {
-    "errorName": "ERC1155InvalidReceiver(address)",
+  "0x3f74dab4": {
+    "errorName": "MaxSevenVetoCouncilMembers()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x02a768c4": {
+    "errorName": "ProposalHashDoesNotMatch()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xeced761d": {
+    "errorName": "CallerNotEarlyLiquidity()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x825e0111": {
+    "errorName": "GlowWeightOverflow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x24775e06": {
+    "errorName": "SafeCastOverflowedUintToInt(uint256)",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": [
         {
-          "name": "receiver",
-          "type": "address",
-          "internalType": "address"
+          "name": "value",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ]
     }
   },
-  "0x17b5994a": {
-    "errorName": "NotEnoughImpactPowerFromCommitment()",
+  "0x62a62f74": {
+    "errorName": "ProposalAlreadyUpdated()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x53ce4ece": {
-    "errorName": "EmptyRoot()",
+  "0x33ee453e": {
+    "errorName": "CannotSetNonceToZero()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xaa77fc5a": {
+    "errorName": "CannotDelayEmptyBucket()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xeaab93be": {
+    "errorName": "BucketAlreadyMinted()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x821e4775": {
+    "errorName": "InsufficientAmountGlow()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -1756,279 +2326,25 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0xe583e1d1": {
-    "errorName": "MinerPoolAlreadySet()",
+  "0x3f7cf00a": {
+    "errorName": "DelayStillOnCooldown()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x101dbe5e": {
-    "errorName": "ReportGCCMustBeLT200Billion()",
+  "0x969bf728": {
+    "errorName": "NothingToClaim()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x9d622343": {
-    "errorName": "CompensationPlanLengthMustBeGreaterThanZero()",
+  "0x936524fd": {
+    "errorName": "BucketAlreadyMinted()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
-    }
-  },
-  "0x0f2ca6e7": {
-    "errorName": "WithdrawalNotReady()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xeffa4879": {
-    "errorName": "OnlyGCAElectionsCanBeEndorsed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x1fdd7d63": {
-    "errorName": "MemberNotFound()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf183c8b0": {
-    "errorName": "Expired()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x74481f4a": {
-    "errorName": "ProposalAlreadyVetoed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x5ab88588": {
-    "errorName": "GCCAlreadySet()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xaa1d49a4": {
-    "errorName": "UUPSUnsupportedProxiableUUID(bytes32)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "slot",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
-      ]
-    }
-  },
-  "0xc7a184f7": {
-    "errorName": "CallerNotVetoCouncilMember()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x796ffca1": {
-    "errorName": "InsufficientNominations()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xdd7b0cd3": {
-    "errorName": "CallerNotGCC()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xa9880448": {
-    "errorName": "ProposalHasNotExpired(uint256)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "proposalId",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ]
-    }
-  },
-  "0x33ee453e": {
-    "errorName": "CannotSetNonceToZero()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xd229fe47": {
-    "errorName": "ReportWeightMustBeLTUint64MaxDiv5()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6d47e1ae": {
-    "errorName": "BucketSubmissionNotOpen()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe9a21d53": {
-    "errorName": "InvalidUserIndex()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xffbd5e1e": {
-    "errorName": "NoVotesToClaim()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x49900a87": {
-    "errorName": "DuplicatePair()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x94280d62": {
-    "errorName": "ERC20InvalidSpender(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "spender",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x0630d39a": {
-    "errorName": "InvalidGCAHash()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x63a7d358": {
-    "errorName": "NotAnAgent()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x49f7642b": {
-    "errorName": "RPowOverflow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6bab6ded": {
-    "errorName": "CommitAllowanceUnderflow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x8579befe": {
-    "errorName": "ZeroAddressNotAllowed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf62c2d82": {
-    "errorName": "AddressAlreadySet()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x80dc8fb5": {
-    "errorName": "ShiftHasNotStarted()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xcd786059": {
-    "errorName": "AddressInsufficientBalance(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0xaece1bd5": {
-    "errorName": "ElectricityFuturesAuctionEnded()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x35f3f70b": {
-    "errorName": "ElectricityFuturesAuctionBidTooLow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xbf7933ee": {
-    "errorName": "NoBalanceToPayout()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x188d7f4f": {
-    "errorName": "InvalidGCAHash()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xcd9b4680": {
-    "errorName": "UserPriceNotHighEnough()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x64ced0ec": {
-    "errorName": "ERC1967InvalidBeacon(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "beacon",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
     }
   },
   "0xc0c1a6dd": {
@@ -2038,69 +2354,15 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x1b40804d": {
-    "errorName": "CallerNotGCAContract()",
+  "0x6edcc523": {
+    "errorName": "InvalidShares()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x0ff49839": {
-    "errorName": "BucketAlreadyDelayed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x111c9691": {
-    "errorName": "CannotClaimZeroTokens()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x62791302": {
-    "errorName": "ERC2612ExpiredSignature(uint256)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "deadline",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ]
-    }
-  },
-  "0xfce698f7": {
-    "errorName": "ECDSAInvalidSignatureLength(uint256)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "length",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ]
-    }
-  },
-  "0x88ccd575": {
-    "errorName": "GCACouncilElectionsCannotBeVetoed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xb17724af": {
-    "errorName": "BucketAlreadyDelayed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x2d3ff6f8": {
-    "errorName": "BucketSubmissionEnded()",
+  "0x7c5f487d": {
+    "errorName": "DivWadFailed()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -2119,15 +2381,8 @@ export const errors:JesperObject = {
       ]
     }
   },
-  "0x80c61bee": {
-    "errorName": "InvalidUserIndex()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xb1deb0c6": {
-    "errorName": "ClaimNotAvailableYet()",
+  "0x16a02fde": {
+    "errorName": "BucketNotFinalized()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -2140,68 +2395,6 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0xdb8ee110": {
-    "errorName": "InvalidRelaySignature()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x936524fd": {
-    "errorName": "BucketAlreadyMinted()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x562ece0a": {
-    "errorName": "GCACouncilElectionsCannotBeVetoed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x3934b931": {
-    "errorName": "ReleasePeriodNotStarted()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf92ee8a9": {
-    "errorName": "InvalidInitialization()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xa217a141": {
-    "errorName": "CommitSignatureInvalid()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x813c7dbd": {
-    "errorName": "MostPopularProposalNotSelected()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x96c6fd1e": {
-    "errorName": "ERC20InvalidSender(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "sender",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
   "0x15bce54e": {
     "errorName": "ModNotZero()",
     "solidityMessageAndArgs": {
@@ -2209,705 +2402,8 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x5be3aa5c": {
-    "errorName": "Log2Undefined()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x457945d6": {
-    "errorName": "OnlyGCAElectionsCanBeEndorsed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xfdbe8876": {
-    "errorName": "BucketIndexOutOfBounds()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x0513cd7a": {
-    "errorName": "CannotBuyZeroUnits()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x48121c80": {
-    "errorName": "SignatureDoesNotMatchUser()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe23124ad": {
-    "errorName": "ElectricityFuturesAuctionAuthorizationTooLong()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe09cc45f": {
-    "errorName": "ZeroAddressInConstructor()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe6db6490": {
-    "errorName": "CallerNotGCA()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x34fa9bbe": {
-    "errorName": "ProposalIdDoesNotMatchMostPopularProposal()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x62a7556c": {
-    "errorName": "MinerPoolAlreadySet()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe66d943f": {
-    "errorName": "NotUSDCToken()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xa9fbf51f": {
-    "errorName": "ERC721InvalidApprover(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "approver",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x1e03a2b2": {
-    "errorName": "ElectricityFuturesAuctionAuthorizationTooLong()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x39996567": {
-    "errorName": "InsufficientShares()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x397e8eed": {
-    "errorName": "NonexistentIntent()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x62e77ba2": {
-    "errorName": "ERC1967InvalidAdmin(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "admin",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x284f58d5": {
-    "errorName": "NoVotesToClaim()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x821e4775": {
-    "errorName": "InsufficientAmountGlow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x34c90624": {
-    "errorName": "InsufficientAmountB()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x981122d3": {
-    "errorName": "NotAuth()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x424b34ab": {
-    "errorName": "CannotDelayBucketThatNeedsToUpdateSlashNonce()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x5b08ba18": {
-    "errorName": "ERC721InvalidOperator(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "operator",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x94c703b3": {
-    "errorName": "InsufficientAmountUSD()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x0622c329": {
-    "errorName": "CallerNotVetoCouncilMember()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf2be30fb": {
-    "errorName": "CallerNotGovernance()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xdb675414": {
-    "errorName": "WeekNotStarted()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x987cd0b3": {
-    "errorName": "MaximumNumberOfGCAS()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xc3b6aa62": {
-    "errorName": "CannotStakeZeroTokens()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x80c3ccd7": {
-    "errorName": "CallerNotGCA()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6d3e6293": {
-    "errorName": "ProposalIsVetoed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x66526891": {
-    "errorName": "ElectricityFutureAuctionBidMustBeGreaterThanMinimumBid()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x94aeaa34": {
-    "errorName": "IncorrectDecimals()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xc98cb2a4": {
-    "errorName": "ElectricityFuturesAuctionBidTooLow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xde2f58b1": {
-    "errorName": "SpendNominationsOnProposalSignatureExpired()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x62a62f74": {
-    "errorName": "ProposalAlreadyUpdated()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x6e48d7c5": {
-    "errorName": "BucketAlreadyFinalized()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xc1fd7642": {
-    "errorName": "NoUSDCToClaim()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x3e9283f4": {
-    "errorName": "InsufficientClaimableBalance()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x7f292081": {
-    "errorName": "BalanceOverflow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x9d4aa6c4": {
-    "errorName": "ErrCannotSwapZero()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xfe5ac779": {
-    "errorName": "AlreadyMigrated()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xd9dbda29": {
-    "errorName": "AlreadyMintedToCarbonCreditAuction()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xd2506c77": {
-    "errorName": "NotEnoughGCCForSale()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x3f7cf00a": {
-    "errorName": "DelayStillOnCooldown()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x22bdb8b8": {
-    "errorName": "InvalidTokensProof()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xcb433150": {
-    "errorName": "ProposalIdDoesNotMatchMostPopularProposal()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x5274afe7": {
-    "errorName": "SafeERC20FailedOperation(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "token",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x6032dc5a": {
-    "errorName": "ProposalsMustBeExecutedSynchonously()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf918b33a": {
-    "errorName": "CannotSendZeroAmount()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x44c16c11": {
-    "errorName": "CommitPermitSignatureExpired()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x4cd68d80": {
-    "errorName": "AlreadyWithdrawnFromHolding()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x952b12c4": {
-    "errorName": "ProposalHashesEmpty()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xced3e100": {
-    "errorName": "ERC1155InvalidOperator(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "operator",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0xa8ce4432": {
-    "errorName": "SafeCastOverflowedIntToUint(int256)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "value",
-          "type": "int256",
-          "internalType": "int256"
-        }
-      ]
-    }
-  },
-  "0x3bc996a9": {
-    "errorName": "NetworkIsFrozen()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x3b68b0fd": {
-    "errorName": "IntentAlreadyExecuted()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe237d922": {
-    "errorName": "ERC1155MissingApprovalForAll(address,address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "operator",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "owner",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0xa5ae73cd": {
-    "errorName": "VetoCouncilProposalCreationOldMemberCannotEqualNewMember()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x8bb22f59": {
-    "errorName": "MustIncreaseCommitAllowanceByAtLeastOne()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xe6a2daf9": {
-    "errorName": "ModNotZero()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x038a66dd": {
-    "errorName": "BucketAlreadyFinalized()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xeb813eb3": {
-    "errorName": "SignatureDoesNotMatchUser()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x046e6d00": {
-    "errorName": "NominationCostGreaterThanAllowance()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x69b600a4": {
-    "errorName": "AlreadyEndorsedWeek()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf4059071": {
-    "errorName": "SafeTransferFromFailed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x96f644fd": {
-    "errorName": "TooManyAgents()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x89c62b64": {
-    "errorName": "ERC721InvalidOwner(address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "owner",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    }
-  },
-  "0x41d07501": {
-    "errorName": "MaxGCAEndorsementsReached()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xf4ffcdea": {
-    "errorName": "InvalidRelaySignature()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x9c4e4d00": {
-    "errorName": "MaxCouncilMembersExceeded()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x3f74dab4": {
-    "errorName": "MaxSevenVetoCouncilMembers()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xa53ccf43": {
-    "errorName": "IndexDoesNotMatchNextProposalIndex()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xccf0a889": {
-    "errorName": "NotUSDCToken()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xcc0b0eab": {
-    "errorName": "InsufficientLiquidityMinted()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x11a12cfc": {
-    "errorName": "MaxSlashesInGCAElection()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xbbe6c638": {
-    "errorName": "CannotStakeZeroTokens()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xdee388bd": {
-    "errorName": "AllSold()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x7ec03745": {
-    "errorName": "CallerMustBeVetoCouncilMember()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xbac65e5b": {
-    "errorName": "MulWadFailed()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xdb391df9": {
-    "errorName": "MostPopularProposalNotSelected()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xa312070f": {
-    "errorName": "CallerNotGCAAtIndex()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x895076c0": {
-    "errorName": "CannotUnstakeZeroTokens()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x292d0d13": {
-    "errorName": "WeekNotFinalized()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x34b37818": {
-    "errorName": "BucketSubmissionNotOpen()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x80110b87": {
-    "errorName": "IdenticalTokens()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x5660a375": {
-    "errorName": "ReportGCCMustBeLT200Billion()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xc27cd771": {
-    "errorName": "VetoMemberCannotBeNullAddress()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x0a927e68": {
-    "errorName": "VetoMemberCannotBeNullAddress()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xb3512b0c": {
-    "errorName": "InvalidShortString()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x77339867": {
-    "errorName": "ContractsAlreadySet()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x0a7d3525": {
-    "errorName": "HashMismatch()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0xd9c78e02": {
-    "errorName": "ProposalDoesNotExist()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x5c6d7b73": {
-    "errorName": "IdenticalTokens()",
+  "0xae474820": {
+    "errorName": "ProposalHashesNotUpdated()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -2941,93 +2437,103 @@ export const errors:JesperObject = {
       ]
     }
   },
-  "0x5506e58c": {
-    "errorName": "ProposalHashDoesNotMatch()",
+  "0x8579befe": {
+    "errorName": "ZeroAddressNotAllowed()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x327269a7": {
-    "errorName": "SafeCastOverflowedIntDowncast(uint8,int256)",
+  "0x94280d62": {
+    "errorName": "ERC20InvalidSpender(address)",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": [
         {
-          "name": "bits",
-          "type": "uint8",
-          "internalType": "uint8"
-        },
-        {
-          "name": "value",
-          "type": "int256",
-          "internalType": "int256"
-        }
-      ]
-    }
-  },
-  "0xaba0f2a2": {
-    "errorName": "FactorialOverflow()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x7caf5a70": {
-    "errorName": "InvalidSpendNominationsOnProposalSignature()",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": []
-    }
-  },
-  "0x4b800e46": {
-    "errorName": "ERC2612InvalidSigner(address,address)",
-    "solidityMessageAndArgs": {
-      "errorMessage": "",
-      "args": [
-        {
-          "name": "signer",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "owner",
+          "name": "spender",
           "type": "address",
           "internalType": "address"
         }
       ]
     }
   },
-  "0xde0bf924": {
-    "errorName": "AlreadyWithdrawnFromHolding()",
+  "0x194e594b": {
+    "errorName": "ResubmissionAlreadyRequestedForSlashNonce()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x24fe1192": {
-    "errorName": "PriceTooHigh()",
+  "0x305a27a9": {
+    "errorName": "StringTooLong(string)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "str",
+          "type": "string",
+          "internalType": "string"
+        }
+      ]
+    }
+  },
+  "0x7ff38ffb": {
+    "errorName": "USDCWeightOverflow()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x2390f0b7": {
-    "errorName": "ProposalNotInitialized()",
+  "0xe583e1d1": {
+    "errorName": "MinerPoolAlreadySet()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xaf6ed3e6": {
-    "errorName": "InvalidConstantProductFormula()",
+  "0xe66d943f": {
+    "errorName": "NotUSDCToken()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x3f4d6053": {
-    "errorName": "HashMismatch()",
+  "0xacf931cc": {
+    "errorName": "WithdrawalNotReady()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x038a66dd": {
+    "errorName": "BucketAlreadyFinalized()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xb17724af": {
+    "errorName": "BucketAlreadyDelayed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x57f447ce": {
+    "errorName": "ERC1155InvalidReceiver(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "receiver",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0x6867b330": {
+    "errorName": "WeekNotStarted()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -3040,8 +2546,188 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x73c6ac6e": {
-    "errorName": "ERC721InvalidSender(address)",
+  "0x5b059991": {
+    "errorName": "ERC1155InvalidArrayLength(uint256,uint256)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "idsLength",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "valuesLength",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    }
+  },
+  "0xa5ae73cd": {
+    "errorName": "VetoCouncilProposalCreationOldMemberCannotEqualNewMember()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xd92e233d": {
+    "errorName": "ZeroAddress()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xe8adc5eb": {
+    "errorName": "SlashedAgentCannotClaimReward()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x2219f9fe": {
+    "errorName": "ResubmissionBucketAlreadyFinalized()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xe07c8dba": {
+    "errorName": "UUPSUnauthorizedCallContext()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xdb391df9": {
+    "errorName": "MostPopularProposalNotSelected()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x009835dc": {
+    "errorName": "CannotDelayBucketThatNeedsToUpdateSlashNonce()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xc3b6aa62": {
+    "errorName": "CannotStakeZeroTokens()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x9996b315": {
+    "errorName": "AddressEmptyCode(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "target",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0xe450d38c": {
+    "errorName": "ERC20InsufficientBalance(address,uint256,uint256)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "sender",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "balance",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "needed",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    }
+  },
+  "0xdb8ee110": {
+    "errorName": "InvalidRelaySignature()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x1615e638": {
+    "errorName": "LnWadUndefined()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x88558ee9": {
+    "errorName": "AddressNotSet()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xd6ae6768": {
+    "errorName": "ResubmissionBucketAlreadyRequestedForResubmission()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x3592b417": {
+    "errorName": "ElectricityFuturesAuctionInvalidSignature()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xe7689acd": {
+    "errorName": "MustIncreaseCommitAllowanceByAtLeastOne()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x981122d3": {
+    "errorName": "NotAuth()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x80c61bee": {
+    "errorName": "InvalidUserIndex()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xc1ab6dc1": {
+    "errorName": "InvalidToken()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x80110b87": {
+    "errorName": "IdenticalTokens()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x96c6fd1e": {
+    "errorName": "ERC20InvalidSender(address)",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": [
@@ -3053,29 +2739,239 @@ export const errors:JesperObject = {
       ]
     }
   },
-  "0xaecfbab6": {
+  "0x5506e58c": {
+    "errorName": "ProposalHashDoesNotMatch()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xb7d0ea71": {
+    "errorName": "WeekMustHaveEndedToAcceptRatifyOrRejectVotes()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x1e6a2935": {
+    "errorName": "MaximumNumberOfGCAS()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x64283d7b": {
+    "errorName": "ERC721IncorrectOwner(address,uint256,address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "sender",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0xf918b33a": {
+    "errorName": "CannotSendZeroAmount()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x4c5312ed": {
+    "errorName": "IndexDoesNotMatchNextProposalIndex()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xd9dbda29": {
+    "errorName": "AlreadyMintedToCarbonCreditAuction()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x67abc29b": {
+    "errorName": "SafeTransferFailed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x620bc496": {
+    "errorName": "InsufficientNominations()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf62c2d82": {
     "errorName": "AddressAlreadySet()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x227bc153": {
-    "errorName": "MathOverflowedMulDiv()",
+  "0x111c9691": {
+    "errorName": "CannotClaimZeroTokens()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x31715d5c": {
-    "errorName": "ProposalsMustBeExecutedSynchonously()",
+  "0x6d2e02ad": {
+    "errorName": "NotEnoughImpactPowerFromCommitment()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0xa1db7253": {
-    "errorName": "ProposalNotMostPopular()",
+  "0xdc334245": {
+    "errorName": "CannotReferSelf()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x2c5211c6": {
+    "errorName": "InvalidAmount()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x75c8f5fb": {
+    "errorName": "NonexistentIntent()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x483313f3": {
+    "errorName": "InvalidAmount()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x73cfea71": {
+    "errorName": "InvalidToken()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x34fa9bbe": {
+    "errorName": "ProposalIdDoesNotMatchMostPopularProposal()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x28a72379": {
+    "errorName": "ProposalExpired()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x94aeaa34": {
+    "errorName": "IncorrectDecimals()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x6970aec5": {
+    "errorName": "BucketNotFinalized()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x952b12c4": {
+    "errorName": "ProposalHashesEmpty()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xfa0c3826": {
+    "errorName": "ErrMustMintPositiveAmount()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x78a65193": {
+    "errorName": "GCAContractAlreadySet()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xd1c62825": {
+    "errorName": "NominationCostGreaterThanAllowance()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x34c90624": {
+    "errorName": "InsufficientAmountB()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x735375ff": {
+    "errorName": "MemberNotFound()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xfce698f7": {
+    "errorName": "ECDSAInvalidSignatureLength(uint256)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "length",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    }
+  },
+  "0x118cdaa7": {
+    "errorName": "OwnableUnauthorizedAccount(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0xc0cba566": {
+    "errorName": "ResubmissionBucketAlreadyRequestedForResubmission()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -3088,8 +2984,133 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x4b1c64be": {
-    "errorName": "OnlyMinerPoolCanAddHoldings()",
+  "0x35f3f70b": {
+    "errorName": "ElectricityFuturesAuctionBidTooLow()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x6efc8790": {
+    "errorName": "GCCAlreadySet()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xa00141bd": {
+    "errorName": "InsufficientRatifyOrRejectVotes()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xbbb5a50e": {
+    "errorName": "CommitPermitSignatureExpired()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xa1ad2bf3": {
+    "errorName": "CannotSpendZeroNominations()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x6b14e6e3": {
+    "errorName": "BARFSN()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x60d3cf1e": {
+    "errorName": "CannotSetNonceToZero()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xa9880448": {
+    "errorName": "ProposalHasNotExpired(uint256)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "proposalId",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    }
+  },
+  "0x12498cab": {
+    "errorName": "InvalidShares()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x4e0621e3": {
+    "errorName": "AlreadyAnAgent()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x536bfd7d": {
+    "errorName": "CannotBuyZeroUnits()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x8debfaf5": {
+    "errorName": "RootAlreadyPosted()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf8638ff2": {
+    "errorName": "SignerNotGCA()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x588dd9a2": {
+    "errorName": "ResubmissionBucketAlreadyDelayedOrRequestedForResubmission()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xceaef865": {
+    "errorName": "CallerNotGCC()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xbf2f7db1": {
+    "errorName": "ProposalAlreadyUpdated()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x96f644fd": {
+    "errorName": "TooManyAgents()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xf92ee8a9": {
+    "errorName": "InvalidInitialization()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
@@ -3102,18 +3123,123 @@ export const errors:JesperObject = {
       "args": []
     }
   },
-  "0x53fcaf7f": {
-    "errorName": "NotMigrationContract()",
+  "0x9ae19572": {
+    "errorName": "ContractNotFrozen()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
     }
   },
-  "0x089484c8": {
-    "errorName": "GlowWeightGreaterThanTotalWeight()",
+  "0x397e8eed": {
+    "errorName": "NonexistentIntent()",
     "solidityMessageAndArgs": {
       "errorMessage": "",
       "args": []
+    }
+  },
+  "0x89c62b64": {
+    "errorName": "ERC721InvalidOwner(address)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  },
+  "0xae47f702": {
+    "errorName": "FullMulDivFailed()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x1a95f50c": {
+    "errorName": "RatifyOrRejectPeriodEnded()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xc14d5d60": {
+    "errorName": "NotAuth()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x227bc153": {
+    "errorName": "MathOverflowedMulDiv()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x424b34ab": {
+    "errorName": "CannotDelayBucketThatNeedsToUpdateSlashNonce()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x41d07501": {
+    "errorName": "MaxGCAEndorsementsReached()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0xfb8f41b2": {
+    "errorName": "ERC20InsufficientAllowance(address,uint256,uint256)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "spender",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "allowance",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "needed",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    }
+  },
+  "0x62a7556c": {
+    "errorName": "MinerPoolAlreadySet()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x436093a5": {
+    "errorName": "IncorrectDecimals()",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": []
+    }
+  },
+  "0x62791302": {
+    "errorName": "ERC2612ExpiredSignature(uint256)",
+    "solidityMessageAndArgs": {
+      "errorMessage": "",
+      "args": [
+        {
+          "name": "deadline",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
     }
   }
 };

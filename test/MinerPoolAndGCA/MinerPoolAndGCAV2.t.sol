@@ -7,13 +7,11 @@ import "forge-std/Script.sol";
 import "@/testing/GuardedLaunch/TestGCC.GuardedLaunch.sol";
 import "forge-std/console.sol";
 import {IGCA} from "@/interfaces/IGCA.sol";
-import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {Governance} from "@/Governance.sol";
 import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/StdUtils.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Handler} from "./Handlers/Handler.GCA.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -421,6 +419,1178 @@ contract MinerPoolAndGCAV2Test is Test {
         vm.stopPrank();
     }
 
+    //-----------------------------------------------------------------//
+    //------------------------- Delay Tests ---------------------------//
+    //-----------------------------------------------------------------//
+
+    /**
+     * In this test, we explore all of the scenarios for a bucket submission.
+     *     The following scenarios are:
+     *
+     *     1. Happy path.
+     *     The bucket should not be able to be submitted if it's been more than one week after the bucket submission has open
+     *  Bucket Submission should be open from n-n+1 and finalize on n+2 ✅
+     *
+     *
+     *     2. Requested Resubmission Path
+     *         The bucket should first be able to be submitted between n-n+1 ✅
+     *             Once requested for resubmission, it should be open for submission until n+3, ✅
+     *             and should finalize on n+4
+     *     Other considerations:
+     *         Can only be requested for resubmission once per slash nonce; ✅
+     *         Cannot be requested for resubmission if delayed at current slash nonce ✅
+     *         Cannot request a bucket that has already been finalized ✅
+     *         Cannot request a bucket that is not yet open for submission/has no submissions ✅
+     *
+     *     3. Delayed Submission Path
+     *         The bucket should first be able to be submitted between n-n+1 ✅
+     *         If the bucket is delayed, it should not be open for resubmission ✅
+     *         If no slash happens, it should finalize at n+15 ✅
+     *            If a slash happens and we resubmit, it should finalize at the same timestamp,
+     *               unless bucketSubmissionEndTimestamp + bucketDuration() > bucketFinalizationTimestamp
+     *               where it then finalizes at bucketSubmissionEndTimestamp + bucketDuration() ✅
+     *               submission should only be open until _WCEIL(slashNonce-1) ✅
+     *             TODO: Decide if we should change that.
+     *             TODO: also test claiming after all this stuff
+     *        Other considerations:
+     *             Cannot be delayed if the bucket has already been finalized ✅
+     *             Delaying a bucket that has been requested for resubmission should still add 13 weeks to the finalization timestamp  ✅
+     *
+     *
+     *
+     *     4. Requested for resubmission multiple times through a slash nonce
+     *     5. Delayed even with slash nonce multiple times
+     *
+     *
+     *  -- Invariants To Think About --
+     *      // TODO: Invariant to check
+     *     // Finalization timestamp for each bucket can never be less than the `bucketFinalizationTimestampNotReinstated(bucketId)`
+     *     // Let's now move on to bucket 2.
+     *     // Let's also make sure that we can't delay or request resubmission since the submission period isnt yet finished
+     *     // CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen
+     *     // Another invariant is that the finalization timestamp % 1 week should always be zero.
+     */
+    function test_v2_bucketEndSubmissionTimestampFull() public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+
+        //If we warp forward 1 week, we shouldnt be able to submit anymore since the submission timestmap has ended
+        vm.warp(block.timestamp + 1 weeks);
+
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGCA.BucketSubmissionEnded.selector);
+        minerPoolAndGCA.submitWeeklyReport(0, 101 * 1e15, 100, 200, bytes32(0));
+
+        //If we go back one second, we actually should be able to submit it.
+        // Sanity check this
+        vm.warp(block.timestamp - 1);
+        minerPoolAndGCA.submitWeeklyReport(0, 101 * 1e15, 100, 200, bytes32(0));
+
+        //Warp back so the schedule is aligned
+        vm.warp(block.timestamp + 1);
+
+        //Let's check if it's finalized , if we fast forward 1 week -1, it should not be finalized,
+        // and if we fast forward + 1 from there, it should be finalized
+        vm.warp(block.timestamp + 1 weeks - 1);
+        assertFalse(minerPoolAndGCA.isBucketFinalized(0), "Bucket should not be finalized");
+        vm.warp(block.timestamp + 1);
+        assertTrue(minerPoolAndGCA.isBucketFinalized(0), "Bucket should be finalized");
+
+        //We are now in week 2,
+        assertEq(minerPoolAndGCA.currentBucket(), 2, "Current week should be 2");
+
+        // Let's make sure that we can't delay or request resubmission
+        vm.expectRevert(IGCA.BucketAlreadyFinalized.selector);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+        vm.expectRevert(IGCA.BucketAlreadyFinalized.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+
+        {
+            //We're also testing that we can delay buckets that are empty and in the review period,
+            // so delaying AND requesting resubmission on bucket 1 should work.
+            minerPoolAndGCA.requestBucketResubmission({bucketId: 1});
+            //If we try to request resubmission again, it should fail
+            vm.expectRevert(IMinerPool.ResubmissionAlreadyRequestedForSlashNonce.selector);
+            minerPoolAndGCA.requestBucketResubmission({bucketId: 1});
+
+            // Now the bucket end submission should be 2 weeks from now
+            vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+            minerPoolAndGCA.delayBucketFinalization({bucketId: 1});
+
+            //If we warp forward 1 week, it should still not be able to be delayed
+            vm.warp(block.timestamp + 1 weeks);
+            vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+            minerPoolAndGCA.delayBucketFinalization({bucketId: 1});
+
+            vm.warp(block.timestamp + 1 weeks);
+            //Now it should be able to be delayed
+            //Let's also make sure that the finalization timestamp is 1 week from now
+            uint256 finalizationTimestampBucket1BeforeDelay = minerPoolAndGCA.bucket(1).finalizationTimestamp;
+            assertEq(
+                finalizationTimestampBucket1BeforeDelay,
+                block.timestamp + 1 weeks,
+                "Finalization timestamp should be 1 week from now"
+            );
+            minerPoolAndGCA.delayBucketFinalization({bucketId: 1});
+            uint256 finalizationTimestampAfterDelay = minerPoolAndGCA.bucket(1).finalizationTimestamp;
+            assertEq(
+                finalizationTimestampBucket1BeforeDelay + minerPoolAndGCA.bucketDelayDuration(),
+                finalizationTimestampAfterDelay,
+                "Delaying should add a bucketDelayDuration() to the finalization timestamp"
+            );
+
+            //Make sure that we can't delay or request resubmission aymore here.
+            vm.expectRevert(IMinerPool.BucketAlreadyDelayed.selector);
+            minerPoolAndGCA.delayBucketFinalization({bucketId: 1});
+
+            //Also try the same with resubmission
+            vm.expectRevert(IMinerPool.BucketAlreadyDelayed.selector);
+            minerPoolAndGCA.requestBucketResubmission({bucketId: 1});
+            //Warp back 2 weeks to make sure that we are good for bucket 2
+            vm.warp(block.timestamp - 2 weeks);
+        }
+
+        //Check again to make sure ew are in bucket 2
+        assertEq(minerPoolAndGCA.currentBucket(), 2, "Current week should be 2");
+
+        vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 2});
+        vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 2});
+        vm.stopPrank();
+
+        //First Step is to submit a report
+
+        //We don't care about the data in it,
+    }
+
+    function test_v2_requestResubmissionFlow_shouldAllowResubmissionAndShouldFinalizeAtCorrectTime() public {
+        //First Step is to submit a report
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+        uint256 originalFinalizationTimestamp = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+        uint256 bucketSubmissionEndTimestamp = minerPoolAndGCA.calculateBucketSubmissionEndTimestamp(0);
+
+        //Log the current timestamp, and then also log the bucket submission end timestamp
+        // console2.log("Current Timestamp: ", block.timestamp);
+        // console2.log("Bucket Submission End Timestamp: ", bucketSubmissionEndTimestamp);
+
+        //If we warp forward, we should be able to resubmit
+        //Log the timestamp now
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + 1 weeks);
+        //Request a resubmission
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+
+        uint256 resubmissionFinalizationTimestamp = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+
+        assertEq(
+            resubmissionFinalizationTimestamp,
+            originalFinalizationTimestamp + 2 weeks,
+            "Finalization timestamp should be 2  weeks from original after resubmission"
+        );
+
+        //Let's make sure that the finalization timestamp is equal to the finalization timestamp before + 2 weeks
+
+        vm.stopPrank();
+        //Should be able to resubmitagain
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 200 * 1e15,
+            totalGlwRewardsWeight: 200,
+            totalGRCRewardsWeight: 400,
+            randomMerkleRoot: bytes32(uint256(0x1))
+        });
+
+        //make sure the finalization timestamp has not been touched even after resubmission
+        assertEq(
+            minerPoolAndGCA.bucket(0).finalizationTimestamp,
+            resubmissionFinalizationTimestamp,
+            "Finalization timestamp should not have changed after resubmission"
+        );
+        //We are currently at n+1
+
+        //Make sure that we can't submit at n+3 start timestamp
+        vm.warp(block.timestamp + 2 weeks);
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGCA.BucketSubmissionEnded.selector);
+        minerPoolAndGCA.submitWeeklyReport(0, 101 * 1e15, 100, 200, bytes32(0));
+        vm.stopPrank();
+
+        //Warp to 3 weeks - 1 second and make sure that it is not finalized
+        //The submission was extended by 2 weeks, so there the submission period is from n+2-n+3,  review period last from n+3 -n+4
+        vm.warp(block.timestamp + 1 weeks - 1);
+        assertFalse(minerPoolAndGCA.isBucketFinalized(0), "Bucket should not be finalized");
+
+        //Warp 2 seconds forward, and make sure that it is finalized
+        vm.warp(block.timestamp + 2);
+        assertTrue(minerPoolAndGCA.isBucketFinalized(0), "Bucket should be finalized");
+    }
+
+    function test_v2_requestResubmissionMoreThanOncePerSlashNonce_shouldRevert() public {
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + 1 weeks);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+        vm.expectRevert(IMinerPool.ResubmissionAlreadyRequestedForSlashNonce.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+
+        vm.stopPrank();
+    }
+
+    function test_v2_resubmittingFinalizedBucket_shouldRevert() public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGCA.BucketAlreadyFinalized.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+        vm.stopPrank();
+    }
+
+    function test_v2_cannotRequestResubmissionIfWithdrawPeriodStillOpen() public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+
+        vm.warp(block.timestamp + 1 weeks - 1);
+
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+        vm.stopPrank();
+    }
+
+    function test_v2_cannotReuqestResubmissionIfSubmissionPeriod_notOpen() public {
+        vm.startPrank(SIMON);
+        //Try to request resubmission on bucket 1
+        vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 1});
+        vm.stopPrank();
+    }
+
+    function test_v2_delayedBucketCannotBeRequestedForResubmission() public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+
+        vm.warp(block.timestamp + 1 weeks);
+        vm.startPrank(SIMON);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+        vm.expectRevert(IMinerPool.BucketAlreadyDelayed.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+        vm.stopPrank();
+    }
+
+    function test_v2_cannotDelayBucketSubmission_periodNotFinished() public {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+        vm.stopPrank();
+    }
+
+    function test_v2_cannotDelayBucketIfSubmissionPeriodNotYetOpen() public {
+        vm.startPrank(SIMON);
+        vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 1});
+        vm.stopPrank();
+    }
+
+    function test_v2_bucketDelayShouldFinalize_atN_plus_15() public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+
+        vm.warp(block.timestamp + 1 weeks);
+        vm.startPrank(SIMON);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 14 weeks - 1);
+        assertFalse(minerPoolAndGCA.isBucketFinalized(0), "Bucket should not be finalized");
+
+        //Warp forward 1 second to make sure it's finalized
+        vm.warp(block.timestamp + 1);
+        assertTrue(minerPoolAndGCA.isBucketFinalized(0), "Bucket should be finalized");
+    }
+
+    function test_v2_sanityCheck_slashHappenedBeforeFinalization_shouldReturnFalseForIsBucketFinalized() public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+
+        vm.warp(block.timestamp + 1 weeks);
+        vm.startPrank(SIMON);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 14 weeks - 1);
+        assertFalse(minerPoolAndGCA.isBucketFinalized(0), "Bucket should not be finalized");
+
+        //If we increment the slash nonce, it should not be finalized sanity check
+        minerPoolAndGCA.incrementSlashNonce();
+        vm.warp(block.timestamp + 1);
+        assertFalse(minerPoolAndGCA.isBucketFinalized(0), "Bucket should not be finalized");
+    }
+
+    function test_v2_slashThenResubmitted_shouldCorrectlyCalculateTheSubmissionEndTimeAndFinalizationTimestamp_whenWCEILPlusBucketDuration_greaterThanFinalizationTimestamp(
+    ) public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+
+        uint256 n = block.timestamp;
+        vm.warp(block.timestamp + 1 weeks);
+        vm.startPrank(SIMON);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+        vm.stopPrank();
+
+        //We are at n+1
+        //The bucket finalizes at n+15
+        //if we want WCEIL to be > , we can be in n+14 and run the slash
+        // This SHOULD make the new submission end timestamp n+16
+        vm.warp(n + 14 weeks);
+        minerPoolAndGCA.incrementSlashNonce();
+
+        uint256 submissionEndTimestamp = minerPoolAndGCA.calculateBucketSubmissionEndTimestamp(0);
+        assertEq(submissionEndTimestamp, n + 16 weeks, "Submission end timestamp should be n+16 weeks");
+
+        // issue a new report
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+
+        uint256 finalizationTimestampAfterResubmission = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+        // The new finalization should be n+16 + 1 to give enough time for the veto council to review
+
+        // The original finalization was n+15, but since we WCEILed in week 14,
+        // That means that the GCAs should have at least 2 weeks to post the data
+        // and that the veto council has AT LEAST one week to review it.
+        assertEq(
+            finalizationTimestampAfterResubmission,
+            n + 16 weeks + 1 weeks,
+            "Finalization timestamp should be n+16 weeks + 1 weeks"
+        );
+    }
+
+    function test_v2_slashThenResubmitted_shouldCorrectlyCalculateTheSubmissionEndTimeAndFinalizationTimestamp_whenWCEILPlusBucketDuration_lessThanFinalizationTimestamp(
+    ) public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+
+        uint256 n = block.timestamp;
+        vm.warp(block.timestamp + 1 weeks);
+        vm.startPrank(SIMON);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+        vm.stopPrank();
+
+        //We are at n+1
+        //The bucket finalizes at n+15
+        //if we want WCEIL to be < , we can be in n+12 and run the slash
+        // This SHOULD make the new submission end timestamp n+15
+        vm.warp(n + 12 weeks);
+        minerPoolAndGCA.incrementSlashNonce();
+
+        uint256 submissionEndTimestamp = minerPoolAndGCA.calculateBucketSubmissionEndTimestamp(0);
+        assertEq(submissionEndTimestamp, n + 14 weeks, "Submission end timestamp should be n+14  weeks");
+
+        uint256 finalizationTimestampAfterResubmission = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+        // The new finalization should  stay at n+15 since the WCEIL + bucketDuration is less than the finalization timestamp
+        assertEq(finalizationTimestampAfterResubmission, n + 15 weeks, "Finalization timestamp should be n+15 weeks");
+    }
+
+    function test_v2_resubmitThenDelay_multipleTimesThroughDifferentSlashNonces() public {
+        vm.startPrank(SIMON);
+
+        vm.warp(block.timestamp + 1 weeks); // n = 1
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+        vm.warp(block.timestamp + 2 weeks); // n = 3
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+
+        //Let's now increment the slash nonce
+        minerPoolAndGCA.incrementSlashNonce();
+        minerPoolAndGCA.incrementSlashNonce();
+        minerPoolAndGCA.incrementSlashNonce();
+        minerPoolAndGCA.incrementSlashNonce();
+        minerPoolAndGCA.incrementSlashNonce();
+
+        //Should be able to resubmit again, but not yet because we need to get to the end of the WCEIL
+        //Let's first confirm that statement
+        vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+        vm.warp(block.timestamp + 1 weeks); // n = 4
+        vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+
+        uint256 finalizationTimestampBeforeResubmission2 = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+        vm.warp(block.timestamp + 1 weeks); // n = 5
+        //Now we should be able to
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+
+        uint256 finalizationTimestampAfterResubmission2 = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+
+        assertEq(
+            finalizationTimestampAfterResubmission2,
+            finalizationTimestampBeforeResubmission2 + 2 weeks,
+            "Finalization timestamp should be 2 weeks from original after resubmission"
+        );
+
+        vm.stopPrank();
+
+        //Log the block timestamp and the finalization timestamp after 2
+        // // andalso log the submission end timestamp
+        // console2.log("Current Timestamp: ", block.timestamp);
+        // console2.log("Finalization Timestamp After 2: ", finalizationTimestampAfterResubmission2);
+        // console2.log("Submission End Timestamp: ", minerPoolAndGCA.calculateBucketSubmissionEndTimestamp(0));
+
+        //Log the bucket submission range()
+        {
+            (uint256 startSubmissionTimestamp, uint256 endSubmissionTimestamp,,) =
+                minerPoolAndGCA.getBucketSubmissionRange(0);
+            console2.log("Start Submission Timestamp: ", startSubmissionTimestamp);
+            console2.log("End Submission Timestamp: ", endSubmissionTimestamp);
+        }
+        // We need to issue the report this time to avoid `CannotDelayBucketThatNeedsToUpdateSlashNonce`
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 100,
+            totalGRCRewardsWeight: 200,
+            randomMerkleRoot: bytes32(0)
+        });
+
+        vm.warp(block.timestamp + 2 weeks);
+        vm.startPrank(SIMON);
+        // minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+
+        // uint256 finalizationTimestampAfterDelay2 = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+        // assertEq(
+        //     finalizationTimestampAfterDelay2,
+        //     finalizationTimestampAfterResubmission2 + minerPoolAndGCA.bucketDelayDuration(),
+        //     "Finalization timestamp should be 2 weeks from original after resubmission"
+        // );
+
+        //TODO: Do it one more time
+
+        //Let me write down another thought
+        //is it possible that we can resubmit an empty bucket
+        //Even if it has been slashed twice?
+
+        vm.stopPrank();
+    }
+
+    function test_delayingAfterResubmission_shouldAdd13WeeksFromResubmissionFinalizationTimestamp() public {
+        vm.startPrank(SIMON);
+
+        vm.warp(block.timestamp + 1 weeks);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+
+        uint256 finalizationTimestampAfterResubmission = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+
+        vm.warp(block.timestamp + 2 weeks);
+        //Should now be open for delay
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+
+        uint256 finalizationTimestampAfterDelay = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+        assertEq(
+            finalizationTimestampAfterDelay,
+            finalizationTimestampAfterResubmission + minerPoolAndGCA.bucketDelayDuration(),
+            "Finalization timestamp should be 13 weeks from resubmission finalization timestamp"
+        );
+        vm.stopPrank();
+    }
+
+    function test_v2_finalizedBucketShouldNeverBeAbleToBeUnfinalized(uint256) public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        //This gets finalized at n+2 weeks
+        (,,, uint256 bucketFinalizationTimestamp) = minerPoolAndGCA.getBucketSubmissionRange(0);
+        vm.warp(bucketFinalizationTimestamp);
+
+        assertTrue(
+            minerPoolAndGCA.isBucketFinalized({bucketId: 0}), "Bucket should be finalized on its finalization timestamp"
+        );
+
+        vm.startPrank(SIMON);
+        //We shouldnt be able to delay or request reubmission
+        vm.expectRevert(IGCA.BucketAlreadyFinalized.selector);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+
+        vm.expectRevert(IGCA.BucketAlreadyFinalized.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+
+        //These should all be the same after a slash
+        minerPoolAndGCA.incrementSlashNonce();
+
+        assertTrue(
+            minerPoolAndGCA.isBucketFinalized({bucketId: 0}),
+            "Bucket should be finalized on its finalization timestamp even if a slash occurred"
+        );
+
+        //We shouldnt be able to delay or request reubmission
+        vm.expectRevert(IGCA.BucketAlreadyFinalized.selector);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+
+        vm.expectRevert(IGCA.BucketAlreadyFinalized.selector);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+
+        //Let's make sure the finalization timestamp remained the same as well.
+        vm.warp(block.timestamp + 10);
+        (,,, uint256 finalizationTimestampAfterSlash) = minerPoolAndGCA.getBucketSubmissionRange(0);
+        assertEq(finalizationTimestampAfterSlash, bucketFinalizationTimestamp, "Finalization should not change");
+
+        // Let's try another slash one more time
+        minerPoolAndGCA.incrementSlashNonce();
+
+        (,,, finalizationTimestampAfterSlash) = minerPoolAndGCA.getBucketSubmissionRange(0);
+        assertEq(finalizationTimestampAfterSlash, bucketFinalizationTimestamp, "Finalization should not change");
+
+        vm.stopPrank();
+    }
+
+    function test_v2_delayedBucketShouldBeAbleToBeResubmitAfterLongTime() public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        vm.warp(block.timestamp + 1 weeks);
+
+        vm.startPrank(SIMON);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+
+        //Warp forward 6 weeks;
+
+        vm.warp(block.timestamp + 6 weeks);
+
+        minerPoolAndGCA.incrementSlashNonce();
+
+        vm.stopPrank();
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+    }
+
+    function test_v2_shouldCorrectlyUpdateSlashNonce() public {
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        vm.startPrank(SIMON);
+
+        //Increment the slash nonce three times
+        minerPoolAndGCA.incrementSlashNonce(); //1
+        vm.warp(block.timestamp + 1);
+        minerPoolAndGCA.incrementSlashNonce(); // 2
+        vm.warp(block.timestamp + 1);
+        minerPoolAndGCA.incrementSlashNonce(); // 3
+        vm.warp(block.timestamp + 1);
+
+        vm.stopPrank();
+
+        //Resubmit
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        uint256 bucketSlashNonce = minerPoolAndGCA.bucket(0).lastUpdatedNonce;
+        assertEq(bucketSlashNonce, 3, "Slash nonce should match");
+    }
+
+    function test_v2_delayedBucket_bucketWhereSlashNonceIsNotUpdated_shouldRevertOnClaim() public {
+        //Resubmit
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + 1 weeks);
+
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+
+        vm.warp(block.timestamp + 6 weeks);
+        vm.stopPrank();
+
+        minerPoolAndGCA.incrementSlashNonce();
+        vm.warp(block.timestamp + 9 weeks);
+
+        assertTrue(
+            minerPoolAndGCA.isBucketFinalized({bucketId: 0}),
+            "Bucket should be finalized even if not valid to claim from"
+        );
+        //Try claiming
+        vm.expectRevert(IGCA.BucketSlashNonceNotUpToDate.selector);
+        minerPoolAndGCA.claimRewardFromBucket({
+            bucketId: 0,
+            glwWeight: 10,
+            usdcWeight: 10,
+            proof: new bytes32[](0),
+            flags: new bool[](0),
+            tokens: new address[](0),
+            index: 0,
+            claimFromInflation: true
+        });
+        //Assert the bucket is finalized
+    }
+
+    function test_v2_delayedBucketUpdatingSlashNonceShouldBeAllowedToClaim_slashNonceMatchesOneInGlobalStorage()
+        public
+    {
+        //Resubmit
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + 1 weeks);
+
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+
+        vm.warp(block.timestamp + 6 weeks);
+        vm.stopPrank();
+
+        minerPoolAndGCA.incrementSlashNonce();
+        // Reissuing the report should work now.
+
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalusdcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalusdcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                usdcWeight: 200 + i
+            });
+        }
+        address[] memory payoutTokens = new address[](1);
+        payoutTokens[0] = address(usdc);
+        bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 100 ether,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalusdcWeight,
+            randomMerkleRoot: root
+        });
+        vm.warp(block.timestamp + 9 weeks);
+
+        assertTrue(
+            minerPoolAndGCA.isBucketFinalized({bucketId: 0}), "Bucket should  finalize and be available to claim from"
+        );
+        //Try claiming
+
+        vm.startPrank(defaultAddressInWithdraw);
+        (bytes32[] memory proof, bool[] memory flags) = createClaimLeafProof(claimLeaves, payoutTokens, claimLeaves[0]);
+        minerPoolAndGCA.claimRewardFromBucket({
+            bucketId: 0,
+            glwWeight: 100,
+            usdcWeight: 200,
+            proof: proof,
+            flags: flags,
+            tokens: payoutTokens,
+            index: 0,
+            claimFromInflation: true
+        });
+
+        vm.stopPrank();
+    }
+
+    function test_v2_delayedBucket_bucketWhereSlashNonceIsNotUpdated_andMostUpdatedSlashNonce_doesNotMatchTheOneInStorage_shouldRevert(
+    ) public {
+        //Resubmit
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + 1 weeks);
+
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+
+        vm.warp(block.timestamp + 6 weeks);
+        vm.stopPrank();
+
+        minerPoolAndGCA.incrementSlashNonce();
+        vm.warp(block.timestamp + 9 weeks);
+        //Bucket should be finalized
+        minerPoolAndGCA.incrementSlashNonce();
+        minerPoolAndGCA.incrementSlashNonce();
+        minerPoolAndGCA.incrementSlashNonce();
+
+        assertTrue(
+            minerPoolAndGCA.isBucketFinalized({bucketId: 0}),
+            "Bucket should be finalized even if not valid to claim from"
+        );
+        //Try claiming
+        vm.expectRevert(IGCA.BucketSlashNonceNotUpToDate.selector);
+        minerPoolAndGCA.claimRewardFromBucket({
+            bucketId: 0,
+            glwWeight: 200,
+            usdcWeight: 100,
+            proof: new bytes32[](0),
+            flags: new bool[](0),
+            tokens: new address[](0),
+            index: 0,
+            claimFromInflation: true
+        });
+    }
+
+    function test_v2_delayedBucketUpdatingSlashNonceShouldBeAllowedToClaim_slashNonceDoesNotMatchGlobalStorage()
+        public
+    {
+        //Resubmit
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        vm.startPrank(SIMON);
+        vm.warp(block.timestamp + 1 weeks);
+
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+
+        vm.warp(block.timestamp + 6 weeks);
+        vm.stopPrank();
+
+        minerPoolAndGCA.incrementSlashNonce();
+        // Reissuing the report should work now.
+
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        uint256 totalGlwWeight;
+        uint256 totalusdcWeight;
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalusdcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                usdcWeight: 200 + i
+            });
+        }
+        address[] memory payoutTokens = new address[](1);
+        payoutTokens[0] = address(usdc);
+        bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 100 ether,
+            totalGlwRewardsWeight: totalGlwWeight,
+            totalGRCRewardsWeight: totalusdcWeight,
+            randomMerkleRoot: root
+        });
+        vm.warp(block.timestamp + 9 weeks);
+
+        assertTrue(
+            minerPoolAndGCA.isBucketFinalized({bucketId: 0}), "Bucket should  finalize and be available to claim from"
+        );
+        //Slash here after finalization
+        minerPoolAndGCA.incrementSlashNonce();
+
+        vm.startPrank(defaultAddressInWithdraw);
+        (bytes32[] memory proof, bool[] memory flags) = createClaimLeafProof(claimLeaves, payoutTokens, claimLeaves[0]);
+        minerPoolAndGCA.claimRewardFromBucket({
+            bucketId: 0,
+            glwWeight: 100,
+            usdcWeight: 200,
+            proof: proof,
+            flags: flags,
+            tokens: payoutTokens,
+            index: 0,
+            claimFromInflation: true
+        });
+
+        vm.stopPrank();
+    }
+
+    function test_v2_slashRightBeforeBucketSubmission_shouldNotInvalidateTheSubmissionOrBucket() public {
+        vm.warp(block.timestamp + 1);
+        minerPoolAndGCA.incrementSlashNonce();
+        vm.warp(block.timestamp + 1);
+
+        {
+            ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+            uint256 totalGlwWeight;
+            uint256 totalusdcWeight;
+            for (uint256 i; i < claimLeaves.length; ++i) {
+                totalGlwWeight += 100 + i;
+                totalusdcWeight += 200 + i;
+                claimLeaves[i] = ClaimLeaf({
+                    payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                    glwWeight: 100 + i,
+                    usdcWeight: 200 + i
+                });
+            }
+            address[] memory payoutTokens = new address[](1);
+            payoutTokens[0] = address(usdc);
+            bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
+
+            issueReport({
+                gcaToSubmitAs: SIMON,
+                bucket: 0,
+                totalNewGCC: 100 ether,
+                totalGlwRewardsWeight: totalGlwWeight,
+                totalGRCRewardsWeight: totalusdcWeight,
+                randomMerkleRoot: root
+            });
+
+            vm.warp(block.timestamp + 2 weeks);
+
+            assertTrue(
+                minerPoolAndGCA.isBucketFinalized({bucketId: 0}),
+                "Bucket should  finalize and be available to claim from"
+            );
+
+            vm.startPrank(defaultAddressInWithdraw);
+            (bytes32[] memory proof, bool[] memory flags) =
+                createClaimLeafProof(claimLeaves, payoutTokens, claimLeaves[0]);
+            minerPoolAndGCA.claimRewardFromBucket({
+                bucketId: 0,
+                glwWeight: 100,
+                usdcWeight: 200,
+                proof: proof,
+                flags: flags,
+                tokens: payoutTokens,
+                index: 0,
+                claimFromInflation: true
+            });
+            vm.stopPrank();
+        }
+    }
+
+    //Fork from above here ^^
+
+    function test_issueBucket_slashBucket_reissueBucket_requestResubmission_shouldCorrectlyAdjustRange() public {
+        uint256 n = block.timestamp;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        vm.warp(n + 1 weeks);
+
+        vm.startPrank(SIMON);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+        vm.stopPrank();
+
+        minerPoolAndGCA.incrementSlashNonce();
+
+        //before the request
+        (
+            uint256 startSubmissionTimestamp,
+            uint256 endSubmissionTimestamp,
+            uint256 shouldBeNonce,
+            uint256 newFinalizationTimestamp
+        ) = minerPoolAndGCA.getBucketSubmissionRange(0);
+
+        assertEq(startSubmissionTimestamp, n + 1 weeks, "Submission start should correctly adjust");
+        assertEq(endSubmissionTimestamp, n + 3 weeks, "End submission timestamp should be WCEIL(0) which is n+3");
+        assertEq(shouldBeNonce, 1, "New nonce should match the most recent slash one");
+        assertEq(
+            newFinalizationTimestamp,
+            n + 15 weeks,
+            "since it was going to finalize on n+2, and we delay 13 weeks, it finalized at n+15"
+        );
+
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        //before the request
+        (startSubmissionTimestamp, endSubmissionTimestamp, shouldBeNonce, newFinalizationTimestamp) =
+            minerPoolAndGCA.getBucketSubmissionRange(0);
+
+        assertEq(startSubmissionTimestamp, n + 1 weeks, "Submission start should correctly adjust");
+        assertEq(endSubmissionTimestamp, n + 3 weeks, "End submission timestamp should be WCEIL(0) which is n+3");
+        assertEq(shouldBeNonce, 1, "New nonce should match the most recent slash one");
+        assertEq(
+            newFinalizationTimestamp,
+            n + 15 weeks,
+            "since it was going to finalize on n+2, and we delay 13 weeks, it finalized at n+15"
+        );
+        // Start submission should now be at the nonce
+
+        vm.startPrank(SIMON);
+        vm.warp(n + 3 weeks);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+        vm.stopPrank();
+
+        (,,, newFinalizationTimestamp) = minerPoolAndGCA.getBucketSubmissionRange(0);
+        assertEq(
+            newFinalizationTimestamp,
+            n + 17 weeks,
+            "Was finalizing n+15 and then requested resubmission, so should finalize at n+17"
+        );
+
+        //Let it finalize and then increment slash nonce and make sure the numbers still add up
+        vm.warp(n + 17 weeks + 1);
+
+        minerPoolAndGCA.incrementSlashNonce();
+        (,,, newFinalizationTimestamp) = minerPoolAndGCA.getBucketSubmissionRange(0);
+
+        //before the request
+        (startSubmissionTimestamp, endSubmissionTimestamp, shouldBeNonce, newFinalizationTimestamp) =
+            minerPoolAndGCA.getBucketSubmissionRange(0);
+
+        assertEq(startSubmissionTimestamp, n + 1 weeks, "[end] Submission start should correctly adjust");
+        assertEq(
+            endSubmissionTimestamp,
+            n + 5 weeks,
+            "[end] End submission timestamp should be 2 weeks after original wceil which should be n+5 week"
+        );
+        assertEq(shouldBeNonce, 1, "[end] New nonce should match the most recent slash one");
+        assertEq(minerPoolAndGCA.slashNonce(), 2, "[end] slash nonce should have incremented");
+        assertEq(
+            newFinalizationTimestamp,
+            n + 17 weeks,
+            "[end] since it was going to finalize on n+2, and we delay 13 weeks, it finalized at n+15"
+        );
+    }
+
+    function test_v2_slashNonceMatchesLastUpdatedNonce_plusRedelayed_shouldReturnCorrectEndSubmissionTime() public {
+        uint256 n = block.timestamp;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        vm.warp(n + 1 weeks);
+
+        vm.startPrank(SIMON);
+        minerPoolAndGCA.incrementSlashNonce();
+        //Right after resubmission, the stats should be different
+        (
+            uint256 startSubmissionTimestamp,
+            uint256 endSubmissionTimestamp,
+            uint256 slashNonceToUpgradeTo,
+            uint256 finalizationTimestamp
+        ) = minerPoolAndGCA.getBucketSubmissionRange({bucketId: 0});
+
+        assertEq(startSubmissionTimestamp, n + 1 weeks, "Start submission should start the time of the new slash");
+        assertEq(endSubmissionTimestamp, n + 3 weeks, "end submission should be wceil(0) which should be n+1+2 = n+3");
+        assertEq(slashNonceToUpgradeTo, 1, "Because slash happened before finalization, it should be 1");
+        assertEq(
+            finalizationTimestamp, n + 4 weeks, "since there was a slash, finalization should be wceil(0) + 1 week"
+        );
+
+        vm.warp(n + 3 weeks);
+        minerPoolAndGCA.requestBucketResubmission({bucketId: 0});
+        vm.stopPrank();
+        //Reissue it
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        //Also make sure the slash nonce is matching
+        IGCA.Bucket memory zeroBucket = minerPoolAndGCA.bucket(0);
+        //Slash nonce matches the once  storage now
+        (, endSubmissionTimestamp,, finalizationTimestamp) = minerPoolAndGCA.getBucketSubmissionRange({bucketId: 0});
+        assertEq(zeroBucket.lastUpdatedNonce, 1, "last updated nonce should be updated");
+        assertEq(minerPoolAndGCA.slashNonce(), 1, "sanity check that we incremented the slash nonce");
+        assertEq(
+            endSubmissionTimestamp,
+            n + 5 weeks,
+            "End submission timestamp should have been delayed by 2 weeks and was previously n+3"
+        );
+        assertEq(
+            finalizationTimestamp,
+            n + 6 weeks,
+            "Finalization timestamp should have been delayed by 2 weeks and was previously n+4"
+        );
+    }
+
+    //Do the same as above but also for a delayed bucket
+
+    function test_v2_wceilFinalizationTimestamp() public {
+        uint256 n = block.timestamp;
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+
+        vm.startPrank(SIMON);
+        vm.warp(n + 1 weeks);
+        minerPoolAndGCA.delayBucketFinalization({bucketId: 0});
+        vm.stopPrank();
+
+        //Before we slash, let's make sure finalization is n+15
+        (,,, uint256 finalizationTimestampBefore) = minerPoolAndGCA.getBucketSubmissionRange({bucketId: 0});
+        assertEq(finalizationTimestampBefore, n + 15 weeks, "Finalization timestamp should be n+15");
+        //Bucket now finalizes at n+15
+        vm.warp(n + 14 weeks);
+
+        minerPoolAndGCA.incrementSlashNonce();
+
+        //WCEIL of n+14 = 16, so it should finalize at n+17
+        (,,, uint256 finalizationTimestamp) = minerPoolAndGCA.getBucketSubmissionRange({bucketId: 0});
+        assertEq(
+            finalizationTimestamp,
+            n + 17 weeks,
+            "finalization timestamp should update to WCEIl + 1 week, when wceil + 1 week > finalizationTimestamp"
+        );
+
+        //If i warp to n+16 - 1 second, i should be able to submit a report!
+        vm.warp(n + 16 weeks - 1);
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 1,
+            totalGlwRewardsWeight: 1,
+            totalGRCRewardsWeight: 1,
+            randomMerkleRoot: bytes32(uint256(1))
+        });
+    }
+
+    //Also do one now where we submit it, then a slash happens,
+    // then it should finalize at wceil + 1
+
+    //^ The same but with not delayed buckets
+    //Add also claiming from them to make sure
+    //Now do all the aboves but with a wceil finalization timestamp
+
+    //Test V2, Slash Nonce should match to latest one
+    //Test V2, Compare finalization timestamp to WCEIL + 1 weeks
+    //Test V2, should not finalize if not up to date with the slash nonce it should be up to date with ?
+    /**
+     * Invariants To Write:
+     *   If a bucket has been delayed, it should be finalized  max(n+13,wceil(slashNonce)+1)
+     *   Once a bucket has been finalized, it should never be able to be unfinalized.
+     *   Other ones to think about how invariants work
+     *         1. Delay + Resubmission Combinations
+     */
+
+    //-----------------------------------------------------------------//
+    //--------------------- End Delay Tests ---------------------------//
+    //-----------------------------------------------------------------//
     //TODO: Here
     function test_v2_guarded_claim_multiple_buckets_withdrawFromBucket() public {
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
@@ -853,7 +2023,7 @@ contract MinerPoolAndGCAV2Test is Test {
             randomMerkleRoot: root
         });
 
-        vm.warp(block.timestamp + (ONE_WEEK * 2));
+        vm.warp(block.timestamp + 2 weeks);
 
         vm.startPrank(defaultAddressInWithdraw);
 
@@ -863,13 +2033,12 @@ contract MinerPoolAndGCAV2Test is Test {
         gcasToSlash[0] = OTHER_GCA;
         address[] memory newGCAs = new address[](1);
         newGCAs[0] = SIMON;
-        uint256 ts = block.timestamp;
-        bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, ts));
+        bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs));
         minerPoolAndGCA.pushRequirementsHashMock(hash);
         minerPoolAndGCA.incrementSlashNonce();
-        minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs, ts);
+        minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs);
 
-        assert(minerPoolAndGCA.isBucketFinalized(bucketId));
+        assertTrue(minerPoolAndGCA.isBucketFinalized(bucketId), "The bucket should be finalized");
     }
 
     function test_v2_guarded_claimReward_indexOutOfBounds_shouldRevert() public {
@@ -911,40 +2080,20 @@ contract MinerPoolAndGCAV2Test is Test {
         {
             IGCA.Bucket memory bucket = minerPoolAndGCA.bucket(bucketId);
 
-            assert(bucket.originalNonce == 0);
-            assert(bucket.lastUpdatedNonce == 0);
-            assert(bucket.reports.length == 2);
+            assertEq(bucket.originalNonce, 0, "Original nonce should be 0");
+            assertEq(bucket.lastUpdatedNonce, 0, "Last updated nonce should be 0");
+            assertEq(bucket.reports.length, 2, "Reports length should be 2");
 
-            vm.warp(block.timestamp + (ONE_WEEK * 2));
-
-            vm.startPrank(defaultAddressInWithdraw);
-
-            vm.stopPrank();
+            vm.warp(block.timestamp + (ONE_WEEK * 2) - 1);
 
             address[] memory gcasToSlash = new address[](1);
             gcasToSlash[0] = OTHER_GCA;
             address[] memory newGCAs = new address[](1);
             newGCAs[0] = SIMON;
-            uint256 ts = block.timestamp;
-            bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, ts));
+            bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs));
             minerPoolAndGCA.pushRequirementsHashMock(hash);
             minerPoolAndGCA.incrementSlashNonce();
-            minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs, ts);
-
-            // {
-            // vm.expectRevert(BUCKET_OUT_OF_BOUNDS_SIG);
-            // minerPoolAndGCA.claimRewardFromBucket({
-            //     bucketId: bucketId,
-            //     glwWeight: 100,
-            //     usdcWeight: 200,
-            //     proof: createClaimLeafProof(claimLeaves, claimLeaves[0]),
-            //     index: 0,
-            //     user: (defaultAddressInWithdraw),
-            //     claimFromInflation: true,
-            //     signature: bytes("")
-            // });
-
-            // }
+            minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs);
 
             issueReport({
                 gcaToSubmitAs: SIMON,
@@ -956,12 +2105,12 @@ contract MinerPoolAndGCAV2Test is Test {
             });
 
             bucket = minerPoolAndGCA.bucket(bucketId);
-            assert(bucket.originalNonce == 0);
-            assert(bucket.lastUpdatedNonce == 1);
-            assert(bucket.reports.length == 1);
+            assertEq(bucket.originalNonce, 0, "Original nonce should be 0");
+            assertEq(bucket.lastUpdatedNonce, 1, "Last updated nonce should be 1");
+            assertEq(bucket.reports.length, 1, "Reports length should be 1");
         }
         vm.startPrank(defaultAddressInWithdraw);
-        vm.warp(block.timestamp + (ONE_WEEK * 4));
+        vm.warp(block.timestamp + (ONE_WEEK * 13) + 1);
         // uint256 glwWeightForAddress = 100;
         // uint256 usdcWeightForAddress = 200;
         {
@@ -1036,16 +2185,16 @@ contract MinerPoolAndGCAV2Test is Test {
         address[] memory newGCAs = new address[](1);
         newGCAs[0] = SIMON;
         uint256 ts = block.timestamp;
-        bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, ts));
+        bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs));
         minerPoolAndGCA.pushRequirementsHashMock(hash);
         minerPoolAndGCA.incrementSlashNonce();
-        minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs, ts);
+        minerPoolAndGCA.executeAgainstHash(gcasToSlash, newGCAs);
 
         //Warp past the original expiration
         vm.warp(block.timestamp + 21);
         //It should not be finalized since the slash nonce does not match
         //and the bucket has not been reinstated.
-        assert(!minerPoolAndGCA.isBucketFinalized(bucketId));
+        assertTrue(!minerPoolAndGCA.isBucketFinalized(bucketId), "Bucket should be finalized");
     }
 
     function testFuzz_currentWeekInternal_makeCoverageHappy(uint256 warpSeconds) public {
@@ -1298,6 +2447,10 @@ contract MinerPoolAndGCAV2Test is Test {
         uint256 usdcWeightForAddress = 200;
         // minerPoolAndGCA.claimRewardFromBucket(bucketId, glwWeight, usdcWeight, proof, packedIndex, user, grcTokens, claimFromInflation);
         (bytes32[] memory proof, bool[] memory flags) = createClaimLeafProof(claimLeaves, payoutTokens, claimLeaves[0]);
+        {
+            (,,, uint256 finalizationTimestamp) = minerPoolAndGCA.getBucketSubmissionRange({bucketId: 0});
+            console2.log("Finalization Timestamp = ", finalizationTimestamp);
+        }
         minerPoolAndGCA.claimRewardFromBucket({
             bucketId: bucketId,
             glwWeight: glwWeightForAddress,
@@ -1314,6 +2467,11 @@ contract MinerPoolAndGCAV2Test is Test {
 
         (proof, flags) = createClaimLeafProof(claimLeaves, payoutTokens, claimLeaves[1]);
         //If we try to claim with the correct proof, it should overflow the glow weight first
+
+        {
+            (,,, uint256 finalizationTimestamp) = minerPoolAndGCA.getBucketSubmissionRange({bucketId: 0});
+            console2.log("Finalization Timestamp = ", finalizationTimestamp);
+        }
         vm.expectRevert(IMinerPool.GlowWeightOverflow.selector);
         minerPoolAndGCA.claimRewardFromBucket({
             bucketId: bucketId,
@@ -1790,20 +2948,20 @@ contract MinerPoolAndGCAV2Test is Test {
         uint256[] memory ids = bucketDelayHandler.delayedBucketIds();
         unchecked {
             for (uint256 i; i < ids.length; ++i) {
-                assertTrue(minerPoolAndGCA.hasBucketBeenDelayed(ids[i]));
+                assertTrue(minerPoolAndGCA.hasBucketBeenDelayed({_slashNonce: 0, bucketId: ids[i]}));
             }
         }
         ids = bucketDelayHandler.nonDelayedBucketIds();
         unchecked {
             for (uint256 i; i < ids.length; ++i) {
-                assertFalse(minerPoolAndGCA.hasBucketBeenDelayed(ids[i]));
+                assertFalse(minerPoolAndGCA.hasBucketBeenDelayed({_slashNonce: 0, bucketId: ids[i]}));
             }
         }
     }
 
-    function test_v2_guarded_delayBucketFinalization_bucketNotInitialized_shouldRevert() public {
+    function test_v2_guarded_bucketDelay_NotFinishedWithSubmission_shouldRevert() public {
         vm.startPrank(SIMON);
-        vm.expectRevert(IMinerPool.CannotDelayEmptyBucket.selector);
+        vm.expectRevert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
         minerPoolAndGCA.delayBucketFinalization(0);
         vm.stopPrank();
     }
@@ -1840,6 +2998,8 @@ contract MinerPoolAndGCAV2Test is Test {
         vm.startPrank(SIMON);
         //simon is a council member in the `setUp` function
         uint256 finalizationTimestampBefore = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+
+        vm.warp(block.timestamp + 1 weeks);
         minerPoolAndGCA.delayBucketFinalization(0);
         uint256 finalizationTimestampAfter = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
 
@@ -1925,6 +3085,9 @@ contract MinerPoolAndGCAV2Test is Test {
         vm.startPrank(SIMON);
         //simon is a council member in the `setUp` function
         uint256 finalizationTimestampBefore = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+        //Log the finalization timestamp before =
+        console2.log("finalization timestamp before = ", finalizationTimestampBefore);
+        vm.warp(block.timestamp + 1 weeks);
         minerPoolAndGCA.delayBucketFinalization(0);
         uint256 finalizationTimestampAfter = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
 
@@ -1942,13 +3105,78 @@ contract MinerPoolAndGCAV2Test is Test {
             expectedProposingAgent: SIMON
         });
 
-        assertTrue(minerPoolAndGCA.hasBucketBeenDelayed(0));
+        assertTrue(minerPoolAndGCA.hasBucketBeenDelayed({_slashNonce: 0, bucketId: 0}));
 
         vm.expectRevert(IMinerPool.BucketAlreadyDelayed.selector);
         minerPoolAndGCA.delayBucketFinalization(0);
 
         vm.stopPrank();
     }
+
+    //--------------------------------------------------------------------------------//
+    //  Tests for delaying a bucket multiple times
+    //--------------------------------------------------------------------------------//
+
+    function test_v2_delayBucketMultipleTimes() public {
+        test_v2_guarded_delayBucketFinalization_twoDelaysShouldRevert();
+        // Let's increment the slashnonce
+        vm.warp(block.timestamp + 30 days);
+        assertEq(minerPoolAndGCA.slashNonce(), 0, "Slash nonce should still be zero and not incremented");
+        minerPoolAndGCA.incrementSlashNonce();
+        // We should be able to delay the bucket again?
+
+        uint256 bucketFinalizationTimestamp = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+
+        // We need to issue another report so that the slash nonce is updated
+        ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
+        address[] memory payoutTokens = new address[](1);
+        payoutTokens[0] = address(usdg);
+        uint256 totalGlwWeight;
+        uint256 totalusdcWeight;
+
+        for (uint256 i; i < claimLeaves.length; ++i) {
+            totalGlwWeight += 100 + i;
+            totalusdcWeight += 200 + i;
+            claimLeaves[i] = ClaimLeaf({
+                payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + i)),
+                glwWeight: 100 + i,
+                usdcWeight: 200 + i
+            });
+        }
+
+        bytes32 root = createClaimLeafRoot(claimLeaves, payoutTokens);
+        {
+            uint256 totalNewGCC = 101 * 1e15;
+            issueReport({
+                gcaToSubmitAs: SIMON,
+                bucket: 0,
+                totalNewGCC: totalNewGCC,
+                totalGlwRewardsWeight: totalGlwWeight,
+                totalGRCRewardsWeight: totalusdcWeight,
+                randomMerkleRoot: root
+            });
+        }
+        vm.startPrank(SIMON);
+
+        // vm.warp(minerPoolAndGCA.calculateBucketSubmissionEndTimestamp(0));
+        // minerPoolAndGCA.delayBucketFinalization(0);
+        // uint256 bucketFinalizationTimestampAfter = minerPoolAndGCA.bucket(0).finalizationTimestamp;
+        // //Make sure the finalization timestamp differnce is 13 weeks
+        // assertEq(bucketFinalizationTimestamp + (604800 * 13), bucketFinalizationTimestampAfter);
+
+        // //Doing it again should revert
+
+        // vm.expectRevert(IMinerPool.BucketAlreadyDelayed.selector);
+        // minerPoolAndGCA.delayBucketFinalization(0);
+
+        // //Some more checks potentially @0xSimbo
+        // //TODO:
+        // // Make sure that delay can never happen while the submission is open
+
+        vm.stopPrank();
+    }
+
+    //--------------------------------------------------------------------------------//
 
     function test_v2_guarded_delayBucketFinalization_delayingBucketThatNeedsToUpdateSlashNonce_shouldRevert() public {
         ClaimLeaf[] memory claimLeaves = new ClaimLeaf[](5);
@@ -1979,9 +3207,11 @@ contract MinerPoolAndGCAV2Test is Test {
 
         vm.startPrank(SIMON);
         //simon is a council member in the `setUp` function
-        uint256 finalizationTimestampBefore = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
+        // uint256 finalizationTimestampBefore = minerPoolAndGCA.bucket(bucketId).finalizationTimestamp;
         minerPoolAndGCA.incrementSlashNonce();
-        vm.expectRevert(IMinerPool.CannotDelayBucketThatNeedsToUpdateSlashNonce.selector);
+
+        vm.warp(block.timestamp + 3 weeks);
+        vm.expectRevert(IGCA.BucketAlreadyFinalized.selector);
         minerPoolAndGCA.delayBucketFinalization(0);
 
         vm.stopPrank();
@@ -2081,6 +3311,43 @@ contract MinerPoolAndGCAV2Test is Test {
         uint256 amount = 10000;
         vm.expectRevert(IMinerPool.CallerNotEarlyLiquidity.selector);
         minerPoolAndGCA.donateTokenToRewardsPoolEarlyLiquidity(address(usdg), amount);
+    }
+
+    function test_v2_increment_slashNonce_shouldAllowForResubmissions_if_bucketDelayed() public {
+        //Currently in week 0
+        //
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 101 * 1e15,
+            totalGlwRewardsWeight: 105 * 1e15,
+            totalGRCRewardsWeight: 101 * 1e15,
+            randomMerkleRoot: keccak256("random but different")
+        });
+
+        //Delay it
+        vm.warp(block.timestamp + 1 weeks);
+        //Delay the bucket
+        vm.startPrank(SIMON);
+        minerPoolAndGCA.delayBucketFinalization(0);
+        vm.stopPrank();
+
+        //If we warp 10 weeks , (enough for governance to act,)
+        //We should be able to resubmit after
+        vm.warp(block.timestamp + 10 weeks);
+        //We should be able to resubmit if the slash nonce is incremented
+        minerPoolAndGCA.incrementSlashNonce();
+
+        //I should have 2 weeks to resubmit
+        vm.warp(block.timestamp + 2 weeks - 1);
+        issueReport({
+            gcaToSubmitAs: SIMON,
+            bucket: 0,
+            totalNewGCC: 22 * 1e15,
+            totalGlwRewardsWeight: 22 * 1e15,
+            totalGRCRewardsWeight: 22 * 1e15,
+            randomMerkleRoot: keccak256("random 2 different")
+        });
     }
 
     //------------------------ HELPERS -----------------------------

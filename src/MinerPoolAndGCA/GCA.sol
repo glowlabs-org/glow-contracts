@@ -10,7 +10,7 @@ import {_BUCKET_DURATION, _GENESIS_TIMESTAMP} from "@/Constants/Constants.sol";
 /**
  * @title GCA (Glow Certification Agent)
  * @author @DavidVorick
- * @author @0xSimon(twitter) - 0xSimon(github)
+ * @author @0xSimon(twitter) - 0xSimbo(github)
  *  @notice this contract is the entry point for GCAs to submit reports and claim payouts
  *  @notice GCA's submit weekly reports that contain how many carbon credits have been created
  *             - and which farms should get rewarded for the creation of those credits

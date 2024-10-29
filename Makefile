@@ -13,7 +13,8 @@ install :; forge install --no-commit && npm install
 hardhat-test :; make hardhat.test.earlyLiquidity
 
 # --- [Gen HTML] requires linux or wsl
-gen-lcov :; forge coverage --ffi --report lcov
+gen-lcov :; forge coverage --match-contract '^(MinerPoolAndGCAV2Test|GCAV2Test)$''  --ffi --report lcov
+
 
 gen-html :;  make gen-lcov && genhtml -o report --branch-coverage lcov.info --ignore-errors category
 
@@ -72,9 +73,18 @@ deploy.guardedlaunch.mainnet :; forge script script/Mainnet/DeployGuardedLaunch.
 deploy.poster.mainnet :; forge script script/Testnet/DeployMerkleRootPoster.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY}  \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10 --legacy
 
+
+
+# ---- Anvil Simulation -------------------------------------------------------------------
 deploy.full.anvil :; forge script script/Testnet/DeployFull.s.sol --rpc-url  http://127.0.0.1:8545 --broadcast -vvvv --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+deploy.bucket.simulation.anvil :; forge script script/V2/Local/DeployBucketSimulation.s.sol --rpc-url http://127.0.0.1:8545 --broadcast -vvvv --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --non-interactive
+deploy.multicall3.anvil :;        forge script script/V2/Local/D3.s.sol --rpc-url http://127.0.0.1:8545 --broadcast -vvvv --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+mine.anvil :;  curl -H "Content-Type: application/json" -X POST --data '{"jsonrpc":"2.0","method":"evm_mine","params":[],"id":67}' 127.0.0.1:8545
+start.anvil.server :; anvil --no-mine --disable-code-size-limit --disable-block-gas-limit --no-request-size-limit
+#---- [End] -----------------------------------------------------------------------------------
 
 setlp.goerli :; forge script script/Testnet/SetLP.s.sol --rpc-url ${GOERLI_RPC_URL} --broadcast -vvvv --private-key ${PRIVATE_KEY}
+
 
 
 deploy.fake.governance.sepolia :; forge script script/Testnet/DeployGuardedFakeGovernance.s.sol --rpc-url ${SEPOLIA_RPC} --broadcast -vvvv --private-key ${SIMON_REGULAR_PK}  \
@@ -100,6 +110,8 @@ verify.guardedlaunch :;  forge verify-contract \
         $${ETHERSCAN_API_KEY} --watch
 
 verify.test  :; forge verify-contract 0x895fAce9c838127abD2150474880A7fb175a621E GlowGuardedLaunch --watch --chain-id 5
+
+
 
 # cast abi-encode "constructor(address,address,address,address,address,address,address)" "0x6Fa8C7a89b22bf3212392b778905B12f3dBAF5C4" "0x8d01a258bC1ADB728322499E5D84173EA971d665" "0xf4fbC617A5733EAAF9af08E1Ab816B103388d8B6" "0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2" "0xA3A32d3c9a5A593bc35D69BACbe2dF5Ea2C3cF5C" "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
 #---- [solhint] -----------------------------------------------------------------------------------

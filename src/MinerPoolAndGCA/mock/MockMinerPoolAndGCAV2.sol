@@ -2,9 +2,14 @@
 pragma solidity ^0.8.19;
 
 import "../MinerPoolAndGCAV2.sol";
+import {IGCA} from "../../interfaces/IGCA.sol";
 import {BucketSubmissionV2 as BucketSubmission} from "../BucketSubmissionV2.sol";
+import {console2} from "forge-std/console2.sol";
+import {LibBitmap} from "@solady/utils/LibBitmap.sol";
 
 contract MockMinerPoolAndGCAV2 is MinerPoolAndGCAV2 {
+    using LibBitmap for LibBitmap.Bitmap;
+
     constructor(
         address[] memory _gcaAgents,
         address _glowToken,
@@ -87,5 +92,47 @@ contract MockMinerPoolAndGCAV2 is MinerPoolAndGCAV2 {
 
     function currentWeekInternal() public view returns (uint256) {
         return _currentWeek();
+    }
+
+    function calculateBucketSubmissionEndTimestamp(uint256 bucketId) public view returns (uint256) {
+        (, uint256 submissionEndTimestamp,,) = getBucketSubmissionRange(bucketId);
+        return submissionEndTimestamp;
+    }
+
+    function areBucketsDelayedAtSlashNonce(uint256 nonce, uint256[] calldata bucketIds)
+        public
+        view
+        returns (bool[] memory)
+    {
+        bool[] memory bools = new bool[](bucketIds.length);
+        for (uint256 i; i < bools.length; ++i) {
+            bools[i] = _slashNoncesToBucketDelayedBitmap[nonce].get(bucketIds[i]);
+        }
+        return bools;
+    }
+
+    function areBucketsRequestedForResubmissionAtSlashNonce(uint256 nonce, uint256[] calldata bucketIds)
+        public
+        view
+        returns (bool[] memory)
+    {
+        bool[] memory bools = new bool[](bucketIds.length);
+        for (uint256 i; i < bools.length; ++i) {
+            bools[i] = _slashNonceToRequestedResubmissionBitmap[nonce].get(bucketIds[i]);
+        }
+        return bools;
+    }
+
+    function getBucketSubmissionRange(uint256 bucketId)
+        public
+        view
+        returns (
+            uint256, /*startSubmissionTimestamp*/
+            uint256, /*endSubmissionTimestamp*/
+            uint256, /*newSlashNonce*/
+            uint256 /*newFinalizationTimestamp*/
+        )
+    {
+        return _getBucketSubmissionRange(bucketId, slashNonce, bucket(bucketId));
     }
 }

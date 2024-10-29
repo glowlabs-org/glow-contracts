@@ -18,10 +18,14 @@ contract MockBucketSubmissionV2 is BucketSubmissionV2 {
         return (reward.inheritedFromLastWeek, reward.amountInBucket, reward.amountToDeduct);
     }
 
-    function setBucketTracker(address token, uint48 lastUpdatedBucket, uint48 maxBucketId, uint48 firstAddedBucketId)
-        external
-    {
-        bucketTracker[token] = BucketTracker(lastUpdatedBucket, maxBucketId, firstAddedBucketId);
+    function setBucketTracker(
+        address token,
+        uint48 lastUpdatedBucket,
+        uint48 maxBucketId,
+        uint48 firstAddedBucketId,
+        bool firstAddedBucketSet
+    ) external {
+        bucketTracker[token] = BucketTracker(lastUpdatedBucket, maxBucketId, firstAddedBucketId, firstAddedBucketSet);
     }
 
     function genesisTimestampInternal() public view returns (uint256) {

@@ -17,6 +17,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
 import {LibBitmap} from "@solady/utils/LibBitmap.sol";
 import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
+import {ReentrancyGuardTransient} from "@/utils/ReentrancyGuardTransient.sol";
 
 /**
  * @title Miner Pool And GCA
@@ -25,7 +26,7 @@ import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
  *  @notice this contract allows veto council members to delay buckets as defined in the `GCA` contract
  * @notice It is the entry point for farms participating in GLOW to claim their rewards for their contributions
  */
-contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall {
+contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall, ReentrancyGuardTransient {
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */
     /* -------------------------------------------------------------------------- */
@@ -41,9 +42,6 @@ contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall
 
     //cast keccak "CLAIM-TOKENS"  = 0x5a2b68280ef3658be6bd388ec714543fc8d9df8f00d7ab7ab3249e364ebfa76d
     bytes32 private constant TOKENS_LEAF_PREFIX = 0x5a2b68280ef3658be6bd388ec714543fc8d9df8f00d7ab7ab3249e364ebfa76d;
-
-    /// @dev a helper used in a bitmap
-    uint256 private constant _BITS_IN_UINT = 256;
 
     /**
      * @notice the total amount of glow rewards available for farms per bucket
@@ -89,8 +87,9 @@ contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall
     /// @dev bitmap (bucketId -> bitmap) to check if a bucket has been used to mint to the carbon credit auction
     LibBitmap.Bitmap private _mintedToCarbonCreditAuctionBitmap;
 
-    /// @dev A bitmap of bucketIds that have been delayed
-    LibBitmap.Bitmap private _bucketDelayedBitmap;
+    /// @dev A bitmap of bucketIds that have been delayed per slash nonce
+    mapping(uint256 slashNonce => LibBitmap.Bitmap) internal _slashNoncesToBucketDelayedBitmap;
+    mapping(uint256 slashNonce => LibBitmap.Bitmap) internal _slashNonceToRequestedResubmissionBitmap;
 
     /**
      * @dev a mapping of bucketId -> pushed weights
@@ -211,9 +210,8 @@ contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall
         if (claimFromInflation) {
             claimGlowFromInflation();
         }
-        if (!isBucketFinalized(bucketId)) {
-            _revert(IMinerPoolV2.BucketNotFinalized.selector);
-        }
+
+        GCAV2._isBucketFinalizedAndSlashNonceUpToDateCheck(bucketId);
 
         {
             bytes32 root = getBucketRootAtIndexEfficient(bucketId, index);
@@ -267,36 +265,45 @@ contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall
     /*                                 bucket delays                              */
     /* -------------------------------------------------------------------------- */
 
-    /**
-     * @inheritdoc IMinerPoolV2
-     */
-    function delayBucketFinalization(uint256 bucketId) external {
-        if (isBucketFinalized(bucketId)) {
-            _revert(IGCA.BucketAlreadyFinalized.selector);
-        }
+    function requestBucketResubmission(uint256 bucketId) external nonReentrant {
         if (!IVetoCouncil(_VETO_COUNCIL).isCouncilMember(msg.sender)) {
             _revert(IMinerPoolV2.CallerNotVetoCouncilMember.selector);
         }
 
-        if (_buckets[bucketId].lastUpdatedNonce != slashNonce) {
-            _revert(IMinerPoolV2.CannotDelayBucketThatNeedsToUpdateSlashNonce.selector);
+        uint256 _slashNonce = slashNonce;
+        //If it is delayed at this slash nonce, also revert
+        if (_slashNoncesToBucketDelayedBitmap[_slashNonce].get(bucketId)) {
+            _revert(IMinerPoolV2.BucketAlreadyDelayed.selector);
+        }
+        if (_slashNonceToRequestedResubmissionBitmap[_slashNonce].get(bucketId)) {
+            _revert(IMinerPoolV2.ResubmissionAlreadyRequestedForSlashNonce.selector);
+        }
+        GCAV2._handleBucketRequestedResubmission(bucketId);
+
+        _slashNonceToRequestedResubmissionBitmap[_slashNonce].set(bucketId);
+    }
+
+    /**
+     * @inheritdoc IMinerPoolV2
+     */
+    function delayBucketFinalization(uint256 bucketId) external nonReentrant {
+        uint256 currentSlashNonce = slashNonce;
+
+        if (!IVetoCouncil(_VETO_COUNCIL).isCouncilMember(msg.sender)) {
+            _revert(IMinerPoolV2.CallerNotVetoCouncilMember.selector);
         }
 
-        if (_bucketDelayedBitmap.get(bucketId)) {
+        // if (_buckets[bucketId].lastUpdatedNonce != currentSlashNonce) {
+        //     _revert(IMinerPoolV2.CannotDelayBucketThatNeedsToUpdateSlashNonce.selector);
+        // } TODO: Are there any hacks here?
+
+        if (_slashNoncesToBucketDelayedBitmap[currentSlashNonce].get(bucketId)) {
             _revert(IMinerPoolV2.BucketAlreadyDelayed.selector);
         }
 
-        _bucketDelayedBitmap.set(bucketId);
+        GCAV2._handleBucketDelay(bucketId);
 
-        //If the length is zero that means
-        // the bucket has never been initialized
-        // therefore, the veto council should not be able
-        // to delay a bucket that has never been initialized
-        if (_buckets[bucketId].reports.length == 0) {
-            _revert(IMinerPoolV2.CannotDelayEmptyBucket.selector);
-        }
-
-        _buckets[bucketId].finalizationTimestamp += SafeCast.toUint128(bucketDelayDuration());
+        _slashNoncesToBucketDelayedBitmap[currentSlashNonce].set(bucketId);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -321,8 +328,8 @@ contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall
     /**
      * @inheritdoc IMinerPoolV2
      */
-    function hasBucketBeenDelayed(uint256 bucketId) external view returns (bool) {
-        return _bucketDelayedBitmap.get(bucketId);
+    function hasBucketBeenDelayed(uint256 _slashNonce, uint256 bucketId) external view returns (bool) {
+        return _slashNoncesToBucketDelayedBitmap[_slashNonce].get(bucketId);
     }
 
     /**
@@ -337,7 +344,7 @@ contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall
      * @notice The amount of time a delay action will delay a bucket by
      * @return the amount of time a delay action will delay a bucket by
      */
-    function bucketDelayDuration() public pure virtual returns (uint256) {
+    function bucketDelayDuration() public pure virtual override returns (uint256) {
         return _BUCKET_DELAY_DURATION;
     }
 
@@ -394,6 +401,9 @@ contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall
     /* -------------------------------------------------------------------------- */
     /*                                 internal view                              */
     /* -------------------------------------------------------------------------- */
+    function isBucketClaimedFrom(uint256 bucketId) internal view override returns (bool) {
+        return _mintedToCarbonCreditAuctionBitmap.get(bucketId);
+    }
 
     /**
      * @notice Checks the multi proof for the user's claim
@@ -468,6 +478,15 @@ contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall
      */
     function _genesisTimestamp() internal view virtual override(BucketSubmissionV2, GCAV2) returns (uint256) {
         return GENESIS_TIMESTAMP;
+    }
+
+    function hasBucketBeenRequestedForResubmissionAtSlashNonce(uint256 _slashNonce, uint256 bucketId)
+        public
+        view
+        override
+        returns (bool)
+    {
+        return _slashNonceToRequestedResubmissionBitmap[_slashNonce].get(bucketId);
     }
 
     /**

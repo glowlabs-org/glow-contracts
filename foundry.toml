@@ -5,8 +5,8 @@ libs = ['lib']
 
 optimizer = true
 optimizer_runs = 1_000_000
-evm_version = "paris"
-solc_version = '0.8.21'
+evm_version = "cancun"
+solc_version = '0.8.24'
 line_length = 100                                         # While we allow up to 120, we lint at 100 for readability.
 fs_permissions = [{ access = "read-write", path = "./" }]
 ignored_warnings_from = ["node_modules", "lib","test"]

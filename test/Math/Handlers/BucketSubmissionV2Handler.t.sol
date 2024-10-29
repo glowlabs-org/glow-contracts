@@ -76,6 +76,7 @@ contract BucketSubmissionV2Handler is Test {
                 ghost_bucketIds[grcToken].push(index);
             }
         }
+
         minerMath.addToCurrentBucket(grcToken, amount);
         vm.warp(block.timestamp + daysToWarp * uint256(1 days));
     }

@@ -100,8 +100,8 @@ contract USDGGuardedLaunchV2 is USDG {
         if (block.timestamp < withdrawal.expirationTimestamp) {
             revert ClaimNotAvailableYet();
         }
-        SafeERC20.safeTransfer(IERC20(address(USDC)), msg.sender, withdrawal.amount);
         delete _usdcWithdrawalQueue[msg.sender];
+        SafeERC20.safeTransfer(IERC20(address(USDC)), msg.sender, withdrawal.amount);
         emit USDCWithdrawalClaimed(msg.sender, withdrawal.amount);
     }
 

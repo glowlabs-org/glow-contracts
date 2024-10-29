@@ -754,7 +754,7 @@ contract GovernanceV2 is IGovernance {
             msg.sender,
             maxNominations,
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
-            _encodeGCACouncilElectionOrSlashData(agentsToSlash, newGCAs, incrementSlashNonce, block.timestamp),
+            _encodeGCACouncilElectionOrSlashData(agentsToSlash, newGCAs, incrementSlashNonce),
             true
         );
 
@@ -793,7 +793,7 @@ contract GovernanceV2 is IGovernance {
             msg.sender,
             maxNominations,
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
-            _encodeVetoCouncilElectionOrSlashData(oldMember, newMember, slashOldMember, block.timestamp),
+            _encodeVetoCouncilElectionOrSlashData(oldMember, newMember, slashOldMember),
             true
         );
 
@@ -982,7 +982,7 @@ contract GovernanceV2 is IGovernance {
             msg.sender,
             nominations,
             IGovernance.ProposalType.GCA_COUNCIL_ELECTION_OR_SLASH,
-            _encodeGCACouncilElectionOrSlashData(agentsToSlash, newGCAs, incrementSlashNonce, block.timestamp)
+            _encodeGCACouncilElectionOrSlashData(agentsToSlash, newGCAs, incrementSlashNonce)
         );
 
         emit IGovernance.GCACouncilElectionOrSlashIntentCreation({
@@ -1024,7 +1024,7 @@ contract GovernanceV2 is IGovernance {
             msg.sender,
             nominations,
             IGovernance.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH,
-            _encodeVetoCouncilElectionOrSlashData(oldMember, newMember, slashOldMember, block.timestamp)
+            _encodeVetoCouncilElectionOrSlashData(oldMember, newMember, slashOldMember)
         );
         emit IGovernance.VetoCouncilElectionOrSlashIntentCreation({
             proposalIntentId: proposalIntentId,
@@ -1509,20 +1509,18 @@ contract GovernanceV2 is IGovernance {
     function _encodeGCACouncilElectionOrSlashData(
         address[] calldata agentsToSlash,
         address[] calldata newGCAs,
-        bool incrementSlashNonce,
-        uint256 timestamp
+        bool incrementSlashNonce
     ) internal pure returns (bytes memory) {
-        bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs, timestamp));
+        bytes32 hash = keccak256(abi.encode(agentsToSlash, newGCAs));
         return abi.encode(hash, incrementSlashNonce);
     }
 
-    function _encodeVetoCouncilElectionOrSlashData(
-        address oldMember,
-        address newMember,
-        bool slashOldMember,
-        uint256 timestamp
-    ) internal pure returns (bytes memory) {
-        return abi.encode(oldMember, newMember, slashOldMember, timestamp);
+    function _encodeVetoCouncilElectionOrSlashData(address oldMember, address newMember, bool slashOldMember)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(oldMember, newMember, slashOldMember);
     }
 
     //-------------------------------------------------------------------------------------//

@@ -44,9 +44,17 @@
 ## V2 TODOS 
 * Make sure that claim reward function is protected by an approved claimer;
 
+* Inside GCA V1, there was a bug where WCEIL of the slash nonce timestamp is based
+on the creation timestamp of the proposal, and not the execution timestamp.
+This means that after a slash, we will never be able to resubmit a weekly report,
+because it will have been AT LEAST 5 weeks for Governance to kick in.
+
+* Make sure that we switch the delay period to 16 weeks, not 13.
+
 
 -----
 ##  Nice To Haves
 * Remove sigs and find a better system
+
 
 

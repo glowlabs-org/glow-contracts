@@ -28,6 +28,7 @@ interface IMinerPoolV2 {
     error USDCWeightOverflow();
     error GlowWeightGreaterThanTotalWeight();
     error USDCWeightGreaterThanTotalWeight();
+    error ResubmissionAlreadyRequestedForSlashNonce();
 
     /* -------------------------------------------------------------------------- */
     /*                                     state-changing                        */
@@ -91,9 +92,10 @@ interface IMinerPoolV2 {
     /*                                   view                                    */
     /* -------------------------------------------------------------------------- */
     /**
-     * @notice returns true if a bucket has been delayed
+     * @notice returns true if a bucket has been delayed inside a certain slash nonce
+     * @param _slashNonce - The slash nonce to check
      * @param bucketId - the id of the bucket
      * @return true if the bucket has been delayed
      */
-    function hasBucketBeenDelayed(uint256 bucketId) external view returns (bool);
+    function hasBucketBeenDelayed(uint256 _slashNonce, uint256 bucketId) external view returns (bool);
 }

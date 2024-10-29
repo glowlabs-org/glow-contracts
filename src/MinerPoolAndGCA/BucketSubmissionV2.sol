@@ -10,17 +10,17 @@ contract BucketSubmissionV2 {
     /**
      * @notice the start offset to the current bucket for the grc deposit
      * @dev when depositing grc, the grc is evenly distributed across (OFFSET_RIGHT - OFFSET_LEFT) weeks
-     *         -   The first bucket to receive grc is the current bucket + 16 weeks
-     *         -   The last bucket to receive grc is the current bucket + 208 weeks
+     *         -   The first bucket to receive grc is the current bucket + OFFSET_LEFT weeks
+     *         -   The last bucket to receive grc is the current bucket + OFFSET_RIGHT weeks
      */
-    uint256 public constant OFFSET_LEFT = 16;
+    uint256 public constant OFFSET_LEFT = 0;
 
     /**
      * @notice the end offset to the current bucket for the grc deposit
      * @dev the amount to offset b(x) by to get the final bucket number where the grc will have finished vesting
      *         - where b(x) is the current bucket
      */
-    uint256 public constant OFFSET_RIGHT = 104;
+    uint256 public constant OFFSET_RIGHT = 100;
 
     /// @notice a constant holding the total vesting periods for a grc donation ((OFFSET_RIGHT - OFFSET_LEFT))
     uint256 public constant TOTAL_VESTING_PERIODS = OFFSET_RIGHT - OFFSET_LEFT;
@@ -46,10 +46,10 @@ contract BucketSubmissionV2 {
     /* -------------------------------------------------------------------------- */
     /**
      * @dev a helper to keep track of last updated bucket ids for buckets
-     * @param lastUpdatedBucket - the last bucket + 16 that grc was deposited to this bucket
+     * @param lastUpdatedBucket - the last bucket + OFFSET_LEFT that grc was deposited to this bucket
      * @param maxBucketId - the lastUpdatedBucket + 191 since the range of buckets is (lastUpdatedBucket, lastUpdatedBucket + (OFFSET_RIGHT - OFFSET_LEFT)]
      *                                                                                       ^ inclusive,             exclusive ^
-     * @param firstAddedBucketId - the first bucket + 16 that grc was deposited to this bucket
+     * @param firstAddedBucketId - the first bucket + OFFSET_LEFT that grc was deposited to this bucket
      * @dev none of the params should overflow, since they represent weeks
      *         - it's safe to assume by 2^48 weeks climate should should have better solutions
      */
@@ -57,6 +57,7 @@ contract BucketSubmissionV2 {
         uint48 lastUpdatedBucket;
         uint48 maxBucketId;
         uint48 firstAddedBucketId;
+        bool firstAddedBucketSet;
     }
 
     /**
@@ -78,7 +79,7 @@ contract BucketSubmissionV2 {
     /**
      * @notice Emitted when a user donates the token to the contract
      * @param bucketId - the bucket id in which the donation happened.
-     *        - the result of this donation vests from bucketId + 16 to bucketId + 208
+     *        - the result of this donation vests from bucketId + OFFSET_LEFT to bucketId + OFFSET_RIGHT
      * @param totalAmountDonated - the total amount donated at `bucketId`
      *         - the total amount donated at `bucketId` is evenly distributed over (OFFSET_RIGHT - OFFSET_LEFT) buckets
      */
@@ -159,7 +160,7 @@ contract BucketSubmissionV2 {
         //then that means the first bucket to be updated is the bucketToAddTo
         //If the last updated bucket was already set, then we use that
         uint256 lastUpdatedBucket =
-            _bucketTracker.lastUpdatedBucket == 0 ? bucketToAddTo : _bucketTracker.lastUpdatedBucket;
+            !_bucketTracker.firstAddedBucketSet ? bucketToAddTo : _bucketTracker.lastUpdatedBucket;
         WeeklyReward memory lastBucket = rewards[token][lastUpdatedBucket];
 
         //We already know we are going to add {amountToAddOrSubtract} to the {bucketToDeductFrom}
@@ -212,12 +213,17 @@ contract BucketSubmissionV2 {
             amountToDeduct: 0
         });
 
+        uint48 firstAddBucketId;
+        if (!_bucketTracker.firstAddedBucketSet) {
+            firstAddBucketId = uint48(bucketToAddTo);
+        } else {
+            firstAddBucketId = _bucketTracker.firstAddedBucketId;
+        }
+
         //If the lastUpdatedBucket has changed, then we update the lastUpdatedBucket
-        if (_bucketTracker.lastUpdatedBucket != bucketToAddTo) {
+        if (_bucketTracker.lastUpdatedBucket != bucketToAddTo || !_bucketTracker.firstAddedBucketSet) {
             bucketTracker[token] = BucketTracker(
-                uint48(bucketToAddTo),
-                uint48(bucketToAddTo + TOTAL_VESTING_PERIODS - 1),
-                _bucketTracker.firstAddedBucketId == 0 ? uint48(bucketToAddTo) : _bucketTracker.firstAddedBucketId
+                uint48(bucketToAddTo), uint48(bucketToAddTo + TOTAL_VESTING_PERIODS - 1), firstAddBucketId, true
             );
         }
 
@@ -259,7 +265,7 @@ contract BucketSubmissionV2 {
         WeeklyReward memory bucket = rewards[token][id];
         // If the bucket has already been initialized
         // Then we can just return the bucket.
-        if (bucket.inheritedFromLastWeek || id < OFFSET_LEFT) {
+        if (bucket.inheritedFromLastWeek || id < OFFSET_LEFT || id == 0) {
             return (bucket, false);
         }
 
@@ -267,12 +273,15 @@ contract BucketSubmissionV2 {
         // than that means all the tokens would have vested,
         // So we return the empty bucket
         BucketTracker memory _bucketTracker = bucketTracker[token];
+
         if (id > _bucketTracker.maxBucketId) {
             return (bucket, false);
         }
 
         uint256 amountToSubtract = bucket.amountToDeduct;
-        //Can't underflow since we start at id 16
+        //Can't underflow since we start at id OFFSET_LEFT
+        // Right now, the while loop has a trnary in the `lasdtBucket` lookup,
+        // and we may not need all of that tbh
         uint256 lastBucketId = id - 1;
 
         //We get the first added bucket id from the bucket tracker.
@@ -288,7 +297,8 @@ contract BucketSubmissionV2 {
                 break;
             }
             //Load the last bucket into memory
-            WeeklyReward memory lastBucket = rewards[token][lastBucketId--];
+            WeeklyReward memory lastBucket = rewards[token][lastBucketId];
+
             // add the amount to deduct from the last bucket to the amount to subtract
             amountToSubtract += lastBucket.amountToDeduct;
 
@@ -305,9 +315,10 @@ contract BucketSubmissionV2 {
             }
 
             //Prevents underflow since OFFSET_LEFT > 0
-            if (lastBucketId < OFFSET_LEFT) {
+            if (lastBucketId < OFFSET_LEFT || lastBucketId == 0) {
                 break;
             }
+            --lastBucketId;
         }
         return (bucket, true);
     }

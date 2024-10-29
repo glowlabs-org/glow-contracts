@@ -93,7 +93,7 @@ library UnifapV2Library {
                             hex"ff",
                             factory,
                             keccak256(abi.encodePacked(token0, token1)),
-                            hex"86ffa1affa909ab5771d207bf4c52b98382f32cb94483e5e166c201f2a1167da" // init code hash
+                            hex"92ef6552861e3a0d77d00e901811073d50cf96c55ef1bc1ec20e0e7f79c6574b" // init code hash
                         )
                     )
                 )

@@ -40,9 +40,13 @@ logs/
 
 bun.lockb
 
-glowswap.md
+glowswap*.md
 GlowSwap.md
 leaves.json
 leavesString.json
 state.json
 deployedContracts*
+
+issues/
+
+todo.md

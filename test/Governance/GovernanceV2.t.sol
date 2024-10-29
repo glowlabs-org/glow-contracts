@@ -608,7 +608,7 @@ contract GovernanceV2Test is Test {
         uint256 nominationsToUse = governance.costForNewProposal();
         governance.createGCACouncilElectionOrSlashProposal(agentsToSlash, newGCAs, nominationsToUse);
         IGovernanceV2.Proposal memory proposal = governance.proposals(1);
-        bytes32 expectedHash = keccak256(abi.encode(agentsToSlash, newGCAs, creationTimestamp));
+        bytes32 expectedHash = keccak256(abi.encode(agentsToSlash, newGCAs));
         bytes32 actualHash = abi.decode(proposal.data, (bytes32));
         assertEq(actualHash, expectedHash);
         assertEq(governance.proposalCount(), 1);
@@ -649,7 +649,7 @@ contract GovernanceV2Test is Test {
         uint256 nominationsToUse = governance.costForNewProposal();
         governance.createGCACouncilElectionOrSlashProposal(agentsToSlash, newGCAs, nominationsToUse);
         IGovernanceV2.Proposal memory proposal = governance.proposals(1);
-        bytes32 expectedHash = keccak256(abi.encode(agentsToSlash, newGCAs, creationTimestamp));
+        bytes32 expectedHash = keccak256(abi.encode(agentsToSlash, newGCAs));
         bytes32 actualHash = abi.decode(proposal.data, (bytes32));
         assertEq(actualHash, expectedHash);
         assertEq(governance.proposalCount(), 1);
@@ -661,7 +661,7 @@ contract GovernanceV2Test is Test {
         nominationsToUse = governance.costForNewProposal();
         governance.createGCACouncilElectionOrSlashProposal(agentsToSlash, newGCAs, nominationsToUse);
         proposal = governance.proposals(2);
-        expectedHash = keccak256(abi.encode(agentsToSlash, newGCAs, creationTimestamp));
+        expectedHash = keccak256(abi.encode(agentsToSlash, newGCAs));
         actualHash = abi.decode(proposal.data, (bytes32));
         assertEq(actualHash, expectedHash);
         assertEq(governance.proposalCount(), 2);
@@ -718,8 +718,8 @@ contract GovernanceV2Test is Test {
         uint256 nominationsToUse = governance.costForNewProposal();
         governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
         IGovernanceV2.Proposal memory proposal = governance.proposals(1);
-        (address oldAgent_, address newAgent_, bool slashOldAgent_, uint256 creationTimestamp_) =
-            abi.decode(proposal.data, (address, address, bool, uint256));
+        (address oldAgent_, address newAgent_, bool slashOldAgent_) =
+            abi.decode(proposal.data, (address, address, bool));
         assertEq(governance.proposalCount(), 1);
         assertTrue(proposal.proposalType == IGovernanceV2.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH);
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
@@ -727,7 +727,6 @@ contract GovernanceV2Test is Test {
         assertEq(oldAgent_, oldAgent);
         assertEq(newAgent_, newAgent);
         assertEq(slashOldAgent_, slashOldAgent);
-        assertEq(creationTimestamp_, creationTimestamp);
         vm.stopPrank();
     }
 
@@ -760,8 +759,8 @@ contract GovernanceV2Test is Test {
         uint256 nominationsToUse = governance.costForNewProposal();
         governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
         IGovernanceV2.Proposal memory proposal = governance.proposals(1);
-        (address oldAgent_, address newAgent_, bool slashOldAgent_, uint256 creationTimestamp_) =
-            abi.decode(proposal.data, (address, address, bool, uint256));
+        (address oldAgent_, address newAgent_, bool slashOldAgent_) =
+            abi.decode(proposal.data, (address, address, bool));
         assertEq(governance.proposalCount(), 1);
         assertTrue(proposal.proposalType == IGovernanceV2.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH);
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
@@ -769,14 +768,12 @@ contract GovernanceV2Test is Test {
         assertEq(oldAgent_, oldAgent);
         assertEq(newAgent_, newAgent);
         assertEq(slashOldAgent_, slashOldAgent);
-        assertEq(creationTimestamp_, creationTimestamp);
 
         //Create another one and make sure it becomes the most popular
         nominationsToUse = governance.costForNewProposal();
         governance.createVetoCouncilElectionOrSlash(oldAgent, newAgent, slashOldAgent, nominationsToUse);
         proposal = governance.proposals(2);
-        (oldAgent_, newAgent_, slashOldAgent_, creationTimestamp_) =
-            abi.decode(proposal.data, (address, address, bool, uint256));
+        (oldAgent_, newAgent_, slashOldAgent_) = abi.decode(proposal.data, (address, address, bool));
         assertEq(governance.proposalCount(), 2);
         assertTrue(proposal.proposalType == IGovernanceV2.ProposalType.VETO_COUNCIL_ELECTION_OR_SLASH);
         assertEq(proposal.expirationTimestamp, creationTimestamp + ONE_WEEK * 16);
@@ -784,7 +781,6 @@ contract GovernanceV2Test is Test {
         assertEq(oldAgent_, oldAgent);
         assertEq(newAgent_, newAgent);
         assertEq(slashOldAgent_, slashOldAgent);
-        assertEq(creationTimestamp_, creationTimestamp);
 
         assertEq(governance.mostPopularProposalOfWeek(governance.currentWeek()), 2);
 
@@ -2347,7 +2343,7 @@ contract GovernanceV2Test is Test {
                 nominations: n
             });
 
-            bytes32 hash = keccak256(abi.encode(agentsToSlash, agentsToElect, block.timestamp));
+            bytes32 hash = keccak256(abi.encode(agentsToSlash, agentsToElect));
             bool incrementSlashNonce = agentsToSlash.length > 0;
             bytes memory expectedData = abi.encode(hash, incrementSlashNonce);
 
@@ -2376,7 +2372,7 @@ contract GovernanceV2Test is Test {
                 nominations: n
             });
 
-            bytes32 hash = keccak256(abi.encode(agentsToSlash, agentsToElect, block.timestamp));
+            bytes32 hash = keccak256(abi.encode(agentsToSlash, agentsToElect));
             bool incrementSlashNonce = agentsToSlash.length > 0;
             bytes memory expectedData = abi.encode(hash, incrementSlashNonce);
 
@@ -2405,7 +2401,7 @@ contract GovernanceV2Test is Test {
                 nominations: n
             });
 
-            bytes memory expectedData = abi.encode(oldAgent, newAgent, slashOldAgent, block.timestamp);
+            bytes memory expectedData = abi.encode(oldAgent, newAgent, slashOldAgent);
 
             IGovernanceV2.ProposalIntent memory intent = governance.getProposalIntent(6);
             assertEq(

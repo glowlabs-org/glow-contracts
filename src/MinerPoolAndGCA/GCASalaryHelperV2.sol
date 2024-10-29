@@ -31,10 +31,6 @@ abstract contract GCASalaryHelperV2 {
      */
     uint256 public constant SHARES_REQUIRED_PER_COMP_PLAN = 100_000;
 
-    /// @dev the type hash for a claim payout relay permit
-    bytes32 public constant CLAIM_PAYOUT_RELAY_PERMIT_TYPEHASH =
-        keccak256("ClaimPayoutRelay(address relayer,uint256 paymentNonce,uint256 relayNonce)");
-
     /* -------------------------------------------------------------------------- */
     /*                                 state vars                                */
     /* -------------------------------------------------------------------------- */
@@ -144,6 +140,7 @@ abstract contract GCASalaryHelperV2 {
         uint256 len = activeGCAsAtPaymentNonce.length;
         unchecked {
             for (uint256 i; i < len; ++i) {
+                //Can't overflow since iterating over u32s
                 userShares += _paymentNonceToCompensationPlan[paymentNonce][i][userIndex];
             }
         }

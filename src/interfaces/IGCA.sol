@@ -25,6 +25,12 @@ interface IGCA {
     error CallerNotGCAAtIndex();
     error GCCAlreadySet();
     error BucketIndexOutOfBounds();
+    error ResubmissionBucketAlreadyFinalized();
+    error ResubmissionBucketAlreadyDelayedOrRequestedForResubmission();
+    error ResubmissionBucketAlreadyRequestedForResubmission();
+    error CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen();
+    error CannotResubmitBucketWhereLastUpdatedSlashNonceDoesNotEqualStorageSlashNonce();
+    error BucketSlashNonceNotUpToDate();
 
     /* -------------------------------------------------------------------------- */
     /*                                   structs                                  */
@@ -169,6 +175,20 @@ interface IGCA {
         bytes32 root,
         bytes extraData
     );
+
+    /**
+     * @notice Emitted when a veto council member requests a bucket to be resubmitted
+     * @param bucketId - the id of the bucket
+     * @param newFinalizationTimestamp - the new finalization timestamp
+     */
+    event BucketResubmissionRequested(uint256 indexed bucketId, uint256 newFinalizationTimestamp);
+
+    /**
+     * @notice Emitted when a veto council member delays a bucket
+     * @param  bucketId - The id of the bucket
+     * @param newFinalizationTimestamp - the new finalization timestamp
+     */
+    event BucketDelayed(uint256 indexed bucketId, uint256 newFinalizationTimestamp);
 
     /* -------------------------------------------------------------------------- */
     /*                                 state changing funcs                       */

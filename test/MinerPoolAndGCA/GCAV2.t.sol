@@ -814,9 +814,9 @@ contract GCAV2Test is Test {
         address[] memory newGCAs = new address[](1);
         newGCAs[0] = SIMON;
         uint256 ts = block.timestamp;
-        bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs, ts));
+        bytes32 hash = keccak256(abi.encode(gcasToSlash, newGCAs));
         gca.pushRequirementsHashMock(hash);
-        gca.executeAgainstHash(gcasToSlash, newGCAs, ts);
+        gca.executeAgainstHash(gcasToSlash, newGCAs);
         assert(gca.isGCA(SIMON));
         assert(gca.isGCA(SIMON, 0));
     }
@@ -977,10 +977,10 @@ contract GCAV2Test is Test {
 
         vm.startPrank(governance);
 
-        gca.pushHash(keccak256(abi.encode(gcasToSlash, newGCAs, proposalCreationTimestamp)), true);
+        gca.pushHash(keccak256(abi.encode(gcasToSlash, newGCAs)), true);
         vm.stopPrank();
 
-        gca.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
+        gca.executeAgainstHash(gcasToSlash, newGCAs);
 
         assertTrue(gca.isGCA(OTHER_GCA));
         assertTrue(gca.isGCA(OTHER_GCA_2));
@@ -1003,12 +1003,12 @@ contract GCAV2Test is Test {
 
         vm.startPrank(governance);
 
-        gca.pushHash(keccak256(abi.encodePacked(gcasToSlash, newGCAs, proposalCreationTimestamp)), true);
+        gca.pushHash(keccak256(abi.encodePacked(gcasToSlash, newGCAs)), true);
         vm.stopPrank();
 
         newGCAs[0] = address(uint160(uint256(keccak256("NOT SIMON"))));
         vm.expectRevert(IGCA.ProposalHashDoesNotMatch.selector);
-        gca.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
+        gca.executeAgainstHash(gcasToSlash, newGCAs);
     }
 
     function test_v2_executeAgainstHash_emptyProposalHashes_shouldRevert() public {
@@ -1018,11 +1018,12 @@ contract GCAV2Test is Test {
         address[] memory newGCAs = new address[](2);
         newGCAs[0] = OTHER_GCA;
         newGCAs[1] = OTHER_GCA_2;
-        uint256 proposalCreationTimestamp = 501;
 
         vm.expectRevert(IGCA.ProposalHashesEmpty.selector);
-        gca.executeAgainstHash(gcasToSlash, newGCAs, proposalCreationTimestamp);
+        gca.executeAgainstHash(gcasToSlash, newGCAs);
     }
+
+    //------------------------ Increment Slash Nonce Issue -----------------------------//
 
     //------------------------ HELPERS -----------------------------
     function _getAddressArray(uint256 numAddresses, uint256 addressOffset) private pure returns (address[] memory) {

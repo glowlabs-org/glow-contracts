@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "hardhat test",
-    "format-test": "prettier --write \"test*/**/*.ts\""
+    "format-test": "prettier --write \"test*/**/*.ts\"",
+    "start.visualization.server" : "bun run visualization-server/index.ts"
   },
   "author": "Devan Non <devanon@chainstride.capital>",
   "license": "Apache-2.0",
@@ -32,16 +33,22 @@
     "prettier": "^3.0.2",
     "ts-node": "^10.7.0",
     "typechain": "^8.0.0",
-    "typescript": "^5.0"
+    "typescript": "^5.0",
+    "@types/bun": "latest"
   },
   "dependencies": {
     "@openzeppelin/merkle-tree": "^1.0.7",
+    "@viem/anvil": "^0.0.10",
     "bignumber.js": "^9.1.2",
     "dotenv": "^16.3.1",
+    "elysia": "^1.1.23",
     "keccak256": "^1.0.6",
     "lodash": "^4.17.21",
     "merkletreejs": "^0.3.10",
     "solidity-docgen": "^0.6.0-beta.36",
+    "viem": "^2.21.36",
     "wagmi": "^2.5.5"
-  }
+  },
+  "module": "index.ts",
+  "type": "module"
 }

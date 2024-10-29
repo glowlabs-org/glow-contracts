@@ -16,6 +16,8 @@ import {IMinerPool} from "@/interfaces/IMinerPool.sol";
 contract BucketSubmissionV2Test is Test {
     address[] public grcTokens;
 
+    uint256 public TOTAL_VESTING_PERIODS;
+
     //-----------------CONTRACTS-----------------
     MD2 minerMath;
     MockUSDC mockUsdc1;
@@ -39,6 +41,7 @@ contract BucketSubmissionV2Test is Test {
         grcTokens.push(address(mockUsdc1));
         grcTokens.push(address(mockUsdc2));
         grcTokens.push(address(mockUsdcTax1));
+        TOTAL_VESTING_PERIODS = minerMath.OFFSET_RIGHT() - minerMath.OFFSET_LEFT();
 
         handler = new MD2Handler(address(minerMath), grcTokens);
         bytes4[] memory selectors = new bytes4[](2);
@@ -159,10 +162,13 @@ contract BucketSubmissionV2Test is Test {
             uint256 bucketId = allGhostBucketIdsUsdc1[i];
             MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), bucketId);
             uint256 rewardInGhostMapping = handler.ghost_amountInBucket(bucketId, address(mockUsdc1));
-            assertTrue(reward.amountInBucket == rewardInGhostMapping);
+            console2.log("Bucket Id  %s ", bucketId);
+            console2.log("Reward in ghost mapping %s", rewardInGhostMapping);
+            console2.log("Reward in contract %s", reward.amountInBucket);
+            assertTrue(reward.amountInBucket == rewardInGhostMapping, "amount in bucket should match usdc 1");
         }
         uint256 totalDepositedUsdc1 = handler.totalDeposited(address(mockUsdc1));
-        assertTrue(totalDepositedUsdc1 == amountForContract1a);
+        assertTrue(totalDepositedUsdc1 == amountForContract1a, "total deposited should match");
 
         uint256 amountForContract1b = 543252545 * minerMath.TOTAL_VESTING_PERIODS();
         handler.addRewardsToBucketWithToken(0, amountForContract1b);
@@ -173,7 +179,7 @@ contract BucketSubmissionV2Test is Test {
             uint256 bucketId = allGhostBucketIdsUsdc2[i];
             MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc2), bucketId);
             uint256 rewardInGhostMapping = handler.ghost_amountInBucket(bucketId, address(mockUsdc2));
-            assertTrue(reward.amountInBucket == rewardInGhostMapping);
+            assertTrue(reward.amountInBucket == rewardInGhostMapping, "amount in bucket should match usdc 2");
             // bool failed = reward.amountInBucket != rewardInGhostMapping;
         }
 
@@ -184,48 +190,89 @@ contract BucketSubmissionV2Test is Test {
     function test_v2_getAmountForTokenAndInitIfNot() public {
         //Add to bucker 16 (since 0 + 16)
         minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
-        //vested amt is divided by 192 for vesting purposes
-        uint256 expectedAmount = uint256(10 ether) / uint256(192);
+        //vested amt is divided by TOTAL_VESTING_PERIODS for vesting purposes
+        uint256 expectedAmount = uint256(10 ether) / uint256(TOTAL_VESTING_PERIODS);
         //Read the raw reward from the contract
         (bool inherited, uint256 amtInBucket, uint256 amountToDeduct) =
-            minerMath.rawRewardInStorage(address(mockUsdc1), 17);
+            minerMath.rawRewardInStorage(address(mockUsdc1), minerMath.OFFSET_LEFT() + 1);
         //Inherited should be false, since we havent technically gotten to bucket 17 yet
         assert(!inherited);
 
         //This call will actually init the bucket
-        uint256 amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
+        uint256 amountInBucket =
+            minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), minerMath.OFFSET_LEFT() + 1);
         assert(amountInBucket == expectedAmount);
-        (inherited, amtInBucket, amountToDeduct) = minerMath.rawRewardInStorage(address(mockUsdc1), 17);
+        (inherited, amtInBucket, amountToDeduct) =
+            minerMath.rawRewardInStorage(address(mockUsdc1), minerMath.OFFSET_LEFT() + 1);
         //The raw inherited should be true and the rest should match the `reward`
         assert(inherited);
-        MD2.WeeklyReward memory rewardAfterInit = minerMath.reward(address(mockUsdc1), 17);
+        MD2.WeeklyReward memory rewardAfterInit = minerMath.reward(address(mockUsdc1), minerMath.OFFSET_LEFT() + 1);
         assert(rewardAfterInit.amountInBucket == amtInBucket);
         assert(rewardAfterInit.amountToDeduct == amountToDeduct);
         // assert(rewardAfterInit.inheritedFromLastWeek);
 
-        minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
+        minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), minerMath.OFFSET_LEFT() + 1);
         //If already inheirted nothing should change
-        MD2.WeeklyReward memory rewardAfterInit2 = minerMath.reward(address(mockUsdc1), 17);
+        MD2.WeeklyReward memory rewardAfterInit2 = minerMath.reward(address(mockUsdc1), minerMath.OFFSET_LEFT() + 1);
         assert(rewardAfterInit2.inheritedFromLastWeek);
         assert(rewardAfterInit2.amountInBucket == rewardAfterInit.amountInBucket);
         assert(rewardAfterInit2.amountToDeduct == rewardAfterInit.amountToDeduct);
     }
 
+    function test_v2_lookToForwardBucket_shouldReturnCorrectAmount() public {
+        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
+        uint256 expectedAmount = uint256(10 ether) / uint256(100);
+        // vm.warp(block.timestamp + 7 days);
+        // uint256 currentBucket = minerMath.currentBucket();
+        // assertEq(currentBucket, 1, "current bucket should be 1");
+        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
+
+        uint256 amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 0);
+        assertEq(amountInBucket, expectedAmount * 2, "amount in bucket should be 2 times the expected amount");
+
+        // Add again to make sure
+        minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
+        amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 0);
+        assertEq(amountInBucket, expectedAmount * 3, "amount in bucket should be 3 times the expected amount");
+
+        // Also get it for 1
+        amountInBucket = minerMath.reward(address(mockUsdc1), 1).amountInBucket;
+        assertEq(amountInBucket, expectedAmount * 3, "amount in bucket should be 3 times the expected amount");
+
+        //Let's try bucket 2 now,
+        amountInBucket = minerMath.reward(address(mockUsdc1), 2).amountInBucket;
+        console2.log("Amount in bucket 2 %s", amountInBucket);
+        assertEq(amountInBucket, expectedAmount * 3, "amount in bucket should be 2 times the expected amount");
+    }
+
+    function test_v2_ensureBucketWithNoInitializationDoesNotRevert() public {
+        uint256 amountInBucketZero = minerMath.reward(address(mockUsdc1), 0).amountInBucket;
+    }
+
     function test_v2_addTwiceToBucket_shouldCorrectlyCalculateRewards() public {
         minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
-        uint256 expectedAmount = uint256(10 ether) / uint256(192);
-        vm.warp(block.timestamp + 7 days);
-        uint256 currentBucket = minerMath.currentBucket();
-        assert(currentBucket == 1);
+        uint256 expectedAmount = uint256(10 ether) / uint256(100);
+        // vm.warp(block.timestamp + 7 days);
+        // uint256 currentBucket = minerMath.currentBucket();
+        // assertEq(currentBucket, 1, "current bucket should be 1");
         minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
 
-        uint256 amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
-        assert(amountInBucket == expectedAmount * 2);
+        uint256 amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 0);
+        assertEq(amountInBucket, expectedAmount * 2, "amount in bucket should be 2 times the expected amount");
 
-        //Add again to make sure
+        // Add again to make sure
         minerMath.addToCurrentBucket(address(mockUsdc1), 10 ether);
-        amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 17);
-        assert(amountInBucket == expectedAmount * 3);
+        amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 0);
+        assertEq(amountInBucket, expectedAmount * 3, "amount in bucket should be 3 times the expected amount");
+
+        // Also get it for 1
+        amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 1);
+        assertEq(amountInBucket, expectedAmount * 3, "amount in bucket should be 3 times the expected amount");
+
+        //Let's try bucket 2 now,
+        amountInBucket = minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 2);
+        console2.log("Amount in bucket 2 %s", amountInBucket);
+        assertEq(amountInBucket, expectedAmount * 3, "amount in bucket should be 2 times the expected amount");
     }
 
     function test_v2_internalGenesisTimestamp_shouldAlwaysReturnZero() public {
@@ -233,83 +280,85 @@ contract BucketSubmissionV2Test is Test {
     }
 
     function test_v2_issue_52() public {
-        minerMath.addToCurrentBucket(address(mockUsdc1), 192);
+        minerMath.addToCurrentBucket(address(mockUsdc1), TOTAL_VESTING_PERIODS);
         //get bucket 16
-        MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), 16);
+        MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), minerMath.OFFSET_LEFT());
 
-        uint256 expectedAmount = uint256(192) / uint256(192);
+        uint256 expectedAmount = uint256(TOTAL_VESTING_PERIODS) / uint256(TOTAL_VESTING_PERIODS);
         assertEq(reward.amountInBucket, expectedAmount);
 
-        //Warp (209-16) weeks
-        vm.warp(block.timestamp + 192 weeks);
+        //Warp (OFFSET_RIGHT+1-16) weeks
+        vm.warp(block.timestamp + TOTAL_VESTING_PERIODS * 7 days);
 
-        // // Add to bucket 209
-        // minerMath.addToCurrentBucket(192);
+        // // Add to bucket OFFSET_RIGHT+1
+        // minerMath.addToCurrentBucket(TOTAL_VESTING_PERIODS);
 
         // uint currentBucket = minerMath.currentBucket();
-        // assertEq(currentBucket, 208 - 16);
-        MD2.WeeklyReward memory reward2 = minerMath.reward(address(mockUsdc1), 208);
-        expectedAmount = uint256(192) / uint256(192);
+        // assertEq(currentBucket, minerMath.OFFSET_LEFT() + 48 - 16);
+        MD2.WeeklyReward memory reward2 = minerMath.reward(address(mockUsdc1), minerMath.OFFSET_LEFT() + 48);
+        expectedAmount = uint256(TOTAL_VESTING_PERIODS) / uint256(TOTAL_VESTING_PERIODS);
 
-        logWeeklyReward(16, reward);
-        logWeeklyReward(209, reward2);
+        // logWeeklyReward(16, reward);
+        // logWeeklyReward(minerMath.OFFSET_RIGHT() + 1, reward2);
 
         // assertEq(reward2.amountInBucket, expectedAmount);
     }
 
     function test_v2_issue55() public {
-        minerMath.addToCurrentBucket(address(mockUsdc1), 192 * 10);
+        minerMath.addToCurrentBucket(address(mockUsdc1), TOTAL_VESTING_PERIODS * 10);
         //get bucket 16
-        MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), 16);
+        MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), minerMath.OFFSET_LEFT());
 
-        uint256 expectedAmount = uint256(192 * 10) / uint256(192);
+        uint256 expectedAmount = uint256(TOTAL_VESTING_PERIODS * 10) / uint256(TOTAL_VESTING_PERIODS);
         assertEq(reward.amountInBucket, expectedAmount);
 
-        //Warp (207-16) = 191 weeks
-        vm.warp(block.timestamp + 191 weeks);
+        //Total Vesting Periods - 1 Week
+        vm.warp(block.timestamp + (minerMath.TOTAL_VESTING_PERIODS() - 1) * 1 weeks);
 
-        //add to bucket 207
+        //Add to the current bucket
         uint256 currentBucket = minerMath.currentBucket();
-        assertEq(currentBucket, 207 - 16, "bucket to add to is not 207");
-        minerMath.addToCurrentBucket(address(mockUsdc1), 192 * 2);
+        assertEq(
+            currentBucket,
+            (minerMath.OFFSET_RIGHT() - 1) - minerMath.OFFSET_LEFT(),
+            "bucket to add to is not as expected"
+        );
+        minerMath.addToCurrentBucket(address(mockUsdc1), TOTAL_VESTING_PERIODS * 2);
 
-        MD2.WeeklyReward memory rewardWeek207 = minerMath.reward(address(mockUsdc1), 207);
+        MD2.WeeklyReward memory rewardWeekOffsetRightMinusOne =
+            minerMath.reward(address(mockUsdc1), minerMath.OFFSET_RIGHT() - 1);
 
-        logWeeklyReward(16, reward);
-        logWeeklyReward(207, rewardWeek207);
-
-        //warp once
         vm.warp(block.timestamp + 1 weeks);
         currentBucket = minerMath.currentBucket();
-        assertEq(currentBucket, 208 - 16, "bucket to add to is not 208");
+        assertEq(
+            currentBucket, minerMath.OFFSET_RIGHT() - minerMath.OFFSET_LEFT(), "bucket to add to is not as expected"
+        );
 
-        minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 208);
+        minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), minerMath.OFFSET_RIGHT());
 
-        MD2.WeeklyReward memory rewardWeek208 = minerMath.reward(address(mockUsdc1), 208);
-        logWeeklyReward(208, rewardWeek208);
+        MD2.WeeklyReward memory rewardWeekOffsetLeft = minerMath.reward(address(mockUsdc1), minerMath.OFFSET_RIGHT());
+        logWeeklyReward(208, rewardWeekOffsetLeft);
 
-        //warp once more and do the same for 209
         vm.warp(block.timestamp + 1 weeks);
 
-        minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), 209);
+        minerMath.getAmountForTokenAndInitIfNot(address(mockUsdc1), minerMath.OFFSET_RIGHT() + 1);
     }
 
     function test_v2_settingAfterPastDataIrrelavant_shouldWork() public {
         minerMath.addToCurrentBucket(address(mockUsdc1), 1 ether);
         //get bucket 16
-        MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), 16);
+        MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), minerMath.OFFSET_LEFT());
 
-        uint256 expectedAmount = uint256(1 ether) / uint256(192);
+        uint256 expectedAmount = uint256(1 ether) / uint256(TOTAL_VESTING_PERIODS);
         assertEq(reward.amountInBucket, expectedAmount);
 
-        //Warp (209-16) weeks
-        vm.warp(block.timestamp + 193 weeks);
+        //Warp (TOTAL_VESTING_WEEKS+1) weeks
+        vm.warp(block.timestamp + (TOTAL_VESTING_PERIODS + 1) * 1 weeks);
 
-        // Add to bucket 209
+        // Add to bucket OFFSET_RIGHT+1
         minerMath.addToCurrentBucket(address(mockUsdc1), 2 ether);
 
-        MD2.WeeklyReward memory reward2 = minerMath.reward(address(mockUsdc1), 209);
-        expectedAmount = uint256(2 ether) / uint256(192);
+        MD2.WeeklyReward memory reward2 = minerMath.reward(address(mockUsdc1), minerMath.OFFSET_RIGHT() + 1);
+        expectedAmount = uint256(2 ether) / uint256(TOTAL_VESTING_PERIODS);
         assertEq(reward2.amountInBucket, expectedAmount);
     }
 
@@ -318,37 +367,39 @@ contract BucketSubmissionV2Test is Test {
         vm.warp(block.timestamp + 4 weeks);
         minerMath.addToCurrentBucket(address(mockUsdc1), 1 ether);
         //get bucket 16
-        MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), 20);
+        MD2.WeeklyReward memory reward = minerMath.reward(address(mockUsdc1), minerMath.OFFSET_LEFT() + 4);
 
-        uint256 expectedAmount = uint256(1 ether) / uint256(192);
+        uint256 expectedAmount = uint256(1 ether) / uint256(TOTAL_VESTING_PERIODS);
         assertEq(reward.amountInBucket, expectedAmount);
 
         MD2.BucketTracker memory tracker = minerMath.getBucketTracker(address(mockUsdc1));
-        assertEq(tracker.firstAddedBucketId, 20, "first added bucket id should be 20");
+        assertEq(
+            tracker.firstAddedBucketId, minerMath.OFFSET_LEFT() + 4, "first added bucket id should be OFFSET_LEFT() + 4"
+        );
 
         // log the first added bucket id, should be 16
         // console.log("First added bucket id: %s", tracker.firstAddedBucketId);
-        // //Warp (209-16) weeks
+        // //Warp (OFFSET_RIGHT+1-16) weeks
         // vm.warp(block.timestamp + 193 weeks);
 
-        // // Add to bucket 209
+        // // Add to bucket OFFSET_RIGHT+1
         // minerMath.addToCurrentBucket(2 ether);
 
-        // MD2.WeeklyReward memory reward2 = minerMath.reward(209);
-        // expectedAmount = uint256(2 ether) / uint256(192);
+        // MD2.WeeklyReward memory reward2 = minerMath.reward(OFFSET_RIGHT+1);
+        // expectedAmount = uint256(2 ether) / uint256(TOTAL_VESTING_PERIODS);
         // assertEq(reward2.amountInBucket, expectedAmount);
     }
 
     function test_v2_weeksBeforeOffsetDoNotRevert() public {
-        minerMath.setBucketTracker(address(mockUsdc1), 34, 34 + 191, 0);
-        uint256 reward = minerMath.reward(address(mockUsdc1), 16).amountInBucket;
+        minerMath.setBucketTracker(address(mockUsdc1), 34, 34 + 191, 0, true);
+        uint256 reward = minerMath.reward(address(mockUsdc1), minerMath.OFFSET_LEFT()).amountInBucket;
         assertEq(reward, 0);
     }
     // /**
     //  * @dev function to test the addRewardsToBucket function
     //  *         -   we loop over 300 weeks,
-    //  *         -   and add 192,000 to the current bucket
-    //  *             - the 192,000 should be equally divided between 192 weeks
+    //  *         -   and add TOTAL_VESTING_PERIODS,000 to the current bucket
+    //  *             - the TOTAL_VESTING_PERIODS,000 should be equally divided between TOTAL_VESTING_PERIODS weeks
     //  *                 -   the first week being {currentBucket + 16}, and the last week
     //  *                 -   being {currentBucket + 208}
     //  *         -   we then save the bucket data to a file
@@ -358,7 +409,7 @@ contract BucketSubmissionV2Test is Test {
     //  *             -   this is all inspected in the py-utils/miner-pool/data/buckets.json file
     //  */
     // function test_v2_MinerPoolFFI() public {
-    //     uint256 amountToAdd = 192_000;
+    //     uint256 amountToAdd = TOTAL_VESTING_PERIODS_000;
     //     uint256 oneWeek = uint256(7 days);
 
     //     string memory jsonString;

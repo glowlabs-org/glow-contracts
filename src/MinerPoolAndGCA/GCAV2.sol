@@ -3,14 +3,18 @@ pragma solidity ^0.8.19;
 
 import {IGCA} from "@/interfaces/IGCA.sol";
 import {IGlow} from "@/interfaces/IGlow.sol";
+import {IMinerPoolV2} from "@/interfaces/IMinerPoolV2.sol";
 import {GCASalaryHelperV2} from "./GCASalaryHelperV2.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {_BUCKET_DURATION, _GENESIS_TIMESTAMP} from "@/Constants/Constants.sol";
+import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
+import {LibBitmap} from "@solady/utils/LibBitmap.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+import {console2} from "forge-std/console2.sol";
 
 /**
  * @title GCA (Glow Certification Agent)
  * @author @DavidVorick
- * @author @0xSimon(twitter) - 0xSimon(github)
+ * @author @0xSimon(twitter) - 0xSimbo(github)
  *  @notice this contract is the entry point for GCAs to submit reports and claim payouts
  *  @notice GCA's submit weekly reports that contain how many carbon credits have been created
  *             - and which farms should get rewarded for the creation of those credits
@@ -30,15 +34,19 @@ import {_BUCKET_DURATION, _GENESIS_TIMESTAMP} from "@/Constants/Constants.sol";
  * @notice Governance has the ability to change and slash the GCA's.
  *
  */
-contract GCAV2 is IGCA, GCASalaryHelperV2 {
+abstract contract GCAV2 is IGCA, GCASalaryHelperV2 {
+    using LibBitmap for LibBitmap.Bitmap;
+    // using FixedPointMathLib for uint256;
+
     /* -------------------------------------------------------------------------- */
     /*                                  constants                                 */
     /* -------------------------------------------------------------------------- */
+
+    /// @dev The amount of time added to finalization for a bucket that has been requested to be resubmitted
+    uint256 private constant RESUBMISSION_DELAY = 2 weeks;
+
     /// @dev the return value if an index position is not found in an array
     uint256 private constant _INDEX_NOT_FOUND = type(uint256).max;
-
-    /// @notice the shift to apply to the bitpacked compensation plans
-    uint256 private constant _UINT24_SHIFT = 24;
 
     /// @notice the mask to apply to the bitpacked compensation plans
     uint256 private constant _UINT24_MASK = 0xFFFFFF;
@@ -226,7 +234,7 @@ contract GCAV2 is IGCA, GCASalaryHelperV2 {
     function pushHash(bytes32 hash, bool incrementSlashNonce) external {
         if (msg.sender != GOVERNANCE) _revert(IGCA.CallerNotGovernance.selector);
         if (incrementSlashNonce) {
-            ++slashNonce;
+            slashNonceToSlashTimestamp[slashNonce++] = block.timestamp;
         }
         proposalHashes.push(hash);
         emit IGCA.ProposalHashPushed(hash);
@@ -242,19 +250,11 @@ contract GCAV2 is IGCA, GCASalaryHelperV2 {
      *             - if there is no hash to execute against, the contract will be available
      *             - to execute actions
      */
-    function executeAgainstHash(
-        address[] calldata gcasToSlash,
-        address[] calldata newGCAs,
-        uint256 proposalCreationTimestamp
-    ) external {
+    function executeAgainstHash(address[] calldata gcasToSlash, address[] calldata newGCAs) external {
         uint256 _nextProposalIndexToUpdate = nextProposalIndexToUpdate;
         uint256 len = proposalHashes.length;
         if (len == 0) _revert(IGCA.ProposalHashesEmpty.selector);
-        bytes32 derivedHash = keccak256(abi.encode(gcasToSlash, newGCAs, proposalCreationTimestamp));
-        //Slash nonce already get's incremented so we need to subtract 1
-        if (gcasToSlash.length > 0) {
-            slashNonceToSlashTimestamp[slashNonce - 1] = proposalCreationTimestamp;
-        }
+        bytes32 derivedHash = keccak256(abi.encode(gcasToSlash, newGCAs));
         if (proposalHashes[_nextProposalIndexToUpdate] != derivedHash) {
             _revert(IGCA.ProposalHashDoesNotMatch.selector);
         }
@@ -347,60 +347,191 @@ contract GCAV2 is IGCA, GCASalaryHelperV2 {
     }
 
     /**
-     * @notice returns the end submission timestamp of a bucket
-     *         - GCA's wont be able to submit if block.timestamp >= endSubmissionTimestamp
-     * @param bucketId - the id of the bucket
-     * @return the end submission timestamp of a bucket
-     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
-     */
-    function bucketEndSubmissionTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return SafeCast.toUint128(bucketStartSubmissionTimestampNotReinstated(bucketId) + bucketDuration());
-    }
-
-    /**
-     * @notice returns the finalization timestamp of a bucket
-     * @param bucketId - the id of the bucket
-     * @return the finalization timestamp of a bucket
-     * @dev should not be used for reinstated buckets or buckets that need to be reinstated
-     */
-    function bucketFinalizationTimestampNotReinstated(uint256 bucketId) public view returns (uint128) {
-        return SafeCast.toUint128(bucketEndSubmissionTimestampNotReinstated(bucketId) + bucketDuration());
-    }
-
-    /**
      * @inheritdoc IGCA
      */
     function bucket(uint256 bucketId) public view virtual returns (IGCA.Bucket memory _bucket) {
-        return _buckets[bucketId];
+        _bucket = _buckets[bucketId];
     }
+
+    //TODO: Review this
+    // function bucketWithReportCheck(uint256 bucketId) public view returns (IGCA.Bucket memory _bucket) {
+    //     _bucket = _buckets[_bucket];
+    //     (,, uint256 shouldBeSlashNonce, uint256 finalizationTimestamp) =
+    //         _getBucketSubmissionRange(bucketId, slashNonce, _bucket);
+    //     if (_bucket.lastUpdatednonce != shouldBeSlashNonce) {
+    //         _bucket.reports = new IGCA.Report[](0);
+    //     }
+    // }
 
     /**
      * @inheritdoc IGCA
      */
     function isBucketFinalized(uint256 bucketId) public view returns (bool) {
-        uint256 packedData;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            mstore(0x0, bucketId)
-            mstore(0x20, _buckets.slot)
-            let slot := keccak256(0x0, 0x40)
-            // nonce, reinstated and finalizationTimestamp are all in the first slot
-            packedData := sload(slot)
+        if (isBucketClaimedFrom(bucketId)) return true;
+        (,,, uint256 finalizationTimestamp) = _getBucketSubmissionRange(bucketId, slashNonce, _buckets[bucketId]);
+        return block.timestamp >= finalizationTimestamp;
+    }
+
+    function _isBucketFinalizedAndSlashNonceUpToDateCheck(uint256 bucketId) internal view {
+        //This is a warm cache
+        if (isBucketClaimedFrom(bucketId)) {
+            return;
         }
-
-        uint256 bucketLastUpdatedNonce = (packedData >> 64) & _UINT64_MASK;
-        //First bit.
-        //first 64 bits are originalNonce, next 64 bits are lastUpdatedNonce, last 128 bits are finalizationTimestamp
-        //no need to us to use a mask since finalizationTimestamp takes up the last 128 bits
-        uint256 finalizationTimestamp = packedData >> 128;
-
-        uint256 _slashNonce = slashNonce;
-        return _isBucketFinalized(bucketLastUpdatedNonce, finalizationTimestamp, _slashNonce);
+        IGCA.Bucket memory _bucket = _buckets[bucketId];
+        (,, uint256 shouldBeSlashNonceForBucket, uint256 finalizationTimestamp) =
+            _getBucketSubmissionRange(bucketId, slashNonce, _bucket);
+        console2.log("Should be slash Nonce for bucket = ", shouldBeSlashNonceForBucket);
+        if (_bucket.lastUpdatedNonce != shouldBeSlashNonceForBucket) {
+            _revert(IGCA.BucketSlashNonceNotUpToDate.selector);
+        }
+        if (block.timestamp < finalizationTimestamp) {
+            _revert(IMinerPoolV2.BucketNotFinalized.selector);
+        }
     }
 
     /* -------------------------------------------------------------------------- */
     /*                                   internal                                 */
     /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice A helper function to dynamically calculate start
+     *     - submission,end submission,newSlashNonce, and finalization timestamp for a bucket
+     * @param bucketId - the bucket id to query for
+     * @param globalSlashNonce - the slash nonce in storage
+     * @param bucket - the bucket in storage
+     * @return startSubmissionTimestamp - the start submission timestamp for the bucket
+     * @return endSubmissionTimestamp - the end submission timestamp for the bucket
+     * @return newSlashNonce - the slash nonce the bucket should be updated to in storage
+     * @return newFinalizationTimestamp - the finalization timestamp for the bucket
+     */
+    function _getBucketSubmissionRange(uint256 bucketId, uint256 globalSlashNonce, Bucket memory bucket)
+        internal
+        view
+        returns (
+            uint256 startSubmissionTimestamp,
+            uint256 endSubmissionTimestamp,
+            uint256 newSlashNonce,
+            uint256 newFinalizationTimestamp
+        )
+    {
+        //If the bucket has never been initialized,delayed, or requested for resubmission,
+        //The timestamps are all vanilla
+        //TODO: Check on first iteration
+        if (bucket.finalizationTimestamp == 0) {
+            startSubmissionTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
+            endSubmissionTimestamp = startSubmissionTimestamp + bucketDuration();
+            newSlashNonce = globalSlashNonce;
+            newFinalizationTimestamp = endSubmissionTimestamp + bucketDuration();
+            //Log the new finalization timestamp
+            return (startSubmissionTimestamp, endSubmissionTimestamp, newSlashNonce, newFinalizationTimestamp);
+        }
+
+        //If it's not zero, the default is what is already in stoarge
+        newFinalizationTimestamp = bucket.finalizationTimestamp;
+
+        //If the bucket has been initialized, but not delayed or requested for resubmission
+        //How do we tell if a bucket has been delayed or requested for resubmission?
+
+        //If no slash event has happened, we get the normal times, but also check if it
+        //has been requested for resubmission
+        //We can check a slash event has not happened by checking if the lastUpdatedNonce is equal to the slashNonce
+        if (bucket.lastUpdatedNonce == globalSlashNonce) {
+            // If the bucket.originalNonce equals the lastUpdatedNonce,
+            // That means there have been no storage updates, and we can serve vanilla timestamps
+            if (bucket.originalNonce == bucket.lastUpdatedNonce) {
+                startSubmissionTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
+                endSubmissionTimestamp = startSubmissionTimestamp + bucketDuration();
+                bool requestedForResubmission =
+                    hasBucketBeenRequestedForResubmissionAtSlashNonce(globalSlashNonce, bucketId);
+                if (requestedForResubmission) {
+                    endSubmissionTimestamp += RESUBMISSION_DELAY;
+                }
+                return (startSubmissionTimestamp, endSubmissionTimestamp, globalSlashNonce, newFinalizationTimestamp);
+            }
+
+            // If the bucket has had a change in the lastUpdatedNonce,
+            // There is more to think about
+            //The start timestamp is the time of the last slash event
+            uint256 slashNonceToReference = bucket.lastUpdatedNonce - 1;
+            startSubmissionTimestamp = slashNonceToSlashTimestamp[slashNonceToReference];
+            endSubmissionTimestamp = _WCEIL(slashNonceToReference);
+
+            bool requestedForResubmission =
+                hasBucketBeenRequestedForResubmissionAtSlashNonce(globalSlashNonce, bucketId);
+            if (requestedForResubmission) {
+                endSubmissionTimestamp += RESUBMISSION_DELAY;
+            }
+
+            newFinalizationTimestamp =
+                FixedPointMathLib.max(bucket.finalizationTimestamp, endSubmissionTimestamp + bucketDuration());
+
+            return (startSubmissionTimestamp, endSubmissionTimestamp, globalSlashNonce, newFinalizationTimestamp);
+        }
+
+        //Here is the banger wrangler skedangler
+        //If we are here, it means that there has been a slash event
+        uint256 slashNonceToUpgradeTo = bucket.lastUpdatedNonce;
+
+        //Loop until timestampOfSlashForFlashNonce >= newFinalizationTimestamp
+        //If the slash happened at or after finalization, there is no need to look forward
+        //Invariant: Global slash nonce will always be > 0 if we are in this loop
+        //Invariant: slashNonceToSlashTimestamp[n+1] >= slashNonceToSlashTimestamp[n]
+        //  * Reference `GCAV2.pushHash` function to confirm the above
+        for (; slashNonceToUpgradeTo < globalSlashNonce; ++slashNonceToUpgradeTo) {
+            uint256 timestampOfSlashForSlashNonce = slashNonceToSlashTimestamp[slashNonceToUpgradeTo];
+
+            if (newFinalizationTimestamp > timestampOfSlashForSlashNonce) {
+                uint256 wceil = _WCEIL(slashNonceToUpgradeTo);
+                newFinalizationTimestamp = FixedPointMathLib.max(bucket.finalizationTimestamp, wceil + bucketDuration());
+                startSubmissionTimestamp = timestampOfSlashForSlashNonce;
+                endSubmissionTimestamp = wceil;
+
+                //We need an if statement, if == , and check, and break
+            } else {
+                // There is a chance that we could hit this on the first attempt
+                // This can happen when the slash nonce's timestamp we are comparing is greater than the bucket's finalization timestamp
+                // and when we haven't reached the end of the slash nonces to check
+                // Essentially, the `else` code block we are in can only happen if we have overshot the slash nonce
+
+                // The if block below happens if we've already updated to a new slash nonce
+                // and another new slash happened.
+                // When we store a new slash nonce, we store either the mostRecent slash nonce (finalization = 0)
+                // Or the first slash nonce that happens after the bucket has finalized.
+
+                // In the first case, finalization=0 would only change if a slash happened
+                // If that slash happens before the finalization timestamp, the first part of the if block executes and we are not on this block
+                // if the slash happens after the finalization timestamp, we are in the code block below
+                if (bucket.lastUpdatedNonce == slashNonceToUpgradeTo) {
+                    // We need to account if the submission start timestamp has not been set
+                    // If the bucket was never slashed, we get vanilla times
+                    // If the bucket was ever slashed, we need to compute what the adjusted times were at that slash nonce
+                    if (bucket.lastUpdatedNonce == bucket.originalNonce) {
+                        //The above means that the bucket was never slashed
+                        startSubmissionTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
+                        endSubmissionTimestamp = startSubmissionTimestamp + bucketDuration();
+                        //The finalization timestamp is already set, and needs not be modified
+                    } else {
+                        // This would happen when we overshoot the slash nonce
+                        // If that's the case, we need to grab the times that are valid from the last slash nonce
+                        uint256 wceil = _WCEIL(slashNonceToUpgradeTo - 1);
+
+                        startSubmissionTimestamp = slashNonceToSlashTimestamp[slashNonceToUpgradeTo - 1];
+                        endSubmissionTimestamp = wceil;
+                    }
+                }
+
+                break;
+            }
+        }
+
+        bool requestedForResubmission =
+            hasBucketBeenRequestedForResubmissionAtSlashNonce(slashNonceToUpgradeTo, bucketId);
+        if (requestedForResubmission) {
+            endSubmissionTimestamp += RESUBMISSION_DELAY;
+        }
+
+        return (startSubmissionTimestamp, endSubmissionTimestamp, slashNonceToUpgradeTo, newFinalizationTimestamp);
+    }
     /**
      * @notice allows GCAs to submit a weekly report and emit {data}
      *         - {data} is a bytes array that can be used to emit any data
@@ -412,6 +543,7 @@ contract GCAV2 is IGCA, GCASalaryHelperV2 {
      * @param totalGRCRewardsWeight - the total amount of grc rewards weight in the report
      * @param root - the merkle root containing all the reports (leaves) for the period
      */
+
     function _submitWeeklyReport(
         uint256 bucketId,
         uint256 totalNewGCC,
@@ -428,62 +560,49 @@ contract GCAV2 is IGCA, GCASalaryHelperV2 {
         //Cache values
         uint256 len = bucket.reports.length;
         {
-            uint256 bucketFinalizationTimestamp = bucket.finalizationTimestamp;
+            (
+                uint256 submissionStartTimstamp,
+                uint256 submissionEndTimestamp,
+                uint256 newSlashNonce,
+                uint256 bucketFinalizationTimestamp
+            ) = _getBucketSubmissionRange(bucketId, slashNonce, bucket);
 
-            uint256 lastUpdatedNonce = bucket.lastUpdatedNonce;
-            //Get the submission start itimestamp
-            uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
-            if (block.timestamp < bucketSubmissionStartTimestamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
-
+            //Get the timestamps
+            if (block.timestamp < submissionStartTimstamp) _revert(IGCA.BucketSubmissionNotOpen.selector);
+            if (block.timestamp >= submissionEndTimestamp) _revert(IGCA.BucketSubmissionEnded.selector);
             //Keep in mind, all bucketNonces start with 0
             //So on the first init, we need to set the bucketNonce to the slashNonce in storage
             {
-                uint256 _slashNonce = slashNonce;
                 //If not inititialized, intitialize the bucket
-                if (bucketFinalizationTimestamp == 0) {
-                    bucket.originalNonce = SafeCast.toUint64(_slashNonce);
-                    bucket.lastUpdatedNonce = SafeCast.toUint64(_slashNonce);
-                    bucket.finalizationTimestamp =
-                        SafeCast.toUint128(bucketFinalizationTimestampNotReinstated(bucketId));
-                    lastUpdatedNonce = _slashNonce;
+                if (bucket.finalizationTimestamp == 0) {
+                    bucket.originalNonce = SafeCast.toUint64(newSlashNonce);
+                    bucket.lastUpdatedNonce = SafeCast.toUint64(newSlashNonce);
+                    bucket.finalizationTimestamp = SafeCast.toUint128(bucketFinalizationTimestamp);
                 }
 
-                {
-                    /**
-                     * If the bucket needs to be reinstated
-                     *             we need to update the bucket accordingly
-                     *             and we need to change the finalization timestamp
-                     *             lastly, we need to delete all reports in storage if there are any
-                     */
-                    uint256 bucketSubmissionEndTimestamp = _calculateBucketSubmissionEndTimestamp(
-                        bucketId, bucket.originalNonce, lastUpdatedNonce, _slashNonce, bucketFinalizationTimestamp
-                    );
-                    if (block.timestamp >= bucketSubmissionEndTimestamp) _revert(IGCA.BucketSubmissionEnded.selector);
-
-                    if (lastUpdatedNonce != _slashNonce) {
-                        bucket.lastUpdatedNonce = SafeCast.toUint64(_slashNonce);
-                        //Need to check before storing the finalization timestamp in case
-                        //the bucket was delayed.
-                        if (bucketSubmissionEndTimestamp + bucketDuration() > bucketFinalizationTimestamp) {
-                            bucket.finalizationTimestamp =
-                                SafeCast.toUint128(bucketSubmissionEndTimestamp + bucketDuration());
+                if (bucket.lastUpdatedNonce != newSlashNonce) {
+                    bucket.lastUpdatedNonce = SafeCast.toUint64(newSlashNonce);
+                    //Need to check before storing the finalization timestamp in case
+                    //the bucket was delayed.
+                    if (bucket.finalizationTimestamp != bucketFinalizationTimestamp) {
+                        bucket.finalizationTimestamp = SafeCast.toUint128(bucketFinalizationTimestamp);
+                    }
+                    //conditionally delete all reports in storage
+                    if (len > 0) {
+                        len = 0;
+                        //delete all reports in storage
+                        //by setting the length to 0
+                        // solhint-disable-next-line no-inline-assembly
+                        assembly {
+                            //1 slot offset for buckets length
+                            sstore(add(1, bucket.slot), 0)
                         }
-                        //conditionally delete all reports in storage
-                        if (len > 0) {
-                            len = 0;
-                            //delete all reports in storage
-                            //by setting the length to 0
-                            // solhint-disable-next-line no-inline-assembly
-                            assembly {
-                                //1 slot offset for buckets length
-                                sstore(add(1, bucket.slot), 0)
-                            }
-                            delete _bucketGlobalState[bucketId];
-                        }
+                        delete _bucketGlobalState[bucketId];
                     }
                 }
             }
         }
+
         uint256 reportArrayStartSlot;
         // solhint-disable-next-line no-inline-assembly
         assembly {
@@ -497,7 +616,14 @@ contract GCAV2 is IGCA, GCASalaryHelperV2 {
         handleGlobalBucketStateStore(
             totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, bucketId, foundIndex, gcaReportStartSlot
         );
-        handleBucketStore(bucket, foundIndex, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+        handleBucketStore(
+            bucket,
+            foundIndex,
+            SafeCast.toUint128(totalNewGCC),
+            SafeCast.toUint64(totalGlwRewardsWeight),
+            SafeCast.toUint64(totalGRCRewardsWeight),
+            root
+        );
     }
 
     /**
@@ -583,33 +709,25 @@ contract GCAV2 is IGCA, GCASalaryHelperV2 {
     function handleBucketStore(
         IGCA.Bucket storage bucket,
         uint256 foundIndex,
-        uint256 totalNewGCC,
-        uint256 totalGlwRewardsWeight,
-        uint256 totalGRCRewardsWeight,
+        uint128 totalNewGCC,
+        uint64 totalGlwRewardsWeight,
+        uint64 totalGRCRewardsWeight,
         bytes32 root
     ) internal {
         //If the array was empty
         // we need to push
+        IGCA.Report memory report = IGCA.Report({
+            proposingAgent: msg.sender,
+            totalNewGCC: totalNewGCC,
+            totalGLWRewardsWeight: (totalGlwRewardsWeight),
+            totalGRCRewardsWeight: (totalGRCRewardsWeight),
+            merkleRoot: root
+        });
         if (foundIndex == 0) {
-            bucket.reports.push(
-                IGCA.Report({
-                    proposingAgent: msg.sender,
-                    totalNewGCC: SafeCast.toUint128(totalNewGCC),
-                    totalGLWRewardsWeight: SafeCast.toUint64(totalGlwRewardsWeight),
-                    totalGRCRewardsWeight: SafeCast.toUint64(totalGRCRewardsWeight),
-                    merkleRoot: root
-                })
-            );
+            bucket.reports.push(report);
             //else we write the the index we found
         } else {
-            bucket.reports[foundIndex == _INDEX_NOT_FOUND ? 0 : foundIndex] = IGCA.Report({
-                //Redundant sstore on {proposingAgent}
-                proposingAgent: msg.sender,
-                totalNewGCC: SafeCast.toUint128(totalNewGCC),
-                totalGLWRewardsWeight: SafeCast.toUint64(totalGlwRewardsWeight),
-                totalGRCRewardsWeight: SafeCast.toUint64(totalGRCRewardsWeight),
-                merkleRoot: root
-            });
+            bucket.reports[foundIndex == _INDEX_NOT_FOUND ? 0 : foundIndex] = report;
         }
     }
 
@@ -776,49 +894,6 @@ contract GCAV2 is IGCA, GCASalaryHelperV2 {
     }
 
     /**
-     * @dev checks if a bucket is finalized
-     * @param bucketLastUpdatedNonce the last updated nonce of the bucket
-     * @param bucketFinalizationTimestamp the finalization timestamp of the bucket
-     * @param _slashNonce the current slash nonce
-     * @return true if the bucket is finalized, false otherwise
-     */
-    function _isBucketFinalized(
-        uint256 bucketLastUpdatedNonce,
-        uint256 bucketFinalizationTimestamp,
-        uint256 _slashNonce
-    ) internal view returns (bool) {
-        //If the bft(bucket finalization timestamp) = 0,
-        // that means that bucket hasn't been initialized yet
-        // so that also means it's not finalized.
-        // this also means that we return false if
-        // the bucket was indeed finalized. but it was never pushed to
-        // in that case, we return a false negative,
-        // but it has no side effects since the bucket is empty
-        // and no one can claim rewards from it.
-        if (bucketFinalizationTimestamp == 0) return false;
-
-        //This checks if the bucket has finalized in regards to the timestamp stored
-        bool finalized = block.timestamp >= bucketFinalizationTimestamp;
-        //If there hasn't been a slash event and the bucket is finalized
-        // then we return true;
-        if (bucketLastUpdatedNonce == _slashNonce) {
-            if (finalized) return true;
-        }
-
-        //If there has been a slash event
-        if (bucketLastUpdatedNonce != _slashNonce) {
-            //If the slash event happened after the bucket's finalization timestamp
-            //That means the bucket had already been finalized and we can return true;
-            if (slashNonceToSlashTimestamp[bucketLastUpdatedNonce] >= bucketFinalizationTimestamp) {
-                if (finalized) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
      * @dev will underflow and revert if slashNonceToSlashTimestamp[_slashNonce] has not yet been written to
      * @dev returns the WCEIL for the given slash nonce.
      * @dev WCEIL is equal to the end bucket submission time for the bucket that the slash nonce was slashed in + 2 weeks
@@ -843,54 +918,46 @@ contract GCAV2 is IGCA, GCASalaryHelperV2 {
         }
     }
 
-    /**
-     * @notice calculates the bucket submission end timestamp
-     * @param bucketId - the id of the bucket
-     * @param bucketOriginNonce - the original nonce of the bucket
-     * @param bucketLastUpdatedNonce - the last updated nonce of the bucket
-     * @param _slashNonce - the current slash nonce
-     * @param bucketFinalizationTimestamp - the finalization timestamp of the bucket
-     * @dev this function is used to calculate the bucket submission start timestamp
-     *     - under normal conditions, a bucket should be finalized 2 weeks after its submission period has open
-     *     - however, if a slash event occurs, the bucket submission start timestamp will be shifted to the WCEIL() of the slash nonce
-     *     - if the slash event occurs after the bucket has been finalized, the bucket submission start timestamp will be shifted to the WCEIL() of the slash nonce
-     *         - this is to ensure the gcas have enough time to reinstante proper reports
-     */
-    function _calculateBucketSubmissionEndTimestamp(
-        uint256 bucketId,
-        uint256 bucketOriginNonce,
-        uint256 bucketLastUpdatedNonce,
-        uint256 _slashNonce,
-        uint256 bucketFinalizationTimestamp
-    ) internal view returns (uint256) {
-        // if the bucket has never been initialized
-        if (bucketFinalizationTimestamp == 0) return bucketEndSubmissionTimestampNotReinstated(bucketId);
-        if (bucketOriginNonce == _slashNonce) return bucketEndSubmissionTimestampNotReinstated(bucketId);
-        if (bucketLastUpdatedNonce == _slashNonce) return bucketFinalizationTimestamp;
-        uint256 bucketSubmissionStartTimestamp = bucketStartSubmissionTimestampNotReinstated(bucketId);
-        //If the slash occurred between the start of the submission period and the bucket finalization timestamp
-        for (uint256 i = bucketLastUpdatedNonce; i < _slashNonce;) {
-            if (_between(slashNonceToSlashTimestamp[i], bucketSubmissionStartTimestamp, bucketFinalizationTimestamp)) {
-                bucketSubmissionStartTimestamp = _WCEIL(i);
-            } else {
-                break;
-            }
-            unchecked {
-                ++i;
-            }
-        }
-        return bucketSubmissionStartTimestamp;
+    /* -------------------------------------------------------------------------- */
+    /*                                 delay handling                             */
+    /* -------------------------------------------------------------------------- */
+
+    // Notes:
+    // Should be able to delay a bucket that has actually not been initialized
+    // This is in case the GCA's need more time to submit their reports
+
+    function _handleBucketRequestedResubmission(uint256 bucketId) internal {
+        uint256 finalizationTimestamp = _delayOrResubmissionChecks(bucketId);
+        uint256 newFinalizationTimestamp = finalizationTimestamp + RESUBMISSION_DELAY;
+        console2.log("[resubmission] - newFinalizationTimestamp = ", newFinalizationTimestamp);
+        _buckets[bucketId].finalizationTimestamp = SafeCast.toUint128(newFinalizationTimestamp);
+        emit IGCA.BucketResubmissionRequested(bucketId, newFinalizationTimestamp);
     }
 
-    /**
-     * @dev checks if `a` is between `b` and `c`
-     * @param a the number to check
-     * @param b the lower bound
-     * @param c the upper bound
-     * @return true if `a` is between `b` and `c`, false otherwise
-     */
-    function _between(uint256 a, uint256 b, uint256 c) internal pure returns (bool) {
-        return a >= b && a <= c;
+    function _handleBucketDelay(uint256 bucketId) internal {
+        uint256 finalizationTimestamp = _delayOrResubmissionChecks(bucketId);
+        uint256 newFinalizationTimestamp = finalizationTimestamp + bucketDelayDuration();
+        _buckets[bucketId].finalizationTimestamp = SafeCast.toUint128(newFinalizationTimestamp);
+        emit IGCA.BucketDelayed(bucketId, newFinalizationTimestamp);
+    }
+
+    function _delayOrResubmissionChecks(uint256 bucketId) internal view returns (uint256 /*finalizationTimestamp*/ ) {
+        (, uint256 bucketSubmissionEndTimestamp,, uint256 finalizationTimestamp) =
+            _getBucketSubmissionRange(bucketId, slashNonce, _buckets[bucketId]);
+
+        //If claimed from also revert, this should match the logic in the `isBucketFinalized` function
+        if (isBucketClaimedFrom(bucketId)) {
+            _revert(IGCA.BucketAlreadyFinalized.selector);
+        }
+        if (block.timestamp >= finalizationTimestamp) {
+            _revert(IGCA.BucketAlreadyFinalized.selector);
+        }
+
+        if (block.timestamp < bucketSubmissionEndTimestamp) {
+            _revert(IGCA.CannotDelayOrResubmitBucketWhereSubmissionsAreStillOpenOrNotYetOpen.selector);
+        }
+
+        return finalizationTimestamp;
     }
 
     function _genesisTimestamp() internal view virtual override(GCASalaryHelperV2) returns (uint256) {
@@ -907,6 +974,16 @@ contract GCAV2 is IGCA, GCASalaryHelperV2 {
             }
         }
     }
+
+    function hasBucketBeenRequestedForResubmissionAtSlashNonce(uint256 _slashNonce, uint256 bucketId)
+        public
+        view
+        virtual
+        returns (bool);
+
+    function bucketDelayDuration() public pure virtual returns (uint256);
+
+    function isBucketClaimedFrom(uint256 bucketId) internal view virtual returns (bool);
 
     /* -------------------------------------------------------------------------- */
     /*                             functions to override                           */
