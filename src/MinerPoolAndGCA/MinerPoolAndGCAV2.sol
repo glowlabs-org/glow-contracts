@@ -184,9 +184,7 @@ contract MinerPoolAndGCAV2 is GCAV2, IMinerPoolV2, BucketSubmissionV2, Multicall
      * @param bucketId - the id of the bucket
      */
     function handleMintToCarbonCreditAuction(uint256 bucketId) external {
-        if (!isBucketFinalized(bucketId)) {
-            _revert(IMinerPoolV2.BucketNotFinalized.selector);
-        }
+        GCAV2._isBucketFinalizedAndSlashNonceUpToDateCheck(bucketId);
         uint256 globalPackedState = getPackedBucketGlobalState(bucketId);
         uint256 amountToMint = globalPackedState & _UINT128_MASK;
         _handleMintToCarbonCreditAuction(bucketId, amountToMint);

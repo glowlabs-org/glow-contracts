@@ -353,16 +353,6 @@ abstract contract GCAV2 is IGCA, GCASalaryHelperV2 {
         _bucket = _buckets[bucketId];
     }
 
-    //TODO: Review this
-    // function bucketWithReportCheck(uint256 bucketId) public view returns (IGCA.Bucket memory _bucket) {
-    //     _bucket = _buckets[_bucket];
-    //     (,, uint256 shouldBeSlashNonce, uint256 finalizationTimestamp) =
-    //         _getBucketSubmissionRange(bucketId, slashNonce, _bucket);
-    //     if (_bucket.lastUpdatednonce != shouldBeSlashNonce) {
-    //         _bucket.reports = new IGCA.Report[](0);
-    //     }
-    // }
-
     /**
      * @inheritdoc IGCA
      */
