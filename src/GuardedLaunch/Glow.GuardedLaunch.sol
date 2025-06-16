@@ -2,15 +2,15 @@
 pragma solidity ^0.8.19;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IGlow} from "@/interfaces/IGlow.sol";
+import {IGlow} from "@glow/interfaces/IGlow.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
-import {GCC} from "@/GCC.sol";
-import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
-import {Glow} from "@/GLOW.sol";
+import {UniswapV2Library} from "@glow/libraries/UniswapV2Library.sol";
+import {GCC} from "@glow/GCC.sol";
+import {MinerPoolAndGCA} from "@glow/MinerPoolAndGCA/MinerPoolAndGCA.sol";
+import {Glow} from "@glow/GLOW.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
+import {IVetoCouncil} from "@glow/interfaces/IVetoCouncil.sol";
 /**
  * @dev helper for managing tail and head in a mapping
  * @param tail the tail of the mapping

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
+import {IVetoCouncil} from "@glow/interfaces/IVetoCouncil.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IGlow} from "@/interfaces/IGlow.sol";
-import {VetoCouncilSalaryHelper} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
+import {IGlow} from "@glow/interfaces/IGlow.sol";
+import {VetoCouncilSalaryHelper} from "@glow/VetoCouncil/VetoCouncilSalaryHelper.sol";
 /**
  * @title VetoCouncil
  * @notice A contract for managing the Glow veto council

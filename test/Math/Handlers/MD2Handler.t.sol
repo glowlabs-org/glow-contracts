@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/StdUtils.sol";
 import "forge-std/StdCheats.sol";
 import "forge-std/console.sol";
-import {MD2} from "@/temp/MD2.sol";
+import {MD2} from "@glow/temp/MD2.sol";
 
 contract MD2Handler is Test {
     /// @dev - we store the "should be" amounts in a ghost mapping

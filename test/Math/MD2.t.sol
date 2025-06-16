@@ -2,13 +2,13 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import {MD2} from "@/temp/MD2.sol";
+import {MD2} from "@glow/temp/MD2.sol";
 import "forge-std/console.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MD2Handler} from "./Handlers/MD2Handler.t.sol";
-import {MockUSDC} from "@/testing/MockUSDC.sol";
-import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
-import {IMinerPool} from "@/interfaces/IMinerPool.sol";
+import {MockUSDC} from "@glow/testing/MockUSDC.sol";
+import {MockUSDCTax} from "@glow/testing/MockUSDCTax.sol";
+import {IMinerPool} from "@glow/interfaces/IMinerPool.sol";
 
 /// @dev previous test suite had multiple grc tokens
 /// - we now only have 1 grc token -- USDC

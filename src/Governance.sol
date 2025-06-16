@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IGovernance} from "@/interfaces/IGovernance.sol";
-import {HalfLife} from "@/libraries/HalfLife.sol";
-import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
-import {IGlow} from "@/interfaces/IGlow.sol";
-import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
-import {IGCA} from "@/interfaces/IGCA.sol";
-import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
+import {IGovernance} from "@glow/interfaces/IGovernance.sol";
+import {HalfLife} from "@glow/libraries/HalfLife.sol";
+import {ABDKMath64x64} from "@glow/libraries/ABDKMath64x64.sol";
+import {IGlow} from "@glow/interfaces/IGlow.sol";
+import {IVetoCouncil} from "@glow/interfaces/IVetoCouncil.sol";
+import {IGCA} from "@glow/interfaces/IGCA.sol";
+import {IGrantsTreasury} from "@glow/interfaces/IGrantsTreasury.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import {NULL_ADDRESS} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
+import {NULL_ADDRESS} from "@glow/VetoCouncil/VetoCouncilSalaryHelper.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
+import {_BUCKET_DURATION} from "@glow/Constants/Constants.sol";
 /**
  * @title Governance
  * @author DavidVorick

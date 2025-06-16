@@ -5,18 +5,18 @@ import "forge-std/Test.sol";
 import "forge-std/Script.sol";
 import "../../src/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {TestGCCGuardedLaunch} from "../../src/testing/GuardedLaunch/TestGCC.GuardedLaunch.sol";
-import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@glow/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/console.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
-import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
-import {MockUSDC} from "@/testing/MockUSDC.sol";
-import {TestUSDG} from "@/testing/TestUSDG.sol";
-import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
-import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
-import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
+import {WETH9} from "@glow/UniswapV2/contracts/test/WETH9.sol";
+import {MockUSDC} from "@glow/testing/MockUSDC.sol";
+import {TestUSDG} from "@glow/testing/TestUSDG.sol";
+import {VetoCouncil} from "@glow/VetoCouncil/VetoCouncil.sol";
+import {MockMinerPoolAndGCA} from "@glow/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@glow/SafetyDelay.sol";
 
 contract CarbonCreditDutchAuctionGuardedLaunchTest is Test {
     UnifapV2Factory public uniswapFactory;

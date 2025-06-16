@@ -3,19 +3,19 @@
 
 // import "forge-std/Script.sol";
 // import "forge-std/console.sol";
-// import {GCC} from "@/GCC.sol";
-// import {Glow} from "@/GLOW.sol";
-// import {Governance} from "@/Governance.sol";
-// import {GCC} from "@/GCC.sol";
-// import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
-// import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
-// import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
-// import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
-// import {VetoCouncil} from "@/VetoCouncil.sol";
-// import {HoldingContract} from "@/HoldingContract.sol";
-// import {GrantsTreasury} from "@/GrantsTreasury.sol";
+// import {GCC} from "@glow/GCC.sol";
+// import {Glow} from "@glow/GLOW.sol";
+// import {Governance} from "@glow/Governance.sol";
+// import {GCC} from "@glow/GCC.sol";
+// import {EarlyLiquidity} from "@glow/EarlyLiquidity.sol";
+// import {IUniswapRouterV2} from "@glow/interfaces/IUniswapRouterV2.sol";
+// import {CarbonCreditDutchAuction} from "@glow/CarbonCreditDutchAuction.sol";
+// import {MinerPoolAndGCA} from "@glow/MinerPoolAndGCA/MinerPoolAndGCA.sol";
+// import {VetoCouncil} from "@glow/VetoCouncil.sol";
+// import {HoldingContract} from "@glow/HoldingContract.sol";
+// import {GrantsTreasury} from "@glow/GrantsTreasury.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-// import {BatchCommit} from "@/BatchCommit.sol";
+// import {BatchCommit} from "@glow/BatchCommit.sol";
 // import "forge-std/console.sol";
 // import "forge-std/Test.sol";
 

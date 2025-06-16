@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IGlow} from "./interfaces/IGlow.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {_GENESIS_TIMESTAMP} from "@/Constants/Constants.sol";
+import {_GENESIS_TIMESTAMP} from "@glow/Constants/Constants.sol";
 /**
  * @title Glow
  * @author DavidVorick

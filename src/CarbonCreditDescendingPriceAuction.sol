@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {HalfLifeCarbonCreditAuction} from "@/libraries/HalfLifeCarbonCreditAuction.sol";
-import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
+import {HalfLifeCarbonCreditAuction} from "@glow/libraries/HalfLifeCarbonCreditAuction.sol";
+import {ICarbonCreditAuction} from "@glow/interfaces/ICarbonCreditAuction.sol";
 /**
  * @title CarbonCreditDescendingPriceAuction
  * @notice This contract is a reverse dutch auction for GCC.

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IGCA} from "@/interfaces/IGCA.sol";
-import {IGlow} from "@/interfaces/IGlow.sol";
+import {IGCA} from "@glow/interfaces/IGCA.sol";
+import {IGlow} from "@glow/interfaces/IGlow.sol";
 import {GCASalaryHelper} from "./GCASalaryHelper.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
+import {_BUCKET_DURATION} from "@glow/Constants/Constants.sol";
 
 /**
  * @title GCA (Glow Certification Agent)

@@ -3,12 +3,12 @@
 
 // import "forge-std/Script.sol";
 // import "forge-std/console.sol";
-// import {GCC} from "@/GCC.sol";
-// import {TestGLOW} from "@/testing/TestGLOW.sol";
-// import {Governance} from "@/Governance.sol";
-// import {GoerliGCC} from "@/testing/Goerli/GoerliGCC.sol";
-// import {MockUSDC} from "@/testing/MockUSDC.sol";
-// import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
+// import {GCC} from "@glow/GCC.sol";
+// import {TestGLOW} from "@glow/testing/TestGLOW.sol";
+// import {Governance} from "@glow/Governance.sol";
+// import {GoerliGCC} from "@glow/testing/Goerli/GoerliGCC.sol";
+// import {MockUSDC} from "@glow/testing/MockUSDC.sol";
+// import {IUniswapRouterV2} from "@glow/interfaces/IUniswapRouterV2.sol";
 // import "forge-std/Test.sol";
 
 // contract DeployGoerliTest is Test {

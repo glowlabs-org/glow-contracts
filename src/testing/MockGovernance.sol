@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "@/Governance.sol";
-import {IGovernance} from "@/interfaces/IGovernance.sol";
+import "@glow/Governance.sol";
+import {IGovernance} from "@glow/interfaces/IGovernance.sol";
 
 contract MockGovernance is Governance {
     /**

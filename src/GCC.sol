@@ -2,17 +2,17 @@
 pragma solidity ^0.8.19;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IGCC} from "@/interfaces/IGCC.sol";
-import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
+import {IGCC} from "@glow/interfaces/IGCC.sol";
+import {ICarbonCreditAuction} from "@glow/interfaces/ICarbonCreditAuction.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import {IGovernance} from "@/interfaces/IGovernance.sol";
-import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
+import {IGovernance} from "@glow/interfaces/IGovernance.sol";
+import {CarbonCreditDescendingPriceAuction} from "@glow/CarbonCreditDescendingPriceAuction.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
-import {ImpactCatalyst} from "@/ImpactCatalyst.sol";
-import {IERC20Permit} from "@/interfaces/IERC20Permit.sol";
-import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
+import {IUniswapRouterV2} from "@glow/interfaces/IUniswapRouterV2.sol";
+import {ImpactCatalyst} from "@glow/ImpactCatalyst.sol";
+import {IERC20Permit} from "@glow/interfaces/IERC20Permit.sol";
+import {UniswapV2Library} from "@glow/libraries/UniswapV2Library.sol";
 import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
 /**

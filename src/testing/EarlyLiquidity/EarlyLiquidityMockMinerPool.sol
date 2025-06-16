@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
-import {IMinerPool} from "@/interfaces/IMinerPool.sol";
+import {MinerPoolAndGCA} from "@glow/MinerPoolAndGCA/MinerPoolAndGCA.sol";
+import {IMinerPool} from "@glow/interfaces/IMinerPool.sol";
 
 contract EarlyLiquidityMockMinerPool is MinerPoolAndGCA {
     address[] private _startingGCAs;

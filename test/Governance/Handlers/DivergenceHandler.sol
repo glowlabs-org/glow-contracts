@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/StdUtils.sol";
 import "forge-std/StdCheats.sol";
 import "forge-std/console.sol";
-import {HalfLife} from "@/libraries/HalfLife.sol";
+import {HalfLife} from "@glow/libraries/HalfLife.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract DivergenceHandler is Test {

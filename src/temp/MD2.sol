@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/console.sol";
-import "@/MinerPoolAndGCA/BucketSubmission.sol";
+import "@glow/MinerPoolAndGCA/BucketSubmission.sol";
 
 contract MD2 is BucketSubmission {
     function addToCurrentBucket(uint256 amount) external {

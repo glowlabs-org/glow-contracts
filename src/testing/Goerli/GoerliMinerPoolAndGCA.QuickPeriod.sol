@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
-import {QUICK_BUCKET_DURATION} from "@/testing/Goerli/Constants.QuickPeriod.sol";
+import "@glow/MinerPoolAndGCA/MinerPoolAndGCA.sol";
+import {QUICK_BUCKET_DURATION} from "@glow/testing/Goerli/Constants.QuickPeriod.sol";
 
 contract GoerliMinerPoolAndGCAQuickPeriod is MinerPoolAndGCA {
     constructor(

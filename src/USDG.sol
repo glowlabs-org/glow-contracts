@@ -3,9 +3,9 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
-import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
-import {Glow} from "@/GLOW.sol";
+import {UniswapV2Library} from "@glow/libraries/UniswapV2Library.sol";
+import {IVetoCouncil} from "@glow/interfaces/IVetoCouncil.sol";
+import {Glow} from "@glow/GLOW.sol";
 /**
  * @title USDG
  * @notice A contract for swapping USDC for USDG

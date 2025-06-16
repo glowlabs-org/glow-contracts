@@ -6,10 +6,10 @@ import "forge-std/StdUtils.sol";
 import "forge-std/StdCheats.sol";
 import "forge-std/console.sol";
 import {MainnetForkTestGCC} from "../../MainnetForkTestGCC.sol";
-import {IUniswapV2Pair} from "@/interfaces/IUniswapV2Pair.sol";
-import {ImpactCatalyst} from "@/ImpactCatalyst.sol";
+import {IUniswapV2Pair} from "@glow/interfaces/IUniswapV2Pair.sol";
+import {ImpactCatalyst} from "@glow/ImpactCatalyst.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
-import {MockUSDC} from "@/testing/MockUSDC.sol";
+import {MockUSDC} from "@glow/testing/MockUSDC.sol";
 
 contract EstimateNominationsUSDCHandler is Test {
     uint256 constant MINIMUM_LIQUIDITY = 1e3;

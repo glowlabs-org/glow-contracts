@@ -4,17 +4,17 @@ pragma solidity ^0.8.17;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
-import {GCC} from "@/GCC.sol";
-import {TestGLOW} from "@/testing/TestGLOW.sol";
-import {Governance} from "@/Governance.sol";
-import {GoerliGCC} from "@/testing/Goerli/GoerliGCC.sol";
-import {MockUSDC} from "@/testing/MockUSDC.sol";
-import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
-import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
-import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
-import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
-import {SafetyDelay} from "@/SafetyDelay.sol";
-import {GrantsTreasury} from "@/GrantsTreasury.sol";
+import {GCC} from "@glow/GCC.sol";
+import {TestGLOW} from "@glow/testing/TestGLOW.sol";
+import {Governance} from "@glow/Governance.sol";
+import {GoerliGCC} from "@glow/testing/Goerli/GoerliGCC.sol";
+import {MockUSDC} from "@glow/testing/MockUSDC.sol";
+import {EarlyLiquidity} from "@glow/EarlyLiquidity.sol";
+import {IUniswapRouterV2} from "@glow/interfaces/IUniswapRouterV2.sol";
+import {MinerPoolAndGCA} from "@glow/MinerPoolAndGCA/MinerPoolAndGCA.sol";
+import {VetoCouncil} from "@glow/VetoCouncil/VetoCouncil.sol";
+import {SafetyDelay} from "@glow/SafetyDelay.sol";
+import {GrantsTreasury} from "@glow/GrantsTreasury.sol";
 
 contract GoerliFullDeploy is Test {
     address rewardAddress = address(0x18888);

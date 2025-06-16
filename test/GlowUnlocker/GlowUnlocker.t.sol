@@ -8,7 +8,7 @@ import "../../src/testing/TestGLOW.sol";
 import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {GlowUnlocker} from "@/GlowUnlocker.sol";
+import {GlowUnlocker} from "@glow/GlowUnlocker.sol";
 
 contract GlowUnlockerTest is Test {
     //-------------------- Mock Addresses --------------------

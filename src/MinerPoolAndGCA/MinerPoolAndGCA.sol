@@ -2,19 +2,19 @@
 pragma solidity ^0.8.19;
 
 import {GCA} from "./GCA.sol";
-import {IGCA} from "@/interfaces/IGCA.sol";
-import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
+import {IGCA} from "@glow/interfaces/IGCA.sol";
+import {IVetoCouncil} from "@glow/interfaces/IVetoCouncil.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import {IMinerPool} from "@/interfaces/IMinerPool.sol";
+import {IMinerPool} from "@glow/interfaces/IMinerPool.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {BucketSubmission} from "./BucketSubmission.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
-import {ISafetyDelay} from "@/SafetyDelay.sol";
-import {IGCC} from "@/interfaces/IGCC.sol";
+import {ISafetyDelay} from "@glow/SafetyDelay.sol";
+import {IGCC} from "@glow/interfaces/IGCC.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
+import {_BUCKET_DURATION} from "@glow/Constants/Constants.sol";
 
 /**
  * @title Miner Pool And GCA

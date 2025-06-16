@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {VestingMathLib} from "@/libraries/VestingMathLib.sol";
+import {VestingMathLib} from "@glow/libraries/VestingMathLib.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import {_BUCKET_DURATION} from "@/Constants/Constants.sol";
+import {_BUCKET_DURATION} from "@glow/Constants/Constants.sol";
 
 abstract contract GCASalaryHelper {
     /* -------------------------------------------------------------------------- */

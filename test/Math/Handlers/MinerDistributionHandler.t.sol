@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/StdUtils.sol";
 import "forge-std/StdCheats.sol";
 import "forge-std/console.sol";
-import {MinerDistributionMath} from "@/temp/MinerDistributionMath.sol";
+import {MinerDistributionMath} from "@glow/temp/MinerDistributionMath.sol";
 
 contract MinerDistributionHandler is Test {
     /// @dev - we store the "should be" amounts in a ghost mapping

@@ -5,9 +5,9 @@ import "forge-std/Test.sol";
 import "forge-std/StdUtils.sol";
 import "forge-std/StdCheats.sol";
 import "forge-std/console.sol";
-import {IGovernance} from "@/interfaces/IGovernance.sol";
-import {MockGovernance} from "@/testing/MockGovernance.sol";
-import {IGCC} from "@/interfaces/IGCC.sol";
+import {IGovernance} from "@glow/interfaces/IGovernance.sol";
+import {MockGovernance} from "@glow/testing/MockGovernance.sol";
+import {IGCC} from "@glow/interfaces/IGCC.sol";
 
 interface IMintable is IGCC {
     function mint(address to, uint256 amount) external;

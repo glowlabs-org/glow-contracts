@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import {MinerDistributionMath} from "@/temp/MinerDistributionMath.sol";
+import {MinerDistributionMath} from "@glow/temp/MinerDistributionMath.sol";
 import "forge-std/console.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MinerDistributionHandler} from "./Handlers/MinerDistributionHandler.t.sol";

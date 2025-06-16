@@ -2,11 +2,11 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "@/testing/TestGCC.sol";
+import "@glow/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import "forge-std/StdUtils.sol";
-import {MockGovernance} from "@/testing/MockGovernance.sol";
-import {IGovernance} from "@/interfaces/IGovernance.sol";
+import {MockGovernance} from "@glow/testing/MockGovernance.sol";
+import {IGovernance} from "@glow/interfaces/IGovernance.sol";
 import {SetMostPopularProposalHandler} from "./SetMostPopularProposalHandler.sol";
 
 contract SetMostPopularProposalTest is Test {

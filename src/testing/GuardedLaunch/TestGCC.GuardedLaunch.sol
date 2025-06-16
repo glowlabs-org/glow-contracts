@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {GCCGuardedLaunch} from "@/GuardedLaunch/GCC.GuardedLaunch.sol";
+import {GCCGuardedLaunch} from "@glow/GuardedLaunch/GCC.GuardedLaunch.sol";
 import {UnifapV2Library} from "@unifapv2/libraries/UnifapV2Library.sol";
 
 contract TestGCCGuardedLaunch is GCCGuardedLaunch {

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "./TestGCC.GuardedLaunch.sol";
-import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
+import {UniswapV2Library} from "@glow/libraries/UniswapV2Library.sol";
 
 contract GoerliGCCGuardedLaunch is TestGCCGuardedLaunch {
     constructor(

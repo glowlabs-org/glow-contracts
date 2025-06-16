@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@/GCC.sol";
+import "@glow/GCC.sol";
 
 contract GoerliGCC is GCC {
     constructor(

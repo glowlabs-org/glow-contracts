@@ -3,18 +3,18 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "forge-std/Script.sol";
-import "@/testing/TestGLOW.sol";
+import "@glow/testing/TestGLOW.sol";
 import "forge-std/console.sol";
-import {IGlow} from "@/interfaces/IGlow.sol";
+import {IGlow} from "@glow/interfaces/IGlow.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
-import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
-import {MockUSDC} from "@/testing/MockUSDC.sol";
+import {IEarlyLiquidity} from "@glow/interfaces/IEarlyLiquidity.sol";
+import {EarlyLiquidity} from "@glow/EarlyLiquidity.sol";
+import {MockUSDC} from "@glow/testing/MockUSDC.sol";
 import {Handler} from "./handlers/Handler.t.sol";
-import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
-import {EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
-import {TestGLOW} from "@/testing/TestGLOW.sol";
-import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
+import {MockUSDCTax} from "@glow/testing/MockUSDCTax.sol";
+import {EarlyLiquidityMockMinerPool} from "@glow/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
+import {TestGLOW} from "@glow/testing/TestGLOW.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@glow/SafetyDelay.sol";
 
 contract EarlyLiquidityTest is Test {
     //-----------------CONSTANTS-----------------

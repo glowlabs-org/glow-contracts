@@ -5,21 +5,21 @@ import "forge-std/Test.sol";
 import "forge-std/Script.sol";
 
 import "forge-std/console.sol";
-import {IGlow} from "@/interfaces/IGlow.sol";
+import {IGlow} from "@glow/interfaces/IGlow.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
-import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
-import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
-import {MockUSDC} from "@/testing/MockUSDC.sol";
+import {IEarlyLiquidity} from "@glow/interfaces/IEarlyLiquidity.sol";
+import {ICarbonCreditAuction} from "@glow/interfaces/ICarbonCreditAuction.sol";
+import {EarlyLiquidity} from "@glow/EarlyLiquidity.sol";
+import {MockUSDC} from "@glow/testing/MockUSDC.sol";
 import {Handler} from "./handlers/Handler.GuardedLaunch.t.sol";
-import {MockUSDCTax} from "@/testing/MockUSDCTax.sol";
-import {EarlyLiquidityMockMinerPool} from "@/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
-import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
-import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
+import {MockUSDCTax} from "@glow/testing/MockUSDCTax.sol";
+import {EarlyLiquidityMockMinerPool} from "@glow/testing/EarlyLiquidity/EarlyLiquidityMockMinerPool.sol";
+import {TestGLOWGuardedLaunch} from "@glow/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@glow/SafetyDelay.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
-import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
-import {TestUSDG} from "@/testing/TestUSDG.sol";
+import {WETH9} from "@glow/UniswapV2/contracts/test/WETH9.sol";
+import {TestUSDG} from "@glow/testing/TestUSDG.sol";
 
 contract EarlyLiquidityGuardedLaunchTest is Test {
     //-----------------CONSTANTS-----------------

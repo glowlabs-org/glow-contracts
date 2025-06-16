@@ -5,10 +5,10 @@ import "forge-std/Test.sol";
 import "forge-std/StdUtils.sol";
 import "forge-std/StdCheats.sol";
 import "forge-std/console.sol";
-import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
+import {MockGCA} from "@glow/MinerPoolAndGCA/mock/MockGCA.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IGCA} from "@/interfaces/IGCA.sol";
-import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
+import {IGCA} from "@glow/interfaces/IGCA.sol";
+import {MockMinerPoolAndGCA} from "@glow/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
 
 contract BucketDelayHandler is Test {
     MockMinerPoolAndGCA public mmgca;

@@ -3,17 +3,17 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "forge-std/Script.sol";
-import "@/testing/TestGCC.sol";
+import "@glow/testing/TestGCC.sol";
 import "forge-std/console.sol";
 import "forge-std/StdUtils.sol";
-import {MockGovernance} from "@/testing/MockGovernance.sol";
-import {IGovernance} from "@/interfaces/IGovernance.sol";
+import {MockGovernance} from "@glow/testing/MockGovernance.sol";
+import {IGovernance} from "@glow/interfaces/IGovernance.sol";
 import {Handler} from "./Handler.sol";
-import {TestGCC} from "@/testing/TestGCC.sol";
+import {TestGCC} from "@glow/testing/TestGCC.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
-import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
-import {MockUSDC} from "@/testing/MockUSDC.sol";
+import {WETH9} from "@glow/UniswapV2/contracts/test/WETH9.sol";
+import {MockUSDC} from "@glow/testing/MockUSDC.sol";
 
 contract UpdateLastExpiredProposal is Test {
     UnifapV2Factory public uniswapFactory;

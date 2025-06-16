@@ -28,3 +28,6 @@
 [submodule "lib/clones-with-immutable-args"]
 	path = lib/clones-with-immutable-args
 	url = https://github.com/wighawag/clones-with-immutable-args
+[submodule "lib/glowswap-amm"]
+	path = lib/glowswap-amm
+	url = https://github.com/0xSimbo/glowswap-amm

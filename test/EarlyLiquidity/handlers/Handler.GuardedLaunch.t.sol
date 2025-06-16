@@ -5,9 +5,9 @@ import "forge-std/Test.sol";
 import "forge-std/StdUtils.sol";
 import "forge-std/StdCheats.sol";
 import "forge-std/console.sol";
-import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
+import {IEarlyLiquidity} from "@glow/interfaces/IEarlyLiquidity.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {TestUSDG} from "@/testing/TestUSDG.sol";
+import {TestUSDG} from "@glow/testing/TestUSDG.sol";
 
 interface Mintable {
     function mint(address to, uint256 amount) external;

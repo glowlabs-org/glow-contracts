@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {GlowGuardedLaunch} from "@/GuardedLaunch/Glow.GuardedLaunch.sol";
+import {GlowGuardedLaunch} from "@glow/GuardedLaunch/Glow.GuardedLaunch.sol";
 import {UnifapV2Library} from "@unifapv2/libraries/UnifapV2Library.sol";
 
 contract TestGLOWGuardedLaunch is GlowGuardedLaunch {

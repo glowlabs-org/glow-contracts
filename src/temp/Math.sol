@@ -1,6 +1,6 @@
 pragma solidity ^0.8.0;
 
-import "@/libraries/ABDKMath64x64.sol";
+import "@glow/libraries/ABDKMath64x64.sol";
 
 // contract ExpApproximation {
 //     function oneOverExpX(uint256 whole, uint256 decimals, uint256 decimalShifts) public pure returns (int128) {

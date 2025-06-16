@@ -4,17 +4,17 @@ pragma solidity ^0.8.19;
 import "forge-std/Test.sol";
 import "forge-std/Script.sol";
 
-import "@/testing/TestGLOW.sol";
+import "@glow/testing/TestGLOW.sol";
 import "forge-std/console.sol";
-import {IGlow} from "@/interfaces/IGlow.sol";
-import {IGrantsTreasury} from "@/interfaces/IGrantsTreasury.sol";
-import {GrantsTreasury} from "@/GrantsTreasury.sol";
+import {IGlow} from "@glow/interfaces/IGlow.sol";
+import {IGrantsTreasury} from "@glow/interfaces/IGrantsTreasury.sol";
+import {GrantsTreasury} from "@glow/GrantsTreasury.sol";
 // import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
-import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
-import {VetoCouncilSalaryHelper, Status} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
-import {NULL_ADDRESS} from "@/VetoCouncil/VetoCouncilSalaryHelper.sol";
+import {VetoCouncil} from "@glow/VetoCouncil/VetoCouncil.sol";
+import {IVetoCouncil} from "@glow/interfaces/IVetoCouncil.sol";
+import {VetoCouncilSalaryHelper, Status} from "@glow/VetoCouncil/VetoCouncilSalaryHelper.sol";
+import {NULL_ADDRESS} from "@glow/VetoCouncil/VetoCouncilSalaryHelper.sol";
 import {Handler} from "./Handler.t.sol";
 
 contract VetoCouncilExecutionShouldBeAtomic is Test {

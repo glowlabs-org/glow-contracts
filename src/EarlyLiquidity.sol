@@ -2,10 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IEarlyLiquidity} from "@/interfaces/IEarlyLiquidity.sol";
+import {IEarlyLiquidity} from "@glow/interfaces/IEarlyLiquidity.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ABDKMath64x64} from "@/libraries/ABDKMath64x64.sol";
-import {IMinerPool} from "@/interfaces/IMinerPool.sol";
+import {ABDKMath64x64} from "@glow/libraries/ABDKMath64x64.sol";
+import {IMinerPool} from "@glow/interfaces/IMinerPool.sol";
 
 interface IDecimals {
     error IncorrectDecimals();

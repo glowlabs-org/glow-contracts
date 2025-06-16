@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "../../GuardedLaunch/Glow.GuardedLaunch.sol";
-import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
+import {UniswapV2Library} from "@glow/libraries/UniswapV2Library.sol";
 
 contract GoerliGlowGuardedLaunch is GlowGuardedLaunch {
     constructor(

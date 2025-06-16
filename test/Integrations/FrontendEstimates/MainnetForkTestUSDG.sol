@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import {USDG} from "@/USDG.sol";
+import {USDG} from "@glow/USDG.sol";
 import {UnifapV2Library} from "@unifapv2/libraries/UnifapV2Library.sol";
 
 contract MainnetForkTestUSDG is USDG {

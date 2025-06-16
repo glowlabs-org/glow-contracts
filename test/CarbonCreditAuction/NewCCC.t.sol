@@ -4,14 +4,14 @@ pragma solidity ^0.8.19;
 import "forge-std/Test.sol";
 import "../../src/testing/TestGLOW.sol";
 import {TestGCC} from "../../src/testing/TestGCC.sol";
-import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
+import {CarbonCreditDescendingPriceAuction} from "@glow/CarbonCreditDescendingPriceAuction.sol";
 import "forge-std/console.sol";
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
-import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
-import {MockUSDC} from "@/testing/MockUSDC.sol";
+import {WETH9} from "@glow/UniswapV2/contracts/test/WETH9.sol";
+import {MockUSDC} from "@glow/testing/MockUSDC.sol";
 
 contract CarbonCreditDutchAuctionTest is Test {
     UnifapV2Factory public uniswapFactory;

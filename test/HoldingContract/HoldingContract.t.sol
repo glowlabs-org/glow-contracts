@@ -4,24 +4,24 @@ pragma solidity ^0.8.19;
 import "forge-std/Test.sol";
 import "forge-std/Script.sol";
 
-import "@/testing/TestGCC.sol";
+import "@glow/testing/TestGCC.sol";
 import "forge-std/console.sol";
-import {IGCA} from "@/interfaces/IGCA.sol";
-import {MockGCA} from "@/MinerPoolAndGCA/mock/MockGCA.sol";
+import {IGCA} from "@glow/interfaces/IGCA.sol";
+import {MockGCA} from "@glow/MinerPoolAndGCA/mock/MockGCA.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {Governance} from "@/Governance.sol";
+import {Governance} from "@glow/Governance.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {TestGLOW} from "@/testing/TestGLOW.sol";
+import {TestGLOW} from "@glow/testing/TestGLOW.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {MerkleProofLib} from "@solady/utils/MerkleProofLib.sol";
-import {MockMinerPoolAndGCA} from "@/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
-import {MockUSDC} from "@/testing/MockUSDC.sol";
-import {IMinerPool} from "@/interfaces/IMinerPool.sol";
-import {BucketSubmission} from "@/MinerPoolAndGCA/BucketSubmission.sol";
-import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
-import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@/SafetyDelay.sol";
+import {MockMinerPoolAndGCA} from "@glow/MinerPoolAndGCA/mock/MockMinerPoolAndGCA.sol";
+import {MockUSDC} from "@glow/testing/MockUSDC.sol";
+import {IMinerPool} from "@glow/interfaces/IMinerPool.sol";
+import {BucketSubmission} from "@glow/MinerPoolAndGCA/BucketSubmission.sol";
+import {VetoCouncil} from "@glow/VetoCouncil/VetoCouncil.sol";
+import {Holding, ClaimHoldingArgs, ISafetyDelay, SafetyDelay} from "@glow/SafetyDelay.sol";
 
 struct ClaimLeaf {
     address payoutWallet;

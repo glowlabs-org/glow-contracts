@@ -5,8 +5,8 @@
 // import "forge-std/StdUtils.sol";
 // import "forge-std/StdCheats.sol";
 // import "forge-std/console.sol";
-// import {ICarbonCreditAuction} from "@/interfaces/ICarbonCreditAuction.sol";
-// import {CCC} from "@/CCC.sol";
+// import {ICarbonCreditAuction} from "@glow/interfaces/ICarbonCreditAuction.sol";
+// import {CCC} from "@glow/CCC.sol";
 // import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 // contract Handler is Test {

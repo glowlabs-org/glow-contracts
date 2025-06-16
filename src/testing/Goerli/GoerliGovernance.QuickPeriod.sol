@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Governance} from "@/Governance.sol";
-import {QUICK_BUCKET_DURATION} from "@/testing/Goerli/Constants.QuickPeriod.sol";
+import {Governance} from "@glow/Governance.sol";
+import {QUICK_BUCKET_DURATION} from "@glow/testing/Goerli/Constants.QuickPeriod.sol";
 
 contract GoerliGovernanceQuickPeriod is Governance {
     /**

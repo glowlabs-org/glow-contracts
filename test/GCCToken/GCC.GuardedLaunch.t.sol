@@ -3,30 +3,30 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "forge-std/Script.sol";
-import "@/testing/TestGCC.sol";
+import "@glow/testing/TestGCC.sol";
 import "forge-std/console.sol";
-import {IGCC} from "@/interfaces/IGCC.sol";
+import {IGCC} from "@glow/interfaces/IGCC.sol";
 import "forge-std/StdError.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {Governance} from "@/Governance.sol";
-import {CarbonCreditDescendingPriceAuction} from "@/CarbonCreditDescendingPriceAuction.sol";
+import {Governance} from "@glow/Governance.sol";
+import {CarbonCreditDescendingPriceAuction} from "@glow/CarbonCreditDescendingPriceAuction.sol";
 import {Handler} from "./Handler.sol";
 import "forge-std/StdUtils.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {TestGLOWGuardedLaunch} from "@/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
+import {TestGLOWGuardedLaunch} from "@glow/testing/GuardedLaunch/TestGLOW.GuardedLaunch.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
+import {IUniswapRouterV2} from "@glow/interfaces/IUniswapRouterV2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {UnifapV2Factory} from "@unifapv2/UnifapV2Factory.sol";
 import {UnifapV2Router} from "@unifapv2/UnifapV2Router.sol";
-import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
-import {MockUSDC} from "@/testing/MockUSDC.sol";
+import {WETH9} from "@glow/UniswapV2/contracts/test/WETH9.sol";
+import {MockUSDC} from "@glow/testing/MockUSDC.sol";
 import {UnifapV2Pair} from "@unifapv2/UnifapV2Pair.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
-import {TestUSDG} from "@/testing/TestUSDG.sol";
-import {USDG} from "@/USDG.sol";
-import {TestGCCGuardedLaunch} from "@/testing/GuardedLaunch/TestGCC.GuardedLaunch.sol";
+import {UniswapV2Library} from "@glow/libraries/UniswapV2Library.sol";
+import {TestUSDG} from "@glow/testing/TestUSDG.sol";
+import {USDG} from "@glow/USDG.sol";
+import {TestGCCGuardedLaunch} from "@glow/testing/GuardedLaunch/TestGCC.GuardedLaunch.sol";
 
 // @dev, to test the results for enough precision if you are saving the csv
 // run python3 repo-utils/commit-analysis/main.py to get the results

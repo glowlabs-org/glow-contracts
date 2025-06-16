@@ -3,18 +3,18 @@ pragma solidity ^0.8.17;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import {Governance} from "@/Governance.sol";
-import {GlowGuardedLaunch} from "@/GuardedLaunch/Glow.GuardedLaunch.sol";
-import {GCCGuardedLaunch} from "@/GuardedLaunch/GCC.GuardedLaunch.sol";
-import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
-import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
-import {MinerPoolAndGCA} from "@/MinerPoolAndGCA/MinerPoolAndGCA.sol";
-import {VetoCouncil} from "@/VetoCouncil/VetoCouncil.sol";
-import {SafetyDelay} from "@/SafetyDelay.sol";
-import {GrantsTreasury} from "@/GrantsTreasury.sol";
-import {BatchCommit} from "@/BatchCommit.sol";
+import {Governance} from "@glow/Governance.sol";
+import {GlowGuardedLaunch} from "@glow/GuardedLaunch/Glow.GuardedLaunch.sol";
+import {GCCGuardedLaunch} from "@glow/GuardedLaunch/GCC.GuardedLaunch.sol";
+import {EarlyLiquidity} from "@glow/EarlyLiquidity.sol";
+import {IUniswapRouterV2} from "@glow/interfaces/IUniswapRouterV2.sol";
+import {MinerPoolAndGCA} from "@glow/MinerPoolAndGCA/MinerPoolAndGCA.sol";
+import {VetoCouncil} from "@glow/VetoCouncil/VetoCouncil.sol";
+import {SafetyDelay} from "@glow/SafetyDelay.sol";
+import {GrantsTreasury} from "@glow/GrantsTreasury.sol";
+import {BatchCommit} from "@glow/BatchCommit.sol";
 import "forge-std/Test.sol";
-import {USDG} from "@/USDG.sol";
+import {USDG} from "@glow/USDG.sol";
 
 string constant fileToWriteTo = "deployedContracts-replica.json";
 

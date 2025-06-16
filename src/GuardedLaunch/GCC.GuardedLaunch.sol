@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {GCC} from "@/GCC.sol";
+import {GCC} from "@glow/GCC.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IVetoCouncil} from "@/interfaces/IVetoCouncil.sol";
-import {UniswapV2Library} from "@/libraries/UniswapV2Library.sol";
+import {IVetoCouncil} from "@glow/interfaces/IVetoCouncil.sol";
+import {UniswapV2Library} from "@glow/libraries/UniswapV2Library.sol";
 
 /**
  * @title GCCGuardedLaunch
