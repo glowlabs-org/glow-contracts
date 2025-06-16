@@ -2226,7 +2226,6 @@ contract GovernanceTest is Test {
      *  All proposals except RFC and None should revert if it hasn't been 4 weeks since the proposal was finalized
      *         as the most popular proposal
      */
-
     function test_executeRFCProposal_shouldRevert_ifNotWeekEnd() public {
         test_createRFCProposal();
         vm.warp(block.timestamp + (ONE_WEEK) - 1);

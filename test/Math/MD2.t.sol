@@ -72,7 +72,6 @@ contract MD2Test is Test {
     /**
      * @dev we test that all ghost buckets match the manual array
      */
-
     function invariant_bucketMath_shouldMatchManualArray() public {
         for (uint256 i; i < grcTokens.length; ++i) {
             uint256[] memory allGhostBucketIds = handler.allGhostBucketIds(grcTokens[i]);

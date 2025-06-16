@@ -258,6 +258,5 @@ interface IGCA {
      * @notice returns if the bucket is finalized or not
      * @param bucketId - the id of the bucket
      */
-
     function isBucketFinalized(uint256 bucketId) external view returns (bool);
 }

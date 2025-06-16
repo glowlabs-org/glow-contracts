@@ -322,7 +322,6 @@ contract SafetyDelay is ISafetyDelay {
      * @dev more efficient reverts
      * @param selector the selector of the error
      */
-
     function _revert(bytes4 selector) internal pure {
         // solhint-disable-next-line no-inline-assembly
         assembly {

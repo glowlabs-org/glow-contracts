@@ -22,7 +22,6 @@ interface IEarlyLiquidity {
      * @param totalUSDCSpent The total amount of USDC the buyer spent to buy the tokens
      * @dev emitted when {buy} is successfully called
      */
-
     event Purchase(address indexed buyer, uint256 glwReceived, uint256 totalUSDCSpent);
 
     /**
