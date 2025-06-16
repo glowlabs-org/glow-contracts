@@ -1,5 +1,10 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
 interface IMinerPool {
-    //----------------- ERRORS -----------------//
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                    */
+    /* -------------------------------------------------------------------------- */
     error ElectricityFuturesSignatureExpired();
     error ElectricityFuturesAuctionEnded();
     error ElectricityFuturesAuctionBidTooLow();
@@ -7,7 +12,7 @@ interface IMinerPool {
     error ElectricityFuturesAuctionInvalidSignature();
     error ElectricityFutureAuctionBidMustBeGreaterThanMinimumBid();
     error CallerNotEarlyLiquidity();
-    error NotGRCToken();
+    error NotUSDCToken();
     error InvalidProof();
     error UserAlreadyClaimed();
     error AlreadyMintedToCarbonCreditAuction();
@@ -18,71 +23,98 @@ interface IMinerPool {
     error BucketAlreadyDelayed();
     error SignerNotGCA();
     error SignatureDoesNotMatchUser();
+    error GlowWeightOverflow();
+    error USDCWeightOverflow();
+    error GlowWeightGreaterThanTotalWeight();
+    error USDCWeightGreaterThanTotalWeight();
 
+    /* -------------------------------------------------------------------------- */
+    /*                                     state-changing                        */
+    /* -------------------------------------------------------------------------- */
     /**
-     * @notice Allows anyone to donate GRC into the miner grc rewards pool
+     * @notice Allows anyone to donate USDC into the miner USDC rewards pool
      * @notice the amount is split across 192 weeks starting at the current week + 16
-     * @dev the grc token must be a valid grc token
-     * @param grcToken - the token to deposit
      * @param amount -  amount to deposit
      */
-    function donateToGRCMinerRewardsPool(address grcToken, uint256 amount) external;
+    function donateToUSDCMinerRewardsPool(uint256 amount) external;
 
     /**
-     * @notice Allows the early liquidity to donate GRC into the miner grc rewards pool
+     * @notice Allows the early liquidity to donate USDC into the miner USDC rewards pool
      * @notice the amount is split across 192 weeks starting at the current week + 16
-     * @dev the grc token must be a valid grc token
+     * @dev the USDC token must be a valid USDC token
      * @dev early liquidity will safeTransfer from the user to the miner pool
      *     -   and then call this function directly.
      *     -   we do this to prevent extra transfers.
-     * @param grcToken - the token to deposit
      * @param amount -  amount to deposit
      */
-    function donateToGRCMinerRewardsPoolEarlyLiquidity(address grcToken, uint256 amount) external;
+    function donateToUSDCMinerRewardsPoolEarlyLiquidity(uint256 amount) external;
 
     /**
-     * @notice governance uses this function to set the grc tokens
-     * @param oldReserveCurrency - the old grc token
-     *         -   zero address indicates that we are not removing any grc token
-     * @param newReserveCurrency - the new grc token
-     *         -   zero address indicates that we are not adding a new grc token
+     * @notice allows a user to claim their rewards for a bucket
+     * @dev It's highly recommended to use a CLI or UI to call this function.
+     *             - the proof can only be generated off-chain with access to the entire tree
+     *             - furthermore, USDC tokens must be correctly input in order to receive rewards
+     *             - the USDC tokens should be kept on record off-chain.
+     *             - failure to input all correct USDC Tokens will result in lost rewards
+     * @param bucketId - the id of the bucket
+     * @param glwWeight - the weight of the user's glw rewards
+     * @param USDCWeight - the weight of the user's USDC rewards
+     * @param proof - the merkle proof of the user's rewards
+     *                     - the leaves are {payoutWallet, glwWeight, USDCWeight}
+     * @param index - the index of the report in the bucket
+     *                     - that contains the merkle root where the user's rewards are stored
+     * @param user - the address of the user
+     * @param claimFromInflation - whether or not to claim glow from inflation
+     * @param signature - the eip712 signature that allows a relayer to execute the action
+     *               - to claim for a user.
+     *               - the relayer is not able to access rewards under any means
+     *               - rewards are always sent to the {user}
      */
-    function editReserveCurrencies(address oldReserveCurrency, address newReserveCurrency) external returns (bool);
+    function claimRewardFromBucket(
+        uint256 bucketId,
+        uint256 glwWeight,
+        uint256 USDCWeight,
+        bytes32[] calldata proof,
+        uint256 index,
+        address user,
+        bool claimFromInflation,
+        bytes memory signature
+    ) external;
 
     /**
-     * @param grcToken - the address of the grc token
-     * @param hash - the hash of the auction data
-     * @param minimumBid - the minimum bid for the auction
-     * @param endTime - the end time of the auction
-     * @param highestBid - the highest bid for the auction
-     * @param highestBidder - the highest bidder for the auction
+     * @notice allows a veto council member to delay the finalization of a bucket
+     * @dev the bucket must already be initialized in order to be delayed
+     * @dev the bucket cannot be finalized in order to be delayed
+     * @dev the bucket can be delayed multiple times
+     * @param bucketId - the id of the bucket to delay
      */
-    struct ElectricityFutureAuction {
-        address grcToken;
-        bytes32 hash;
-        uint192 minimumBid;
-        uint64 endTime;
-        uint256 highestBid;
-        address highestBidder;
-    }
+    function delayBucketFinalization(uint256 bucketId) external;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   view                                    */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @notice returns true if a bucket has been delayed
+     * @param bucketId - the id of the bucket
+     * @return true if the bucket has been delayed
+     */
+    function hasBucketBeenDelayed(uint256 bucketId) external view returns (bool);
 
     /**
-     * @notice emitted when a GCA creates a new electricity future auction
-     * @param id - the id of the auction
-     * @param grcToken - the address of the grc token
-     * @param hash - the hash of the auction data
-     * @param minimumBid - the minimum bid for the auction
-     * @param endTime - the end time of the auction
+     * @notice returns the bytes32 digest of the claim reward from bucket message
+     * @param bucketId - the id of the bucket
+     * @param glwWeight - the weight of the user's glw rewards in the leaf of the report root
+     * @param USDCWeight - the weight of the user's USDC rewards in the leaf of the report root
+     * @param index - the index of the report in the bucket
+     *                     - that contains the merkle root where the user's rewards are stored
+     * @param claimFromInflation - whether or not to claim glow from inflation
+     * @return the bytes32 digest of the claim reward from bucket message
      */
-    event ElectricityFutureAuctionCreated(
-        uint256 indexed id, address grcToken, bytes32 hash, uint256 minimumBid, uint256 endTime
-    );
-
-    /**
-     * @notice emitted when a new highest bid is placed on an electricity future auction
-     * @param bidder - the address of the bidder
-     * @param auctionId - the id of the auction
-     * @param amount - the amount of the bid
-     */
-    event FuturesBid(address indexed bidder, uint256 indexed auctionId, uint256 amount);
+    function createClaimRewardFromBucketDigest(
+        uint256 bucketId,
+        uint256 glwWeight,
+        uint256 USDCWeight,
+        uint256 index,
+        bool claimFromInflation
+    ) external view returns (bytes32);
 }

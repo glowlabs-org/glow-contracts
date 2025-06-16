@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 interface ICarbonCreditAuction {
+    /* -------------------------------------------------------------------------- */
+    /*                                   state-changing                           */
+    /* -------------------------------------------------------------------------- */
+
     /**
      * @notice receives GCC from the miner pool
      * @param amount the amount of GCC to receive
@@ -14,6 +18,10 @@ interface ICarbonCreditAuction {
      * @param maxPricePerUnit the maximum price per unit that the user is willing to pay
      */
     function buyGCC(uint256 unitsToBuy, uint256 maxPricePerUnit) external;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 view functions                             */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice returns the price per unit of GCC
@@ -35,4 +43,6 @@ interface ICarbonCreditAuction {
      * @notice returns the cumulative total number of units of GCC that have been sold or are available for sale
      */
     function totalSaleUnits() external view returns (uint256);
+
+    event Purchase(address indexed buyer, uint256 unitsPurchased, uint256 pricePerUnit);
 }

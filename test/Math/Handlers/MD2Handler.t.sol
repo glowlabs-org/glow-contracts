@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "forge-std/StdUtils.sol";
@@ -48,14 +48,15 @@ contract MD2Handler is Test {
      */
     function addRewardsToBucket(uint256 daysToWarp, uint256 amount) public {
         address grcToken = grcTokens[timesCalled++ % grcTokens.length];
-        addRewardsToBucketWithToken(grcToken, daysToWarp, amount);
+        addRewardsToBucketWithToken(daysToWarp, amount);
     }
 
-    function addRewardsToBucketWithToken(address grcToken, uint256 daysToWarp, uint256 amount) public {
+    function addRewardsToBucketWithToken(uint256 daysToWarp, uint256 amount) public {
         // vm.assume(daysToWarp < 200);
         // vm.assume(amount < 1_000_000_000_000 ether);
         // amount = bound(amount, 0,1_000_000_000_000 ether);
         // daysToWarp = bound(daysToWarp, 0,200);
+        address grcToken = grcTokens[timesCalled++ % grcTokens.length];
         amount = amount % 1_000_000_000_000 ether;
         if (minerMath.currentBucket() > type(uint48).max) return;
 
@@ -75,7 +76,7 @@ contract MD2Handler is Test {
                 ghost_bucketIds[grcToken].push(index);
             }
         }
-        minerMath.addToCurrentBucket(grcToken, amount);
+        minerMath.addToCurrentBucket(amount);
         vm.warp(block.timestamp + daysToWarp * uint256(1 days));
     }
 
@@ -109,7 +110,7 @@ contract MD2Handler is Test {
             }
         }
 
-        minerMath.addToCurrentBucket(grcToken, amount);
+        minerMath.addToCurrentBucket(amount);
     }
 
     /// @dev - helper function to get all the bucket ids

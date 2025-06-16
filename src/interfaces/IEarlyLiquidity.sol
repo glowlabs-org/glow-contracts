@@ -1,13 +1,28 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
 interface IEarlyLiquidity {
+    /* -------------------------------------------------------------------------- */
+    /*                                   errors                                  */
+    /* -------------------------------------------------------------------------- */
     error PriceTooHigh();
     error ModNotZero();
     error AllSold();
     error MinerPoolAlreadySet();
     error ZeroAddress();
     error TooManyIncrements();
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   events                                  */
+    /* -------------------------------------------------------------------------- */
+    /**
+     * @notice emitted when a purchase is made
+     * @param buyer The address of the buyer
+     * @param glwReceived The amount of glow the buyer received
+     * @param totalUSDCSpent The total amount of USDC the buyer spent to buy the tokens
+     * @dev emitted when {buy} is successfully called
+     */
+    event Purchase(address indexed buyer, uint256 glwReceived, uint256 totalUSDCSpent);
 
     /**
      * @notice Buys tokens with USDC
@@ -35,13 +50,4 @@ interface IEarlyLiquidity {
      * @return currentPrice current price of the next token in microdollars
      */
     function getCurrentPrice() external view returns (uint256);
-
-    /**
-     * @notice emitted when a purchase is made
-     * @param buyer The address of the buyer
-     * @param glwReceived The amount of glow the buyer received
-     * @param totalUSDCSpent The total amount of USDC the buyer spent to buy the tokens
-     * @dev emitted when {buy} is successfully called
-     */
-    event Purchase(address indexed buyer, uint256 glwReceived, uint256 totalUSDCSpent);
 }

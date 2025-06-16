@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "forge-std/StdUtils.sol";
@@ -16,7 +16,7 @@ contract Handler is Test {
 
     uint256[] private _ghost_bucketIds;
 
-    mapping(uint256 => bool) private _insideIssueWeeklyReport;
+    mapping(uint256 => bool) private _insidesubmitWeeklyReport;
 
     mapping(uint256 => uint256) public bucketIdToSlashNonce;
 
@@ -32,7 +32,7 @@ contract Handler is Test {
         gca.incrementSlashNonce();
     }
 
-    function issueWeeklyReportCurrentBucket(
+    function submitWeeklyReportCurrentBucket(
         uint256 totalNewGCC,
         uint256 totalGlwRewardsWeight,
         uint256 totalGRCRewardsWeight,
@@ -53,14 +53,14 @@ contract Handler is Test {
             bucketIdToSlashNonce[bucketId] = gca.slashNonce();
         }
         _pushIfNotInside(bucketId);
-        gca.issueWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+        gca.submitWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
     }
 
     function warp(uint256 timeToWarp) public {
         vm.warp(block.timestamp + (timeToWarp % _ONE_WEEK) * 10);
     }
 
-    function issueWeeklyReport(
+    function submitWeeklyReport(
         uint256 bucketId,
         uint256 totalNewGCC,
         uint256 totalGlwRewardsWeight,
@@ -93,12 +93,12 @@ contract Handler is Test {
         }
 
         _pushIfNotInside(bucketId);
-        gca.issueWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
+        gca.submitWeeklyReport(bucketId, totalNewGCC, totalGlwRewardsWeight, totalGRCRewardsWeight, root);
     }
 
     function addGCA(address newGCA) public {
         address[] memory allGCAs = gca.allGcas();
-        address[] memory temp = new address[](allGCAs.length+1);
+        address[] memory temp = new address[](allGCAs.length + 1);
         for (uint256 i; i < allGCAs.length; i++) {
             temp[i] = allGCAs[i];
             if (allGCAs[i] == newGCA) {
@@ -114,9 +114,9 @@ contract Handler is Test {
     }
 
     function _pushIfNotInside(uint256 bucketId) private {
-        if (!_insideIssueWeeklyReport[bucketId]) {
+        if (!_insidesubmitWeeklyReport[bucketId]) {
             _ghost_bucketIds.push(bucketId);
-            _insideIssueWeeklyReport[bucketId] = true;
+            _insidesubmitWeeklyReport[bucketId] = true;
         }
     }
 }

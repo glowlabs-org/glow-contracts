@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
+pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+
 import "../../src/testing/TestGLOW.sol";
 import "forge-std/console.sol";
 import {IGlow} from "../../src/interfaces/IGlow.sol";
@@ -22,12 +24,20 @@ contract GrantsTreasuryTest is Test {
     address public constant GOVERNANCE = address(0x6);
     address public constant NOT_GOVERNANCE = address(0x7);
     uint256 public constant GRANTS_INFLATION_PER_WEEK = 40_000 ether;
-    uint256 constant STARTING_GRANTS_BALANCE = 6_000_000 ether;
+    uint256 constant STARTING_GRANTS_BALANCE = 0 ether;
+    address deployer = tx.origin;
 
     function setUp() public {
-        glw = new TestGLOW(EARLY_LIQUIDITY,VESTING_CONTRACT);
+        vm.startPrank(deployer);
+        uint256 deployerNonce = vm.getNonce(deployer);
+        address precomputeGrants = computeCreateAddress(deployer, deployerNonce + 1);
+        glw = new TestGLOW(EARLY_LIQUIDITY, VESTING_CONTRACT, GCA, VETO_COUNCIL, precomputeGrants);
         grantsTreasury = new GrantsTreasury(address(glw), GOVERNANCE);
-        glw.setContractAddresses(GCA, VETO_COUNCIL, address(grantsTreasury));
+        assertEq(precomputeGrants, address(grantsTreasury));
+
+        vm.stopPrank();
+        //TODO: set the contract addresses
+        // glw.setContractAddresses(GCA, VETO_COUNCIL, address(grantsTreasury));
     }
 
     function test_AllocatingFromNotGovernanceShouldRevert() public {
@@ -70,7 +80,7 @@ contract GrantsTreasuryTest is Test {
     function test_AllocationShouldReturnTrueAndRecipientShouldClaim() public {
         vm.startPrank(GOVERNANCE);
         vm.warp(block.timestamp + 365 days);
-        grantsTreasury.sync();
+        grantsTreasury.claimGlowFromTreasury();
         uint256 balBefore = glw.balanceOf(address(grantsTreasury));
         bool succesfulCall = grantsTreasury.allocateGrantFunds(SIMON, 1 ether);
         assertEq(succesfulCall, true);
@@ -92,7 +102,7 @@ contract GrantsTreasuryTest is Test {
     function test_actualBalanceTooLow() public {
         vm.startPrank(GOVERNANCE);
         vm.warp(block.timestamp + 365 days);
-        grantsTreasury.sync();
+        grantsTreasury.claimGlowFromTreasury();
         uint256 balBefore = glw.balanceOf(address(grantsTreasury));
         bool succesfulCall = grantsTreasury.allocateGrantFunds(SIMON, balBefore);
         assertEq(succesfulCall, true);
@@ -128,7 +138,7 @@ contract GrantsTreasuryTest is Test {
         uint256 balBefore = glw.balanceOf(address(grantsTreasury));
         assertEq(balBefore, STARTING_GRANTS_BALANCE);
         vm.warp(block.timestamp + 7 days);
-        grantsTreasury.sync();
+        grantsTreasury.claimGlowFromTreasury();
         uint256 balAfter = glw.balanceOf(address(grantsTreasury));
 
         assertEq(

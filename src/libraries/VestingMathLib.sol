@@ -1,7 +1,5 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.21;
-
-import "forge-std/console.sol";
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
 
 uint256 constant VESTING_PERIODS = 100;
 /// @dev the maximum amount of seconds a second can vest for
@@ -51,7 +49,6 @@ library VestingMathLib {
 
         uint256 lowestValueSecond = (1 + secondsStopped) * rewardsPerSecond / MAX_VESTING_SECONDS;
 
-        //100 * 100 / 100
         uint256 highestValueSecond = (secondsActive + secondsStopped) * rewardsPerSecond / MAX_VESTING_SECONDS;
         if (highestValueSecond > rewardsPerSecond) {
             highestValueSecond = rewardsPerSecond;
