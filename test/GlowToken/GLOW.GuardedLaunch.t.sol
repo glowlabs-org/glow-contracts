@@ -288,7 +288,7 @@ contract GlowGuardedLaunchTest is Test {
         // assertEq(glw.numStaked(SIMON), 13 ether);
     }
 
-    function testFail_DoubleStake2() public {
+    function test_DoubleStake2() public {
         address USER = vm.addr(0x13337);
         vm.startPrank(USER);
         glw.mint(USER, 15 ether);

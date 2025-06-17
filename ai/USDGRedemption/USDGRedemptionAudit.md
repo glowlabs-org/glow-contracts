@@ -1,24 +1,25 @@
 Findings
 | ID | Severity* | Title | Location | Description & Impact | Recommendation |
-| --- | --- | --- | --- | --- | --- |
-| 1 | High | Withdrawal guardian can irreversibly lock user funds | USDGRedemption.sol:`authorize()` / `_checkAuthorized()` | Withdrawals require the caller to remain `authorized`; the guardian can de-authorize users after they burn USDG, causing `withdraw()` to revert and funds to be trapped. | Decouple withdrawal permission from current authorization status or implement irrevocable per-position authorization snapshot at creation. |
-| 2 | High | Circuit-breaker permanently freezes redemptions | USDGRedemption.sol:`_checkCircuitBreakerActive()` | If USDG's `permanentlyFreezeTransfers` flag is set after positions are opened, both `createWithdrawPosition()` and `withdraw()` revert forever, locking all queued USDC. | Allow redemptions when circuit-breaker is active or add an admin emergency release path. |
-| 3 | Medium | Potential re-entrancy in `topUpLiquidity` | USDGRedemption.sol:`topUpLiquidity()` | Function lacks `nonReentrant`; a malicious ERC20 could callback during `safeTransferFrom`, re-entering before liquidity progress is updated and causing inconsistent state. | Add `nonReentrant` or update state before external calls. |
-| 4 | Medium | USDG supply not burned on redemption | USDGRedemption.sol:`createWithdrawPosition()` | Tokens are merely transferred to a burn address; total supply remains inflated, which may break accounting or governance relying on supply metrics. | Call `USDG.burn()` or have USDG implement and expose a true burn function. |
-| 5 | Low | Naming deviates from style conventions | USDGRedemption.sol:209,214 | Functions `USDGToken()` / `USDCToken()` violate mixedCase guideline, potentially triggering static-analysis warnings. | Rename to `usdgToken()` / `usdcToken()`. |
+|----|-----------|-------|----------|----------------------|----------------|
+| 01 | Critical | Unrestricted Circuit-Breaker Freeze & USDC Drain | USDGRedemption.sol:46-60 (`withdrawUSDC_CircuitBreakerOn`) | Any address can permanently freeze USDG transfers and route **all** contract USDC to the guardian, bricking the system and blocking redemptions. | Restrict function to the guardian (or governance) and/or separate the freeze and withdrawal actions behind timelock & multi-sig approval. |
+| 02 | High | Tokens Not Actually Burned – Supply Inflation Risk | USDGRedemption.sol:31-38 (`exchange`) | Sending USDG to `0xFFF…` does not reduce `totalSupply`; outstanding USDG remain counted while USDC backing leaves, leading to insolvent reserve accounting. | Replace with `i_USDG.burnFrom(msg.sender, amountUSDG)` or implement a true burn mechanism that decrements `totalSupply`. |
+| 03 | High | Decimal Mismatch – 1:1 Redemption Incorrect | USDGRedemption.sol:35-37 (`exchange`) | If USDG has 18 decimals and USDC 6, a "1:1" transfer misprices by **1e12**, causing major fund loss or user under-payment. | Normalize amounts by token decimals or ensure both tokens share identical decimals. |
+| 04 | Medium | Ignored `transferFrom` Return Value | USDGRedemption.sol:33 (`exchange`) | `ERC20.transferFrom` can return `false` without reverting; ignoring it may leave USDG untouched while still sending USDC. | Use `SafeERC20.safeTransferFrom` or explicitly check the boolean return. |
+| 05 | Low | Missing Withdrawal Events | `withdrawUSDC`, `withdrawUSDC_CircuitBreakerOn` | Lack of events hampers off-chain accounting and auditability of treasury movements. | Emit `Withdrawn(address,uint256)` events on each USDC withdrawal. |
+| 06 | Informational | Unused Import | USDGRedemption.sol:6 | `import {ERC20} …` is never referenced, increasing byte-code size slightly. | Remove unused import. |
 
 Severity Methodology
-- Critical – total fund loss or permanent system brick.
-- High – significant fund loss or lock feasible under plausible conditions.
-- Medium – partial loss, accounting errors, or DoS requiring edge cases.
-- Low – minor impact, griefing, or best-practice deviation.
-- Informational – style, gas, or clarity suggestions.
+- Critical – exploit can steal or lock all funds or permanently brick the system
+- High – significant loss/lock of funds or governance seizure under plausible conditions
+- Medium – incorrect accounting, partial DoS, or fund loss that needs edge-case/user error
+- Low – minor financial impact, griefing, or best-practice violation
+- Informational – style, gas optimisations, clarity issues
 
 Additional Observations
-- Gas: Storing `releaseTimestamp` in a separate mapping could be packed into the position struct for cheaper reads.
-- Readability: Consider prefix `_liquidityQueue` instead of `$liquidityQueue` to avoid unconventional symbols.
+- Consider batching multiple redemptions to reduce gas.
+- Re-entrancy guards are correctly applied, but internal state changes could be moved before external calls to further harden.
 
 Recommended Next Steps
-- Assess authorization model and circuit-breaker interaction to avoid fund lock scenarios.
-- Patch re-entrancy vector and implement proper burn mechanics.
-- Run comprehensive unit and integration tests covering edge-cases highlighted above.
+- Patch Critical/High findings and re-deploy.
+- Add comprehensive unit tests covering decimals, burn logic, and circuit-breaker flows.
+- Perform a follow-up audit after fixes.
