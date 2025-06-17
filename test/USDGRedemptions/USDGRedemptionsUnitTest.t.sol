@@ -33,7 +33,6 @@ import {USDG} from "@glow/USDG.sol";
 import {USDGRedemption} from "@glow/USDGRedemption.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {USDGRedemptionsBaseTest} from "./USDGRedemptionsBase.t.sol";
-import {LiquidityQueueLib} from "@glowswap/core/libraries/LiquidityQueueLib.sol";
 
 contract USDGRedemptionsUnitTest is USDGRedemptionsBaseTest {
     // /* -------------------------------------------------------------------------- */
