@@ -65,6 +65,10 @@ setlp.goerli :; forge script script/Testnet/SetLP.s.sol --rpc-url ${GOERLI_RPC_U
 panic.verify :;  forge verify-contract 0x85fbB04DEBBDEa052a6422E74bFeA57B17e50A80 CarbonCreditDescendingPriceAuction --chain-id 1 --libraries src/libraries/HalfLifeCarbonCreditAuction.sol:HalfLifeCarbonCreditAuction:0xd178525026bafc51d045a2e98b0c79a526d446de \
 				--constructor-args 0x000000000000000000000000f4fbc617a5733eaaf9af08e1ab816b103388d8b600000000000000000000000021c46173591f39afc1d2b634b74c98f0576a272b00000000000000000000000000000000000000000000000000000000000186a0 \
 				--retries 10 --delay 10 --watch
+
+
+deploy.redemptions.sepolia :; forge script script/Testnet/DeployUSDGRedemption.s.sol --rpc-url ${SEPOLIA_RPC_URL} --broadcast -vvvv --private-key ${SIMON_REGULAR_PK}	
+
 #---- [Verify] -----------------------------------------------------------------------------------
 # verify.guardedlaunch :; verify :; forge verify-contract \
 #         --constructor-args $(cast abi-encode "constructor(address,address,address,address,address,address,address,address,address)" "0xea0f0B7497D043c553238E77eDa66C2965a67B43" "0xE414D49268837291fde21c33AD7e30233b7041C2" "0x4c2c9a36eC98eD9a1FfFD9122C1B366A73F20FAd" "0x18B6F81b92a9474d584d4F59A25E993337Aa49F9" "0xdE25F61A8F3BDf006A21b9284c6849c2818aeDb9" "0xD509A9480559337e924C764071009D60aaCA623d" "0x7734720e7Cea67b29f53800C4aD5C40e61aBb645" "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f" "0x71cEB276788c40D59E244087a1FBB185373aAB1A") \
@@ -118,3 +122,7 @@ cloc:
 		echo "No files found."; \
 	fi \
 	&& python3 repo-utils/cloc/gen-markdown-table.py
+
+
+
+
