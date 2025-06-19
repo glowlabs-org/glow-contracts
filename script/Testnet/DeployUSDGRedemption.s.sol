@@ -34,8 +34,6 @@ import {USDGRedemption} from "@glow/USDGRedemption.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "forge-std/Script.sol";
 
-
- 
 contract DeployUSDGRedemptionScript is Script {
     //--------  CONTRACTS ---------//
     UnifapV2Factory public uniswapFactory;
@@ -54,7 +52,7 @@ contract DeployUSDGRedemptionScript is Script {
     USDGRedemption public redemption;
     uint256 public constant WITHDRAW_DELAY = 2 weeks;
 
-    address public WITHDRAW_GUARDIAN =  tx.origin;
+    address public WITHDRAW_GUARDIAN = tx.origin;
 
     address public mockImpactCatalyst = address(0x1233918293819389128);
 
@@ -101,7 +99,7 @@ contract DeployUSDGRedemptionScript is Script {
         weth = new WETH9();
         uniswapRouter = new UnifapV2Router(address(uniswapFactory));
         //Make sure we don't start at 0
-    
+
         vm.warp(10);
 
         usdc = new MockUSDC();
@@ -169,7 +167,6 @@ contract DeployUSDGRedemptionScript is Script {
             address(minerPoolAndGCA), address(governance), address(glow), address(usdg), address(uniswapRouter)
         ); //deployerNonce + 8
 
-      
         // seedLP(500 ether, 100000000 * 1e6);
 
         redemption = new USDGRedemption(usdg, IERC20(address(usdc)), WITHDRAW_GUARDIAN);

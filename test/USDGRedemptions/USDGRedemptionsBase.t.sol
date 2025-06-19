@@ -216,12 +216,10 @@ contract USDGRedemptionsBaseTest is Test {
     /*                              Helper Functions                              */
     /* -------------------------------------------------------------------------- */
 
-
     function _topUp(address provider, uint256 amount) internal {
         usdc.mint(provider, amount);
         vm.prank(provider);
-        usdc.transfer(address(redemption),amount);
-  
+        usdc.transfer(address(redemption), amount);
     }
 
     function _activateCircuitBreaker() internal {

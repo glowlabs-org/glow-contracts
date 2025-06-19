@@ -98,9 +98,8 @@ contract USDGRedemption is ReentrancyGuard {
     }
 
     /// @notice Withdraws **all** USDC reserves when the USDG circuit-breaker is permanently on.
-    /// @dev    Any address can call this; `permanentlyFreezeTransfers()` is invoked to ensure
-    ///         the circuit-breaker is activated. Funds are always sent to the withdraw guardian.
-    ///         Emits {Withdrawn}.
+    /// @dev Anyone can call this function
+    /// @dev Emits {Withdrawn}.
     // solhint-disable-next-line func-name-mixedcase
     function withdrawUSDC_CircuitBreakerOn() public nonReentrant {
         bool circuitBreakerOn = i_USDG.permanentlyFreezeTransfers();
