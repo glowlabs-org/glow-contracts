@@ -25,6 +25,11 @@ contract USDGRedemption is ReentrancyGuard {
     /// @notice Circuit-breaker is not permanently switched on.
     error CircuitBreakerNotOn();
 
+    /// @notice Thrown when a claim amount of zero is supplied where a positive, non-zero value is required.
+    error ClaimZeroNotAllowed();
+    /// @notice Thrown when the USDC balance is zero and an operation requiring a positive balance is attempted.
+    error ZeroUSDCBalance();
+
     /// @dev USDG sent to this address is considered burned
     // solhint-disable-next-line private-vars-leading-underscore
     address internal constant BURN_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
@@ -86,10 +91,12 @@ contract USDGRedemption is ReentrancyGuard {
     /// @param amount Requested withdrawal amount. Clamped to the contract's USDC balance.
     /// @dev    Only callable by the designated withdraw guardian. Emits {Withdrawn}.
     function withdrawUSDC(uint256 amount) public nonReentrant {
+        if (amount == 0) revert ClaimZeroNotAllowed();
         if (msg.sender != i_WITHDRAW_GUARDIAN) {
             revert NotWithdrawGuardian();
         }
         uint256 bal = i_USDC.balanceOf(address(this));
+        if (bal == 0) revert ZeroUSDCBalance();
         if (amount > bal) {
             amount = bal;
         }
@@ -105,6 +112,7 @@ contract USDGRedemption is ReentrancyGuard {
         bool circuitBreakerOn = i_USDG.permanentlyFreezeTransfers();
         if (!circuitBreakerOn) revert CircuitBreakerNotOn();
         uint256 bal = i_USDC.balanceOf(address(this));
+        if (bal == 0) revert ZeroUSDCBalance();
         i_USDC.safeTransfer(i_WITHDRAW_GUARDIAN, bal);
         emit Withdrawn(i_WITHDRAW_GUARDIAN, bal);
     }
