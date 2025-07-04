@@ -67,6 +67,9 @@ panic.verify :;  forge verify-contract 0x85fbB04DEBBDEa052a6422E74bFeA57B17e50A8
 				--retries 10 --delay 10 --watch
 
 
+deploy.redemptions.mainnet :; forge script script/Mainnet/DeployUSDGRedemptions.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY} --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+
+
 deploy.redemptions.sepolia :; forge script script/Testnet/DeployUSDGRedemption.s.sol --rpc-url ${SEPOLIA_RPC_URL} --broadcast -vvvv --private-key ${SIMON_REGULAR_PK}	
 
 #---- [Verify] -----------------------------------------------------------------------------------
