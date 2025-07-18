@@ -346,7 +346,6 @@ contract GCCTest is Test {
          *         the precision loss and dust is sensible and minimal.
          *         Note: USDC has 6 decimals
          */
-
         vm.startPrank(deployer);
         {
             uint256 A_MIN = 10 * 1e6;

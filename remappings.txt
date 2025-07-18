@@ -4,7 +4,9 @@ ds-test/=lib/forge-std/lib/ds-test/src/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 @openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @/=src/
+#/=test/
 @solady/=lib/solady/src/
+@solady-tests/=lib/solady/test/
 
 @unifapv2/=src/UnifapV2/
 clones=lib/clones-with-immutable-args/src/

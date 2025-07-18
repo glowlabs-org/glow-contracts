@@ -748,7 +748,6 @@ contract Governance is IGovernance, EIP712 {
      *             - the pre-image should be made public off-chain
      * @param maxNominations the maximum amount of nominations to spend on this proposal
      */
-
     function createGrantsProposal(address grantsRecipient, uint256 amount, bytes32 hash, uint256 maxNominations)
         external
     {
@@ -1287,7 +1286,6 @@ contract Governance is IGovernance, EIP712 {
      * @return numActiveProposals the number of active proposals
      * @return _lastExpiredProposalId the last expired proposal id
      */
-
     function _numActiveProposalsAndLastExpiredProposalIdAndUpdateState()
         internal
         returns (uint256 numActiveProposals, uint256 _lastExpiredProposalId)
