@@ -7,16 +7,14 @@ import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
 import "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MockERC20} from "@/testing/MockERC20.sol";
-import {USDCForwarder} from "@/USDCForwarder.sol";
-
+import {Forwarder} from "@/Forwarder.sol";
 
 contract DeployForwarder is Test, Script {
-    address usdc = 0x93C898be98cD2618bA84a6dccF5003d3bBE40356;
-    address usdcForwarder = 0x5e230FED487c86B90f6508104149F087d9B1B0A7;
+    address private usdcForwarder = 0x5e230FED487c86B90f6508104149F087d9B1B0A7;
 
     function run() external {
         vm.startBroadcast();
-        USDCForwarder forwarder = new USDCForwarder(usdc, usdcForwarder);
+        Forwarder forwarder = new Forwarder(usdcForwarder);
         vm.stopBroadcast();
     }
 }
