@@ -10,11 +10,9 @@ import {MockERC20} from "@/testing/MockERC20.sol";
 import {Forwarder} from "@/Forwarder.sol";
 
 contract DeployForwarder is Test, Script {
-    address private usdcForwarder = 0x5e230FED487c86B90f6508104149F087d9B1B0A7;
-
     function run() external {
         vm.startBroadcast();
-        Forwarder forwarder = new Forwarder(usdcForwarder);
+        Forwarder forwarder = new Forwarder();
         vm.stopBroadcast();
     }
 }
