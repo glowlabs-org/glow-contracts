@@ -1,46 +1,43 @@
-// // SPDX-License-Identifier: MIT
-// pragma solidity ^0.8.17;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
 
-// import "forge-std/Script.sol";
-// import "forge-std/console.sol";
-// // import {GCC} from "@/GCC.sol";
-// // import {TestGLOW} from "@/testing/TestGLOW.sol";
-// // import {GoerliGovernanceQuickPeriod} from "@/testing/Goerli/GoerliGovernance.QuickPeriod.sol";
-// // import {GoerliGCC} from "@/testing/Goerli/GoerliGCC.sol";
-// // import {MockUSDC} from "@/testing/MockUSDC.sol";
-// // import {EarlyLiquidity} from "@/EarlyLiquidity.sol";
-// // import {IUniswapRouterV2} from "@/interfaces/IUniswapRouterV2.sol";
-// // import {CarbonCreditDutchAuction} from "@/CarbonCreditDutchAuction.sol";
-// // import {GoerliMinerPoolAndGCAQuickPeriod} from "@/testing/Goerli/GoerliMinerPoolAndGCA.QuickPeriod.sol";
-// // import {VetoCouncil} from "@/VetoCouncil.sol";
-// // import {HoldingContract} from "@/HoldingContract.sol";
-// // import {GrantsTreasury} from "@/GrantsTreasury.sol";
-// // import {BatchCommit} from "@/BatchCommit.sol";
-// import "forge-std/Test.sol";
+import "forge-std/Script.sol";
+import "forge-std/console.sol";
+import "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 
-// contract Debug2 is Test {
-//     string goerliForkUrl = vm.envString("GOERLI_RPC_URL");
-//     uint256 goerliFork;
-//     address me = 0xD509A9480559337e924C764071009D60aaCA623d;
-//     address minerPoolGoerli = 0xa2126e06AF1C75686BCBAbb4cD426bE35aEECC0C;
+interface Exchange {
+    function exchange(uint256 amount) external;
+}
 
-//     function setUp() public {
-//         goerliFork = vm.createFork(goerliForkUrl);
-//         vm.selectFork(goerliFork);
-//     }
+contract Debug2 is Test {
+    string goerliForkUrl = vm.envString("MAINNET_RPC");
+    uint256 goerliFork;
+    address me = 0xD509A9480559337e924C764071009D60aaCA623d;
+    address minerPoolGoerli = 0xa2126e06AF1C75686BCBAbb4cD426bE35aEECC0C;
 
-//     function test_goerliClaimBucket_debug() public {
-//         vm.startPrank(me);
-//         bytes memory data =
-//             hex"d004f0f7000000000000000000000000d509a9480559337e924c764071009d60aaca623d00000000000000000000000000000000000000000000000000000000000f4240";
-//         address to = 0x7734720e7Cea67b29f53800C4aD5C40e61aBb645;
+    function setUp() public {
+        goerliFork = vm.createFork(goerliForkUrl);
+        vm.selectFork(goerliFork);
+    }
 
-//              (bool success, bytes memory returnData) = address(to).call(data);
-//         if(!success) {
-//            assembly {
-//                 revert(add(returnData, 0x20), mload(returnData))
-//            }
-//         }
-//         vm.stopPrank();
-//     }
-// }
+    function test_goerliClaimBucket_debug() public {
+        Exchange usdcRedemption = Exchange(0x1c2cA537757e1823400F857EdBe72B55bbAe0F08);
+        address from = 0x9aCf8D0315094d33Aa6875B673EB126483C3A2c0;
+        uint256 codeLength = from.code.length;
+        bytes memory code = from.code;
+        console.logBytes(code);
+        address delegated;
+        assembly {
+            delegated := mload(add(code, 23)) // 23 = offset to the last 20 bytes
+        }
+
+        // address delegate = abi.decode(code, (address));
+        console2.logAddress(delegated);
+        console2.log("codeLength: ", codeLength);
+        uint256 amount = 6080;
+        // vm.startPrank(from);
+        // usdcRedemption.exchange(amount);
+        // vm.stopPrank();
+    }
+}
