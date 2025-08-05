@@ -35,13 +35,14 @@ contract Forwarder is ReentrancyGuard {
 
     function swapUSDCAndForwardUSDG(uint256 amount, address to, string calldata message) external nonReentrant {
         _checkAmountAndLength(amount, message);
-        address counterfactualSwapper = _predictCounterfactualSwapper(nextNonce, amount, to);
+        uint256 nonce = nextNonce;
+        address counterfactualSwapper = _predictCounterfactualSwapper(nonce, amount, to);
 
         i_USDC.safeTransferFrom(msg.sender, counterfactualSwapper, amount);
 
-        new CounterfactualSwapper{salt: bytes32(nextNonce)}(i_USDG, i_USDC, amount, to);
+        new CounterfactualSwapper{salt: bytes32(nonce)}(i_USDG, i_USDC, amount, to);
 
-        nextNonce++;
+        nextNonce = nonce + 1;
 
         emit Forward(msg.sender, to, address(i_USDG), amount, message);
     }
