@@ -2,6 +2,7 @@
 pragma solidity >=0.8.10;
 
 import "../interfaces/IUnifapV2Pair.sol";
+import "../UnifapV2Pair.sol";
 
 /// @title UnifapV2Library
 /// @author Uniswap Labs
@@ -84,20 +85,17 @@ library UnifapV2Library {
 
     // calculates the CREATE2 address for a pair without making any external calls
     function pairFor(address factory, address tokenA, address tokenB) internal pure returns (address pair) {
+        // Sort the tokens to ensure deterministic ordering
         (address token0, address token1) = sortPairs(tokenA, tokenB);
-        pair = address(
-            uint160(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            hex"ff",
-                            factory,
-                            keccak256(abi.encodePacked(token0, token1)),
-                            hex"f53b18237738db0c12129e859ee0fb162ab02d4490376523b394ce689eae51de" // init code hash
-                        )
-                    )
-                )
-            )
-        );
+
+        // Compute the create2 salt exactly as the factory does
+        bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+
+        // Compute init code hash from the current UnifapV2Pair creation code so the
+        // library can never get out of sync with the factory.
+        bytes32 initCodeHash = keccak256(type(UnifapV2Pair).creationCode);
+
+        // Derive the pair address using the standard create2 formula
+        pair = address(uint160(uint256(keccak256(abi.encodePacked(hex"ff", factory, salt, initCodeHash)))));
     }
 }
