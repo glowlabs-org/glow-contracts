@@ -33,6 +33,14 @@ contract Forwarder is ReentrancyGuard {
         emit Forward(msg.sender, to, token, amount, message);
     }
 
+    /// @dev Swaps USDC for USDG and forwards the USDG to the recipient.
+    /// @dev USDG has a `guard` that does not allow it to be transferred to a non-approved contract.
+    /// This contract is not approved. We use a counterfactual swapper to swap USDC for USDG.
+    /// The counterfactual swapper performs a swap for USDC -> USDG and then forwards the USDG to the recipient in its constructor
+    /// This works because contracts have no bytecode during construction.
+    /// @param amount The amount of USDC to swap.
+    /// @param to The address to forward the USDG to.
+    /// @param message The message to forward.
     function swapUSDCAndForwardUSDG(uint256 amount, address to, string calldata message) external nonReentrant {
         _checkAmountAndLength(amount, message);
         uint256 nonce = nextNonce;
