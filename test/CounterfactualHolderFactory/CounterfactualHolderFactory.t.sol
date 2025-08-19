@@ -5,11 +5,11 @@ import {Test} from "forge-std/Test.sol";
 import {CounterfactualHolderFactory} from "src/v2/CounterfactualHolderFactory.sol";
 import {CounterfactualHolder} from "src/v2/CounterfactualHolder.sol";
 import {Call} from "src/v2/Structs.sol";
-import {MockERC20} from "src/testing/MockERC20.sol";
+import {MockGuardERC20} from "src/testing/MockGuardERC20.sol";
 
 contract CounterfactualHolderFactoryTest is Test {
     CounterfactualHolderFactory internal factory;
-    MockERC20 internal token;
+    MockGuardERC20 internal token;
 
     address internal user = address(0xA11CE);
     address internal other = address(0xB0B);
@@ -21,7 +21,7 @@ contract CounterfactualHolderFactoryTest is Test {
 
     function setUp() public {
         factory = new CounterfactualHolderFactory();
-        token = new MockERC20("Mock", "MOCK", 18);
+        token = new MockGuardERC20("Mock", "MOCK", 18);
         token.mint(user, 1_000 ether);
         token.mint(other, 1_000 ether);
     }

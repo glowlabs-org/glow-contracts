@@ -22,6 +22,7 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
     );
 
     event Execute(address indexed user, address indexed cfh, address indexed token, Call[] calls);
+    event Approval(address indexed from,address indexed operator, bool status);
 
     struct UserTokenData {
         uint256 nextSalt;
@@ -38,7 +39,7 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
     }
 
     function executeFrom(address from, address token, Call[] memory calls) external nonReentrant {
-        if (!approvals[from][msg.sender]) {
+        if (!isApproved(from, msg.sender)) {
             revert NotApproved(from, msg.sender);
         }
 
@@ -51,6 +52,7 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
 
     function setApprovalStatus(address operator, bool status) external {
         approvals[msg.sender][operator] = status;
+        emit Approval(msg.sender, operator, status);
     }
 
     function _execute(address from, address token, Call[] memory calls) internal {
@@ -58,18 +60,22 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
         bytes memory dataCalls = abi.encode(calls);
         baseCallsSlot.tstoreBytes(dataCalls);
 
-        UserTokenData storage d = userTokenData[msg.sender][token];
+        UserTokenData storage d = userTokenData[from][token];
 
         uint256 nextSalt = d.nextSalt;
-        address nextHolder = _predictCFH(token, deriveUserNonce(msg.sender, token, nextSalt + 1));
+        address nextHolder = _predictCFH(token, deriveUserNonce(from, token, nextSalt + 1));
         bytes32 baseNextHolderSlot = deriveNextHolderBaseSlot();
         baseNextHolderSlot.asAddress().tstore(nextHolder);
 
-        bytes32 nonce = deriveUserNonce(msg.sender, token, nextSalt);
+        bytes32 nonce = deriveUserNonce(from, token, nextSalt);
         address cfh = address(new CounterfactualHolder{salt: nonce}(IERC20(token)));
         d.nextSalt = nextSalt + 1;
 
-        emit Execute(msg.sender, cfh, token, calls);
+        emit Execute(from, cfh, token, calls);
+    }
+
+    function isApproved(address from, address operator) public view returns (bool) {
+        return approvals[from][operator];
     }
 
     function getCurrentCFH(address user, address token) external view returns (address) {

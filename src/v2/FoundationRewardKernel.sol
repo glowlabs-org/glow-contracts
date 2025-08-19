@@ -177,10 +177,16 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
             }
             slot.asBoolean().tstore(true);
         }
+
+        //Clear the slots
+        for (uint256 i; i < l; ++i) {
+            bytes32 slot = to(taa[i].token);
+            slot.asBoolean().tstore(false);
+        }
     }
 
     function _isTimestampFinalized(uint256 ts) internal view returns (bool) {
-        return block.timestamp < ts + FINALITY;
+        return block.timestamp >= ts + FINALITY;
     }
 
     function to(address a) internal pure returns (bytes32 s) {
