@@ -15,18 +15,9 @@ contract CounterfactualHolderFactoryTest is Test {
     address internal other = address(0xB0B);
 
     event TransferToCFH(
-        address indexed from,
-        address indexed toUser,
-        address indexed token,
-        address cfh,
-        uint256 amount
+        address indexed from, address indexed toUser, address indexed token, address cfh, uint256 amount
     );
-    event Execute(
-        address indexed user,
-        address indexed cfh,
-        address indexed token,
-        Call[] calls
-    );
+    event Execute(address indexed user, address indexed cfh, address indexed token, Call[] calls);
 
     function setUp() public {
         factory = new CounterfactualHolderFactory();
@@ -55,11 +46,7 @@ contract CounterfactualHolderFactoryTest is Test {
         assertEq(token.balanceOf(cfh), amount, "CFH should hold transferred amount");
     }
 
-    function testFuzz_transferToCFH_general(
-        address sender,
-        address beneficiary,
-        uint256 amount
-    ) public {
+    function testFuzz_transferToCFH_general(address sender, address beneficiary, uint256 amount) public {
         vm.assume(sender != address(0));
         vm.assume(beneficiary != address(0));
         amount = bound(amount, 1, 1_000_000 ether);
@@ -90,10 +77,8 @@ contract CounterfactualHolderFactoryTest is Test {
 
         // Build calls to transfer entire balance to `other`
         Call[] memory calls = new Call[](1);
-        calls[0] = Call({
-            target: address(token),
-            data: abi.encodeWithSignature("transfer(address,uint256)", other, amount)
-        });
+        calls[0] =
+            Call({target: address(token), data: abi.encodeWithSignature("transfer(address,uint256)", other, amount)});
 
         vm.expectEmit(true, true, true, false, address(factory));
         emit Execute(user, cfh, address(token), calls);
@@ -120,10 +105,8 @@ contract CounterfactualHolderFactoryTest is Test {
         // Prepare a partial transfer so there is leftover
         uint256 sent = 120 ether;
         Call[] memory calls = new Call[](1);
-        calls[0] = Call({
-            target: address(token),
-            data: abi.encodeWithSignature("transfer(address,uint256)", other, sent)
-        });
+        calls[0] =
+            Call({target: address(token), data: abi.encodeWithSignature("transfer(address,uint256)", other, sent)});
 
         vm.prank(user);
         factory.execute(address(token), calls);
@@ -151,29 +134,15 @@ contract CounterfactualHolderFactoryTest is Test {
         assertEq(_currentCFH(user), predicted, "create2 prediction should match");
     }
 
-    function predictCFH(
-        address user_,
-        address token_,
-        uint256 nonce
-    ) internal view returns (address predicted) {
-        bytes memory initCode = abi.encodePacked(
-            type(CounterfactualHolder).creationCode, abi.encode(token_)
-        );
-        bytes32 salt = keccak256(
-            abi.encodePacked(user_, token_, nonce, address(factory))
-        );
+    function predictCFH(address user_, address token_, uint256 nonce) internal view returns (address predicted) {
+        bytes memory initCode = abi.encodePacked(type(CounterfactualHolder).creationCode, abi.encode(token_));
+        bytes32 salt = keccak256(abi.encodePacked(user_, token_, nonce, address(factory)));
         bytes32 initCodeHash = keccak256(initCode);
-        bytes32 hash = keccak256(
-            abi.encodePacked(bytes1(0xff), address(factory), salt, initCodeHash)
-        );
+        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), address(factory), salt, initCodeHash));
         predicted = address(uint160(uint256(hash)));
     }
 
-    function testFuzz_sequence_no_collisions_smallN(
-        address fuzzUser,
-        address fuzzToken,
-        uint8 steps
-    ) public {
+    function testFuzz_sequence_no_collisions_smallN(address fuzzUser, address fuzzToken, uint8 steps) public {
         vm.assume(fuzzUser != address(0));
         vm.assume(fuzzToken != address(0));
         uint256 n = bound(uint256(steps), 1, 10);
@@ -188,12 +157,7 @@ contract CounterfactualHolderFactoryTest is Test {
         }
     }
 
-    function testFuzz_predictions_differ_for_user_or_token(
-        address u1,
-        address u2,
-        address t1,
-        address t2
-    ) public {
+    function testFuzz_predictions_differ_for_user_or_token(address u1, address u2, address t1, address t2) public {
         vm.assume(u1 != address(0) && u2 != address(0));
         vm.assume(t1 != address(0) && t2 != address(0));
 
@@ -209,11 +173,7 @@ contract CounterfactualHolderFactoryTest is Test {
         }
     }
 
- 
-
-    function testFuzz_execute_reverts_on_failed_call_keeps_nonce(
-        uint256 amount
-    ) public {
+    function testFuzz_execute_reverts_on_failed_call_keeps_nonce(uint256 amount) public {
         amount = bound(amount, 1, 1_000_000 ether);
 
         // Fund initial CFH address
@@ -243,10 +203,7 @@ contract CounterfactualHolderFactoryTest is Test {
         assertEq(token.balanceOf(cfhBefore), amount, "funds remain at CFH on failure");
     }
 
-    function testFuzz_execute_partial_general(
-        uint256 amount,
-        uint256 sent
-    ) public {
+    function testFuzz_execute_partial_general(uint256 amount, uint256 sent) public {
         amount = bound(amount, 1, 1_000_000 ether);
         sent = bound(sent, 0, amount);
 
@@ -258,10 +215,8 @@ contract CounterfactualHolderFactoryTest is Test {
         vm.stopPrank();
 
         Call[] memory calls = new Call[](1);
-        calls[0] = Call({
-            target: address(token),
-            data: abi.encodeWithSignature("transfer(address,uint256)", other, sent)
-        });
+        calls[0] =
+            Call({target: address(token), data: abi.encodeWithSignature("transfer(address,uint256)", other, sent)});
 
         vm.prank(user);
         factory.execute(address(token), calls);
@@ -273,9 +228,9 @@ contract CounterfactualHolderFactoryTest is Test {
     }
 }
 
-   // Reverter target used to test CFH revert bubbling
-    contract Reverter {
-        function revertAlways() external pure {
-            revert("always");
-        }
+// Reverter target used to test CFH revert bubbling
+contract Reverter {
+    function revertAlways() external pure {
+        revert("always");
     }
+}

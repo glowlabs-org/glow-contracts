@@ -15,6 +15,8 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
     using TransientBytes for *;
     using TransientSlot for *;
 
+    error NotApproved(address from, address operator);
+
     event TransferToCFH(
         address indexed from, address indexed toUser, address indexed token, address cfh, uint256 amount
     );
@@ -25,7 +27,8 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
         uint256 nextSalt;
     }
 
-    mapping(address user => mapping(address token => UserTokenData)) userTokenData;
+    mapping(address user => mapping(address token => UserTokenData)) public userTokenData;
+    mapping(address owner => mapping(address operator => bool status)) public approvals;
 
     function transferToCFH(address user, address token, uint256 amount) external nonReentrant {
         UserTokenData storage d = userTokenData[user][token];
@@ -34,7 +37,23 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
         emit TransferToCFH(msg.sender, user, token, currentHolder, amount);
     }
 
+    function executeFrom(address from, address token, Call[] memory calls) external nonReentrant {
+        if (!approvals[from][msg.sender]) {
+            revert NotApproved(from, msg.sender);
+        }
+
+        _execute(from, token, calls);
+    }
+
     function execute(address token, Call[] memory calls) external nonReentrant {
+        _execute(msg.sender, token, calls);
+    }
+
+    function setApprovalStatus(address operator, bool status) external {
+        approvals[msg.sender][operator] = status;
+    }
+
+    function _execute(address from, address token, Call[] memory calls) internal {
         bytes32 baseCallsSlot = deriveCallsBaseSlot();
         bytes memory dataCalls = abi.encode(calls);
         baseCallsSlot.tstoreBytes(dataCalls);
