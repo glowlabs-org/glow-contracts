@@ -14,7 +14,9 @@ contract CounterfactualHolderFactoryTest is Test {
     address internal user = address(0xA11CE);
     address internal other = address(0xB0B);
 
-    event TransferToCFH(address indexed from, address indexed toUser, address indexed token, address cfh, uint256 amount);
+    event TransferToCFH(
+        address indexed from, address indexed toUser, address indexed token, address cfh, uint256 amount
+    );
     event Execute(address indexed user, address indexed cfh, address indexed token, Call[] calls);
 
     function setUp() public {
@@ -58,10 +60,8 @@ contract CounterfactualHolderFactoryTest is Test {
 
         // Build calls to transfer entire balance to `other`
         Call[] memory calls = new Call[](1);
-        calls[0] = Call({
-            target: address(token),
-            data: abi.encodeWithSignature("transfer(address,uint256)", other, amount)
-        });
+        calls[0] =
+            Call({target: address(token), data: abi.encodeWithSignature("transfer(address,uint256)", other, amount)});
 
         vm.expectEmit(true, true, true, false, address(factory));
         emit Execute(user, cfh, address(token), calls);
@@ -88,10 +88,8 @@ contract CounterfactualHolderFactoryTest is Test {
         // Prepare a partial transfer so there is leftover
         uint256 sent = 120 ether;
         Call[] memory calls = new Call[](1);
-        calls[0] = Call({
-            target: address(token),
-            data: abi.encodeWithSignature("transfer(address,uint256)", other, sent)
-        });
+        calls[0] =
+            Call({target: address(token), data: abi.encodeWithSignature("transfer(address,uint256)", other, sent)});
 
         vm.prank(user);
         factory.execute(address(token), calls);
@@ -109,19 +107,13 @@ contract CounterfactualHolderFactoryTest is Test {
     }
 
     function test_getCurrentCFH_matches_create2_formula() public {
-        bytes memory initCode = abi.encodePacked(
-            type(CounterfactualHolder).creationCode, abi.encode(token)
-        );
+        bytes memory initCode = abi.encodePacked(type(CounterfactualHolder).creationCode, abi.encode(token));
         bytes32 salt = keccak256(abi.encodePacked(user, address(token), uint256(0), address(factory)));
         bytes32 initCodeHash = keccak256(initCode);
 
-        bytes32 hash = keccak256(
-            abi.encodePacked(bytes1(0xff), address(factory), salt, initCodeHash)
-        );
+        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), address(factory), salt, initCodeHash));
         address predicted = address(uint160(uint256(hash)));
 
         assertEq(_currentCFH(user), predicted, "create2 prediction should match");
     }
 }
-
-
