@@ -29,7 +29,7 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
 
     function transferToCFH(address user, address token, uint256 amount) external nonReentrant {
         UserTokenData storage d = userTokenData[user][token];
-        address currentHolder = _predictCFH(token, bytes32(d.nextSalt));
+        address currentHolder = _predictCFH(token, deriveUserNonce(user, token, d.nextSalt));
         IERC20(token).safeTransferFrom(msg.sender, currentHolder, amount);
         emit TransferToCFH(msg.sender, user, token, currentHolder, amount);
     }
@@ -42,7 +42,7 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
         UserTokenData storage d = userTokenData[msg.sender][token];
 
         uint256 nextSalt = d.nextSalt;
-        address nextHolder = _predictCFH(token, bytes32(nextSalt + 1));
+        address nextHolder = _predictCFH(token, deriveUserNonce(msg.sender, token, nextSalt + 1));
         bytes32 baseNextHolderSlot = deriveNextHolderBaseSlot();
         baseNextHolderSlot.asAddress().tstore(nextHolder);
 
@@ -54,7 +54,11 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
 
     function getCurrentCFH(address user, address token) external view returns (address) {
         UserTokenData storage d = userTokenData[user][token];
-        return _predictCFH(token, bytes32(d.nextSalt));
+        return _predictCFH(token, deriveUserNonce(user, token, d.nextSalt));
+    }
+
+    function deriveUserNonce(address user, address token, uint256 nonce) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(user, token, nonce, address(this)));
     }
 
     function getTransientCalls() external view returns (Call[] memory) {
