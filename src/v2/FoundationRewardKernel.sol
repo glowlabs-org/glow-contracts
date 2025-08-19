@@ -144,17 +144,46 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
         for (uint256 i; i < l; ++i) {
             address token = taa[i].token;
             uint256 amt = taa[i].amount;
+            if (amt == 0) continue;
             uint256 newAmountClaimed = rd.amountClaimed[token] + amt;
             if (newAmountClaimed > rd.maxReward[token]) {
                 revert MaxClaimedExceeded();
             }
             rd.amountClaimed[token] = newAmountClaimed;
-
             handleTokenTransfer(token, from, to, amt, isGuardedToken[i]);
         }
 
         emit RewardClaimed(msg.sender, to, nonce, from, taa, isGuardedToken);
     }
+
+    // ========= view accessors =========
+
+    function getRewardMeta(uint256 nonce)
+        external
+        view
+        returns (bytes32 merkleRoot, uint48 pushTimestamp, bool rejected)
+    {
+        RewardData storage rd = $rewardData[nonce];
+        return (rd.merkleRoot, rd.pushTimestamp, rd.rejected);
+    }
+
+    function getMaxReward(uint256 nonce, address token) external view returns (uint256) {
+        return $rewardData[nonce].maxReward[token];
+    }
+
+    function getAmountClaimed(uint256 nonce, address token) external view returns (uint256) {
+        return $rewardData[nonce].amountClaimed[token];
+    }
+
+    function isFinalized(uint256 nonce) external view returns (bool) {
+        return _isTimestampFinalized($rewardData[nonce].pushTimestamp);
+    }
+
+    function isClaimed(address user, uint256 nonce) external view returns (bool) {
+        return $claimedBitmap[user].get(nonce);
+    }
+
+    // ======== internal ========
 
     function handleTokenTransfer(address token, address from, address to, uint256 amount, bool isGuardedToken)
         internal

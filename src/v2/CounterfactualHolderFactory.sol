@@ -22,7 +22,7 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
     );
 
     event Execute(address indexed user, address indexed cfh, address indexed token, Call[] calls);
-    event Approval(address indexed from,address indexed operator, bool status);
+    event Approval(address indexed from, address indexed operator, bool status);
 
     struct UserTokenData {
         uint256 nextSalt;
