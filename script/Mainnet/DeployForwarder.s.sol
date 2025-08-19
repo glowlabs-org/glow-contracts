@@ -14,7 +14,7 @@ contract DeployForwarder is Test, Script {
         vm.startBroadcast();
         USDG usdg = USDG(0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2);
         IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-        Forwarder forwarder = new Forwarder(usdg, usdc);
+         new Forwarder(usdg, usdc);
         vm.stopBroadcast();
     }
 }

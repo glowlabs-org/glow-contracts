@@ -75,7 +75,7 @@ contract Forwarder is ReentrancyGuard {
         predicted = address(uint160(uint256(hash)));
     }
 
-    function _checkAmountAndLength(uint256 amount, string calldata message) internal {
+    function _checkAmountAndLength(uint256 amount, string calldata message) internal pure{
         if (amount == 0) {
             revert ZeroAmount();
         }

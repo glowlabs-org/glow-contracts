@@ -46,7 +46,7 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
         bytes32 baseNextHolderSlot = deriveNextHolderBaseSlot();
         baseNextHolderSlot.asAddress().tstore(nextHolder);
 
-        address cfh = address(new CounterfactualHolder{salt: bytes32(nextSalt)}(IERC20(token)));
+        address cfh = address(new CounterfactualHolder{salt: deriveUserNonce(msg.sender, token, nextSalt)}(IERC20(token)));
         d.nextSalt = nextSalt + 1;
 
         emit Execute(msg.sender, cfh, token, calls);
