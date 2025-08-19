@@ -73,6 +73,9 @@ deploy.seed.sepolia :; forge script script/Sepolia/Seed.t.sol --rpc-url ${SEPOLI
 deploy.forwarder.sepolia :; forge script script/Sepolia/DeployForwarder.s.sol --rpc-url ${SEPOLIA_RPC_URL} --broadcast -vvvv --private-key ${SEPOLIA_PRIVATE_KEY} \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
+deploy.forwarder.mainnet :; forge script script/Mainnet/DeployForwarder.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY} \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+
 #---- [Verify] -----------------------------------------------------------------------------------
 # verify.guardedlaunch :; verify :; forge verify-contract \
 #         --constructor-args $(cast abi-encode "constructor(address,address,address,address,address,address,address,address,address)" "0xea0f0B7497D043c553238E77eDa66C2965a67B43" "0xE414D49268837291fde21c33AD7e30233b7041C2" "0x4c2c9a36eC98eD9a1FfFD9122C1B366A73F20FAd" "0x18B6F81b92a9474d584d4F59A25E993337Aa49F9" "0xdE25F61A8F3BDf006A21b9284c6849c2818aeDb9" "0xD509A9480559337e924C764071009D60aaCA623d" "0x7734720e7Cea67b29f53800C4aD5C40e61aBb645" "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f" "0x71cEB276788c40D59E244087a1FBB185373aAB1A") \
