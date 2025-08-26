@@ -942,7 +942,7 @@ contract GlowGuardedLaunchTest is Test {
         vm.warp(glw.GENESIS_TIMESTAMP());
         glw.claimGLWFromGrantsTreasury();
         //Grants treasury starts with 6 million ether
-        uint256 startingBalance = 0 ether;
+        uint256 startingBalance = 6_000_000 ether;
         assertEq(glw.balanceOf(GRANTS_TREASURY), startingBalance);
 
         //Should be able to pull 40,000 * 1e18 tokens in 1 week

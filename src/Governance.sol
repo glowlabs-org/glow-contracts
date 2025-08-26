@@ -675,7 +675,7 @@ contract Governance is IGovernance, EIP712 {
      *                  - the total number of ratify/reject votes must always be lte than
      *                  - the total glow they have staked
      */
-    function ratifyOrReject(uint256 weekOfMostPopularProposal, bool trueForRatify, uint256 numVotes) external {
+    function ratifyOrReject(uint256 weekOfMostPopularProposal, bool trueForRatify, uint128 numVotes) external {
         //Cache the current week
         uint256 currentWeek = currentWeek();
         //Cache the most popular propsal at `weekOfMostPopularProposal`
@@ -726,10 +726,10 @@ contract Governance is IGovernance, EIP712 {
 
         //Spend the ratify/reject votes accordingly
         if (trueForRatify) {
-            _proposalLongStakerVotes[_mostPopularProposalOfWeek].ratifyVotes += uint128(numVotes);
+            _proposalLongStakerVotes[_mostPopularProposalOfWeek].ratifyVotes += numVotes;
             emit IGovernance.RatifyCast(_mostPopularProposalOfWeek, msg.sender, numVotes);
         } else {
-            _proposalLongStakerVotes[_mostPopularProposalOfWeek].rejectionVotes += uint128(numVotes);
+            _proposalLongStakerVotes[_mostPopularProposalOfWeek].rejectionVotes += numVotes;
             emit IGovernance.RejectCast(_mostPopularProposalOfWeek, msg.sender, numVotes);
         }
         //Update the amount of votes the sender has spent on this proposal
