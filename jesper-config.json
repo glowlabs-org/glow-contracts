@@ -1,0 +1,13 @@
+{
+  "outputFolder": "./jesper-bindings",
+  "typescript": true,
+  "framework": "foundry",
+  "contractsPath": "./src",
+  "excludedFiles": [
+    "./contracts/Migrations.sol"
+  ],
+  "extraIncludedFiles": [],
+  "modes": [
+    "EthersV5"
+  ]
+}
