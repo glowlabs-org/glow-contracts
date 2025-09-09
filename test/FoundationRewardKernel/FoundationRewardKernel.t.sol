@@ -9,6 +9,8 @@ import {Call} from "src/v2/Structs.sol";
 import {MockERC20} from "src/testing/MockERC20.sol";
 import {MockGuardERC20} from "src/testing/MockGuardERC20.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 contract FoundationRewardKernelTest is Test {
     FoundationRewardKernel internal kernel;
     CounterfactualHolderFactory internal factory;
@@ -422,4 +424,106 @@ contract FoundationRewardKernelTest is Test {
         assertEq(kernel.getAmountClaimed(nonce, address(unguarded)), amtU);
         assertEq(kernel.getAmountClaimed(nonce, address(guarded)), amtG);
     }
+
+    // function test_typescriptMerkleRootCheck() public {
+    //     //        const reward1:WalletReward = {
+    //     //     userAddress: "0x0000000000000000000000000000000000000001",
+    //     //     assetsEarned: new Map([["USDC", 1000n], ["USDG", 2000n], ["GLW", 3000n]]),
+    //     //     glowInflationEarned: 4000n,
+    //     //     traces:[]
+    //     // }
+    //     // const reward2:WalletReward = {
+    //     //     userAddress: "0x0000000000000000000000000000000000000002",
+    //     //     assetsEarned: new Map([["USDC", 1000n], ["USDG", 2000n], ["GLW", 3000n]]),
+    //     //     glowInflationEarned: 4000n,
+    //     //     traces:[]
+    //     // }
+
+    //     // const reward3:WalletReward = {
+    //     //     userAddress: "0x0000000000000000000000000000000000000003",
+    //     //     assetsEarned: new Map([["USDC", 123n], ["USDG", 123n], ["GLW", 123n]]),
+    //     //     glowInflationEarned: 4000n,
+    //     //     traces:[]
+    //     // }
+
+    //     // const reward4:WalletReward = {
+    //     //     userAddress: "0x0000000000000000000000000000000000000004",
+    //     //     assetsEarned: new Map([["USDC", 123n], ["USDG", 123n], ["GLW", 123n]]),
+    //     //     glowInflationEarned: 4000n,
+    //     //     traces:[]
+    //     // }
+
+    //     // const reward5:WalletReward = {
+    //     //     userAddress: "0x0000000000000000000000000000000000000005",
+    //     //     assetsEarned: new Map([["USDC", 123n], ["USDG", 123n], ["GLW", 123n]]),
+    //     //     glowInflationEarned: 4000n,
+    //     //     traces:[]
+    //     // }
+
+    //     //     const mainnetAddresses: Record<ContractKeys, `0x${string}`> = {
+    //     //   AUDIT_FEE_WALLET: "0x3ff5af3333ddc6048d98849ec5e67868494693c9",
+    //     //   IMPACT_CATALYST: "0x552Fbb4E0269fd5036daf72Ec006AAF6C958F4Fa",
+    //     //   USDG_REDEMPTION: "0x1c2cA537757e1823400F857EdBe72B55bbAe0F08",
+    //     //   USDG: "0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2",
+    //     //   GLW: "0xf4fbC617A5733EAAF9af08E1Ab816B103388d8B6",
+    //     //   USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    //     //   USDG_UNISWAP: "0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2",
+    //     //   GLW_UNISWAP: "0xf4fbC617A5733EAAF9af08E1Ab816B103388d8B6",
+    //     //   FORWARDER: "0x240CBe07a047ce484DCa2E3Ae15d4907Aba41BE2",
+    //     //   FOUNDATION_WALLET: "0xc5174BBf649a92F9941e981af68AaA14Dd814F85",
+    //     //   UNISWAP_V2_ROUTER: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    //     //   UNISWAP_V2_FACTORY: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+    //     // };
+    //     address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    //     address usdg = 0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2;
+    //     address glw = 0xf4fbC617A5733EAAF9af08E1Ab816B103388d8B6;
+
+    //     bytes32 root = 0x03ae0b3b1e9820d3c8eb15c34dddb81a0cbf8b0a33925e47f5ab93d9432aafea;
+
+    //     {
+    //         vm.startPrank(foundation);
+    //         //Tokens
+    //         FoundationRewardKernel.TokenAndAmount[] memory taaPost = new FoundationRewardKernel.TokenAndAmount[](3);
+    //         taaPost[0] = FoundationRewardKernel.TokenAndAmount({token: usdc, amount: 1000000});
+    //         taaPost[1] = FoundationRewardKernel.TokenAndAmount({token: usdg, amount: 1000000});
+    //         taaPost[2] = FoundationRewardKernel.TokenAndAmount({token: glw, amount: 1000000});
+    //         kernel.postPayoutRoot(root, taaPost);
+    //         vm.stopPrank();
+    //     }
+    //     // [ "0xbd689fade99b21eab3af8ca62f398e4f09877502dcbc7a6c57b6c4b64d7f1362", "0x3447530930bdc03a954aa4046bb589d0e72d4adcb339b4a33ecbf1a4387b28be",
+    //     //   "0x19da1186978c4f9c7f9640e7181442e29f45e35a6f60e855e04a09136a352d1e"
+    //     // ]
+
+    //     bytes32[] memory proof = new bytes32[](3);
+    //     proof[0] = 0xbd689fade99b21eab3af8ca62f398e4f09877502dcbc7a6c57b6c4b64d7f1362;
+    //     proof[1] = 0x3447530930bdc03a954aa4046bb589d0e72d4adcb339b4a33ecbf1a4387b28be;
+    //     proof[2] = 0x19da1186978c4f9c7f9640e7181442e29f45e35a6f60e855e04a09136a352d1e;
+
+    //     uint256 nonce = kernel.$nextPostNonce() - 1;
+    //     FoundationRewardKernel.TokenAndAmount[] memory taa0 = new FoundationRewardKernel.TokenAndAmount[](3);
+    //     taa0[0] = FoundationRewardKernel.TokenAndAmount({token: usdc, amount: 1000});
+    //     taa0[1] = FoundationRewardKernel.TokenAndAmount({token: usdg, amount: 2000});
+    //     taa0[2] = FoundationRewardKernel.TokenAndAmount({token: glw, amount: 3000});
+
+    //     bool[] memory isGuarded = new bool[](3);
+
+    //     vm.warp(block.timestamp + kernel.FINALITY() + 1);
+    //     vm.prank(address(0x0000000000000000000000000000000000000001));
+
+    //     try
+    //         kernel.claimPayout({
+    //         nonce: nonce,
+    //         proof: proof,
+    //         taa: taa0,
+    //         from: address(0xffffff),
+    //         to: address(0x0000000000000000000000000000000000000001),
+    //         isGuardedToken: isGuarded
+    //     }) {} catch(bytes memory err) {
+    //         console2.logBytes(err);
+    //         // Make sure the error is not FoundationRewardKernel.InvalidMerkleProof();
+    //     }
+    //     vm.stopPrank();
+
+    //     // You can just give USDC,USDG,and GLW whatever addres
+    // }
 }

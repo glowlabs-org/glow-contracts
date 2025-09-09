@@ -31,66 +31,69 @@ import {WETH9} from "@/UniswapV2/contracts/test/WETH9.sol";
 import {TestUSDG} from "@/testing/TestUSDG.sol";
 import {USDG} from "@/USDG.sol";
 import {Forwarder} from "@/Forwarder.sol";
+import {CounterfactualHolderFactory} from "@/v2/CounterfactualHolderFactory.sol";
 
 struct AccountWithPK {
     uint256 privateKey;
     address account;
 }
 
-contract USDGTest is Test {
+contract ForwarderTest is Test {
     //--------  CONTRACTS ---------//
     UnifapV2Factory public uniswapFactory;
     WETH9 public weth;
     UnifapV2Router public uniswapRouter;
     MockMinerPoolAndGCA minerPoolAndGCA;
-    TestGLOW glow;
-    MockUSDC usdc;
-    TestUSDG usdg;
-    MockUSDC grc2;
-    MockGovernance governance;
-    TestGCC gcc;
-    GrantsTreasury grantsTreasury;
-    SafetyDelay holdingContract;
-    AccountWithPK[10] accounts;
+    TestGLOW public glow;
+    MockUSDC public usdc;
+    TestUSDG public usdg;
+    MockUSDC public grc2;
+    MockGovernance public governance;
+    TestGCC public gcc;
+    GrantsTreasury public grantsTreasury;
+    SafetyDelay public holdingContract;
+    AccountWithPK[10] public accounts;
+    Forwarder public forwarder;
+    CounterfactualHolderFactory public cfhFactory;
 
     address mockImpactCatalyst = address(0x1233918293819389128);
 
     uint256 constant NOMINATION_DECIMALS = 12;
 
     //--------  ADDRESSES ---------//
-    address earlyLiquidity = address(0x2);
-    address vestingContract = address(0x3);
-    address vetoCouncilAddress;
-    VetoCouncil vetoCouncil;
-    address grantsTreasuryAddress = address(0x5);
-    address SIMON;
-    uint256 SIMON_PRIVATE_KEY;
-    address OTHER_VETO_1 = address(0x991);
-    address OTHER_VETO_2 = address(0x992);
-    address OTHER_VETO_3 = address(0x993);
-    address OTHER_VETO_4 = address(0x994);
-    address OTHER_VETO_5 = address(0x995);
-    address grantsRecipient = address(0x4123141);
+    address public earlyLiquidity = address(0x2);
+    address public vestingContract = address(0x3);
+    address public vetoCouncilAddress;
+    VetoCouncil public vetoCouncil;
+    address public grantsTreasuryAddress = address(0x5);
+    address public SIMON;
+    uint256 public SIMON_PRIVATE_KEY;
+    address public OTHER_VETO_1 = address(0x991);
+    address public OTHER_VETO_2 = address(0x992);
+    address public OTHER_VETO_3 = address(0x993);
+    address public OTHER_VETO_4 = address(0x994);
+    address public OTHER_VETO_5 = address(0x995);
+    address public grantsRecipient = address(0x4123141);
 
-    address OTHER_GCA = address(0x7);
-    address OTHER_GCA_2 = address(0x8);
-    address OTHER_GCA_3 = address(0x9);
-    address OTHER_GCA_4 = address(0x10);
-    address carbonCreditAuction = address(0x11);
-    address defaultAddressInWithdraw = address(0x555);
-    address bidder1 = address(0x12);
-    address bidder2 = address(0x13);
+    address public OTHER_GCA = address(0x7);
+    address public OTHER_GCA_2 = address(0x8);
+    address public OTHER_GCA_3 = address(0x9);
+    address public OTHER_GCA_4 = address(0x10);
+    address public carbonCreditAuction = address(0x11);
+    address public defaultAddressInWithdraw = address(0x555);
+    address public bidder1 = address(0x12);
+    address public bidder2 = address(0x13);
 
-    address usdgOwner = address(0xaaa112);
-    address usdcReceiver = address(0xaaa113);
+    address public usdgOwner = address(0xaaa112);
+    address public usdcReceiver = address(0xaaa113);
 
-    address[] startingAgents;
+    address[] public startingAgents;
 
     //--------  CONSTANTS ---------//
-    uint256 constant ONE_WEEK = 7 * uint256(1 days);
-    uint256 ONE_YEAR = 365 * uint256(1 days);
+    uint256 public constant ONE_WEEK = 7 * uint256(1 days);
+    uint256 public ONE_YEAR = 365 * uint256(1 days);
 
-    address deployer = tx.origin;
+    address public deployer = tx.origin;
 
     function setUp() public {
         vm.startPrank(deployer);
@@ -185,10 +188,11 @@ contract USDGTest is Test {
         usdg.swap(usdgOwner, 100000000 * 1e6);
         vm.stopPrank();
         seedLP(500 ether, 100000000 * 1e6);
+        cfhFactory = new CounterfactualHolderFactory();
+        forwarder = new Forwarder(USDG(address(usdg)), IERC20(address(usdc)), cfhFactory);
     }
 
     function test_counterfactualSwapper() public {
-        Forwarder forwarder = new Forwarder(USDG(address(usdg)), IERC20(address(usdc)));
         address receiver = makeAddr("receiver");
         vm.startPrank(usdgOwner);
 
@@ -196,7 +200,7 @@ contract USDGTest is Test {
         // mint some usdc to usdgOwner
         usdc.mint(usdgOwner, 1000 * 1e6);
         usdc.approve(address(forwarder), 1000 * 1e6);
-        forwarder.swapUSDCAndForwardUSDG(1000 * 1e6, receiver, "test");
+        forwarder.swapUSDCAndForwardUSDG(1000 * 1e6, receiver, false, "test");
 
         uint256 balAfter = usdg.balanceOf(receiver);
         assertEq(balAfter, 1000 * 1e6, "Bal should have been forwarded");
