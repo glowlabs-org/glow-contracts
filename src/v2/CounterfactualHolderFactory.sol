@@ -31,6 +31,34 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
     mapping(address user => mapping(address token => UserTokenData)) public userTokenData;
     mapping(address owner => mapping(address operator => bool status)) public approvals;
 
+    function transferCFHToCFH(address toUser, address token, uint256 amount) external nonReentrant {
+        _executeCFHTransfer(msg.sender, toUser, token, amount);
+    }
+
+    function transferFromCFHToCFH(address fromUser, address toUser, address token, uint256 amount)
+        external
+        nonReentrant
+    {
+        if (!isApproved(fromUser, msg.sender)) {
+            revert NotApproved(fromUser, msg.sender);
+        }
+        _executeCFHTransfer(fromUser, toUser, token, amount);
+    }
+
+    function _executeCFHTransfer(address fromUser, address toUser, address token, uint256 amount) internal {
+        UserTokenData storage d = userTokenData[toUser][token];
+        address currentHolder = _predictCFH(token, deriveUserNonce(toUser, token, d.nextSalt));
+
+        Call[] memory calls = new Call[](1);
+        calls[0] = Call({
+            target: address(token),
+            data: abi.encodeWithSelector(IERC20.transfer.selector, currentHolder, amount)
+        });
+        _execute(fromUser, token, calls);
+
+        emit TransferToCFH(fromUser, toUser, token, currentHolder, amount);
+    }
+
     function transferToCFH(address user, address token, uint256 amount) external nonReentrant {
         UserTokenData storage d = userTokenData[user][token];
         address currentHolder = _predictCFH(token, deriveUserNonce(user, token, d.nextSalt));
@@ -78,9 +106,13 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
         return approvals[from][operator];
     }
 
-    function getCurrentCFH(address user, address token) external view returns (address) {
+    function getCurrentCFH(address user, address token) public view returns (address) {
         UserTokenData storage d = userTokenData[user][token];
         return _predictCFH(token, deriveUserNonce(user, token, d.nextSalt));
+    }
+
+    function balanceOfCFH(address user, address token) external view returns (uint256) {
+        return IERC20(token).balanceOf(getCurrentCFH(user, token));
     }
 
     function deriveUserNonce(address user, address token, uint256 nonce) internal view returns (bytes32) {
