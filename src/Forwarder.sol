@@ -6,6 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {USDG} from "@/USDG.sol";
 import {CounterfactualSwapper} from "@/CounterfactualSwapper.sol";
+import {CounterfactualHolderFactory} from "@/v2/CounterfactualHolderFactory.sol";
 
 contract Forwarder is ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -17,18 +18,27 @@ contract Forwarder is ReentrancyGuard {
 
     USDG public immutable i_USDG;
     IERC20 public immutable i_USDC;
-
+    CounterfactualHolderFactory public immutable i_CFHFactory;
     uint256 public nextNonce;
 
-    constructor(USDG _usdg, IERC20 _usdc) payable {
+    constructor(USDG _usdg, IERC20 _usdc, CounterfactualHolderFactory _cfhFactory) payable {
         i_USDG = _usdg;
         i_USDC = _usdc;
+        i_CFHFactory = _cfhFactory;
     }
 
     event Forward(address indexed from, address indexed to, address indexed token, uint256 amount, string message);
 
-    function forward(address token, address to, uint256 amount, string calldata message) external nonReentrant {
+    function forward(
+        address token,
+        address to,
+        uint256 amount,
+        bool sendToCounterfactualWallet,
+        string calldata message
+    ) external nonReentrant {
         _checkAmountAndLength(amount, message);
+        address whoToSendTokensTo =
+            sendToCounterfactualWallet ? i_CFHFactory.getCurrentCFH({user: to, token: token}) : to;
         SafeERC20.safeTransferFrom(IERC20(token), msg.sender, to, amount);
         emit Forward(msg.sender, to, token, amount, message);
     }
@@ -41,14 +51,21 @@ contract Forwarder is ReentrancyGuard {
     /// @param amount The amount of USDC to swap.
     /// @param to The address to forward the USDG to.
     /// @param message The message to forward.
-    function swapUSDCAndForwardUSDG(uint256 amount, address to, string calldata message) external nonReentrant {
+    function swapUSDCAndForwardUSDG(
+        uint256 amount,
+        address to,
+        bool sendToCounterfactualWallet,
+        string calldata message
+    ) external nonReentrant {
         _checkAmountAndLength(amount, message);
+        address whoToSendUSDGTo =
+            sendToCounterfactualWallet ? i_CFHFactory.getCurrentCFH({user: to, token: address(i_USDG)}) : to;
         uint256 nonce = nextNonce;
-        address counterfactualSwapper = _predictCounterfactualSwapper(nonce, amount, to);
+        address counterfactualSwapper = _predictCounterfactualSwapper(nonce, amount, whoToSendUSDGTo);
 
         i_USDC.safeTransferFrom(msg.sender, counterfactualSwapper, amount);
 
-        new CounterfactualSwapper{salt: bytes32(nonce)}(i_USDG, i_USDC, amount, to);
+        new CounterfactualSwapper{salt: bytes32(nonce)}(i_USDG, i_USDC, amount, whoToSendUSDGTo);
 
         nextNonce = nonce + 1;
 

@@ -12,6 +12,7 @@ import {USDG} from "@/USDG.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MockUSDC} from "@/testing/MockUSDC.sol";
 import {USDG} from "@/USDG.sol";
+import {CounterfactualHolderFactory} from "@/v2/CounterfactualHolderFactory.sol";
 
 contract DeployForwarder is Test, Script {
     function run() external {
@@ -28,10 +29,11 @@ contract DeployForwarder is Test, Script {
             _vetoCouncilContract: address(this),
             _impactCatalyst: address(this)
         });
-
+        CounterfactualHolderFactory cfhFactory = new CounterfactualHolderFactory();
         Forwarder forwarder = new Forwarder({
             _usdg: USDG(0x2a085A3aEA8982396533327c854753Ce521B666d),
-            _usdc: IERC20(0x93C898be98cD2618bA84a6dccF5003d3bBE40356)
+            _usdc: IERC20(0x93C898be98cD2618bA84a6dccF5003d3bBE40356),
+            _cfhFactory: cfhFactory
         });
         vm.stopBroadcast();
     }

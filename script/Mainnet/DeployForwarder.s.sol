@@ -8,13 +8,15 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MockERC20} from "@/testing/MockERC20.sol";
 import {Forwarder} from "@/Forwarder.sol";
 import {USDG} from "@/USDG.sol";
+import {CounterfactualHolderFactory} from "@/v2/CounterfactualHolderFactory.sol";
 
 contract DeployForwarder is Test, Script {
     function run() external {
         vm.startBroadcast();
+        CounterfactualHolderFactory cfhFactory = new CounterfactualHolderFactory();
         USDG usdg = USDG(0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2);
         IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-        new Forwarder(usdg, usdc);
+        new Forwarder(usdg, usdc, cfhFactory);
         vm.stopBroadcast();
     }
 }
