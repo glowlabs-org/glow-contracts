@@ -14,17 +14,17 @@ import {Call} from "./Structs.sol";
 /**
  * @title FoundationRewardKernel
  * @notice A Merkle-tree based reward distribution system for the Glow Foundation
- * @dev This contract enables secure, verifiable token distributions while handling guarded tokens
+ * @dev This contract enables secure, verifiable token distributions while handlingf guarded tokens
  *      that have transfer restrictions. It works with CounterfactualHolderFactory to distribute
  *      tokens that can only be transferred between EOAs and allowlisted contracts.
- * 
+ *
  * Key features:
  * - Merkle tree-based reward verification
  * - Multi-signature security model with separation of concerns
  * - Support for both regular and guarded token distributions
  * - Time-delayed finality with rejection mechanism
  * - No custodied funds (tokens held externally)
- * 
+ *
  * Security model:
  * - Foundation multisig: Posts reward roots and maximum amounts
  * - Rejection multisig: Can reject bad roots within finality period
@@ -108,13 +108,13 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
     /// @notice Emitted when a nonce is rejected by the rejection multisig
     /// @param nonce The nonce that was rejected
     event NonceRejected(uint256 indexed nonce);
-    
+
     /// @notice Emitted when a new reward root is posted
     /// @param nonce The nonce for this reward distribution
     /// @param root The merkle root for reward verification
     /// @param taa Array of tokens and their maximum claimable amounts
     event RootPosted(uint256 indexed nonce, bytes32 indexed root, TokenAndAmount[] taa);
-    
+
     /// @notice Emitted when a user successfully claims rewards
     /// @param user The user who claimed the rewards
     /// @param to The address that received the tokens
