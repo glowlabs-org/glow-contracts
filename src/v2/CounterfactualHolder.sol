@@ -14,10 +14,10 @@ contract CounterfactualHolder {
     constructor(IERC20 _token) {
         ICounterfactualHolderFactory factory = ICounterfactualHolderFactory(msg.sender);
         Call[] memory _calls = factory.getTransientCalls();
-        address nextHolder = factory.getTransientNextHolder();
         _executeCalls(_calls);
         uint256 leftoverBalance = _token.balanceOf(address(this));
         if (leftoverBalance > 0) {
+            address nextHolder = factory.getTransientNextHolder();
             _token.safeTransfer(nextHolder, leftoverBalance);
         }
     }
