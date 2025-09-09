@@ -35,6 +35,7 @@ contract OffchainFractions is ReentrancyGuard {
     CounterfactualHolderFactory public immutable i_CFHFactory;
 
     event FractionCreated(
+        bytes32 indexed id,
         address indexed token,
         address indexed owner,
         uint256 step,
@@ -43,8 +44,8 @@ contract OffchainFractions is ReentrancyGuard {
         address to,
         bool useCounterfactualAddress
     );
-    event FractionSold(address indexed token, address indexed owner, uint256 step, uint256 amount);
-    event FractionClosed(address indexed token, address indexed owner);
+    event FractionSold(bytes32 indexed id, address indexed token, address indexed owner, uint256 step, uint256 amount);
+    event FractionClosed(bytes32 indexed id, address indexed token, address indexed owner);
 
     constructor(CounterfactualHolderFactory _counterfactualHolderFactory) {
         i_CFHFactory = _counterfactualHolderFactory;
@@ -76,7 +77,7 @@ contract OffchainFractions is ReentrancyGuard {
             useCounterfactualAddress: useCounterfactualAddress,
             to: to
         });
-        emit FractionCreated(token, msg.sender, step, totalSteps, expiration, to, useCounterfactualAddress);
+        emit FractionCreated(id, token, msg.sender, step, totalSteps, expiration, to, useCounterfactualAddress);
     }
 
     function buyFractions(bytes32 id, uint256 stepsToBuy) external nonReentrant {
@@ -100,7 +101,7 @@ contract OffchainFractions is ReentrancyGuard {
         IERC20(fraction.token).safeTransferFrom(msg.sender, sendTo, amount);
         fraction.soldSteps = newFractionsSold;
         amountPurchased[msg.sender][id] += amount;
-        emit FractionSold(fraction.token, msg.sender, fraction.step, amount);
+        emit FractionSold(id, fraction.token, msg.sender, fraction.step, amount);
     }
 
     function closeFraction(bytes32 id) external {
@@ -112,7 +113,7 @@ contract OffchainFractions is ReentrancyGuard {
             revert AlreadyClosed();
         }
         fraction.manuallyClosed = true;
-        emit FractionClosed(fraction.token, msg.sender);
+        emit FractionClosed(id, fraction.token, msg.sender);
     }
 
     function getFraction(address creator, bytes32 id) external view returns (FractionData memory) {
