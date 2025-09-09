@@ -30,7 +30,7 @@ contract OffchainFractions is ReentrancyGuard {
     }
 
     mapping(address user => mapping(bytes32 id => uint256 amountPurchased)) public amountPurchased;
-    mapping(address user => mapping(bytes32 id => FractionData)) private fractions;
+    mapping(address user => mapping(bytes32 id => FractionData)) private _fractions;
 
     CounterfactualHolderFactory public immutable i_CFHFactory;
 
@@ -59,13 +59,13 @@ contract OffchainFractions is ReentrancyGuard {
         address to,
         bool useCounterfactualAddress
     ) external nonReentrant {
-        if (fractions[msg.sender][id].totalSteps != 0) {
+        if (_fractions[msg.sender][id].totalSteps != 0) {
             revert AlreadyExists();
         }
         if (totalSteps == 0) {
             revert CannotHaveZeroTotalSteps();
         }
-        fractions[msg.sender][id] = FractionData({
+        _fractions[msg.sender][id] = FractionData({
             token: token,
             owner: msg.sender,
             step: step,
@@ -79,8 +79,8 @@ contract OffchainFractions is ReentrancyGuard {
         emit FractionCreated(token, msg.sender, step, totalSteps, expiration, to, useCounterfactualAddress);
     }
 
-    function sellFraction(bytes32 id, uint256 stepsToBuy) external nonReentrant {
-        FractionData storage fraction = fractions[msg.sender][id];
+    function buyFractions(bytes32 id, uint256 stepsToBuy) external nonReentrant {
+        FractionData storage fraction = _fractions[msg.sender][id];
         if (fraction.manuallyClosed) {
             revert AlreadyClosed();
         }
@@ -104,7 +104,7 @@ contract OffchainFractions is ReentrancyGuard {
     }
 
     function closeFraction(bytes32 id) external {
-        FractionData storage fraction = fractions[msg.sender][id];
+        FractionData storage fraction = _fractions[msg.sender][id];
         if (fraction.owner != msg.sender) {
             revert NotFractionsOwner();
         }
@@ -113,5 +113,9 @@ contract OffchainFractions is ReentrancyGuard {
         }
         fraction.manuallyClosed = true;
         emit FractionClosed(fraction.token, msg.sender);
+    }
+
+    function getFraction(address creator, bytes32 id) external view returns (FractionData memory) {
+        return _fractions[creator][id];
     }
 }
