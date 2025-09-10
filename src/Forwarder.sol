@@ -39,7 +39,7 @@ contract Forwarder is ReentrancyGuard {
         _checkAmountAndLength(amount, message);
         address whoToSendTokensTo =
             sendToCounterfactualWallet ? i_CFHFactory.getCurrentCFH({user: to, token: token}) : to;
-        SafeERC20.safeTransferFrom(IERC20(token), msg.sender, to, amount);
+        SafeERC20.safeTransferFrom(IERC20(token), msg.sender, whoToSendTokensTo, amount);
         emit Forward(msg.sender, to, token, amount, message);
     }
 
