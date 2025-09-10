@@ -33,6 +33,8 @@ contract OffchainFractions is ReentrancyGuard {
 
     error RecipientCannotBeSelf();
 
+    error InsufficientSharesAvailable();
+
     struct FractionData {
         address token;
         uint48 expiration;
@@ -123,48 +125,65 @@ contract OffchainFractions is ReentrancyGuard {
         );
     }
 
-    function buyFractions(address creator, bytes32 id, uint256 stepsToBuy) external nonReentrant {
+    function buyFractions(address creator, bytes32 id, uint256 stepsToBuy, uint256 minStepsToBuy)
+        external
+        nonReentrant
+    {
         FractionData storage fraction = _fractions[creator][id];
-        if (fraction.manuallyClosed) {
-            revert AlreadyClosed();
-        }
-        if (block.timestamp > fraction.expiration) {
-            revert Expired();
-        }
-        address token = fraction.token;
-        address toInStruct = fraction.to;
-        uint256 step = fraction.step;
-        address sendTo = fraction.useCounterfactualAddress
-            ? i_CFHFactory.getCurrentCFH({user: toInStruct, token: token})
-            : toInStruct;
-        uint256 amount = stepsToBuy * step;
-        uint256 soldSteps = fraction.soldSteps;
-        uint256 newFractionsSold = soldSteps + stepsToBuy;
-        uint256 minSharesToRaise = fraction.minSharesToRaise;
+        uint256 amount;
+        uint256 step;
+        uint256 newFractionsSold;
+        {
+            if (fraction.manuallyClosed) {
+                revert AlreadyClosed();
+            }
+            if (block.timestamp > fraction.expiration) {
+                revert Expired();
+            }
+            address token = fraction.token;
+            step = fraction.step;
+            address sendTo;
+            {
+                address toInStruct = fraction.to;
+                sendTo = fraction.useCounterfactualAddress
+                    ? i_CFHFactory.getCurrentCFH({user: toInStruct, token: token})
+                    : toInStruct;
+            }
+            uint256 soldSteps = fraction.soldSteps;
+            uint256 minSharesToRaise = fraction.minSharesToRaise;
+            uint256 totalSteps = fraction.totalSteps;
+            {
+                uint256 sharesLeft = totalSteps - soldSteps;
+                if (sharesLeft < minStepsToBuy) revert InsufficientSharesAvailable();
+                stepsToBuy = min(sharesLeft, stepsToBuy);
+            }
+            newFractionsSold = soldSteps + stepsToBuy;
+            amount = stepsToBuy * step;
 
-        if (newFractionsSold > fraction.totalSteps) {
-            revert MaxStepsReached();
-        }
-
-        bool roundFullyFilled = newFractionsSold == fraction.totalSteps;
-
-        if (roundFullyFilled) {
-            emit RoundFilled(id, creator);
-        }
-
-        if (newFractionsSold < minSharesToRaise) {
-            _safeTransferFromNoTaxToken(token, msg.sender, address(this), amount);
-        } else {
-            if (fraction.claimedFromMinSharesToRaise) {
-                IERC20(token).safeTransferFrom(msg.sender, sendTo, amount);
-            } else {
-                _safeTransferFromNoTaxToken(token, msg.sender, address(this), amount);
-                uint256 totalAmount = newFractionsSold * step;
-                IERC20(token).safeTransfer(sendTo, totalAmount);
+            if (newFractionsSold > fraction.totalSteps) {
+                revert MaxStepsReached();
             }
 
-            fraction.claimedFromMinSharesToRaise = true;
-            emit MinSharesReached(id, creator, minSharesToRaise, newFractionsSold);
+            bool roundFullyFilled = newFractionsSold == fraction.totalSteps;
+
+            if (roundFullyFilled) {
+                emit RoundFilled(id, creator);
+            }
+
+            if (newFractionsSold < minSharesToRaise) {
+                _safeTransferFromNoTaxToken(token, msg.sender, address(this), amount);
+            } else {
+                if (fraction.claimedFromMinSharesToRaise) {
+                    IERC20(token).safeTransferFrom(msg.sender, sendTo, amount);
+                } else {
+                    _safeTransferFromNoTaxToken(token, msg.sender, address(this), amount);
+                    uint256 totalAmount = newFractionsSold * step;
+                    IERC20(token).safeTransfer(sendTo, totalAmount);
+                }
+
+                fraction.claimedFromMinSharesToRaise = true;
+                emit MinSharesReached(id, creator, minSharesToRaise, newFractionsSold);
+            }
         }
 
         stepsPurchased[msg.sender][creator][id] += stepsToBuy;
@@ -233,5 +252,13 @@ contract OffchainFractions is ReentrancyGuard {
         if (balAfter - balBefore != amount) {
             revert TaxTokenNotSupported();
         }
+    }
+
+    function saturatingSub(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a > b ? a - b : 0;
+    }
+
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
     }
 }

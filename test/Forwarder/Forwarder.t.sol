@@ -33,6 +33,7 @@ import {USDG} from "@/USDG.sol";
 import {Forwarder} from "@/Forwarder.sol";
 import {CounterfactualHolderFactory} from "@/v2/CounterfactualHolderFactory.sol";
 import {Call} from "@/v2/Structs.sol";
+
 struct AccountWithPK {
     uint256 privateKey;
     address account;
@@ -225,12 +226,13 @@ contract ForwarderTest is Test {
         assertEq(bal2, 1000 * 1e6, "Bal should have been forwarded");
 
         address receiver2 = makeAddr("receiver2");
-        // Make a Call[] from the receiver to transfer it back to receiver 
+        // Make a Call[] from the receiver to transfer it back to receiver
 
         vm.startPrank(receiver);
         uint256 amount = 100 * 1e6;
         Call[] memory calls = new Call[](1);
-        calls[0] = Call({target: address(usdg), data: abi.encodeWithSelector(IERC20.transfer.selector, receiver2, amount)});
+        calls[0] =
+            Call({target: address(usdg), data: abi.encodeWithSelector(IERC20.transfer.selector, receiver2, amount)});
         cfhFactory.execute(address(usdg), calls);
         vm.stopPrank();
 
@@ -243,8 +245,6 @@ contract ForwarderTest is Test {
 
         address newCFHAddress = cfhFactory.getCurrentCFH(receiver, address(usdg));
         assertNotEq(newCFHAddress, cfh, "New CFH address should be different");
-
-    
 
         // uint256 balAfter = usdg.balanceOf(receiver);
         // assertEq(balAfter, 1000 * 1e6, "Bal should have been forwarded");
