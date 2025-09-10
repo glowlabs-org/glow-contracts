@@ -19,6 +19,7 @@ contract OffchainFractions is ReentrancyGuard {
     error AlreadyExists();
     error AlreadyClosed();
     error Expired();
+    error MinSharesCannotBeGreaterThanTotalSteps();
 
     // === Purchase/Sale Errors ===
     error InsufficientSharesAvailable();
@@ -38,6 +39,7 @@ contract OffchainFractions is ReentrancyGuard {
     error CannotClaimRefundWhenNotExpired();
     error CannotClaimPayoutWhenRoundNotFullyFilled();
     error CannotCloseAFullRound();
+    error TotalRaisedOverflow();
 
     // === Unused Errors (kept for compatibility) ===
     error AlreadyClaimed();
@@ -154,7 +156,7 @@ contract OffchainFractions is ReentrancyGuard {
         uint256 minSharesToRaise
     ) external nonReentrant {
         // Validate input parameters
-        _validateFractionCreationParams(token, to, step, totalSteps);
+        _validateFractionCreationParams(token, to, step, totalSteps, minSharesToRaise);
 
         // Ensure fraction doesn't already exist
         if (_fractions[msg.sender][id].totalSteps != 0) {
@@ -290,8 +292,9 @@ contract OffchainFractions is ReentrancyGuard {
      * @param to The recipient address
      * @param step The price per step
      * @param totalSteps The total number of steps
+     * @param minSharesToRaise The minimum number of steps to raise
      */
-    function _validateFractionCreationParams(address token, address to, uint256 step, uint256 totalSteps)
+    function _validateFractionCreationParams(address token, address to, uint256 step, uint256 totalSteps, uint256 minSharesToRaise)
         internal
         view
     {
@@ -300,6 +303,8 @@ contract OffchainFractions is ReentrancyGuard {
         if (step == 0) revert StepMustBeGreaterThanZero();
         if (totalSteps == 0) revert CannotHaveZeroTotalSteps();
         if (to == address(this)) revert RecipientCannotBeSelf();
+        if (minSharesToRaise > totalSteps) revert MinSharesCannotBeGreaterThanTotalSteps();
+        if (willMultiplyOverflow(step, totalSteps)) revert TotalRaisedOverflow();
     }
 
     /**
@@ -440,5 +445,16 @@ contract OffchainFractions is ReentrancyGuard {
      */
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
+    }
+
+    /// @notice Checks if a * b would overflow
+    /// @param a The first operand
+    /// @param b The second operand
+    /// @return bool True if multiplication would overflow, false otherwise
+    function willMultiplyOverflow(uint256 a, uint256 b) internal pure returns (bool) {
+        // Gas-optimized shortcut: zero can't overflow
+        if (a == 0 || b == 0) return false;
+        // Overflow occurs if a > type(uint256).max / b
+        return a > type(uint256).max / b;
     }
 }

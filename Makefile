@@ -13,7 +13,7 @@ install :; forge install --no-commit && npm install
 hardhat-test :; make hardhat.test.earlyLiquidity 
 
 # --- [Gen HTML] requires linux or wsl
-gen-lcov :; forge coverage --ffi --report lcov
+gen-lcov :; forge coverage --mc OffchainFractionsTest --ffi --report lcov
 
 gen-html :;  make gen-lcov && genhtml -o report --branch-coverage lcov.info --ignore-errors category
 
