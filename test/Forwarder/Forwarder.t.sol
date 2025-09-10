@@ -32,7 +32,7 @@ import {TestUSDG} from "@/testing/TestUSDG.sol";
 import {USDG} from "@/USDG.sol";
 import {Forwarder} from "@/Forwarder.sol";
 import {CounterfactualHolderFactory} from "@/v2/CounterfactualHolderFactory.sol";
-
+import {Call} from "@/v2/Structs.sol";
 struct AccountWithPK {
     uint256 privateKey;
     address account;
@@ -206,6 +206,48 @@ contract ForwarderTest is Test {
         assertEq(balAfter, 1000 * 1e6, "Bal should have been forwarded");
 
         vm.stopPrank();
+    }
+
+    function test_forwardWithCFH() public {
+        address receiver = makeAddr("receiver");
+        vm.startPrank(usdgOwner);
+        usdc.mint(usdgOwner, 1000 * 1e6);
+        usdc.approve(address(forwarder), 1000 * 1e6);
+        forwarder.swapUSDCAndForwardUSDG(1000 * 1e6, receiver, true, "test");
+
+        vm.stopPrank();
+
+        address cfh = cfhFactory.getCurrentCFH(receiver, address(usdg));
+        uint256 balAfter = usdg.balanceOf(cfh);
+        assertEq(balAfter, 1000 * 1e6, "Bal should have been forwarded");
+
+        uint256 bal2 = cfhFactory.balanceOfCFH(receiver, address(usdg));
+        assertEq(bal2, 1000 * 1e6, "Bal should have been forwarded");
+
+        address receiver2 = makeAddr("receiver2");
+        // Make a Call[] from the receiver to transfer it back to receiver 
+
+        vm.startPrank(receiver);
+        uint256 amount = 100 * 1e6;
+        Call[] memory calls = new Call[](1);
+        calls[0] = Call({target: address(usdg), data: abi.encodeWithSelector(IERC20.transfer.selector, receiver2, amount)});
+        cfhFactory.execute(address(usdg), calls);
+        vm.stopPrank();
+
+        uint256 balAfter2 = usdg.balanceOf(receiver2);
+        assertEq(balAfter2, 100 * 1e6, "Bal should have been forwarded");
+
+        //Make sure my CFH balance is 900 * 1e6
+        uint256 balAfter3 = cfhFactory.balanceOfCFH(receiver, address(usdg));
+        assertEq(balAfter3, 900 * 1e6, "Bal should have been forwarded");
+
+        address newCFHAddress = cfhFactory.getCurrentCFH(receiver, address(usdg));
+        assertNotEq(newCFHAddress, cfh, "New CFH address should be different");
+
+    
+
+        // uint256 balAfter = usdg.balanceOf(receiver);
+        // assertEq(balAfter, 1000 * 1e6, "Bal should have been forwarded");
     }
 
     function _createAccount(uint256 privateKey, uint256 amount)
