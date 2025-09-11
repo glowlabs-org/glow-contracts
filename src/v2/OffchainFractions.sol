@@ -22,7 +22,6 @@ contract OffchainFractions is ReentrancyGuard {
     error MinSharesCannotBeGreaterThanTotalSteps();
     error NotFractionsCloser();
 
-
     // === Purchase/Sale Errors ===
     error InsufficientSharesAvailable();
     error NoStepsPurchased();
@@ -270,9 +269,9 @@ contract OffchainFractions is ReentrancyGuard {
      * @param creator The address that created the fraction sale
      * @param id The unique identifier of the fraction sale to close
      */
-    function closeFraction(address creator,bytes32 id) external {
+    function closeFraction(address creator, bytes32 id) external nonReentrant {
         FractionData storage fraction = _fractions[creator][id];
-        if(msg.sender != fraction.closer) {
+        if (msg.sender != fraction.closer) {
             revert NotFractionsCloser();
         }
 

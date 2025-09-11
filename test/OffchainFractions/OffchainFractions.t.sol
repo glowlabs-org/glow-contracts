@@ -136,7 +136,16 @@ contract OffchainFractionsTest is Test {
         vm.prank(creator);
         vm.expectEmit(true, true, true, true);
         emit FractionCreated(
-            FRACTION_ID, address(token), creator, STEP_PRICE, TOTAL_STEPS, EXPIRATION_TIME, recipient, false, MIN_SHARES, creator
+            FRACTION_ID,
+            address(token),
+            creator,
+            STEP_PRICE,
+            TOTAL_STEPS,
+            EXPIRATION_TIME,
+            recipient,
+            false,
+            MIN_SHARES,
+            creator
         );
 
         offchainFractions.createFraction(
@@ -455,7 +464,8 @@ contract OffchainFractionsTest is Test {
             EXPIRATION_TIME,
             recipient,
             false,
-            MIN_SHARES, creator
+            MIN_SHARES,
+            creator
         );
     }
 
@@ -479,7 +489,15 @@ contract OffchainFractionsTest is Test {
         vm.prank(creator);
         vm.expectRevert(OffchainFractions.InvalidToAddress.selector);
         offchainFractions.createFraction(
-            FRACTION_ID, address(token), STEP_PRICE, TOTAL_STEPS, EXPIRATION_TIME, address(0), false, MIN_SHARES, creator
+            FRACTION_ID,
+            address(token),
+            STEP_PRICE,
+            TOTAL_STEPS,
+            EXPIRATION_TIME,
+            address(0),
+            false,
+            MIN_SHARES,
+            creator
         );
     }
 
@@ -494,7 +512,8 @@ contract OffchainFractionsTest is Test {
             EXPIRATION_TIME,
             address(offchainFractions),
             false,
-            MIN_SHARES, creator
+            MIN_SHARES,
+            creator
         );
     }
 
@@ -509,7 +528,8 @@ contract OffchainFractionsTest is Test {
             EXPIRATION_TIME,
             recipient,
             false,
-            MIN_SHARES, creator
+            MIN_SHARES,
+            creator
         );
     }
 
@@ -573,7 +593,15 @@ contract OffchainFractionsTest is Test {
         // Create fraction with tax token
         vm.prank(creator);
         offchainFractions.createFraction(
-            FRACTION_ID, address(taxToken), STEP_PRICE, TOTAL_STEPS, EXPIRATION_TIME, recipient, false, MIN_SHARES, creator
+            FRACTION_ID,
+            address(taxToken),
+            STEP_PRICE,
+            TOTAL_STEPS,
+            EXPIRATION_TIME,
+            recipient,
+            false,
+            MIN_SHARES,
+            creator
         );
 
         // Try to buy with tax token - should fail due to tax
@@ -596,7 +624,8 @@ contract OffchainFractionsTest is Test {
             EXPIRATION_TIME,
             recipient,
             false,
-            MIN_SHARES, creator
+            MIN_SHARES,
+            creator
         );
     }
 
@@ -608,7 +637,15 @@ contract OffchainFractionsTest is Test {
         // This should work (exactly at boundary)
         vm.prank(creator);
         offchainFractions.createFraction(
-            FRACTION_ID, address(token), maxStepPrice, maxSteps, EXPIRATION_TIME, recipient, false, maxSteps / 2, creator
+            FRACTION_ID,
+            address(token),
+            maxStepPrice,
+            maxSteps,
+            EXPIRATION_TIME,
+            recipient,
+            false,
+            maxSteps / 2,
+            creator
         );
 
         // Verify fraction was created successfully
@@ -628,7 +665,8 @@ contract OffchainFractionsTest is Test {
             EXPIRATION_TIME,
             recipient,
             false,
-            maxSteps / 2, creator
+            maxSteps / 2,
+            creator
         );
     }
 
@@ -644,7 +682,8 @@ contract OffchainFractionsTest is Test {
             EXPIRATION_TIME,
             recipient,
             false,
-            MIN_SHARES, creator
+            MIN_SHARES,
+            creator
         );
 
         // Test zero total steps
@@ -658,7 +697,8 @@ contract OffchainFractionsTest is Test {
             EXPIRATION_TIME,
             recipient,
             false,
-            MIN_SHARES, creator
+            MIN_SHARES,
+            creator
         );
     }
 
@@ -929,7 +969,15 @@ contract OffchainFractionsTest is Test {
         } else {
             // Should succeed
             offchainFractions.createFraction(
-                FRACTION_ID, address(token), stepPrice, totalSteps, EXPIRATION_TIME, recipient, false, totalSteps / 2, creator
+                FRACTION_ID,
+                address(token),
+                stepPrice,
+                totalSteps,
+                EXPIRATION_TIME,
+                recipient,
+                false,
+                totalSteps / 2,
+                creator
             );
 
             // Verify fraction was created
@@ -952,7 +1000,8 @@ contract OffchainFractionsTest is Test {
             type(uint48).max,
             recipient,
             false,
-            type(uint128).max, creator
+            type(uint128).max,
+            creator
         );
 
         // Verify the fraction was created successfully
@@ -1177,8 +1226,16 @@ contract OffchainFractionsTest is Test {
         // Different creator should be able to use same ID
         address creator2 = makeAddr("creator2");
         vm.prank(creator2);
-                offchainFractions.createFraction(
-            sameId, address(token), STEP_PRICE * 2, TOTAL_STEPS / 2, EXPIRATION_TIME, recipient, false, MIN_SHARES / 2, creator2
+        offchainFractions.createFraction(
+            sameId,
+            address(token),
+            STEP_PRICE * 2,
+            TOTAL_STEPS / 2,
+            EXPIRATION_TIME,
+            recipient,
+            false,
+            MIN_SHARES / 2,
+            creator2
         );
 
         // Verify both fractions exist independently
@@ -1342,7 +1399,7 @@ contract OffchainFractionsTest is Test {
             EXPIRATION_TIME,
             recipient,
             true, // Use counterfactual address
-            MIN_SHARES, 
+            MIN_SHARES,
             creator
         );
 
