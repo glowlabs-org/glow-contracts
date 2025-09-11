@@ -149,6 +149,7 @@ contract OffchainFractions is ReentrancyGuard {
      * @param to Recipient address for the raised funds
      * @param useCounterfactualAddress Whether to use a counterfactual holder for the recipient
      * @param minSharesToRaise Minimum steps required for the sale to be valid (0 = no minimum)
+     * @param closer The address that is allowed to manually close the sale
      */
     function createFraction(
         bytes32 id,
@@ -245,6 +246,7 @@ contract OffchainFractions is ReentrancyGuard {
         // Check if refund conditions are met (expired OR manually closed)
         bool expired = block.timestamp > fraction.expiration;
         bool manuallyClosed = fraction.manuallyClosed;
+        // equivalent to require(manually closed || expired)
         if (!manuallyClosed && !expired) {
             revert CannotClaimRefundWhenNotExpired();
         }
@@ -252,6 +254,8 @@ contract OffchainFractions is ReentrancyGuard {
         // Calculate refund amount and update state
         uint256 amount = _stepsPurchased * fraction.step;
         stepsPurchased[msg.sender][creator][id] = 0;
+        /// @auditor - Let me know if you think we can remove this,
+        /// I don't think it's necessary
         fraction.soldSteps = soldSteps - _stepsPurchased;
 
         // Transfer refund to user
