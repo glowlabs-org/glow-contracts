@@ -19,8 +19,9 @@ contract DeployOffchainFractions is Test, Script {
     function run() external {
         vm.startBroadcast();
 
-        CounterfactualHolderFactory cfhFactory = new CounterfactualHolderFactory();
-        OffchainFractions offchainFractions = new OffchainFractions(cfhFactory);
+        // CounterfactualHolderFactory cfhFactory = new CounterfactualHolderFactory();
+        OffchainFractions offchainFractions =
+            new OffchainFractions(CounterfactualHolderFactory(0x2c3AB887746F6f4a8a4b9Db6aC800eb71945509A));
 
         vm.stopBroadcast();
     }

@@ -20,6 +20,8 @@ contract OffchainFractions is ReentrancyGuard {
     error AlreadyClosed();
     error Expired();
     error MinSharesCannotBeGreaterThanTotalSteps();
+    error NotFractionsCloser();
+
 
     // === Purchase/Sale Errors ===
     error InsufficientSharesAvailable();
@@ -59,6 +61,7 @@ contract OffchainFractions is ReentrancyGuard {
      * @param to The recipient address for the raised funds
      * @param soldSteps Number of steps already sold
      * @param totalSteps Total number of steps available for sale
+     * @param closer The address that manually closed the sale
      */
     struct FractionData {
         address token;
@@ -72,6 +75,7 @@ contract OffchainFractions is ReentrancyGuard {
         address to;
         uint256 soldSteps;
         uint256 totalSteps;
+        address closer;
     }
 
     /**
@@ -110,7 +114,8 @@ contract OffchainFractions is ReentrancyGuard {
         uint48 expiration,
         address to,
         bool useCounterfactualAddress,
-        uint256 minSharesToRaise
+        uint256 minSharesToRaise,
+        address closer
     );
 
     /// @notice Emitted when steps are purchased in a fraction sale
@@ -153,7 +158,8 @@ contract OffchainFractions is ReentrancyGuard {
         uint48 expiration,
         address to,
         bool useCounterfactualAddress,
-        uint256 minSharesToRaise
+        uint256 minSharesToRaise,
+        address closer
     ) external nonReentrant {
         // Validate input parameters
         _validateFractionCreationParams(token, to, step, totalSteps, minSharesToRaise);
@@ -175,11 +181,12 @@ contract OffchainFractions is ReentrancyGuard {
             useCounterfactualAddress: useCounterfactualAddress,
             to: to,
             minSharesToRaise: minSharesToRaise,
-            claimedFromMinSharesToRaise: minSharesToRaise == 0
+            claimedFromMinSharesToRaise: minSharesToRaise == 0,
+            closer: closer
         });
 
         emit FractionCreated(
-            id, token, msg.sender, step, totalSteps, expiration, to, useCounterfactualAddress, minSharesToRaise
+            id, token, msg.sender, step, totalSteps, expiration, to, useCounterfactualAddress, minSharesToRaise, closer
         );
     }
 
@@ -256,10 +263,14 @@ contract OffchainFractions is ReentrancyGuard {
      * @notice Manually close a fraction sale before expiration
      * @dev Only the creator can close their own fraction sale
      * @dev Can only close if the round hasn't reached minimum shares threshold
+     * @param creator The address that created the fraction sale
      * @param id The unique identifier of the fraction sale to close
      */
-    function closeFraction(bytes32 id) external {
-        FractionData storage fraction = _fractions[msg.sender][id];
+    function closeFraction(address creator,bytes32 id) external {
+        FractionData storage fraction = _fractions[creator][id];
+        if(msg.sender != fraction.closer) {
+            revert NotFractionsCloser();
+        }
 
         // Validate closure conditions
         if (fraction.manuallyClosed) {
@@ -271,7 +282,7 @@ contract OffchainFractions is ReentrancyGuard {
 
         // Mark as manually closed
         fraction.manuallyClosed = true;
-        emit FractionClosed(id, fraction.token, msg.sender);
+        emit FractionClosed(id, fraction.token, creator);
     }
 
     /**
@@ -294,10 +305,13 @@ contract OffchainFractions is ReentrancyGuard {
      * @param totalSteps The total number of steps
      * @param minSharesToRaise The minimum number of steps to raise
      */
-    function _validateFractionCreationParams(address token, address to, uint256 step, uint256 totalSteps, uint256 minSharesToRaise)
-        internal
-        view
-    {
+    function _validateFractionCreationParams(
+        address token,
+        address to,
+        uint256 step,
+        uint256 totalSteps,
+        uint256 minSharesToRaise
+    ) internal view {
         if (token == address(0)) revert InvalidToken();
         if (to == address(0)) revert InvalidToAddress();
         if (step == 0) revert StepMustBeGreaterThanZero();
