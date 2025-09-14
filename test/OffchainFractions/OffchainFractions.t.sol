@@ -293,7 +293,7 @@ contract OffchainFractionsTest is Test {
         vm.expectEmit(true, true, true, true);
         emit FractionRefunded(FRACTION_ID, creator, buyer1, expectedRefund);
 
-        offchainFractions.claimRefund(creator, FRACTION_ID);
+        offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
 
         assertEq(token.balanceOf(buyer1), balanceBefore + expectedRefund);
         assertEq(offchainFractions.stepsPurchased(buyer1, creator, FRACTION_ID), 0);
@@ -310,7 +310,7 @@ contract OffchainFractionsTest is Test {
 
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.CannotClaimRefundWhenRoundFullyFilled.selector);
-        offchainFractions.claimRefund(creator, FRACTION_ID);
+        offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
     }
 
     // ============ UNIT TESTS - CLOSE FRACTION ============
@@ -341,7 +341,7 @@ contract OffchainFractionsTest is Test {
         step = bound(step, 1, type(uint128).max);
         totalSteps = bound(totalSteps, 1, type(uint128).max);
         minShares = bound(minShares, 0, totalSteps);
-        expiration = uint48(bound(expiration, block.timestamp, type(uint48).max));
+        expiration = uint48(bound(expiration, block.timestamp+1, type(uint48).max));
 
         vm.prank(creator);
         offchainFractions.createFraction(
@@ -450,7 +450,7 @@ contract OffchainFractionsTest is Test {
 
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.NoStepsPurchased.selector);
-        offchainFractions.claimRefund(creator, FRACTION_ID);
+        offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
     }
 
     function test_error_StepMustBeGreaterThanZero() public {
@@ -543,7 +543,7 @@ contract OffchainFractionsTest is Test {
 
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.CannotClaimRefundWhenRoundFullyFilled.selector);
-        offchainFractions.claimRefund(creator, FRACTION_ID);
+        offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
     }
 
     function test_error_CannotClaimRefundWhenNotExpired() public {
@@ -554,7 +554,7 @@ contract OffchainFractionsTest is Test {
 
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.CannotClaimRefundWhenNotExpired.selector);
-        offchainFractions.claimRefund(creator, FRACTION_ID);
+        offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
     }
 
     function test_error_CannotCloseAFullRound() public {
@@ -921,7 +921,7 @@ contract OffchainFractionsTest is Test {
 
         // First buyer claims refund
         vm.prank(buyer1);
-        offchainFractions.claimRefund(creator, FRACTION_ID);
+        offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
 
         // Verify state after first refund
         assertEq(token.balanceOf(buyer1), buyer1BalanceBefore + (stepsBought1 * STEP_PRICE), "buyer1 refund amount");
@@ -932,7 +932,7 @@ contract OffchainFractionsTest is Test {
 
         // Second buyer claims refund
         vm.prank(buyer2);
-        offchainFractions.claimRefund(creator, FRACTION_ID);
+        offchainFractions.claimRefund(buyer2, creator, FRACTION_ID);
 
         // Verify final state
         assertEq(token.balanceOf(buyer2), buyer2BalanceBefore + (stepsBought2 * STEP_PRICE), "buyer2 refund amount");
@@ -1024,12 +1024,12 @@ contract OffchainFractionsTest is Test {
 
         vm.warp(EXPIRATION_TIME + 1);
         vm.prank(buyer1);
-        offchainFractions.claimRefund(creator, FRACTION_ID);
+        offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
 
         // Try to claim refund again - should fail with NoStepsPurchased
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.NoStepsPurchased.selector);
-        offchainFractions.claimRefund(creator, FRACTION_ID);
+        offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
     }
 
     function test_adversarial_RaceConditionMinShares() public {
@@ -1277,7 +1277,7 @@ contract OffchainFractionsTest is Test {
         // Buyers should not be able to claim refund when minimum was reached
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.CannotClaimRefundWhenRoundFullyFilled.selector);
-        offchainFractions.claimRefund(creator, FRACTION_ID);
+        offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
     }
 
     function test_adversarial_EmptyFractionQuery() public {

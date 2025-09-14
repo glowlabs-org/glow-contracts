@@ -44,6 +44,7 @@ contract OffchainFractions is ReentrancyGuard {
     error CannotClaimPayoutWhenRoundNotFullyFilled();
     error CannotCloseAFullRound();
     error TotalRaisedOverflow();
+    error RefundOperatorNotApproved();
 
     // === Unused Errors (kept for compatibility) ===
     error AlreadyClaimed();
@@ -99,9 +100,12 @@ contract OffchainFractions is ReentrancyGuard {
     mapping(address user => mapping(address creator => mapping(bytes32 id => uint256 stepsPurchased))) public
         stepsPurchased;
 
+    mapping(address user => mapping(address refundOperator => bool isApproved)) public refundApprovals;
+
     /// @notice Stores fraction sale data indexed by creator and fraction ID
     mapping(address user => mapping(bytes32 id => FractionData)) private _fractions;
 
+    address public constant REFUND_WILDCARD_OPERATOR = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
     /// @notice Factory contract for creating counterfactual holder addresses
     CounterfactualHolderFactory public immutable i_CFHFactory;
 
@@ -135,6 +139,8 @@ contract OffchainFractions is ReentrancyGuard {
 
     /// @notice Emitted when the minimum shares threshold is reached and funds are released
     event MinSharesReached(bytes32 indexed id, address indexed creator, uint256 minShares, uint256 newTotalSharesSold);
+
+    event RefundOperatorStatusSet(address indexed user, address indexed refundOperator, bool isApproved);
 
     constructor(CounterfactualHolderFactory _counterfactualHolderFactory) {
         i_CFHFactory = _counterfactualHolderFactory;
@@ -234,7 +240,10 @@ contract OffchainFractions is ReentrancyGuard {
      * @param creator The address that created the fraction sale
      * @param id The unique identifier of the fraction sale
      */
-    function claimRefund(address creator, bytes32 id) external nonReentrant {
+    function claimRefund(address user,address creator, bytes32 id) external nonReentrant {
+        if (!isRefundOperatorApproved(user, msg.sender)) {
+            revert RefundOperatorNotApproved();
+        }
         uint256 _stepsPurchased = stepsPurchased[msg.sender][creator][id];
         if (_stepsPurchased == 0) {
             revert NoStepsPurchased();
@@ -298,6 +307,11 @@ contract OffchainFractions is ReentrancyGuard {
         emit FractionClosed(id, fraction.token, creator);
     }
 
+    function setRefundOperatorStatus(address refundOperator, bool isApproved) external {
+        refundApprovals[msg.sender][refundOperator] = isApproved;
+        emit RefundOperatorStatusSet(msg.sender, refundOperator, isApproved);
+    }
+
     /**
      * @notice Get the fraction sale data for a specific creator and ID
      * @param creator The address that created the fraction sale
@@ -306,6 +320,13 @@ contract OffchainFractions is ReentrancyGuard {
      */
     function getFraction(address creator, bytes32 id) external view returns (FractionData memory) {
         return _fractions[creator][id];
+    }
+
+    function isRefundOperatorApproved(address user, address refundOperator) public view returns (bool) {
+        if (msg.sender == user) return true;
+        bool isWildcardOperatorApproved = refundApprovals[user][REFUND_WILDCARD_OPERATOR];
+        if (isWildcardOperatorApproved) return true;
+        return refundApprovals[user][refundOperator];
     }
 
     // ============ INTERNAL FUNCTIONS ============
@@ -323,7 +344,7 @@ contract OffchainFractions is ReentrancyGuard {
         address to,
         uint256 step,
         uint256 totalSteps,
-        uint256 minSharesToRaise,   
+        uint256 minSharesToRaise,
         uint48 expiration
     ) internal view {
         if (token == address(0)) revert InvalidToken();
