@@ -1141,7 +1141,7 @@ contract OffchainFractionsTest is Test {
         // Now try to buy with minStepsToBuy > available steps
         vm.prank(buyer2);
         vm.expectRevert(OffchainFractions.InsufficientSharesAvailable.selector);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 6, 6); 
+        offchainFractions.buyFractions(creator, FRACTION_ID, 6, 6);
     }
 
     function test_adversarial_MinStepsToBuyGreaterThanRequest() public {

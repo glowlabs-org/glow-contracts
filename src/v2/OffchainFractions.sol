@@ -288,6 +288,9 @@ contract OffchainFractions is ReentrancyGuard {
         if (fraction.soldSteps >= fraction.minSharesToRaise) {
             revert CannotCloseAFullRound();
         }
+        if (block.timestamp > fraction.expiration) {
+            revert Expired();
+        }
 
         // Mark as manually closed
         fraction.manuallyClosed = true;
