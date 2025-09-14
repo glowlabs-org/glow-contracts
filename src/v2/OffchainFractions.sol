@@ -36,6 +36,7 @@ contract OffchainFractions is ReentrancyGuard {
     error RecipientCannotBeSelf();
     error CannotHaveZeroTotalSteps();
     error TaxTokenNotSupported();
+    error ExpirationMustBeInTheFuture();
 
     // === Refund/Claim Errors ===
     error CannotClaimRefundWhenRoundFullyFilled();
@@ -163,7 +164,7 @@ contract OffchainFractions is ReentrancyGuard {
         address closer
     ) external nonReentrant {
         // Validate input parameters
-        _validateFractionCreationParams(token, to, step, totalSteps, minSharesToRaise);
+        _validateFractionCreationParams(token, to, step, totalSteps, minSharesToRaise, expiration);
 
         // Ensure fraction doesn't already exist
         if (_fractions[msg.sender][id].totalSteps != 0) {
@@ -322,7 +323,8 @@ contract OffchainFractions is ReentrancyGuard {
         address to,
         uint256 step,
         uint256 totalSteps,
-        uint256 minSharesToRaise
+        uint256 minSharesToRaise,   
+        uint48 expiration
     ) internal view {
         if (token == address(0)) revert InvalidToken();
         if (to == address(0)) revert InvalidToAddress();
@@ -330,6 +332,7 @@ contract OffchainFractions is ReentrancyGuard {
         if (totalSteps == 0) revert CannotHaveZeroTotalSteps();
         if (to == address(this)) revert RecipientCannotBeSelf();
         if (minSharesToRaise > totalSteps) revert MinSharesCannotBeGreaterThanTotalSteps();
+        if (expiration <= block.timestamp) revert ExpirationMustBeInTheFuture();
         if (willMultiplyOverflow(step, totalSteps)) revert TotalRaisedOverflow();
     }
 
