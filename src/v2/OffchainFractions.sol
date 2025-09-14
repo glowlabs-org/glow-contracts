@@ -366,6 +366,10 @@ contract OffchainFractions is ReentrancyGuard {
         return _fractions[creator][id];
     }
 
+    function getRefundDetails(address user, address creator, bytes32 id) external view returns (RefundDetails memory) {
+        return _refundDetails[user][creator][id];
+    }
+
     /**
      * @notice Checks if a refund operator is approved for a specific user
      * @dev The function first checks if the caller is the user, in which case it returns true.
