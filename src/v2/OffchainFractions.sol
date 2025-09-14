@@ -5,12 +5,13 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CounterfactualHolderFactory} from "./CounterfactualHolderFactory.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
+import {Call} from "./Structs.sol";
 /**
  * @title OffchainFractions
  * @notice A contract for creating and managing fractional token sales with optional minimum raise requirements
  * @dev Supports both direct transfers and counterfactual holder addresses for recipients
  */
+
 contract OffchainFractions is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -213,7 +214,7 @@ contract OffchainFractions is ReentrancyGuard {
         PurchaseDetails memory details = _calculatePurchaseDetails(fraction, stepsToBuy, minStepsToBuy);
 
         // Handle the token transfers based on minimum shares logic
-        _handlePurchaseTransfers(fraction, details, creator, id);
+        _handlePurchaseTransfers(fraction, details, creator, id,fraction.useCounterfactualAddress);
 
         // Update state and emit events
         _finalizePurchase(fraction, details, creator, id);
@@ -380,7 +381,8 @@ contract OffchainFractions is ReentrancyGuard {
         FractionData storage fraction,
         PurchaseDetails memory details,
         address creator,
-        bytes32 id
+        bytes32 id,
+        bool isGuardedToken
     ) internal {
         address token = fraction.token;
         uint256 minSharesToRaise = fraction.minSharesToRaise;
@@ -388,7 +390,7 @@ contract OffchainFractions is ReentrancyGuard {
         /// If `minShares` has not been reached, send funds to the contract.
         if (details.newFractionsSold < minSharesToRaise) {
             // Below minimum threshold - hold funds in contract
-            _safeTransferFromNoTaxToken(token, msg.sender, address(this), details.amount);
+            _safeTransferFromNoTaxToken(token, msg.sender, address(this), details.amount, isGuardedToken);
         }
         // If `minShares` has been reached
         // If it's the first time reaching `minShares`, transfer all accumulated funds to the recipient. and mark it as claimed.
@@ -400,9 +402,18 @@ contract OffchainFractions is ReentrancyGuard {
                 IERC20(token).safeTransferFrom(msg.sender, details.sendTo, details.amount);
             } else {
                 // First time reaching minimum - transfer all accumulated funds
-                _safeTransferFromNoTaxToken(token, msg.sender, address(this), details.amount);
+                _safeTransferFromNoTaxToken(token, msg.sender, address(this), details.amount, isGuardedToken);
                 uint256 totalAmount = details.newFractionsSold * fraction.step;
-                IERC20(token).safeTransfer(details.sendTo, totalAmount);
+                if (isGuardedToken) {
+                    Call[] memory calls = new Call[](1);
+                    calls[0] = Call({
+                        target: address(token),
+                        data: abi.encodeWithSelector(IERC20.transfer.selector, details.sendTo, totalAmount)
+                    });
+                    i_CFHFactory.execute(token, calls);
+                } else {
+                    IERC20(token).safeTransfer(details.sendTo, totalAmount);
+                }
                 fraction.claimedFromMinSharesToRaise = true;
                 // For `0` min shares, this won't be emitted.
                 emit MinSharesReached(id, creator, minSharesToRaise, details.newFractionsSold);
@@ -445,10 +456,13 @@ contract OffchainFractions is ReentrancyGuard {
      * @param to The address to transfer to
      * @param amount The amount to transfer
      */
-    function _safeTransferFromNoTaxToken(address token, address from, address to, uint256 amount) internal {
-        uint256 balBefore = IERC20(token).balanceOf(to);
-        IERC20(token).safeTransferFrom(from, to, amount);
-        uint256 balAfter = IERC20(token).balanceOf(to);
+    function _safeTransferFromNoTaxToken(address token, address from, address to, uint256 amount, bool isGuardedToken)
+        internal
+    {
+        address sendTo = isGuardedToken ? i_CFHFactory.getCurrentCFH({user: to, token: token}) : to;
+        uint256 balBefore = IERC20(token).balanceOf(sendTo);
+        IERC20(token).safeTransferFrom(from, sendTo, amount);
+        uint256 balAfter = IERC20(token).balanceOf(sendTo);
         if (balAfter - balBefore != amount) {
             revert TaxTokenNotSupported();
         }
