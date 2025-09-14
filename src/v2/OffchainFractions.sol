@@ -37,6 +37,7 @@ contract OffchainFractions is ReentrancyGuard {
     error CannotHaveZeroTotalSteps();
     error TaxTokenNotSupported();
     error ExpirationMustBeInTheFuture();
+    error UseCounterfactualAddressForRefundNotAllowedIfAddressIsZero();
 
     // === Refund/Claim Errors ===
     error CannotClaimRefundWhenRoundFullyFilled();
@@ -96,11 +97,17 @@ contract OffchainFractions is ReentrancyGuard {
         bool roundFullyFilled;
     }
 
+    struct RefundDetails {
+        address refundTo;
+        bool useCounterfactualAddress;
+    }
+
     /// @notice Tracks the number of steps purchased by each user for each fraction sale
     mapping(address user => mapping(address creator => mapping(bytes32 id => uint256 stepsPurchased))) public
         stepsPurchased;
 
     mapping(address user => mapping(address refundOperator => bool isApproved)) public refundApprovals;
+    mapping(address user => mapping(address creator => mapping(bytes32 id => RefundDetails))) private _refundDetails;
 
     /// @notice Stores fraction sale data indexed by creator and fraction ID
     mapping(address user => mapping(bytes32 id => FractionData)) private _fractions;
@@ -135,7 +142,7 @@ contract OffchainFractions is ReentrancyGuard {
     event FractionClosed(bytes32 indexed id, address indexed token, address indexed owner);
 
     /// @notice Emitted when a user claims a refund from an unfilled sale
-    event FractionRefunded(bytes32 indexed id, address indexed creator, address indexed user, uint256 amount);
+    event FractionRefunded(bytes32 indexed id, address indexed creator, address indexed user, address  refundTo, uint256 amount);
 
     /// @notice Emitted when the minimum shares threshold is reached and funds are released
     event MinSharesReached(bytes32 indexed id, address indexed creator, uint256 minShares, uint256 newTotalSharesSold);
@@ -204,10 +211,14 @@ contract OffchainFractions is ReentrancyGuard {
      * @param stepsToBuy Maximum number of steps to purchase
      * @param minStepsToBuy Minimum number of steps that must be available to purchase
      */
-    function buyFractions(address creator, bytes32 id, uint256 stepsToBuy, uint256 minStepsToBuy)
-        external
-        nonReentrant
-    {
+    function buyFractions(
+        address creator,
+        bytes32 id,
+        uint256 stepsToBuy,
+        uint256 minStepsToBuy,
+        address refundTo,
+        bool useCounterfactualAddressForRefund
+    ) external nonReentrant {
         FractionData storage fraction = _fractions[creator][id];
         if (minStepsToBuy == 0) {
             revert MinStepsToBuyCannotBeZero();
@@ -219,6 +230,10 @@ contract OffchainFractions is ReentrancyGuard {
             revert MinStepsToBuyCannotBeGreaterThanStepsToBuy();
         }
 
+        if (refundTo != address(0) && useCounterfactualAddressForRefund) {
+            revert UseCounterfactualAddressForRefundNotAllowedIfAddressIsZero();
+        }
+
         // Validate the purchase can proceed
         _validatePurchaseConditions(fraction);
 
@@ -226,7 +241,13 @@ contract OffchainFractions is ReentrancyGuard {
         PurchaseDetails memory details = _calculatePurchaseDetails(fraction, stepsToBuy, minStepsToBuy);
 
         // Handle the token transfers based on minimum shares logic
-        _handlePurchaseTransfers(fraction, details, creator, id, fraction.useCounterfactualAddress);
+        bool minSharesReached =
+            _handlePurchaseTransfers(fraction, details, creator, id, fraction.useCounterfactualAddress);
+
+        if (refundTo != address(0) && minSharesReached) {
+            _refundDetails[msg.sender][creator][id] =
+                RefundDetails({refundTo: refundTo, useCounterfactualAddress: useCounterfactualAddressForRefund});
+        }
 
         // Update state and emit events
         _finalizePurchase(fraction, details, creator, id);
@@ -240,16 +261,24 @@ contract OffchainFractions is ReentrancyGuard {
      * @param creator The address that created the fraction sale
      * @param id The unique identifier of the fraction sale
      */
-    function claimRefund(address user,address creator, bytes32 id) external nonReentrant {
-        if (!isRefundOperatorApproved(user, msg.sender)) {
+    function claimRefund(address user, address creator, bytes32 id) external nonReentrant {
+        FractionData storage fraction = _fractions[creator][id];
+        RefundDetails memory refundDetails = _refundDetails[user][creator][id];
+        address refundToInStruct = refundDetails.refundTo;
+        address refundTo = refundToInStruct == address(0) ? user : refundToInStruct;
+
+        // Either the user or the refund to address must have approved the refund operator
+        if (!isRefundOperatorApproved(user, msg.sender) && !isRefundOperatorApproved(refundToInStruct, msg.sender)) {
             revert RefundOperatorNotApproved();
         }
-        uint256 _stepsPurchased = stepsPurchased[msg.sender][creator][id];
+        if (refundDetails.useCounterfactualAddress) {
+            refundTo = i_CFHFactory.getCurrentCFH({user: refundTo, token: fraction.token});
+        }
+
+        uint256 _stepsPurchased = stepsPurchased[user][creator][id];
         if (_stepsPurchased == 0) {
             revert NoStepsPurchased();
         }
-
-        FractionData storage fraction = _fractions[creator][id];
 
         // Check if round reached minimum threshold
         uint256 soldSteps = fraction.soldSteps;
@@ -268,14 +297,23 @@ contract OffchainFractions is ReentrancyGuard {
 
         // Calculate refund amount and update state
         uint256 amount = _stepsPurchased * fraction.step;
-        stepsPurchased[msg.sender][creator][id] = 0;
+        stepsPurchased[user][creator][id] = 0;
         /// @auditor - Let me know if you think we can remove this,
         /// I don't think it's necessary
         fraction.soldSteps = soldSteps - _stepsPurchased;
 
         // Transfer refund to user
-        IERC20(fraction.token).safeTransfer(msg.sender, amount);
-        emit FractionRefunded(id, creator, msg.sender, amount);
+        if (fraction.useCounterfactualAddress) {
+            Call[] memory calls = new Call[](1);
+            calls[0] = Call({
+                target: address(fraction.token),
+                data: abi.encodeWithSelector(IERC20.transfer.selector, refundTo, amount)
+            });
+            i_CFHFactory.execute(fraction.token, calls);
+        } else {
+            IERC20(fraction.token).safeTransfer(refundTo, amount);
+        }
+        emit FractionRefunded(id, creator, user, refundTo, amount);
     }
 
     /**
@@ -307,6 +345,12 @@ contract OffchainFractions is ReentrancyGuard {
         emit FractionClosed(id, fraction.token, creator);
     }
 
+    /**
+     * @notice Sets the approval status of a refund operator for the caller
+     * @dev This function allows the caller to approve or revoke approval for a refund operator
+     * @param refundOperator The address of the refund operator to set the status for
+     * @param isApproved A boolean indicating whether the refund operator is approved (true) or not (false)
+     */
     function setRefundOperatorStatus(address refundOperator, bool isApproved) external {
         refundApprovals[msg.sender][refundOperator] = isApproved;
         emit RefundOperatorStatusSet(msg.sender, refundOperator, isApproved);
@@ -322,6 +366,14 @@ contract OffchainFractions is ReentrancyGuard {
         return _fractions[creator][id];
     }
 
+    /**
+     * @notice Checks if a refund operator is approved for a specific user
+     * @dev The function first checks if the caller is the user, in which case it returns true.
+     *      It then checks if the wildcard operator is approved for the user.
+     * @param user The address of the user for whom the refund operator approval is being checked
+     * @param refundOperator The address of the refund operator to check approval status for
+     * @return A boolean indicating whether the refund operator is approved for the user
+     */
     function isRefundOperatorApproved(address user, address refundOperator) public view returns (bool) {
         if (msg.sender == user) return true;
         bool isWildcardOperatorApproved = refundApprovals[user][REFUND_WILDCARD_OPERATOR];
@@ -415,9 +467,11 @@ contract OffchainFractions is ReentrancyGuard {
         address creator,
         bytes32 id,
         bool isGuardedToken
-    ) internal {
+    ) internal returns (bool minSharesReached) {
         address token = fraction.token;
         uint256 minSharesToRaise = fraction.minSharesToRaise;
+
+        minSharesReached = details.newFractionsSold >= minSharesToRaise;
 
         /// If `minShares` has not been reached, send funds to the contract.
         if (details.newFractionsSold < minSharesToRaise) {
