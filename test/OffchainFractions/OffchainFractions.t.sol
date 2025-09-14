@@ -1411,7 +1411,7 @@ contract OffchainFractionsTest is Test {
 
         //buy the remaining steps
         vm.prank(buyer2);
-        offchainFractions.buyFractions(creator, FRACTION_ID, TOTAL_STEPS - MIN_SHARES, MIN_SHARES,address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, TOTAL_STEPS - MIN_SHARES, MIN_SHARES, address(0), false);
 
         // Verify funds went to counterfactual address
         assertEq(

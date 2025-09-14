@@ -142,7 +142,9 @@ contract OffchainFractions is ReentrancyGuard {
     event FractionClosed(bytes32 indexed id, address indexed token, address indexed owner);
 
     /// @notice Emitted when a user claims a refund from an unfilled sale
-    event FractionRefunded(bytes32 indexed id, address indexed creator, address indexed user, address  refundTo, uint256 amount);
+    event FractionRefunded(
+        bytes32 indexed id, address indexed creator, address indexed user, address refundTo, uint256 amount
+    );
 
     /// @notice Emitted when the minimum shares threshold is reached and funds are released
     event MinSharesReached(bytes32 indexed id, address indexed creator, uint256 minShares, uint256 newTotalSharesSold);
@@ -343,6 +345,23 @@ contract OffchainFractions is ReentrancyGuard {
         // Mark as manually closed
         fraction.manuallyClosed = true;
         emit FractionClosed(id, fraction.token, creator);
+    }
+
+    /**
+     * @notice Sets the refund details for a specific fraction sale
+     * @dev This function allows a user to specify the refund address and whether to use a counterfactual address
+     * @param creator The address of the creator of the fraction sale
+     * @param id The unique identifier of the fraction sale
+     * @param refundTo The address to which refunds should be sent
+     * @param useCounterfactualAddress A boolean indicating whether to use a counterfactual address for the refund
+     * @dev Reverts if `refundTo` is not zero and `useCounterfactualAddress` is true
+     */
+    function setRefundDetails(address creator, bytes32 id, address refundTo, bool useCounterfactualAddress) external {
+        if (refundTo != address(0) && useCounterfactualAddress) {
+            revert UseCounterfactualAddressForRefundNotAllowedIfAddressIsZero();
+        }
+        _refundDetails[msg.sender][creator][id] =
+            RefundDetails({refundTo: refundTo, useCounterfactualAddress: useCounterfactualAddress});
     }
 
     /**
