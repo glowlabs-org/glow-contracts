@@ -1414,8 +1414,16 @@ contract OffchainFractionsTest is Test {
         offchainFractions.buyFractions(creator, FRACTION_ID, TOTAL_STEPS - MIN_SHARES, MIN_SHARES);
 
         // Verify funds went to counterfactual address
-        assertEq(counterfactualHolderFactory.balanceOfCFH(address(offchainFractions), address(token)), 0,"OffchainFractions should have no funds");
-        assertEq(counterfactualHolderFactory.balanceOfCFH(recipient, address(token)), TOTAL_STEPS * STEP_PRICE, "Tokens should have been send to recipient CFH");
+        assertEq(
+            counterfactualHolderFactory.balanceOfCFH(address(offchainFractions), address(token)),
+            0,
+            "OffchainFractions should have no funds"
+        );
+        assertEq(
+            counterfactualHolderFactory.balanceOfCFH(recipient, address(token)),
+            TOTAL_STEPS * STEP_PRICE,
+            "Tokens should have been send to recipient CFH"
+        );
     }
 
     // ============ HELPER FUNCTIONS FOR ADVERSARIAL TESTS ============

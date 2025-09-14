@@ -28,7 +28,8 @@ contract OffchainFractions is ReentrancyGuard {
     error NoStepsPurchased();
     error StepMustBeGreaterThanZero();
     error ZeroSteps();
-
+    error MinStepsToBuyCannotBeZero();
+    error MinStepsToBuyCannotBeGreaterThanStepsToBuy();
     // === Validation Errors ===
     error InvalidToken();
     error InvalidToAddress();
@@ -203,8 +204,14 @@ contract OffchainFractions is ReentrancyGuard {
         nonReentrant
     {
         FractionData storage fraction = _fractions[creator][id];
+        if (minStepsToBuy == 0) {
+            revert MinStepsToBuyCannotBeZero();
+        }
         if (stepsToBuy == 0) {
             revert ZeroSteps();
+        }
+        if (minStepsToBuy > stepsToBuy) {
+            revert MinStepsToBuyCannotBeGreaterThanStepsToBuy();
         }
 
         // Validate the purchase can proceed
@@ -214,7 +221,7 @@ contract OffchainFractions is ReentrancyGuard {
         PurchaseDetails memory details = _calculatePurchaseDetails(fraction, stepsToBuy, minStepsToBuy);
 
         // Handle the token transfers based on minimum shares logic
-        _handlePurchaseTransfers(fraction, details, creator, id,fraction.useCounterfactualAddress);
+        _handlePurchaseTransfers(fraction, details, creator, id, fraction.useCounterfactualAddress);
 
         // Update state and emit events
         _finalizePurchase(fraction, details, creator, id);
