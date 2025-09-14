@@ -71,7 +71,6 @@ contract OffchainFractions is ReentrancyGuard {
         uint256 minSharesToRaise;
         bool useCounterfactualAddress;
         bool claimedFromMinSharesToRaise;
-        address owner;
         uint256 step;
         address to;
         uint256 soldSteps;
@@ -174,7 +173,6 @@ contract OffchainFractions is ReentrancyGuard {
         // Create the fraction data
         _fractions[msg.sender][id] = FractionData({
             token: token,
-            owner: msg.sender,
             step: step,
             soldSteps: 0,
             totalSteps: totalSteps,
