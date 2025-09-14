@@ -272,7 +272,7 @@ contract OffchainFractions is ReentrancyGuard {
 
     /**
      * @notice Manually close a fraction sale before expiration
-     * @dev Only the creator can close their own fraction sale
+     * @dev Only the closer can close their own fraction sale
      * @dev Can only close if the round hasn't reached minimum shares threshold
      * @param creator The address that created the fraction sale
      * @param id The unique identifier of the fraction sale to close
