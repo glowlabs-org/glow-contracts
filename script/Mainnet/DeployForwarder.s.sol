@@ -18,7 +18,7 @@ import {CounterfactualHolderFactory} from "@/v2/CounterfactualHolderFactory.sol"
   [804746] → new Forwarder@0xD487240a9Cc032Dc5CC092F2Bbe2C19aCD583eef
     └─ ← [Return] 3906 bytes of code
     */
-    
+
 contract DeployForwarder is Test, Script {
     function run() external {
         vm.startBroadcast();

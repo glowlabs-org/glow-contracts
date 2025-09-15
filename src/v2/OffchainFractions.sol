@@ -16,7 +16,6 @@ contract OffchainFractions is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // === Fraction Management Errors ===
-    error NotFractionsOwner();
     error AlreadyExists();
     error AlreadyClosed();
     error Expired();
@@ -42,15 +41,9 @@ contract OffchainFractions is ReentrancyGuard {
     // === Refund/Claim Errors ===
     error CannotClaimRefundWhenRoundFullyFilled();
     error CannotClaimRefundWhenNotExpired();
-    error CannotClaimPayoutWhenRoundNotFullyFilled();
     error CannotCloseAFullRound();
     error TotalRaisedOverflow();
     error RefundOperatorNotApproved();
-
-    // === Unused Errors (kept for compatibility) ===
-    error AlreadyClaimed();
-    error NotAllOrNothing();
-    error AlreadySent();
 
     /**
      * @notice Data structure representing a fractional token sale
@@ -132,7 +125,12 @@ contract OffchainFractions is ReentrancyGuard {
 
     /// @notice Emitted when steps are purchased in a fraction sale
     event FractionSold(
-        bytes32 indexed id, address indexed creator, address indexed creditTo,address buyer, uint256 step, uint256 amount
+        bytes32 indexed id,
+        address indexed creator,
+        address indexed creditTo,
+        address buyer,
+        uint256 step,
+        uint256 amount
     );
 
     /// @notice Emitted when a fraction sale round is completely filled
