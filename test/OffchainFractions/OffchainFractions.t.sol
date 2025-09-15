@@ -314,7 +314,7 @@ contract OffchainFractionsTest is Test {
         vm.warp(EXPIRATION_TIME + 1);
 
         vm.prank(buyer1);
-        vm.expectRevert(OffchainFractions.CannotClaimRefundWhenRoundFullyFilled.selector);
+        vm.expectRevert(OffchainFractions.CannotClaimRefundWhenThresholdReached.selector);
         offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
     }
 
@@ -540,7 +540,7 @@ contract OffchainFractionsTest is Test {
         );
     }
 
-    function test_error_CannotClaimRefundWhenRoundFullyFilled() public {
+    function test_error_CannotClaimRefundWhenThresholdReached() public {
         _createBasicFraction();
 
         vm.prank(buyer1);
@@ -549,7 +549,7 @@ contract OffchainFractionsTest is Test {
         vm.warp(EXPIRATION_TIME + 1);
 
         vm.prank(buyer1);
-        vm.expectRevert(OffchainFractions.CannotClaimRefundWhenRoundFullyFilled.selector);
+        vm.expectRevert(OffchainFractions.CannotClaimRefundWhenThresholdReached.selector);
         offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
     }
 
@@ -564,14 +564,14 @@ contract OffchainFractionsTest is Test {
         offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
     }
 
-    function test_error_CannotCloseAFullRound() public {
+    function test_error_CannotCloseWhenThresholdReached() public {
         _createBasicFraction();
 
         vm.prank(buyer1);
         offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES, MIN_SHARES, address(0), buyer1, false);
 
         vm.prank(creator);
-        vm.expectRevert(OffchainFractions.CannotCloseAFullRound.selector);
+        vm.expectRevert(OffchainFractions.CannotCloseWhenThresholdReached.selector);
         offchainFractions.closeFraction(creator, FRACTION_ID);
     }
 
@@ -1275,7 +1275,7 @@ contract OffchainFractionsTest is Test {
 
         // Now close the fraction (can't close when above minimum, so this should fail)
         vm.prank(creator);
-        vm.expectRevert(OffchainFractions.CannotCloseAFullRound.selector);
+        vm.expectRevert(OffchainFractions.CannotCloseWhenThresholdReached.selector);
         offchainFractions.closeFraction(creator, FRACTION_ID);
 
         // Expire the fraction instead
@@ -1283,7 +1283,7 @@ contract OffchainFractionsTest is Test {
 
         // Buyers should not be able to claim refund when minimum was reached
         vm.prank(buyer1);
-        vm.expectRevert(OffchainFractions.CannotClaimRefundWhenRoundFullyFilled.selector);
+        vm.expectRevert(OffchainFractions.CannotClaimRefundWhenThresholdReached.selector);
         offchainFractions.claimRefund(buyer1, creator, FRACTION_ID);
     }
 
@@ -1314,7 +1314,7 @@ contract OffchainFractionsTest is Test {
         // Try to close fraction that doesn't exist
         vm.prank(creator);
         // This will not revert because the default state has soldSteps=0 and minSharesToRaise=0
-        // So soldSteps >= minSharesToRaise is 0 >= 0 which is true, causing CannotCloseAFullRound
+        // So soldSteps >= minSharesToRaise is 0 >= 0 which is true, causing CannotCloseWhenThresholdReached
         vm.expectRevert(OffchainFractions.NotFractionsCloser.selector);
         offchainFractions.closeFraction(creator, FRACTION_ID);
     }

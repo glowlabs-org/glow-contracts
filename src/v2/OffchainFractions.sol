@@ -39,9 +39,9 @@ contract OffchainFractions is ReentrancyGuard {
     error UseCounterfactualAddressForRefundNotAllowedIfAddressIsZero();
 
     // === Refund/Claim Errors ===
-    error CannotClaimRefundWhenRoundFullyFilled();
+    error CannotClaimRefundWhenThresholdReached();
     error CannotClaimRefundWhenNotExpired();
-    error CannotCloseAFullRound();
+    error CannotCloseWhenThresholdReached();
     error TotalRaisedOverflow();
     error RefundOperatorNotApproved();
 
@@ -285,7 +285,7 @@ contract OffchainFractions is ReentrancyGuard {
         uint256 soldSteps = fraction.soldSteps;
         bool roundFilled = soldSteps >= fraction.minSharesToRaise;
         if (roundFilled) {
-            revert CannotClaimRefundWhenRoundFullyFilled();
+            revert CannotClaimRefundWhenThresholdReached();
         }
 
         // Check if refund conditions are met (expired OR manually closed)
@@ -335,7 +335,7 @@ contract OffchainFractions is ReentrancyGuard {
             revert AlreadyClosed();
         }
         if (fraction.soldSteps >= fraction.minSharesToRaise) {
-            revert CannotCloseAFullRound();
+            revert CannotCloseWhenThresholdReached();
         }
         if (block.timestamp > fraction.expiration) {
             revert Expired();
