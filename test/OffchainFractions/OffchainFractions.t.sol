@@ -85,7 +85,7 @@ contract OffchainFractionsTest is Test {
     );
 
     event FractionSold(
-        bytes32 indexed id, address indexed creator, address indexed buyer, uint256 step, uint256 amount
+        bytes32 indexed id, address indexed creator, address indexed creditTo,address buyer, uint256 step, uint256 amount
     );
 
     event RoundFilled(bytes32 indexed id, address indexed creator);
@@ -220,9 +220,9 @@ contract OffchainFractionsTest is Test {
 
         vm.prank(buyer1);
         vm.expectEmit(true, true, true, true);
-        emit FractionSold(FRACTION_ID, creator, buyer1, STEP_PRICE, expectedAmount);
+        emit FractionSold(FRACTION_ID, creator, buyer2, buyer1, STEP_PRICE, expectedAmount);
 
-        offchainFractions.buyFractions(creator, FRACTION_ID, stepsToBuy, stepsToBuy, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, stepsToBuy, stepsToBuy, address(0),  buyer2, false);
 
         // Verify state changes
         assertEq(offchainFractions.stepsPurchased(buyer1, creator, FRACTION_ID), stepsToBuy);
@@ -244,7 +244,7 @@ contract OffchainFractionsTest is Test {
         vm.expectEmit(true, true, true, true);
         emit MinSharesReached(FRACTION_ID, creator, MIN_SHARES, MIN_SHARES);
 
-        offchainFractions.buyFractions(creator, FRACTION_ID, stepsToBuy, stepsToBuy, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, stepsToBuy, stepsToBuy, address(0),  buyer1, false);
 
         // Verify funds transferred to recipient
         assertEq(token.balanceOf(recipient), expectedAmount);
@@ -259,7 +259,7 @@ contract OffchainFractionsTest is Test {
 
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.ZeroSteps.selector);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 0, 1, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 0, 1, address(0),  buyer1, false);
     }
 
     function test_buyFractions_RevertExpired() public {
@@ -270,7 +270,7 @@ contract OffchainFractionsTest is Test {
 
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.Expired.selector);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0),  buyer1, false);
     }
 
     // ============ UNIT TESTS - CLAIM REFUND ============
@@ -281,7 +281,7 @@ contract OffchainFractionsTest is Test {
         // Buy some steps (below minimum)
         uint256 stepsBought = 25;
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, stepsBought, stepsBought, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, stepsBought, stepsBought, address(0),  buyer1, false);
 
         // Fast forward past expiration
         vm.warp(EXPIRATION_TIME + 1);
@@ -304,7 +304,7 @@ contract OffchainFractionsTest is Test {
 
         // Fill the round to minimum
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES, MIN_SHARES, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES, MIN_SHARES, address(0),  buyer1, false);
 
         vm.warp(EXPIRATION_TIME + 1);
 
@@ -364,14 +364,14 @@ contract OffchainFractionsTest is Test {
 
         // Buy exactly minimum - 1
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES - 1, MIN_SHARES - 1, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES - 1, MIN_SHARES - 1, address(0),  buyer1, false);
 
         OffchainFractions.FractionData memory fraction = offchainFractions.getFraction(creator, FRACTION_ID);
         assertFalse(fraction.claimedFromMinSharesToRaise);
 
         // Buy 1 more to reach minimum
         vm.prank(buyer2);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 1, 1, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 1, 1, address(0),  buyer1, false);
 
         fraction = offchainFractions.getFraction(creator, FRACTION_ID);
         assertTrue(fraction.claimedFromMinSharesToRaise);
@@ -382,10 +382,10 @@ contract OffchainFractionsTest is Test {
 
         // Multiple users buy different amounts
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 20, 20, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 20, 20, address(0),  buyer1, false);
 
         vm.prank(buyer2);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 30, 30, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 30, 30, address(0),  buyer1, false);
 
         // Verify individual purchases
         assertEq(offchainFractions.stepsPurchased(buyer1, creator, FRACTION_ID), 20);
@@ -422,7 +422,7 @@ contract OffchainFractionsTest is Test {
 
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.AlreadyClosed.selector);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0),  buyer1, false);
     }
 
     function test_error_Expired() public {
@@ -432,7 +432,7 @@ contract OffchainFractionsTest is Test {
 
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.Expired.selector);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0),  buyer1, false);
     }
 
     function test_error_InsufficientSharesAvailable() public {
@@ -440,7 +440,7 @@ contract OffchainFractionsTest is Test {
 
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.InsufficientSharesAvailable.selector);
-        offchainFractions.buyFractions(creator, FRACTION_ID, TOTAL_STEPS + 1, TOTAL_STEPS + 1, address(0), false); // minStepsToBuy > available
+        offchainFractions.buyFractions(creator, FRACTION_ID, TOTAL_STEPS + 1, TOTAL_STEPS + 1, address(0),  buyer1, false); // minStepsToBuy > available
     }
 
     function test_error_NoStepsPurchased() public {
@@ -537,7 +537,7 @@ contract OffchainFractionsTest is Test {
         _createBasicFraction();
 
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES, MIN_SHARES, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES, MIN_SHARES, address(0),  buyer1, false);
 
         vm.warp(EXPIRATION_TIME + 1);
 
@@ -550,7 +550,7 @@ contract OffchainFractionsTest is Test {
         _createBasicFraction();
 
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 25, 25, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 25, 25, address(0),  buyer1, false);
 
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.CannotClaimRefundWhenNotExpired.selector);
@@ -561,7 +561,7 @@ contract OffchainFractionsTest is Test {
         _createBasicFraction();
 
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES, MIN_SHARES, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES, MIN_SHARES, address(0),  buyer1, false);
 
         vm.prank(creator);
         vm.expectRevert(OffchainFractions.CannotCloseAFullRound.selector);
@@ -607,7 +607,7 @@ contract OffchainFractionsTest is Test {
         // Try to buy with tax token - should fail due to tax
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.TaxTokenNotSupported.selector);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 25, 25, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 25, 25, address(0),  buyer1, false);
     }
 
     function test_error_TotalRaisedOverflow() public {
@@ -758,7 +758,7 @@ contract OffchainFractionsTest is Test {
             vm.prank(buyer2);
             token.approve(address(offchainFractions), initialSteps * stepPrice);
             vm.prank(buyer2);
-            offchainFractions.buyFractions(creator, FRACTION_ID, initialSteps, initialSteps, address(0), false);
+            offchainFractions.buyFractions(creator, FRACTION_ID, initialSteps, initialSteps, address(0),  buyer1, false);
         }
 
         // Capture state before purchase
@@ -787,13 +787,13 @@ contract OffchainFractionsTest is Test {
         if (availableSteps < minStepsToBuy) {
             vm.expectRevert(OffchainFractions.InsufficientSharesAvailable.selector);
             vm.prank(buyer1);
-            offchainFractions.buyFractions(creator, FRACTION_ID, stepsToBuy, minStepsToBuy, address(0), false);
+            offchainFractions.buyFractions(creator, FRACTION_ID, stepsToBuy, minStepsToBuy, address(0),  buyer1, false);
             return;
         }
 
         // Execute purchase
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, stepsToBuy, minStepsToBuy, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, stepsToBuy, minStepsToBuy, address(0),  buyer1, false);
 
         // Capture state after purchase
         OffchainFractions.FractionData memory fractionAfter = offchainFractions.getFraction(creator, FRACTION_ID);
@@ -902,9 +902,9 @@ contract OffchainFractionsTest is Test {
         token.approve(address(offchainFractions), stepsBought2 * STEP_PRICE);
 
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, stepsBought1, stepsBought1, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, stepsBought1, stepsBought1, address(0),  buyer1, false);
         vm.prank(buyer2);
-        offchainFractions.buyFractions(creator, FRACTION_ID, stepsBought2, stepsBought2, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, stepsBought2, stepsBought2, address(0),  buyer1, false);
 
         // Capture state before refunds
         uint256 contractBalanceBefore = token.balanceOf(address(offchainFractions));
@@ -1016,7 +1016,7 @@ contract OffchainFractionsTest is Test {
 
         // Buy some steps
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 25, 25, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 25, 25, address(0),  buyer1, false);
 
         // Manually manipulate state to test underflow protection
         // This would require direct storage manipulation which isn't possible in this test
@@ -1040,12 +1040,12 @@ contract OffchainFractionsTest is Test {
         uint256 steps2 = 2;
 
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, steps1, steps1, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, steps1, steps1, address(0),  buyer1, false);
 
         // At this point, we're 1 step away from minimum
         // Next purchase should trigger minimum reached
         vm.prank(buyer2);
-        offchainFractions.buyFractions(creator, FRACTION_ID, steps2, steps2, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, steps2, steps2, address(0),  buyer1, false);
 
         // Verify that minimum was properly reached and funds transferred
         OffchainFractions.FractionData memory fraction = offchainFractions.getFraction(creator, FRACTION_ID);
@@ -1062,7 +1062,7 @@ contract OffchainFractionsTest is Test {
         // Try to buy exactly at expiration time
         vm.warp(EXPIRATION_TIME);
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0),  buyer1, false);
 
         // Should succeed at exact expiration time
         assertEq(offchainFractions.stepsPurchased(buyer1, creator, FRACTION_ID), 10);
@@ -1071,7 +1071,7 @@ contract OffchainFractionsTest is Test {
         vm.warp(EXPIRATION_TIME + 1);
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.Expired.selector);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0),  buyer1, false);
     }
 
     function test_adversarial_MaximumStepsEdgeCase() public {
@@ -1091,7 +1091,7 @@ contract OffchainFractionsTest is Test {
 
         // First buyer should get the only step and trigger minimum
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 1, 1, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 1, 1, address(0),  buyer1, false);
 
         // Verify round is complete
         OffchainFractions.FractionData memory fraction = offchainFractions.getFraction(creator, FRACTION_ID);
@@ -1101,7 +1101,7 @@ contract OffchainFractionsTest is Test {
         // Second buyer should fail due to insufficient shares
         vm.prank(buyer2);
         vm.expectRevert(OffchainFractions.InsufficientSharesAvailable.selector);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 1, 1, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 1, 1, address(0),  buyer1, false);
     }
 
     function test_adversarial_ZeroMinSharesEdgeCase() public {
@@ -1121,7 +1121,7 @@ contract OffchainFractionsTest is Test {
 
         // First purchase should go directly to recipient
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 25, 25, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 25, 25, address(0),  buyer1, false);
 
         // Verify funds went directly to recipient
         assertEq(token.balanceOf(recipient), 25 * STEP_PRICE);
@@ -1136,12 +1136,12 @@ contract OffchainFractionsTest is Test {
 
         // Buy most of the steps first, leaving only a few available
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 95, 95, address(0), false); // Buy 95, leaving 5 available
+        offchainFractions.buyFractions(creator, FRACTION_ID, 95, 95, address(0),  buyer1, false); // Buy 95, leaving 5 available
 
         // Now try to buy with minStepsToBuy > available steps
         vm.prank(buyer2);
         vm.expectRevert(OffchainFractions.InsufficientSharesAvailable.selector);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 6, 6, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 6, 6, address(0),  buyer1, false);
     }
 
     function test_adversarial_MinStepsToBuyGreaterThanRequest() public {
@@ -1150,7 +1150,7 @@ contract OffchainFractionsTest is Test {
         // This is actually valid behavior - the contract allows minStepsToBuy > stepsToBuy
         // It will just buy stepsToBuy amount if minStepsToBuy is satisfied
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 5, address(0), false); // Want 10, need 5 minimum - should work
+        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 5, address(0),  buyer1, false); // Want 10, need 5 minimum - should work
 
         // Verify the purchase went through
         assertEq(offchainFractions.stepsPurchased(buyer1, creator, FRACTION_ID), 10);
@@ -1176,7 +1176,7 @@ contract OffchainFractionsTest is Test {
         vm.prank(buyer1);
         token.approve(address(offchainFractions), 500000);
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 500000, 500000, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 500000, 500000, address(0),  buyer1, false);
 
         // Verify precision is maintained
         assertEq(token.balanceOf(recipient), 500000);
@@ -1208,7 +1208,7 @@ contract OffchainFractionsTest is Test {
         vm.prank(buyer1);
         token.approve(address(offchainFractions), maxPrice);
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, 1, 1, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 1, 1, address(0),  buyer1, false);
 
         assertEq(token.balanceOf(recipient), maxPrice);
     }
@@ -1255,12 +1255,12 @@ contract OffchainFractionsTest is Test {
         // Buyer 1 buys just below minimum
         uint256 steps1 = MIN_SHARES - 10;
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, steps1, steps1, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, steps1, steps1, address(0),  buyer1, false);
 
         // Buyer 2 pushes above minimum
         uint256 steps2 = 20;
         vm.prank(buyer2);
-        offchainFractions.buyFractions(creator, FRACTION_ID, steps2, steps2, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, steps2, steps2, address(0),  buyer1, false);
 
         // Verify minimum was reached
         OffchainFractions.FractionData memory fraction = offchainFractions.getFraction(creator, FRACTION_ID);
@@ -1300,7 +1300,7 @@ contract OffchainFractionsTest is Test {
         // Try to buy from fraction that doesn't exist
         vm.prank(buyer1);
         vm.expectRevert(OffchainFractions.Expired.selector); // Will fail on expiration check since expiration is 0
-        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 10, 10, address(0),  buyer1, false);
     }
 
     function test_adversarial_CloseNonExistentFraction() public {
@@ -1336,7 +1336,7 @@ contract OffchainFractionsTest is Test {
         vm.prank(buyer1);
         token.approve(address(offchainFractions), buyAmount);
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, buyAmount, buyAmount, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, buyAmount, buyAmount, address(0),  buyer1, false);
 
         // Verify purchase was recorded correctly
         assertEq(offchainFractions.stepsPurchased(buyer1, creator, FRACTION_ID), buyAmount);
@@ -1404,14 +1404,14 @@ contract OffchainFractionsTest is Test {
         );
 
         vm.prank(buyer1);
-        offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES, MIN_SHARES, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, MIN_SHARES, MIN_SHARES, address(0),  buyer1, false);
 
         // Verify funds went to counterfactual address
         assertEq(counterfactualHolderFactory.balanceOfCFH(recipient, address(token)), MIN_SHARES * STEP_PRICE);
 
         //buy the remaining steps
         vm.prank(buyer2);
-        offchainFractions.buyFractions(creator, FRACTION_ID, TOTAL_STEPS - MIN_SHARES, MIN_SHARES, address(0), false);
+        offchainFractions.buyFractions(creator, FRACTION_ID, TOTAL_STEPS - MIN_SHARES, MIN_SHARES, address(0),  buyer1, false);
 
         // Verify funds went to counterfactual address
         assertEq(

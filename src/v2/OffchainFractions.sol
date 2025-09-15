@@ -132,7 +132,7 @@ contract OffchainFractions is ReentrancyGuard {
 
     /// @notice Emitted when steps are purchased in a fraction sale
     event FractionSold(
-        bytes32 indexed id, address indexed creator, address indexed buyer, uint256 step, uint256 amount
+        bytes32 indexed id, address indexed creator, address indexed creditTo,address buyer, uint256 step, uint256 amount
     );
 
     /// @notice Emitted when a fraction sale round is completely filled
@@ -219,6 +219,7 @@ contract OffchainFractions is ReentrancyGuard {
         uint256 stepsToBuy,
         uint256 minStepsToBuy,
         address refundTo,
+        address creditTo,
         bool useCounterfactualAddressForRefund
     ) external nonReentrant {
         FractionData storage fraction = _fractions[creator][id];
@@ -252,7 +253,7 @@ contract OffchainFractions is ReentrancyGuard {
         }
 
         // Update state and emit events
-        _finalizePurchase(fraction, details, creator, id);
+        _finalizePurchase(fraction, details, creator, creditTo, id);
     }
 
     /**
@@ -541,6 +542,7 @@ contract OffchainFractions is ReentrancyGuard {
         FractionData storage fraction,
         PurchaseDetails memory details,
         address creator,
+        address creditTo,
         bytes32 id
     ) internal {
         // Update user's purchase record
@@ -554,7 +556,7 @@ contract OffchainFractions is ReentrancyGuard {
             emit RoundFilled(id, creator);
         }
 
-        emit FractionSold(id, creator, msg.sender, fraction.step, details.amount);
+        emit FractionSold(id, creator, creditTo, msg.sender, fraction.step, details.amount);
     }
 
     /**
