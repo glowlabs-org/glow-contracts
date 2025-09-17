@@ -211,6 +211,7 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
      * @param from Address that will provide the tokens (must have approved this contract)
      * @param to Address that will receive the tokens
      * @param isGuardedToken Array indicating which tokens are guarded (need special handling)
+     * @param toCounterfactual Array indicating whether to send the tokens to a counterfactual wallet
      * @custom:emits RewardClaimed
      */
     function claimPayout(
@@ -219,11 +220,17 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
         TokenAndAmount[] memory taa,
         address from,
         address to,
-        bool[] memory isGuardedToken
+        bool[] memory isGuardedToken,
+        bool[] memory toCounterfactual
     ) external nonReentrant {
         if (isGuardedToken.length != taa.length) {
             revert LengthsDontMatch();
         }
+
+        if (toCounterfactual.length != taa.length) {
+            revert LengthsDontMatch();
+        }
+
         if ($claimedBitmap[msg.sender].get(nonce)) {
             revert AlreadyClaimedNonce();
         }
@@ -253,7 +260,7 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
                 revert MaxClaimedExceeded();
             }
             rd.amountClaimed[token] = newAmountClaimed;
-            handleTokenTransfer(token, from, to, amt, isGuardedToken[i]);
+            handleTokenTransfer(token, from, to, amt, isGuardedToken[i], toCounterfactual[i]);
         }
 
         emit RewardClaimed(msg.sender, to, nonce, from, taa, isGuardedToken);
@@ -329,15 +336,22 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
      * @param amount The amount to transfer
      * @param isGuardedToken Whether this token has transfer restrictions
      */
-    function handleTokenTransfer(address token, address from, address to, uint256 amount, bool isGuardedToken)
-        internal
-    {
+    function handleTokenTransfer(
+        address token,
+        address from,
+        address to,
+        uint256 amount,
+        bool isGuardedToken,
+        bool toCounterfactual
+    ) internal {
         if (!isGuardedToken) {
             IERC20(token).safeTransferFrom(from, to, amount);
             return;
         }
         Call[] memory calls = new Call[](1);
-        calls[0] = Call({target: token, data: abi.encodeWithSelector(IERC20.transfer.selector, to, amount)});
+        address whoToSendTokensTo = toCounterfactual ? CFH_FACTORY.getCurrentCFH(to, token) : to;
+        calls[0] =
+            Call({target: token, data: abi.encodeWithSelector(IERC20.transfer.selector, whoToSendTokensTo, amount)});
         CFH_FACTORY.executeFrom(from, token, calls);
     }
 

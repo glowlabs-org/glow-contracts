@@ -636,6 +636,18 @@ contract OffchainFractionsTest is Test {
         );
     }
 
+    function test_refundDetailsSet() public {
+        _createBasicFraction();
+
+        vm.prank(buyer1);
+        offchainFractions.buyFractions(creator, FRACTION_ID, 1, 1, buyer1, buyer1, false);
+
+        OffchainFractions.RefundDetails memory refundDetails =
+            offchainFractions.getRefundDetails(buyer1, creator, FRACTION_ID);
+        assertEq(refundDetails.refundTo, buyer1, "refundTo should be buyer1");
+        assertFalse(refundDetails.useCounterfactualAddress, "useCounterfactualAddress should be false");
+    }
+
     function test_error_TotalRaisedOverflow_EdgeCase() public {
         // Test exactly at the overflow boundary
         uint256 maxSteps = 1000;

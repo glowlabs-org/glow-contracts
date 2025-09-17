@@ -182,7 +182,9 @@ contract FoundationRewardKernelTest is Test {
 
         // Not finalized yet
         vm.expectRevert(FoundationRewardKernel.NotYetFinalized.selector);
-        kernel.claimPayout(nonce, proof, taa, donor, recipient, _flags(false, taa.length));
+        kernel.claimPayout(
+            nonce, proof, taa, donor, recipient, _flags(false, taa.length), _noCounterfactuals(taa.length)
+        );
 
         // Finalize
         vm.warp(block.timestamp + kernel.FINALITY());
@@ -193,14 +195,18 @@ contract FoundationRewardKernelTest is Test {
         vm.stopPrank();
 
         vm.prank(claimer);
-        kernel.claimPayout(nonce, proof, taa, donor, recipient, _flags(false, taa.length));
+        kernel.claimPayout(
+            nonce, proof, taa, donor, recipient, _flags(false, taa.length), _noCounterfactuals(taa.length)
+        );
 
         assertEq(unguarded.balanceOf(recipient), amount, "recipient received unguarded");
 
         // Cannot claim twice
         vm.prank(claimer);
         vm.expectRevert(FoundationRewardKernel.AlreadyClaimedNonce.selector);
-        kernel.claimPayout(nonce, proof, taa, donor, recipient, _flags(false, taa.length));
+        kernel.claimPayout(
+            nonce, proof, taa, donor, recipient, _flags(false, taa.length), _noCounterfactuals(taa.length)
+        );
 
         // Helpers exposure
         assertTrue(kernel.isFinalized(nonce));
@@ -233,7 +239,15 @@ contract FoundationRewardKernelTest is Test {
 
         vm.prank(claimer);
         vm.expectRevert(FoundationRewardKernel.MaxClaimedExceeded.selector);
-        kernel.claimPayout(nonce, proof, claimTAA, donor, recipient, _flags(false, claimTAA.length));
+        kernel.claimPayout(
+            nonce,
+            proof,
+            claimTAA,
+            donor,
+            recipient,
+            _flags(false, claimTAA.length),
+            _noCounterfactuals(claimTAA.length)
+        );
     }
 
     function test_claim_revert_length_mismatch() public {
@@ -244,7 +258,7 @@ contract FoundationRewardKernelTest is Test {
         bool[] memory flags = new bool[](0); // mismatch
         vm.prank(claimer);
         vm.expectRevert(FoundationRewardKernel.LengthsDontMatch.selector);
-        kernel.claimPayout(nonce, proof, taa, donor, recipient, flags);
+        kernel.claimPayout(nonce, proof, taa, donor, recipient, flags, _noCounterfactuals(taa.length));
     }
 
     function test_claim_revert_invalid_proof() public {
@@ -257,7 +271,9 @@ contract FoundationRewardKernelTest is Test {
 
         vm.prank(claimer);
         vm.expectRevert(FoundationRewardKernel.InvalidMerkleProof.selector);
-        kernel.claimPayout(nonce, badProof, taa, donor, recipient, _flags(false, taa.length));
+        kernel.claimPayout(
+            nonce, badProof, taa, donor, recipient, _flags(false, taa.length), _noCounterfactuals(taa.length)
+        );
     }
 
     function test_claim_revert_rejected_nonce() public {
@@ -268,7 +284,9 @@ contract FoundationRewardKernelTest is Test {
         vm.warp(block.timestamp + kernel.FINALITY());
         vm.prank(claimer);
         vm.expectRevert(FoundationRewardKernel.CannotClaimFromRejectedNonce.selector);
-        kernel.claimPayout(nonce, proof, taa, donor, recipient, _flags(false, taa.length));
+        kernel.claimPayout(
+            nonce, proof, taa, donor, recipient, _flags(false, taa.length), _noCounterfactuals(taa.length)
+        );
     }
 
     // ============ Tests: claim (guarded via CFH) ============
@@ -297,7 +315,9 @@ contract FoundationRewardKernelTest is Test {
 
         // Claim as claimer, funds sent to recipient via CFH execute
         vm.prank(claimer);
-        kernel.claimPayout(nonce, proof, taa, donor, recipient, _flags(true, taa.length));
+        kernel.claimPayout(
+            nonce, proof, taa, donor, recipient, _flags(true, taa.length), _noCounterfactuals(taa.length)
+        );
 
         assertEq(guarded.balanceOf(recipient), amount, "recipient received guarded via CFH");
 
@@ -332,7 +352,9 @@ contract FoundationRewardKernelTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(CounterfactualHolderFactory.NotApproved.selector, donor, address(kernel))
         );
-        kernel.claimPayout(nonce, proof, taa, donor, recipient, _flags(true, taa.length));
+        kernel.claimPayout(
+            nonce, proof, taa, donor, recipient, _flags(true, taa.length), _noCounterfactuals(taa.length)
+        );
     }
 
     // ============ Internal utils ============
@@ -373,7 +395,7 @@ contract FoundationRewardKernelTest is Test {
             vm.stopPrank();
 
             vm.prank(cl);
-            kernel.claimPayout(nonce, proof, taa, donor, recipient, _flags(false, 1));
+            kernel.claimPayout(nonce, proof, taa, donor, recipient, _flags(false, 1), _noCounterfactuals(1));
 
             totalClaimed += amount;
 
@@ -417,12 +439,62 @@ contract FoundationRewardKernelTest is Test {
         vm.warp(block.timestamp + kernel.FINALITY());
 
         vm.prank(claimer);
-        kernel.claimPayout(nonce, proof, taa, donor, recipient, flags);
+        kernel.claimPayout(nonce, proof, taa, donor, recipient, flags, _noCounterfactuals(taa.length));
 
         assertEq(unguarded.balanceOf(recipient), amtU);
         assertEq(guarded.balanceOf(recipient), amtG);
         assertEq(kernel.getAmountClaimed(nonce, address(unguarded)), amtU);
         assertEq(kernel.getAmountClaimed(nonce, address(guarded)), amtG);
+    }
+
+    // Mixed guarded/unguarded multi-token in one claim, exercising flags and accounting
+    function test_mixed_with_cfh_guarded_unguarded_multi_token() public {
+        uint256 amtU = 123 ether;
+        uint256 amtG = 321 ether;
+
+        // Allowlist predicted CFH
+        address predicted = factory.getCurrentCFH(donor, address(guarded));
+        guarded.setAllowlistStatus(predicted, true);
+
+        // Pre-fund CFH for guarded amount
+        vm.startPrank(donor);
+        guarded.approve(address(factory), amtG);
+        factory.transferToCFH(donor, address(guarded), amtG);
+        // Approve kernel as operator for guarded and approve ERC20 for unguarded
+        factory.setApprovalStatus(address(kernel), true);
+        unguarded.approve(address(kernel), amtU);
+        vm.stopPrank();
+
+        FoundationRewardKernel.TokenAndAmount[] memory taa = new FoundationRewardKernel.TokenAndAmount[](2);
+        taa[0] = FoundationRewardKernel.TokenAndAmount({token: address(unguarded), amount: amtU});
+        taa[1] = FoundationRewardKernel.TokenAndAmount({token: address(guarded), amount: amtG});
+        bool[] memory flags = new bool[](2);
+        flags[0] = false;
+        flags[1] = true;
+
+        (bytes32 leaf,) = _buildLeaf(claimer, taa);
+        (bytes32 root, bytes32[] memory proof) = _singleLeaf(leaf);
+        vm.prank(foundation);
+        kernel.postPayoutRoot(root, taa);
+        uint256 nonce = kernel.$nextPostNonce() - 1;
+        vm.warp(block.timestamp + kernel.FINALITY());
+
+        bool[] memory toCounterfactual = new bool[](2);
+        toCounterfactual[0] = false;
+        toCounterfactual[1] = true;
+
+        vm.prank(claimer);
+        kernel.claimPayout(nonce, proof, taa, donor, recipient, flags, toCounterfactual);
+
+        assertEq(unguarded.balanceOf(recipient), amtU);
+        assertEq(factory.balanceOfCFH(recipient, address(guarded)), amtG, "recipient received guarded via CFH");
+        assertEq(kernel.getAmountClaimed(nonce, address(unguarded)), amtU);
+        assertEq(kernel.getAmountClaimed(nonce, address(guarded)), amtG);
+    }
+
+    function _noCounterfactuals(uint256 len) internal pure returns (bool[] memory) {
+        bool[] memory flags = new bool[](len);
+        return flags;
     }
 
     // function test_typescriptMerkleRootCheck() public {
