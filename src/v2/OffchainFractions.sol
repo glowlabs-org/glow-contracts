@@ -245,7 +245,7 @@ contract OffchainFractions is ReentrancyGuard {
         bool minSharesReached =
             _handlePurchaseTransfers(fraction, details, creator, id, fraction.useCounterfactualAddress);
 
-        if (refundTo != address(0) && minSharesReached) {
+        if (refundTo != address(0) && !minSharesReached) {
             _refundDetails[msg.sender][creator][id] =
                 RefundDetails({refundTo: refundTo, useCounterfactualAddress: useCounterfactualAddressForRefund});
         }
