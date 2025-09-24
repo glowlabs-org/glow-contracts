@@ -45,6 +45,7 @@ contract OffchainFractions is ReentrancyGuard {
     error CannotClaimRefundWhenThresholdReached();
     error CannotClaimRefundWhenNotExpired();
     error CannotCloseWhenThresholdReached();
+    error ExpirationCannotBeGreaterThanMaxDuration();
     error TotalRaisedOverflow();
     error RefundOperatorNotApproved();
     error CannotSetRefundDetailsWhenThresholdReached();
@@ -110,6 +111,8 @@ contract OffchainFractions is ReentrancyGuard {
     mapping(address user => mapping(bytes32 id => FractionData)) private _fractions;
 
     address public constant REFUND_WILDCARD_OPERATOR = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
+
+    uint256 private constant MAX_DURATION = 100 weeks;
     /// @notice Factory contract for creating counterfactual holder addresses
     CounterfactualHolderFactory public immutable i_CFHFactory;
 
@@ -437,6 +440,7 @@ contract OffchainFractions is ReentrancyGuard {
         if (to == address(this)) revert RecipientCannotBeSelf();
         if (minSharesToRaise > totalSteps) revert MinSharesCannotBeGreaterThanTotalSteps();
         if (expiration <= block.timestamp) revert ExpirationMustBeInTheFuture();
+        if (expiration - block.timestamp > MAX_DURATION) revert ExpirationCannotBeGreaterThanMaxDuration();
         if (willMultiplyOverflow(step, totalSteps)) revert TotalRaisedOverflow();
     }
 
