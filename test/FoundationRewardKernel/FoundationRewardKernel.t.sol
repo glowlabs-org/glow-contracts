@@ -25,7 +25,7 @@ contract FoundationRewardKernelTest is Test {
 
     function setUp() public {
         factory = new CounterfactualHolderFactory();
-        kernel = new FoundationRewardKernel(foundation, rejector, factory);
+        kernel = new FoundationRewardKernel(foundation, rejector, factory, 2 weeks);
         unguarded = new MockERC20("UNG", "UNG", 18);
         guarded = new MockGuardERC20("GUA", "GUA", 18);
 

@@ -63,7 +63,7 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
     error CannotClaimFromRejectedNonce();
 
     /// @notice Time period after which a posted root becomes finalized and claimable
-    uint256 public constant FINALITY = 2 weeks;
+    uint256 public immutable FINALITY;
 
     /**
      * @notice Data structure for storing reward distribution information
@@ -136,11 +136,13 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
      * @param _foundationMultisig Address of the foundation multisig that can post reward roots
      * @param _rejectionMultisig Address of the rejection multisig that can reject roots
      * @param f The CounterfactualHolderFactory instance for handling guarded tokens
+     * @param _finality The finality period for the reward distribution
      */
-    constructor(address _foundationMultisig, address _rejectionMultisig, CounterfactualHolderFactory f) payable {
+    constructor(address _foundationMultisig, address _rejectionMultisig, CounterfactualHolderFactory f, uint256 _finality) payable {
         FOUNDATION_MULTISIG = _foundationMultisig;
         REJECTION_MULTISIG = _rejectionMultisig;
         CFH_FACTORY = f;
+        FINALITY = _finality;
     }
 
     /**
@@ -335,6 +337,7 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
      * @param to The address receiving the tokens
      * @param amount The amount to transfer
      * @param isGuardedToken Whether this token has transfer restrictions
+     * @param toCounterfactual Whether to send the tokens to a counterfactual wallet
      */
     function handleTokenTransfer(
         address token,
