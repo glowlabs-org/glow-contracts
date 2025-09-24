@@ -487,7 +487,9 @@ contract OffchainFractions is ReentrancyGuard {
 
     /**
      * @notice Handles token transfers based on minimum shares logic
-     * @dev All fundraised amounts before `minSharesToRaise` is reached are held in the contract.
+     * @dev With Counterfactual Holder (CFH) enabled, all fundraised amounts before `minSharesToRaise` is reached
+     *      are held in the OffchainFractions CFH address rather than the contract balance. This ensures that any
+     *      on-chain monitoring reflects the actual behavior of funds being held in the CFH address.
      * @dev When `minSharesToRaise` is reached, the funds are transferred to the recipient.
      * @param fraction The fraction data
      * @param details Purchase calculation results
