@@ -303,8 +303,6 @@ contract OffchainFractions is ReentrancyGuard {
         // Calculate refund amount and update state
         uint256 amount = _stepsPurchased * fraction.step;
         stepsPurchased[user][creator][id] = 0;
-        /// @auditor - Let me know if you think we can remove this,
-        /// I don't think it's necessary
         fraction.soldSteps = soldSteps - _stepsPurchased;
 
         // Transfer refund to user
