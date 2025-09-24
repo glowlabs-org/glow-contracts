@@ -138,7 +138,12 @@ contract FoundationRewardKernel is ReentrancyGuard, Multicall {
      * @param f The CounterfactualHolderFactory instance for handling guarded tokens
      * @param _finality The finality period for the reward distribution
      */
-    constructor(address _foundationMultisig, address _rejectionMultisig, CounterfactualHolderFactory f, uint256 _finality) payable {
+    constructor(
+        address _foundationMultisig,
+        address _rejectionMultisig,
+        CounterfactualHolderFactory f,
+        uint256 _finality
+    ) payable {
         FOUNDATION_MULTISIG = _foundationMultisig;
         REJECTION_MULTISIG = _rejectionMultisig;
         CFH_FACTORY = f;

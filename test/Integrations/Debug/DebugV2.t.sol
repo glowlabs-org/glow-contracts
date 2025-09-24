@@ -28,7 +28,7 @@ contract DebugV2 is Test {
     CounterfactualHolderFactory cfhFactory;
     address constant USDC_SAFE = 0xc5174BBf649a92F9941e981af68AaA14Dd814F85;
     USDG usdg = USDG(0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2);
-IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     address randomUser = makeAddr("randomUser");
 
     IERC20 glow = IERC20(0xf4fbC617A5733EAAF9af08E1Ab816B103388d8B6);
@@ -85,7 +85,7 @@ IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
         vm.warp(block.timestamp + 2 weeks + 1);
 
         /*
-   {
+    {
             "leaf": "0xf362da47d7ba8c6f11e7e6ad703b747d32f949267293d655576c41feedad9e98",
             "user": "0x2e2771032d119fe590fd65061ad3b366c8e9b7b9",
             "glowInflationEarned": "2408995249659971824800",
@@ -120,26 +120,25 @@ IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
             */
 
         vm.prank(USDC_SAFE);
-         // Safe sends USDC to randomUser so they can swap to USDG, let's just do 500,000 for now
+        // Safe sends USDC to randomUser so they can swap to USDG, let's just do 500,000 for now
         //  vm.etch(USDC_SAFE, "");
-         usdc.transfer(randomUser, 500_000 * 10 ** 6);
+        usdc.transfer(randomUser, 500_000 * 10 ** 6);
 
-         vm.startPrank(randomUser);
-         usdc.approve(address(usdg), 500_000 * 10 ** 6);
-         usdg.swap(randomUser, 500_000 * 10 ** 6);
+        vm.startPrank(randomUser);
+        usdc.approve(address(usdg), 500_000 * 10 ** 6);
+        usdg.swap(randomUser, 500_000 * 10 ** 6);
 
-         // approve cfh factory to spend USDG
-         usdg.approve(address(cfhFactory), 500_000 * 10 ** 6);
+        // approve cfh factory to spend USDG
+        usdg.approve(address(cfhFactory), 500_000 * 10 ** 6);
 
-         //transfer to the protocol deposit holder's cfh
-         cfhFactory.transferToCFH(protocolDepositHolder, address(usdg), 500_000 * 10 ** 6);
+        //transfer to the protocol deposit holder's cfh
+        cfhFactory.transferToCFH(protocolDepositHolder, address(usdg), 500_000 * 10 ** 6);
 
-         vm.stopPrank();
+        vm.stopPrank();
 
-         vm.prank(protocolDepositHolder);
-         cfhFactory.setApprovalStatus(address(rewardKernel), true);
+        vm.prank(protocolDepositHolder);
+        cfhFactory.setApprovalStatus(address(rewardKernel), true);
 
-    
         uint256 nonce = rewardKernel.$nextPostNonce() - 1;
         bytes32[] memory v1Proof = new bytes32[](7);
         v1Proof[0] = 0x1405f9be2b959fcab323dc62164500084520cc8e6ed82fe0baf1e20b8b858c25;
@@ -150,7 +149,7 @@ IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
         v1Proof[5] = 0xc6573b42a4af137a8817a4a178171b7710d113a454f1f37fe3811955c1877d52;
         v1Proof[6] = 0xf8c9fc50fb64059211504348211d5749e23e2b927924ee2349f111b526d0fb09;
 
-        bytes32[] memory v2Proof = new bytes32[](7);    
+        bytes32[] memory v2Proof = new bytes32[](7);
         v2Proof[0] = 0x64b1178c4d5e218b4893308b301487790bfaa1ea626f61df1f594fe9e806f435;
         v2Proof[1] = 0x25c3479d9d65fa3b1b19f061b188e5d8637909b531efdf4fc6db511c57f77fb4;
         v2Proof[2] = 0x5406268587265e4df598440d38b004aacc799158a656dbb06428b5d83a9a2bd2;
@@ -163,15 +162,15 @@ IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
         FoundationRewardKernel.TokenAndAmount[] memory taa = new FoundationRewardKernel.TokenAndAmount[](1);
         taa[0] = FoundationRewardKernel.TokenAndAmount({
             token: address(0xe010ec500720bE9EF3F82129E7eD2Ee1FB7955F2),
-            amount:  297867047
+            amount: 297867047
         });
         bool[] memory isGuarded = new bool[](1);
         isGuarded[0] = true;
         bool[] memory toCounterfactual = new bool[](1);
         toCounterfactual[0] = false;
 
-        (bytes32 root , ,)= rewardKernel.getRewardMeta(nonce);
-        assertNotEq(root, bytes32(0),"Root is 0");
+        (bytes32 root,,) = rewardKernel.getRewardMeta(nonce);
+        assertNotEq(root, bytes32(0), "Root is 0");
 
         uint256 usdgBalanceBefore = usdg.balanceOf(user);
         vm.startPrank(user);
@@ -185,7 +184,7 @@ IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
             toCounterfactual: toCounterfactual
         });
         uint256 usdgBalanceAfter = usdg.balanceOf(user);
-        assertEq(usdgBalanceAfter - usdgBalanceBefore, 297867047,"USDG balance is not correct");
+        assertEq(usdgBalanceAfter - usdgBalanceBefore, 297867047, "USDG balance is not correct");
 
         // Now claim from v1 glow
         uint256 glowBalanceBefore = glow.balanceOf(user);
@@ -200,11 +199,9 @@ IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
             signature: bytes("")
         });
         uint256 glowBalanceAfter = glow.balanceOf(user);
-        console2.log("glowBalanceBefore",glowBalanceBefore);
-        console2.log("glowBalanceAfter",glowBalanceAfter);
-        assertGt(glowBalanceAfter,glowBalanceBefore,"Glow balance is not correct");
+        console2.log("glowBalanceBefore", glowBalanceBefore);
+        console2.log("glowBalanceAfter", glowBalanceAfter);
+        assertGt(glowBalanceAfter, glowBalanceBefore, "Glow balance is not correct");
         vm.stopPrank();
-
-
     }
 }

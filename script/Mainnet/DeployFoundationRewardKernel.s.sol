@@ -16,13 +16,12 @@ import {CounterfactualHolderFactory} from "@/v2/CounterfactualHolderFactory.sol"
 import {OffchainFractions} from "@/v2/OffchainFractions.sol";
 import {FoundationRewardKernel} from "@/v2/FoundationRewardKernel.sol";
 
-
 contract DeployFoundationRewardKernel is Test, Script {
     function run() external {
         vm.startBroadcast();
         address foundationMultisig = 0x5252FdA14A149c01EA5A1D6514a9c1369E4C70b4;
         address rejectionMultisig = 0x5e230FED487c86B90f6508104149F087d9B1B0A7;
-        CounterfactualHolderFactory cfhFactory =  CounterfactualHolderFactory(0x2c3AB887746F6f4a8a4b9Db6aC800eb71945509A);
+        CounterfactualHolderFactory cfhFactory = CounterfactualHolderFactory(0x2c3AB887746F6f4a8a4b9Db6aC800eb71945509A);
 
         // CounterfactualHolderFactory cfhFactory = new CounterfactualHolderFactory();
         FoundationRewardKernel foundationRewardKernel =
