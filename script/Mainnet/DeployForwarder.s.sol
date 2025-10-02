@@ -10,15 +10,15 @@ import {Forwarder} from "@/Forwarder.sol";
 import {USDG} from "@/USDG.sol";
 import {CounterfactualHolderFactory} from "@/v2/CounterfactualHolderFactory.sol";
 
+
 /*
 
-  [1653211] → new CounterfactualHolderFactory@0x52ad78446eb4066F729034825cE9765997C297a7
+  [1653211] → new CounterfactualHolderFactory@0x5bB7eC88cA80146FF47019079Cf0330532A1157F
     └─ ← [Return] 8147 bytes of code
 
-  [804746] → new Forwarder@0xD487240a9Cc032Dc5CC092F2Bbe2C19aCD583eef
+  [804746] → new Forwarder@0x1519a8fE33acf8C164578789629146278541506A
     └─ ← [Return] 3906 bytes of code
     */
-
 contract DeployForwarder is Test, Script {
     function run() external {
         vm.startBroadcast();

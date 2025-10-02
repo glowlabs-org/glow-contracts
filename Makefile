@@ -76,6 +76,10 @@ deploy.forwarder.sepolia :; forge script script/Sepolia/DeployForwarder.s.sol --
 deploy.offchain.fractions.sepolia :; forge script script/Sepolia/DeployOffchainFractions.s.sol --rpc-url ${SEPOLIA_RPC_URL} --broadcast -vvvv --private-key ${SEPOLIA_PRIVATE_KEY} \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
+deploy.offchain.fractions.mainnet :; forge script script/Mainnet/DeployOffchainFractions.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY} \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+
+
 deploy.foundation.reward.kernel.sepolia :; forge script script/Sepolia/DeployFoundationRewardKernel.s.sol --rpc-url ${SEPOLIA_RPC_URL} --broadcast -vvvv --private-key ${SEPOLIA_PRIVATE_KEY} \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
@@ -135,3 +139,5 @@ cloc:
 		echo "No files found."; \
 	fi \
 	&& python3 repo-utils/cloc/gen-markdown-table.py
+
+
