@@ -11,7 +11,7 @@ import {Call} from "./Structs.sol";
  * @notice A contract for creating and managing fractional token sales with optional minimum raise requirements
  * @dev Supports both direct transfers and counterfactual holder addresses for recipients
  * @dev Counterfactual tokens are held in the CFH Chain for address(this) which always forwards leftover tokens
- *         - This makes it safe to run multiple sales concurrently accruing to the CFH of address(this) 
+ *         - This makes it safe to run multiple sales concurrently accruing to the CFH of address(this)
  *         - without worrying about leftover tokens
  */
 
@@ -238,7 +238,7 @@ contract OffchainFractions is ReentrancyGuard {
             revert MinStepsToBuyCannotBeGreaterThanStepsToBuy();
         }
 
-        if (refundTo != address(0) && useCounterfactualAddressForRefund) {
+        if (refundTo == address(0) && useCounterfactualAddressForRefund) {
             revert UseCounterfactualAddressForRefundNotAllowedIfAddressIsZero();
         }
 
@@ -361,7 +361,7 @@ contract OffchainFractions is ReentrancyGuard {
      * @dev Reverts if `refundTo` is not zero and `useCounterfactualAddress` is true
      */
     function setRefundDetails(address creator, bytes32 id, address refundTo, bool useCounterfactualAddress) external {
-        if (refundTo != address(0) && useCounterfactualAddress) {
+        if (refundTo == address(0) && useCounterfactualAddress) {
             revert UseCounterfactualAddressForRefundNotAllowedIfAddressIsZero();
         }
 
