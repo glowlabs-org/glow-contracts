@@ -19,9 +19,9 @@ import {FoundationRewardKernel} from "@/v2/FoundationRewardKernel.sol";
 contract DeployFoundationRewardKernel is Test, Script {
     function run() external {
         vm.startBroadcast();
-        address foundationMultisig = 0x5252FdA14A149c01EA5A1D6514a9c1369E4C70b4;
-        address rejectionMultisig = 0x5e230FED487c86B90f6508104149F087d9B1B0A7;
-        CounterfactualHolderFactory cfhFactory = CounterfactualHolderFactory(0x2c3AB887746F6f4a8a4b9Db6aC800eb71945509A);
+        address foundationMultisig = 0x624A89feC195254ec46CcFa04ca3a7F5ABf66803;
+        address rejectionMultisig = 0xa8859ce3654aFf520789dFFa0FbAcBB412927437;
+        CounterfactualHolderFactory cfhFactory = CounterfactualHolderFactory(0x5bB7eC88cA80146FF47019079Cf0330532A1157F);
 
         // CounterfactualHolderFactory cfhFactory = new CounterfactualHolderFactory();
         FoundationRewardKernel foundationRewardKernel =

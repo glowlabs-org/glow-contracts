@@ -12,6 +12,9 @@ compile-rust :;  rustc test/Governance/ffi/half_life.rs --out-dir  ./test/Govern
 install :; forge install --no-commit && npm install
 hardhat-test :; make hardhat.test.earlyLiquidity 
 
+test.migration :; npx hardhat node --fork ${MAINNET_RPC} --fork-block-number 23548497 --show-stack-traces
+
+
 # --- [Gen HTML] requires linux or wsl
 gen-lcov :; forge coverage --mc OffchainFractionsTest --ffi --report lcov
 
@@ -79,12 +82,18 @@ deploy.offchain.fractions.sepolia :; forge script script/Sepolia/DeployOffchainF
 deploy.offchain.fractions.mainnet :; forge script script/Mainnet/DeployOffchainFractions.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY} \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
+deploy.foundation.reward.kernel.mainnet :; forge script script/Mainnet/DeployFoundationRewardKernel.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY} \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+
+
 
 deploy.foundation.reward.kernel.sepolia :; forge script script/Sepolia/DeployFoundationRewardKernel.s.sol --rpc-url ${SEPOLIA_RPC_URL} --broadcast -vvvv --private-key ${SEPOLIA_PRIVATE_KEY} \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
 deploy.forwarder.mainnet :; forge script script/Mainnet/DeployForwarder.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY} \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
+
+
 
 #---- [Verify] -----------------------------------------------------------------------------------
 # verify.guardedlaunch :; verify :; forge verify-contract \
@@ -93,6 +102,8 @@ deploy.forwarder.mainnet :; forge script script/Mainnet/DeployForwarder.s.sol --
 #         0x895fAce9c838127abD2150474880A7fb175a621E \
 #         src/GuardedLaunch/Glow.GuardedLaunch.sol:GlowGuardedLaunch \
 #         $${ETHERSCAN_API_KEY} --watch
+
+# verify.foundation.reward.kernel.mainnet :; forge verify-contract 0xd6d3139d40a32F8bA71D576c1A743529AB4786BB FoundationRewardKernel --chain-id 1 --retries 10 --delay 10 --watch
 
 # cast abi-encode "constructor(address,address,uint256)" "0xf4fbC617A5733EAAF9af08E1Ab816B103388d8B6" "0x21C46173591f39AfC1d2B634b74c98F0576A272B" "100000"
 verify.guardedlaunch :;  forge verify-contract \

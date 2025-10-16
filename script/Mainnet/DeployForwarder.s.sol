@@ -10,7 +10,6 @@ import {Forwarder} from "@/Forwarder.sol";
 import {USDG} from "@/USDG.sol";
 import {CounterfactualHolderFactory} from "@/v2/CounterfactualHolderFactory.sol";
 
-
 /*
 
   [1653211] → new CounterfactualHolderFactory@0x5bB7eC88cA80146FF47019079Cf0330532A1157F

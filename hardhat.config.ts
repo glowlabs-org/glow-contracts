@@ -1,74 +1,62 @@
-import fs from "fs";
-import "@nomiclabs/hardhat-waffle";
-import "@typechain/hardhat";
-import "hardhat-preprocessor";
-import { HardhatUserConfig, task } from "hardhat/config";
-import "hardhat-gas-reporter"
-import 'solidity-docgen';
-import "@nomiclabs/hardhat-solhint";
+import type { HardhatUserConfig } from "hardhat/config";
 
-
-import example from "./tasks/example";
-
-function getRemappings() {
-  return fs
-    .readFileSync("remappings.txt", "utf8")
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => line.trim().split("="));
-}
-
-task("example", "Example task").setAction(example);
-
+import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
+import { configVariable } from "hardhat/config";
+import hardhatViem from "@nomicfoundation/hardhat-viem";
+import networkHelpers from "@nomicfoundation/hardhat-network-helpers";
 const config: HardhatUserConfig = {
+  plugins: [hardhatViem,hardhatToolboxViemPlugin,networkHelpers],
+  paths: {
+    sources: "./src/",
+  },
   solidity: {
-    version: "0.8.21",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
+    profiles: {
+      default: {
+        version: "0.8.28",
+      },
+      production: {
+        version: "0.8.28",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
       },
     },
   },
-  //@ts-ignore
-  docgen : {
-
-  },
-  //@ts-ignore
-  gasReporter: {
-    enabled:true,
-  },
-  paths: {
-    sources: "./src", // Use ./src rather than ./contracts as Hardhat expects
-    cache: "./cache_hardhat", // Use a different cache for Hardhat than Foundry
-  },
-  // This fully resolves paths for imports in the ./lib directory for Hardhat
-  preprocess: {
-    eachLine: (hre) => ({
-      transform: (line: string) => {
-        if (line.match(/^\s*import /i)) {
-          getRemappings().forEach(([find, replace]) => {
-            if (line.match(find)) {
-              line = line.replace(find, replace);
-            }
-          });
-        }
-        return line;
+  networks: {
+    hardhatMainnet: {
+      type: "edr-simulated",
+      chainType: "l1",
+    
+    },
+    hardhatMainnetFork: {
+      type: "edr-simulated",
+      chainType: "l1",
+      forking : {
+        url: "https://eth-mainnet.g.alchemy.com/v2/dK_eaVLATMhv_n7dCGHZvqh8HOHuqE9u",
+        blockNumber: 23549083,
       },
-    }),
+    },
+    hardhatOp: {
+      type: "edr-simulated",
+      chainType: "op",
+    },
+    eth_mainnet: {
+      type: "http",
+      chainType: "l1",
+      chainId:1,
+      url: "https://eth-mainnet.g.alchemy.com/v2/dK_eaVLATMhv_n7dCGHZvqh8HOHuqE9u",
+      accounts: ["0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"],
+    },
+    sepolia: {
+      type: "http",
+      chainType: "l1",
+      url: configVariable("SEPOLIA_RPC_URL"),
+      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
+    },
   },
-  mocha:{
-    timeout: 400_000_000
-  }
 };
 
 export default config;
-
-
-/*
-
-Term 1: You are not allowed to talk about this.
-
-Term 2: You are not allowed to talk about the following things: ${FOLLOWING_THINGS} -> Investigation
-
-*/

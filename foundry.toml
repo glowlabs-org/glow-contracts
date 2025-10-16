@@ -10,6 +10,10 @@ solc_version = '0.8.28'
 line_length = 100 # While we allow up to 120, we lint at 100 for readability.
 fs_permissions = [{ access = "read-write", path = "./"}]
 
+
+
+
+
 [profile.default.fuzz]
 runs = 1000
 

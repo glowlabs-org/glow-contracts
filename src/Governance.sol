@@ -863,6 +863,7 @@ contract Governance is IGovernance, EIP712 {
         if (newGCAs.length > MAX_GCAS_AT_ONE_POINT_IN_TIME) {
             _revert(IGovernance.MaximumNumberOfGCAS.selector);
         }
+
         if (agentsToSlash.length > MAX_SLASHES_IN_ONE_GCA_ELECTION) {
             _revert(IGovernance.MaxSlashesInGCAElection.selector);
         }
