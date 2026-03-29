@@ -21,9 +21,6 @@ contract CounterfactualUniV2Swap {
     IUniswapRouterV2 public constant ROUTER = IUniswapRouterV2(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
     constructor(uint256 amountIn, uint256 amountOutMin, address[] memory path, address to, uint256 deadline) {
-        // require(path[0] == address(USDG) || path[0] == address(GLOW),"CounterfactualUniV2Swap/incorrect-path");
-        // require(path[1] == address(USDG) || path[1] == address(GLOW),"CounterfactualUniV2Swap/incorrect-path");
-
         if (path[0] == address(USDC)) {
             USDC.approve(address(USDG), type(uint256).max);
             USDG.swap({to: address(this), amount: amountIn});
