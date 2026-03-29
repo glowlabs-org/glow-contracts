@@ -23,7 +23,13 @@ contract TestGLOW is Glow {
         address _grantsTreasuryAddress
     )
         payable
-        Glow(_earlyLiquidityAddress, _vestingContract, _gcaAndMinerPoolAddress, _vetoCouncilAddress, _grantsTreasuryAddress)
+        Glow(
+            _earlyLiquidityAddress,
+            _vestingContract,
+            _gcaAndMinerPoolAddress,
+            _vetoCouncilAddress,
+            _grantsTreasuryAddress
+        )
     {
         _launchTimestamp = block.timestamp;
     }

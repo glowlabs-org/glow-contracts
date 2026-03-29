@@ -77,6 +77,7 @@ contract GlowGuardedLaunch is Glow, Ownable {
      * @notice Emitted when the contract is permanently frozen
      */
     event PermanentFreeze();
+
     /* -------------------------------------------------------------------------- */
     /*                                 constructor                                */
     /* -------------------------------------------------------------------------- */
@@ -107,7 +108,13 @@ contract GlowGuardedLaunch is Glow, Ownable {
         address _gccContract
     )
         payable
-        Glow(_earlyLiquidityAddress, _vestingContract, _gcaAndMinerPoolAddress, _vetoCouncilAddress, _grantsTreasuryAddress)
+        Glow(
+            _earlyLiquidityAddress,
+            _vestingContract,
+            _gcaAndMinerPoolAddress,
+            _vetoCouncilAddress,
+            _grantsTreasuryAddress
+        )
         Ownable(_owner)
     {
         allowlistedContracts[address(this)] = true;

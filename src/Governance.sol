@@ -351,12 +351,8 @@ contract Governance is IGovernance, EIP712 {
                 return;
             }
         } else {
-            if (
-                (
-                    proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT
-                        && proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
-                )
-            ) {
+            if ((proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT
+                        && proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL)) {
                 uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
                 if (totalVotes == 0) {
                     lastExecutedWeek = week;
@@ -432,12 +428,8 @@ contract Governance is IGovernance, EIP712 {
                     continue;
                 }
             } else {
-                if (
-                    (
-                        proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT
-                            && proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL
-                    )
-                ) {
+                if ((proposalType != IGovernance.ProposalType.REQUEST_FOR_COMMENT
+                            && proposalType != IGovernance.ProposalType.GRANTS_PROPOSAL)) {
                     uint256 totalVotes = longStakerVotes.ratifyVotes + longStakerVotes.rejectionVotes;
                     //If no one votes, we don't execute the proposal
                     //Prevent division by zero error

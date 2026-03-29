@@ -130,9 +130,10 @@ contract DeployFullQuickBuckets is Test, Script {
         gcc.mint(tx.origin, 1000 ether);
         gcc.approve(uniswapV2Router, 100 ether);
         mockUSDC.approve(uniswapV2Router, 20000 * 1e6);
-        IUniswapRouterV2(uniswapV2Router).addLiquidity(
-            address(gcc), address(mockUSDC), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
-        );
+        IUniswapRouterV2(uniswapV2Router)
+            .addLiquidity(
+                address(gcc), address(mockUSDC), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
+            );
 
         glow.mint(address(gcaAndMinerPoolContract), 100_000_000_000 ether); //mint so there's enough for rewards without inflation
         gcc.approve(tx.origin, 100 ether);

@@ -50,12 +50,18 @@ contract EarlyLiquidityTest is Test {
         holdingContract = new SafetyDelay(vetoCouncilAddress, precomputedMinerPool); //deployerNonce + 1
         earlyLiquidity =
             new EarlyLiquidity(address(usdc), address(holdingContract), precomputedGlow, precomputedMinerPool); //deployerNonce + 2
-        glow =
-            new TestGLOW(address(earlyLiquidity), VESTING_CONTRACT, precomputedMinerPool, VETO_COUNCIL, GRANTS_TREASURY); //deployerNonce + 3
+        glow = new TestGLOW(
+            address(earlyLiquidity), VESTING_CONTRACT, precomputedMinerPool, VETO_COUNCIL, GRANTS_TREASURY
+        ); //deployerNonce + 3
         minerPool = new EarlyLiquidityMockMinerPool( //deployerNonce + 4
-        address(earlyLiquidity), address(glow), address(usdc), address(holdingContract));
-        glw =
-            new TestGLOW(address(earlyLiquidity), VESTING_CONTRACT, precomputedMinerPool, VETO_COUNCIL, GRANTS_TREASURY); //deployerNonce + 5
+            address(earlyLiquidity),
+            address(glow),
+            address(usdc),
+            address(holdingContract)
+        );
+        glw = new TestGLOW(
+            address(earlyLiquidity), VESTING_CONTRACT, precomputedMinerPool, VETO_COUNCIL, GRANTS_TREASURY
+        ); //deployerNonce + 5
         handler = new Handler(address(earlyLiquidity), address(usdc));
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = IEarlyLiquidity.buy.selector;

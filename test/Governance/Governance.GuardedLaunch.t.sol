@@ -1807,9 +1807,7 @@ contract GovernanceGuardedLaunchTest is Test {
         glow.mint(voter, numVotes);
         glow.stake(numVotes);
         governance.ratifyOrReject({
-            weekOfMostPopularProposal: weekOfMostPopularProposal,
-            trueForRatify: trueForRatify,
-            numVotes: numVotes
+            weekOfMostPopularProposal: weekOfMostPopularProposal, trueForRatify: trueForRatify, numVotes: numVotes
         });
         vm.stopPrank();
     }
@@ -1961,8 +1959,9 @@ contract GovernanceGuardedLaunchTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_guarded_syncGCAElectionOrSlashProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
-    ) public {
+    function test_guarded_syncGCAElectionOrSlashProposal_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState()
+        public
+    {
         test_guarded_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
         castLongStakedVotes(SIMON, 0, true, 1);
@@ -2007,8 +2006,9 @@ contract GovernanceGuardedLaunchTest is Test {
         assertEq(lastExecutedWeek, 0);
     }
 
-    function test_guarded_syncVetoCouncilElectionOrSlash_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
-    ) public {
+    function test_guarded_syncVetoCouncilElectionOrSlash_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState()
+        public
+    {
         test_guarded_createVetoCouncilElectionOrSlash();
         bool slashOldAgent = true;
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -2066,8 +2066,9 @@ contract GovernanceGuardedLaunchTest is Test {
          */
     }
 
-    function test_guarded_syncChangeGCARequirements_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState(
-    ) public {
+    function test_guarded_syncChangeGCARequirements_vetoCouncilSecondProposal_ratifyPeriodNotEnded_shouldNotUpdateFutureState()
+        public
+    {
         test_guarded_createChangeGCARequirementsProposal();
         bytes32 expectedHash = keccak256("new requirements hash");
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -2298,9 +2299,9 @@ contract GovernanceGuardedLaunchTest is Test {
         assertEq(slashNonce, 1);
     }
 
-    function testFuzz_executeChangeGCARequirements_withEndorsement_notEnoughVotesShouldResultInNoStateChangesForTarget(
-        uint256 numEndorsements
-    ) public {
+    function testFuzz_executeChangeGCARequirements_withEndorsement_notEnoughVotesShouldResultInNoStateChangesForTarget(uint256 numEndorsements)
+        public
+    {
         vm.assume(numEndorsements <= 6);
         test_guarded_createGCAElectionOrSlashProposal();
         vm.warp(block.timestamp + ONE_WEEK + 1);
@@ -2541,8 +2542,9 @@ contract GovernanceGuardedLaunchTest is Test {
         uint256 deadline,
         bytes memory data
     ) internal view returns (bytes memory signature) {
-        bytes32 digest =
-            governance.createSpendNominationsOnProposalDigest(proposalType, nominationsToSpend, nonce, deadline, data);
+        bytes32 digest = governance.createSpendNominationsOnProposalDigest(
+            proposalType, nominationsToSpend, nonce, deadline, data
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         signature = abi.encodePacked(r, s, v);
         return signature;

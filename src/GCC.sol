@@ -125,7 +125,7 @@ contract GCC is ERC20, ERC20Burnable, IGCC, EIP712 {
             glow: IERC20(_glowToken),
             gcc: IERC20(address(this)),
             startingPrice: 1e5 // Carbon Credit Auction sells increments of 1e6 GCC,
-                // Setting the price to 1e5 per unit means that 1 GCC = .1 GLOW
+            // Setting the price to 1e5 per unit means that 1 GCC = .1 GLOW
         });
 
         CARBON_CREDIT_AUCTION = ICarbonCreditAuction(address(cccAuction));

@@ -51,8 +51,8 @@ contract EstimateNominationsHandler is Test {
         uint256 amountUSDCToSeedLP,
         uint256 amount
     ) external {
-        (bool res,) =
-            address(this).call(abi.encodeWithSelector(0xb00073d9, from, amountGCCToSeedLP, amountUSDCToSeedLP, amount));
+        (bool res,) = address(this)
+            .call(abi.encodeWithSelector(0xb00073d9, from, amountGCCToSeedLP, amountUSDCToSeedLP, amount));
         if (!res) numOtherFailures++;
         numOtherFailures++;
     }

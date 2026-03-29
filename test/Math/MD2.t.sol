@@ -311,6 +311,7 @@ contract MD2Test is Test {
         expectedAmount = uint256(2 ether) / uint256(192);
         assertEq(reward2.amountInBucket, expectedAmount);
     }
+
     // /**
     //  * @dev function to test the addRewardsToBucket function
     //  *         -   we loop over 300 weeks,

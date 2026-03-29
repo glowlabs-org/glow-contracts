@@ -68,6 +68,7 @@ interface IGCA {
         bytes32 merkleRoot;
         address proposingAgent;
     }
+
     //3 slots
 
     /**

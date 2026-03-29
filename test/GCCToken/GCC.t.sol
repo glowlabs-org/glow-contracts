@@ -76,11 +76,7 @@ contract GCCTest is Test {
         glw = address(glwContract); //deployerNonce
         (SIMON, SIMON_PK) = _createAccount(9999, 1e20 ether);
         gov = new Governance({
-            gcc: precomputedGCC,
-            gca: gca,
-            vetoCouncil: vetoCouncil,
-            grantsTreasury: grantsTreasury,
-            glw: glw
+            gcc: precomputedGCC, gca: gca, vetoCouncil: vetoCouncil, grantsTreasury: grantsTreasury, glw: glw
         }); //deployerNonce + 1
         gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce+2
         auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
@@ -182,11 +178,7 @@ contract GCCTest is Test {
         uint256 deployerNonce = vm.getNonce(deployer);
         address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 1);
         gov = new Governance({
-            gcc: precomputedGCC,
-            gca: gca,
-            vetoCouncil: vetoCouncil,
-            grantsTreasury: grantsTreasury,
-            glw: glw
+            gcc: precomputedGCC, gca: gca, vetoCouncil: vetoCouncil, grantsTreasury: grantsTreasury, glw: glw
         }); //deployerNonce
         gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce + 1
         auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
@@ -367,11 +359,7 @@ contract GCCTest is Test {
         uint256 deployerNonce = vm.getNonce(deployer);
         address precomputedGCC = computeCreateAddress(deployer, deployerNonce + 1);
         gov = new Governance({
-            gcc: precomputedGCC,
-            gca: gca,
-            vetoCouncil: vetoCouncil,
-            grantsTreasury: grantsTreasury,
-            glw: glw
+            gcc: precomputedGCC, gca: gca, vetoCouncil: vetoCouncil, grantsTreasury: grantsTreasury, glw: glw
         }); //deployerNonce
 
         gcc = new TestGCC(GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter)); //deployerNonce + 1
@@ -634,8 +622,8 @@ contract GCCTest is Test {
             vm.writeLine("logs/gcc.csv", stringToWrite);
         }
         /*
-        args=[1000000000000000000000000000000001 [1e33], 
-        569316204070399230977136833119242087930906411821164 [5.693e50]]] 
+        args=[1000000000000000000000000000000001 [1e33],
+        569316204070399230977136833119242087930906411821164 [5.693e50]]]
         testFuzz_getStuff(uint256,uint256) (runs: 89, μ: 17220, ~: 17220)
         */
 

@@ -357,8 +357,7 @@ contract VetoCouncilSalaryHelper {
         }
         (uint256 rewardPerSecond, uint256 secondsActive, uint256 secondsStopped, uint256 amountAlreadyWithdrawn) =
             getDataToCalculatePayout(member, nonce, members);
-        (uint256 withdrawableAmount, uint256 slashableAmount) = VestingMathLib
-            .calculateWithdrawableAmountAndSlashableAmount(
+        (uint256 withdrawableAmount, uint256 slashableAmount) = VestingMathLib.calculateWithdrawableAmountAndSlashableAmount(
             rewardPerSecond, secondsActive, secondsStopped, amountAlreadyWithdrawn
         );
 
@@ -374,11 +373,7 @@ contract VetoCouncilSalaryHelper {
      *         -   By comparing the hash of the members at the nonce to the hash stored in the contract
      * @return withdrawableAmount - the amount of tokens that can be withdrawn by the member
      */
-    function nextPayoutAmount(address member, uint256 nonce, address[] memory members)
-        internal
-        view
-        returns (uint256)
-    {
+    function nextPayoutAmount(address member, uint256 nonce, address[] memory members) internal view returns (uint256) {
         (uint256 withdrawableAmount,) = _payoutData(member, nonce, members);
         return withdrawableAmount;
     }

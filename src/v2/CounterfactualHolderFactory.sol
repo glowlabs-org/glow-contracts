@@ -51,8 +51,7 @@ contract CounterfactualHolderFactory is ICounterfactualHolderFactory, Reentrancy
 
         Call[] memory calls = new Call[](1);
         calls[0] = Call({
-            target: address(token),
-            data: abi.encodeWithSelector(IERC20.transfer.selector, currentHolder, amount)
+            target: address(token), data: abi.encodeWithSelector(IERC20.transfer.selector, currentHolder, amount)
         });
         _execute(fromUser, token, calls);
 

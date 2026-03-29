@@ -97,7 +97,12 @@ contract EstimateNominationsLargerNumbersTest is Test {
             glw: glw
         }); //deployerNonce + 2
         gcc = new MainnetForkTestGCC( //deployerNonce + 3
-        GCA_AND_MINER_POOL_CONTRACT, address(gov), glw, address(usdc), address(uniswapRouter));
+            GCA_AND_MINER_POOL_CONTRACT,
+            address(gov),
+            glw,
+            address(usdc),
+            address(uniswapRouter)
+        );
         auction = CarbonCreditDescendingPriceAuction(address(gcc.CARBON_CREDIT_AUCTION()));
 
         vm.stopPrank();
@@ -169,11 +174,7 @@ contract EstimateNominationsLargerNumbersTest is Test {
         );
     }
 
-    function isDivergenceGreaterThanThreshold(uint256 expectedAmount, uint256 actualAmount)
-        public
-        view
-        returns (bool)
-    {
+    function isDivergenceGreaterThanThreshold(uint256 expectedAmount, uint256 actualAmount) public view returns (bool) {
         uint256 divergenceThreshold = 5; // This represents .5% when scaled by 10^2
         uint256 scale = 10 ** 3; // Scaling factor to represent percentages accurately
 

@@ -14,6 +14,7 @@ interface IGCC is IERC20 {
     error CommitAllowanceUnderflow();
     error MustIncreaseCommitAllowanceByAtLeastOne();
     error CannotReferSelf();
+
     /* -------------------------------------------------------------------------- */
     /*                                   structs                                  */
     /* -------------------------------------------------------------------------- */

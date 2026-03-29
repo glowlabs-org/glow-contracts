@@ -265,8 +265,7 @@ contract Glow is ERC20, ERC20Permit, IGlow {
         numStaked[msg.sender] = numAccountStaked - amount;
 
         _unstakedPositions[msg.sender][indexInMappingToPushTo] = UnstakedPosition({
-            amount: SafeCast.toUint192(amount),
-            cooldownEnd: SafeCast.toUint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)
+            amount: SafeCast.toUint192(amount), cooldownEnd: SafeCast.toUint64(block.timestamp + _STAKE_COOLDOWN_PERIOD)
         });
 
         pointers = Pointers({head: SafeCast.toUint128(indexInMappingToPushTo), tail: pointers.tail});

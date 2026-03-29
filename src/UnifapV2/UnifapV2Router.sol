@@ -56,8 +56,9 @@ contract UnifapV2Router {
         address to,
         uint256 deadline
     ) public check(deadline) returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
-        (amountA, amountB) =
-            _computeLiquidityAmounts(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
+        (amountA, amountB) = _computeLiquidityAmounts(
+            tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin
+        );
         address pair = factory.pairs(tokenA, tokenB);
         _safeTransferFrom(tokenA, msg.sender, pair, amountA);
         _safeTransferFrom(tokenB, msg.sender, pair, amountB);
@@ -157,7 +158,7 @@ contract UnifapV2Router {
     function _swap(uint256[] memory amounts, address[] memory path, address _to) internal virtual {
         for (uint256 i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
-            (address token0,) = sortTokens(input, output);
+            (address token0,) = (input, output);
             uint256 amountOut = amounts[i + 1];
             (uint256 amount0Out, uint256 amount1Out) =
                 input == token0 ? (uint256(0), amountOut) : (amountOut, uint256(0));

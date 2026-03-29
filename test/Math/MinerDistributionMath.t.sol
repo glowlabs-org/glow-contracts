@@ -108,11 +108,13 @@ contract MinerDistributionMathTest is Test {
             string memory key2 = vm.serializeBool(
                 string(abi.encodePacked(Strings.toString(i))), "inheritedFromLastWeek", reward.inheritedFromLastWeek
             );
-            string memory key3 =
-                vm.serializeUint(string(abi.encodePacked(Strings.toString(i))), "amountInBucket", reward.amountInBucket);
+            string memory key3 = vm.serializeUint(
+                string(abi.encodePacked(Strings.toString(i))), "amountInBucket", reward.amountInBucket
+            );
             //also add amountToDeduct
-            string memory key4 =
-                vm.serializeUint(string(abi.encodePacked(Strings.toString(i))), "amountToDeduct", reward.amountToDeduct);
+            string memory key4 = vm.serializeUint(
+                string(abi.encodePacked(Strings.toString(i))), "amountToDeduct", reward.amountToDeduct
+            );
             // string memory finalJson = vm.serializeString("","finalJson",jsonString);
             vm.writeLine(fileName, key4);
             if (i == end) break;

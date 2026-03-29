@@ -593,15 +593,16 @@ contract GCA is IGCA, GCASalaryHelper {
         //If the array was empty
         // we need to push
         if (foundIndex == 0) {
-            bucket.reports.push(
-                IGCA.Report({
-                    proposingAgent: msg.sender,
-                    totalNewGCC: SafeCast.toUint128(totalNewGCC),
-                    totalGLWRewardsWeight: SafeCast.toUint64(totalGlwRewardsWeight),
-                    totalGRCRewardsWeight: SafeCast.toUint64(totalGRCRewardsWeight),
-                    merkleRoot: root
-                })
-            );
+            bucket.reports
+                .push(
+                    IGCA.Report({
+                        proposingAgent: msg.sender,
+                        totalNewGCC: SafeCast.toUint128(totalNewGCC),
+                        totalGLWRewardsWeight: SafeCast.toUint64(totalGlwRewardsWeight),
+                        totalGRCRewardsWeight: SafeCast.toUint64(totalGRCRewardsWeight),
+                        merkleRoot: root
+                    })
+                );
             //else we write the the index we found
         } else {
             bucket.reports[foundIndex == _INDEX_NOT_FOUND ? 0 : foundIndex] = IGCA.Report({

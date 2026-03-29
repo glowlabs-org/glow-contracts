@@ -170,9 +170,8 @@ contract DeployFull is Test, Script {
         gcc.approve(uniswapV2Router, 100 ether);
         usdg.approve(uniswapV2Router, 20000 * 1e6);
 
-        IUniswapRouterV2(uniswapV2Router).addLiquidity(
-            address(gcc), address(usdg), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
-        );
+        IUniswapRouterV2(uniswapV2Router)
+            .addLiquidity(address(gcc), address(usdg), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days);
 
         gcc.approve(tx.origin, 100 ether);
         gcc.commitGCC(5 ether, tx.origin, 0);

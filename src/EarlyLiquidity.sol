@@ -117,9 +117,7 @@ contract EarlyLiquidity is IEarlyLiquidity {
      * @param _glowToken The address of the glow token
      * @param _minerPoolAddress The address of the miner pool
      */
-    constructor(address _usdcAddress, address _holdingContract, address _glowToken, address _minerPoolAddress)
-        payable
-    {
+    constructor(address _usdcAddress, address _holdingContract, address _glowToken, address _minerPoolAddress) payable {
         USDC_TOKEN = IERC20(_usdcAddress);
         uint256 decimals = uint256(IDecimals(_usdcAddress).decimals());
         if (decimals != USDC_DECIMALS) {

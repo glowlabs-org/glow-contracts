@@ -334,9 +334,7 @@ contract MinerPoolAndGCAGuardedLaunchTest is Test {
         }
 
         ClaimLeaf memory targetLeaf = ClaimLeaf({
-            payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + 3)),
-            glwWeight: 103,
-            usdcWeight: 203
+            payoutWallet: address(uint160(addrToUint(defaultAddressInWithdraw) + 3)), glwWeight: 103, usdcWeight: 203
         });
         bytes32 root = createClaimLeafRoot(leaves);
         bytes32[] memory proof = createClaimLeafProof(leaves, targetLeaf);

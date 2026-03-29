@@ -137,9 +137,8 @@ contract DeployFullGoerliGuarded is Test, Script {
         usdg.approve(uniswapV2Router, 20000 * 1e6);
         console.log("my balance of usdg = ", usdg.balanceOf(me));
         console.log("usdg approval of uni router = ", usdg.allowance(me, uniswapV2Router));
-        IUniswapRouterV2(uniswapV2Router).addLiquidity(
-            address(gcc), address(usdg), 100 ether, 2000 * 1e6, 0, 0, me, block.timestamp + 1 days
-        );
+        IUniswapRouterV2(uniswapV2Router)
+            .addLiquidity(address(gcc), address(usdg), 100 ether, 2000 * 1e6, 0, 0, me, block.timestamp + 1 days);
 
         gcc.approve(me, 100 ether);
         gcc.commitGCC(5 ether, me, 0);

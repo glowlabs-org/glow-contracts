@@ -168,12 +168,12 @@ contract NewGlowTest is Test {
         assertEq(glw.numStaked(SIMON), 0);
 
         /*
-    Pointers head: 1
-    Pointers tail: 1
-    Unstaking:
-        - 1 @ t0 (claimed)
-        - 12 @ t0
-        */
+        Pointers head: 1
+        Pointers tail: 1
+        Unstaking:
+            - 1 @ t0 (claimed)
+            - 12 @ t0
+            */
 
         // !!! Restake reusing unstaking position three times
         // Each time Simon reuses the 12 unstaking GLOW for free, plus he has to spend extra 1 GLOW,
@@ -517,10 +517,7 @@ contract NewGlowTest is Test {
         }
     }
 
-    function test_StakeAndUnstakeMultiplePositions_useAllStakePositions()
-        public
-        stageStakeAndUnstakeMultiplePositions
-    {
+    function test_StakeAndUnstakeMultiplePositions_useAllStakePositions() public stageStakeAndUnstakeMultiplePositions {
         IGlow.UnstakedPosition[] memory unstakedPositions = glw.unstakedPositionsOf(SIMON);
         //unstakedPositions should be length 10 before starting a new stake
         assertEq(unstakedPositions.length, 10);

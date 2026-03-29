@@ -49,8 +49,9 @@ contract EstimateNominationsUSDCHandler is Test {
         uint256 amountUSDCToSeedLP,
         uint256 amount
     ) external {
-        (bool res,) = //seed and commit usdc selector
-         address(this).call(abi.encodeWithSelector(0x92b38c54, from, amountGCCToSeedLP, amountUSDCToSeedLP, amount));
+        (
+            bool res, //seed and commit usdc selector
+        ) = address(this).call(abi.encodeWithSelector(0x92b38c54, from, amountGCCToSeedLP, amountUSDCToSeedLP, amount));
         if (!res) numOtherFailures++;
         numOtherFailures++;
     }

@@ -90,9 +90,10 @@ contract GoerliFullDeploy is Test {
         gcc.mint(tx.origin, 1000 ether);
         gcc.approve(uniswapV2Router, 100 ether);
         mockUSDC.approve(uniswapV2Router, 20000 * 1e6);
-        IUniswapRouterV2(uniswapV2Router).addLiquidity(
-            address(gcc), address(mockUSDC), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
-        );
+        IUniswapRouterV2(uniswapV2Router)
+            .addLiquidity(
+                address(gcc), address(mockUSDC), 100 ether, 2000 * 1e6, 0, 0, tx.origin, block.timestamp + 1 days
+            );
         // governance.setContractAddresses(
         //     address(gcc),
         //     address(gcaAndMinerPoolContract),
