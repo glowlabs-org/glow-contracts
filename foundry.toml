@@ -26,4 +26,4 @@ runs = 10
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
 [etherscan]
-mainnet =  {key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api"}
+mainnet =  {key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=1"}

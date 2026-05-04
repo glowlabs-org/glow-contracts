@@ -85,6 +85,9 @@ deploy.offchain.fractions.mainnet :; forge script script/Mainnet/DeployOffchainF
 deploy.foundation.reward.kernel.mainnet :; forge script script/Mainnet/DeployFoundationRewardKernel.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY} \
 --etherscan-api-key ${ETHERSCAN_API_KEY} --verify --retries 10 --delay 10
 
+deploy.counterfactual.univ2.swap.factory.mainnet :; forge script script/Mainnet/DeployCounterfactualUniV2SwapFactory.s.sol --rpc-url ${MAINNET_RPC} --broadcast -vvvv --private-key ${MAINNET_PRIVATE_KEY} \
+--etherscan-api-key ${ETHERSCAN_API_KEY} --verify --chain 1 --retries 10 --delay 10
+
 
 
 deploy.foundation.reward.kernel.sepolia :; forge script script/Sepolia/DeployFoundationRewardKernel.s.sol --rpc-url ${SEPOLIA_RPC_URL} --broadcast -vvvv --private-key ${SEPOLIA_PRIVATE_KEY} \
